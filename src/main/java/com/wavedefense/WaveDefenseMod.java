@@ -26,6 +26,7 @@ public class WaveDefenseMod {
     private static MinecraftServer serverInstance;
     public static LocationManager locationManager;
     public static WaveManager waveManager;
+    public static PacketHandler packetHandler;
 
     public WaveDefenseMod() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
@@ -38,6 +39,7 @@ public class WaveDefenseMod {
         MinecraftForge.EVENT_BUS.register(this); // Register for server events
 
         waveManager = new WaveManager();
+        packetHandler = new PacketHandler();
     }
 
     @SubscribeEvent

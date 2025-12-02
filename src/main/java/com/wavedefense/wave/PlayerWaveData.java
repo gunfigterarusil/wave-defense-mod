@@ -5,8 +5,10 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
+import java.util.UUID;
 
 public class PlayerWaveData {
+    private UUID playerUUID;
     private Location currentLocation;
     private int currentWave;
     private long waveStartTime;
@@ -18,6 +20,14 @@ public class PlayerWaveData {
     // Player settings
     private boolean showTimer = true;
     private boolean showNotifications = true;
+
+    public UUID getPlayerUUID() {
+        return playerUUID;
+    }
+
+    public void setPlayerUUID(UUID playerUUID) {
+        this.playerUUID = playerUUID;
+    }
 
     public boolean isInWave() {
         return currentLocation != null;
