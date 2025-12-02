@@ -2,10 +2,8 @@ package com.wavedefense.network.packets;
 
 import com.wavedefense.WaveDefenseMod;
 import com.wavedefense.data.Location;
-import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
 
 import java.util.function.Supplier;
@@ -41,26 +39,7 @@ public class TeleportPacket {
                 return;
             }
 
-            // Зберігаємо оригінальну позицію та інвентар
-            BlockPos originalPos = player.blockPosition();
-
-            // Телепортація
-            BlockPos spawnPos = location.getPlayerSpawn();
-            player.teleportTo(spawnPos.getX() + 0.5, spawnPos.getY(), spawnPos.getZ() + 0.5);
-
-            // Управління інвентарем
-            if (!location.isKeepInventory()) {
-                // Зберігаємо оригінальний інвентар і очищаємо
-                player.getInventory().clearContent();
-
-                // Видаємо стартове спорядження
-                for (ItemStack item : location.getStartingItems()) {
-                    player.getInventory().add(item.copy());
-                }
-            }
-
-            // Запуск системи хвиль
-            WaveDefenseMod.waveManager.startWave(player, location);
+            WaveDefenseMod.waveManager.addPlayerToLocation(player, location);
         });
         ctx.get().setPacketHandled(true);
     }
