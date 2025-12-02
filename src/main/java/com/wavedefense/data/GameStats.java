@@ -24,6 +24,18 @@ public class GameStats {
         return playerStats.computeIfAbsent(playerId, k -> new PlayerStats());
     }
 
+    public Map<UUID, PlayerStats> getPlayerStats() {
+        return playerStats;
+    }
+
+    public int getWavesCompleted() {
+        return wavesCompleted;
+    }
+
+    public int getMobsKilled() {
+        return mobsKilled;
+    }
+
     public void reset() {
         wavesCompleted = 0;
         mobsKilled = 0;

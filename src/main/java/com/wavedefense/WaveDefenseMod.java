@@ -1,6 +1,6 @@
 package com.wavedefense;
 
-import com.wavedefense.config.ModConfig;
+import com.wavedefense.config.WaveDefenseConfig;
 import com.wavedefense.data.LocationManager;
 import com.wavedefense.events.EventHandler;
 import com.wavedefense.events.KeyBindings;
@@ -34,7 +34,7 @@ public class WaveDefenseMod {
         modEventBus.addListener(this::commonSetup);
         modEventBus.addListener(this::clientSetup);
 
-        ModConfig.register();
+        WaveDefenseConfig.register();
         MinecraftForge.EVENT_BUS.register(new EventHandler());
         MinecraftForge.EVENT_BUS.register(this); // Register for server events
 

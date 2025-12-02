@@ -39,10 +39,9 @@ public class SellItemPacket {
             ShopItem shopItem = location.getShopItems().get(packet.itemIndex);
             if (!shopItem.canSell()) return;
 
-            // Check if player has the items
             for (ItemStack item : shopItem.getItems()) {
-                if (!player.getInventory().clearOrCountMatchingItems(p -> p.sameItem(item) && ItemStack.tagMatches(p, item), item.getCount(), player.inventoryMenu.getCraftSlots())) {
-                    return; // Not enough items
+                if (!player.getInventory().clearOrCountMatchingItems(p -> ItemStack.isSameItemSameTags(p, item), item.getCount(), player.inventoryMenu.getCraftSlots())) {
+                    return;
                 }
             }
 

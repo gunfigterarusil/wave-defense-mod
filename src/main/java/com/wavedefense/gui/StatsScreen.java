@@ -7,6 +7,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
+import java.util.Map;
 import java.util.UUID;
 
 public class StatsScreen extends Screen {
@@ -44,8 +45,6 @@ public class StatsScreen extends Screen {
         y += 20;
 
         for (Map.Entry<UUID, PlayerStats> entry : stats.getPlayerStats().entrySet()) {
-            // This would require a way to get player names from UUIDs on the client,
-            // which is a more complex networking task. For now, we'll just show UUIDs.
             String playerName = entry.getKey().toString().substring(0, 8);
             PlayerStats playerStats = entry.getValue();
             graphics.drawString(this.font, "Гравець: " + playerName, this.width / 2 - 50, y, 0xFFFFFF);
