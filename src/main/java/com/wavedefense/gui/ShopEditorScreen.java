@@ -1,13 +1,16 @@
 package com.wavedefense.gui;
 
-import com.wavedefense.WaveDefenseMod;
 import com.wavedefense.data.Location;
 import com.wavedefense.data.ShopItem;
+import com.wavedefense.network.PacketHandler;
+import com.wavedefense.network.packets.UpdateLocationPacket;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
+
+import java.util.List;
 
 public class ShopEditorScreen extends Screen {
     private final Location location;
@@ -38,16 +41,20 @@ public class ShopEditorScreen extends Screen {
             if (itemIndex >= location.getShopItems().size()) break;
 
             ShopItem shopItem = location.getShopItems().get(itemIndex);
-            ItemStack item = shopItem.getItem();
+            List<ItemStack> items = shopItem.getItems();
             int yPos = startY + (i * 60);
 
-            String itemName = item.getHoverName().getString();
-            if (itemName.length() > 25) {
-                itemName = itemName.substring(0, 22) + "...";
+            String firstItemName = items.isEmpty() ? "Пусто" : items.get(0).getHoverName().getString();
+            if (firstItemName.length() > 25) {
+                firstItemName = firstItemName.substring(0, 22) + "...";
+            }
+            if (items.size() > 1) {
+                firstItemName += " (+" + (items.size() - 1) + ")";
             }
 
+
             this.addRenderableWidget(Button.builder(
-                    Component.literal("§e" + itemName + " §7x" + item.getCount()),
+                    Component.literal("§e" + firstItemName),
                     button -> {}
             ).bounds(centerX - 140, yPos + 5, 150, 20).build()).active = false;
 
@@ -69,13 +76,6 @@ public class ShopEditorScreen extends Screen {
                     Component.literal(priceInfo),
                     button -> {}
             ).bounds(centerX - 140, yPos + 25, 320, 18).build()).active = false;
-
-            if (item.hasTag()) {
-                this.addRenderableWidget(Button.builder(
-                        Component.literal("§7✓ Має NBT дані"),
-                        button -> {}
-                ).bounds(centerX - 140, yPos + 45, 150, 15).build()).active = false;
-            }
         }
 
         if (location.getShopItems().size() > ITEMS_PER_PAGE) {
@@ -113,7 +113,7 @@ public class ShopEditorScreen extends Screen {
     }
 
     private void saveChanges() {
-        WaveDefenseMod.locationManager.save();
+        PacketHandler.sendToServer(new UpdateLocationPacket(location));
 
         if (minecraft.player != null) {
             minecraft.player.displayClientMessage(
@@ -153,11 +153,15 @@ public class ShopEditorScreen extends Screen {
             if (itemIndex >= location.getShopItems().size()) break;
 
             ShopItem shopItem = location.getShopItems().get(itemIndex);
-            ItemStack item = shopItem.getItem();
+            List<ItemStack> items = shopItem.getItems();
             int yPos = startY + (i * 60);
 
-            graphics.renderItem(item, centerX - 165, yPos + 3);
-            graphics.renderItemDecorations(this.font, item, centerX - 165, yPos + 3);
+            for (int j = 0; j < items.size(); j++) {
+                ItemStack item = items.get(j);
+                int xPos = centerX - 165 + (j * 18);
+                graphics.renderItem(item, xPos, yPos + 3);
+                graphics.renderItemDecorations(this.font, item, xPos, yPos + 3);
+            }
         }
 
         super.render(graphics, mouseX, mouseY, partialTick);
@@ -167,12 +171,16 @@ public class ShopEditorScreen extends Screen {
             if (itemIndex >= location.getShopItems().size()) break;
 
             ShopItem shopItem = location.getShopItems().get(itemIndex);
-            ItemStack item = shopItem.getItem();
+            List<ItemStack> items = shopItem.getItems();
             int yPos = startY + (i * 60);
 
-            if (mouseX >= centerX - 165 && mouseX <= centerX - 165 + 16 &&
-                    mouseY >= yPos + 3 && mouseY <= yPos + 3 + 16) {
-                graphics.renderTooltip(this.font, item, mouseX, mouseY);
+            for (int j = 0; j < items.size(); j++) {
+                ItemStack item = items.get(j);
+                int xPos = centerX - 165 + (j * 18);
+                if (mouseX >= xPos && mouseX <= xPos + 16 &&
+                        mouseY >= yPos + 3 && mouseY <= yPos + 3 + 16) {
+                    graphics.renderTooltip(this.font, item, mouseX, mouseY);
+                }
             }
         }
     }
