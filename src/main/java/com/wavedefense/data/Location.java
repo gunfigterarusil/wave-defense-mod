@@ -12,6 +12,8 @@ public class Location {
     private BlockPos playerSpawn;
     private List<BlockPos> mobSpawns;
     private List<WaveConfig> waves;
+    private int totalWaves;
+    private int timeBetweenWaves; // in seconds
     private Map<UUID, Integer> playerPoints;
     private boolean keepInventory;
     private List<ItemStack> startingItems;
@@ -21,6 +23,8 @@ public class Location {
         this.name = name;
         this.mobSpawns = new ArrayList<>();
         this.waves = new ArrayList<>();
+        this.totalWaves = 10;
+        this.timeBetweenWaves = 30;
         this.playerPoints = new HashMap<>();
         this.startingItems = new ArrayList<>();
         this.shopItems = new ArrayList<>();
@@ -44,6 +48,12 @@ public class Location {
 
     public List<WaveConfig> getWaves() { return waves; }
     public void addWave(WaveConfig wave) { waves.add(wave); }
+
+    public int getTotalWaves() { return totalWaves; }
+    public void setTotalWaves(int count) { this.totalWaves = count; }
+
+    public int getTimeBetweenWaves() { return timeBetweenWaves; }
+    public void setTimeBetweenWaves(int seconds) { this.timeBetweenWaves = seconds; }
 
     public boolean isKeepInventory() { return keepInventory; }
     public void setKeepInventory(boolean keep) { this.keepInventory = keep; }
@@ -73,6 +83,8 @@ public class Location {
     public CompoundTag save() {
         CompoundTag tag = new CompoundTag();
         tag.putString("name", name);
+        tag.putInt("totalWaves", totalWaves);
+        tag.putInt("timeBetweenWaves", timeBetweenWaves);
 
         if (playerSpawn != null) {
             tag.putLong("playerSpawn", playerSpawn.asLong());
@@ -111,6 +123,8 @@ public class Location {
 
     public static Location load(CompoundTag tag) {
         Location location = new Location(tag.getString("name"));
+        location.totalWaves = tag.getInt("totalWaves");
+        location.timeBetweenWaves = tag.getInt("timeBetweenWaves");
 
         if (tag.contains("playerSpawn")) {
             location.playerSpawn = BlockPos.of(tag.getLong("playerSpawn"));
