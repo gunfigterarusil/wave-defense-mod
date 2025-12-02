@@ -50,6 +50,16 @@ public class LocationEditorScreen extends Screen {
         ).bounds(centerX + 60, 25, 100, 20).build();
         this.addRenderableWidget(shopTab);
 
+        totalWavesInput = new EditBox(this.font, centerX - 100, startY, 200, 20, Component.literal("Кількість хвиль"));
+        totalWavesInput.setValue(String.valueOf(location.getTotalWaves()));
+        totalWavesInput.setVisible(false);
+        this.addRenderableWidget(totalWavesInput);
+
+        timeBetweenWavesInput = new EditBox(this.font, centerX - 100, startY + 30, 200, 20, Component.literal("Час між хвилями (сек)"));
+        timeBetweenWavesInput.setValue(String.valueOf(location.getTimeBetweenWaves()));
+        timeBetweenWavesInput.setVisible(false);
+        this.addRenderableWidget(timeBetweenWavesInput);
+
         if (currentTab == 0) {
             initBasicTab(centerX, startY);
         } else if (currentTab == 1) {
@@ -144,15 +154,8 @@ public class LocationEditorScreen extends Screen {
     }
 
     private void initWavesTab(int centerX, int startY) {
-        // Total Waves
-        totalWavesInput = new EditBox(this.font, centerX - 100, startY, 200, 20, Component.literal("Кількість хвиль"));
-        totalWavesInput.setValue(String.valueOf(location.getTotalWaves()));
-        this.addRenderableWidget(totalWavesInput);
-
-        // Time Between Waves
-        timeBetweenWavesInput = new EditBox(this.font, centerX - 100, startY + 30, 200, 20, Component.literal("Час між хвилями (сек)"));
-        timeBetweenWavesInput.setValue(String.valueOf(location.getTimeBetweenWaves()));
-        this.addRenderableWidget(timeBetweenWavesInput);
+        totalWavesInput.setVisible(true);
+        timeBetweenWavesInput.setVisible(true);
 
         this.addRenderableWidget(Button.builder(
                 Component.literal("⚙ Налаштувати мобів для хвиль"),

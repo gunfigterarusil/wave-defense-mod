@@ -86,10 +86,8 @@ public class MobSelectionScreen extends Screen {
         ResourceLocation mobId = ForgeRegistries.ENTITY_TYPES.getKey(entityType);
         if (mobIndex != -1) {
             waveConfig.getMobs().get(mobIndex).setMobType(mobId);
-            this.minecraft.setScreen(parentScreen);
-        } else {
-            this.minecraft.setScreen(new WaveMobEditScreen(parentScreen, waveConfig, mobId));
         }
+        this.minecraft.setScreen(parentScreen);
     }
 
     @Override

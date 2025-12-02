@@ -30,14 +30,6 @@ public class WaveMobEditScreen extends Screen {
         this.mobType = waveConfig.getMobs().get(mobIndex).getMobType();
     }
 
-    public WaveMobEditScreen(Screen parent, WaveConfig waveConfig, ResourceLocation mobType) {
-        super(Component.literal("Новий моб"));
-        this.parentScreen = parent;
-        this.waveConfig = waveConfig;
-        this.mobType = mobType;
-        this.mobIndex = -1;
-    }
-
     @Override
     protected void init() {
         super.init();
@@ -76,8 +68,6 @@ public class WaveMobEditScreen extends Screen {
             WaveMob newMob = new WaveMob(mobType, count, growth, chance, points);
             if (mobIndex != -1) {
                 waveConfig.getMobs().set(mobIndex, newMob);
-            } else {
-                waveConfig.addMob(newMob);
             }
             this.minecraft.setScreen(parentScreen);
         } catch (NumberFormatException e) {

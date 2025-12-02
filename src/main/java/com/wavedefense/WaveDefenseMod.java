@@ -59,6 +59,5 @@ public class WaveDefenseMod {
 
     private void clientSetup(final FMLClientSetupEvent event) {
         LOGGER.info("Wave Defense Mod - Client Setup");
-        KeyBindings.register();
     }
 }

@@ -1,0 +1,8 @@
+Manifest-Version: 1.0
+Specification-Title: wavedefense
+Specification-Vendor: Rayman
+Specification-Version: 1
+Implementation-Title: wave-defense
+Implementation-Version: 1.0.0
+Implementation-Vendor: Rayman
+Implementation-Timestamp: 2025-12-02T19:24:20+0000

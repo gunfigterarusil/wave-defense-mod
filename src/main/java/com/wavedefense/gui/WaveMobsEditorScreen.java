@@ -79,7 +79,6 @@ public class WaveMobsEditorScreen extends Screen {
                         button -> selectMob(finalMobIndex)
                 ).bounds(centerX - 25, yPos, 70, 20).build());
 
-                final int finalMobIndex = mobIndex;
                 this.addRenderableWidget(Button.builder(
                         Component.literal("⚙ Налашт."),
                         button -> editMob(finalMobIndex)
@@ -126,7 +125,7 @@ public class WaveMobsEditorScreen extends Screen {
             int currentCount = waveConfig.getMobs().size();
 
             if (targetCount > currentCount) {
-                ResourceLocation zombieId = new ResourceLocation("minecraft:zombie");
+                ResourceLocation zombieId = ResourceLocation.tryParse("minecraft:zombie");
 
                 for (int i = currentCount; i < targetCount; i++) {
                     WaveMob newMob = new WaveMob(zombieId, 5, 1, 100, 10);

@@ -1,5 +1,5 @@
 Java Launcher: /home/jules/.gradle/jdks/eclipse_adoptium-17-amd64-linux/jdk-17.0.17+10/bin/java
-Arguments: '--clean, /home/jules/.gradle/caches/forge_gradle/mcp_repo/net/minecraft/joined/1.20.1-20230612.114412/joined-1.20.1-20230612.114412-srg.jar, --output, /home/jules/.gradle/caches/forge_gradle/minecraft_user_repo/net/minecraftforge/forge/1.20.1-47.4.12/forge-1.20.1-47.4.12-binpatched.jar, --apply, /home/jules/.gradle/caches/forge_gradle/minecraft_user_repo/net/minecraftforge/forge/1.20.1-47.4.12/forge-1.20.1-47.4.12-binpatches.lzma'
+Arguments: '--clean, /home/jules/.gradle/caches/forge_gradle/mcp_repo/net/minecraft/joined/1.20.1-20230612.114412/joined-1.20.1-20230612.114412-srg.jar, --output, /home/jules/.gradle/caches/forge_gradle/minecraft_user_repo/net/minecraftforge/forge/1.20.1-47.3.0/forge-1.20.1-47.3.0-binpatched.jar, --apply, /home/jules/.gradle/caches/forge_gradle/minecraft_user_repo/net/minecraftforge/forge/1.20.1-47.3.0/forge-1.20.1-47.3.0-binpatches.lzma'
 Classpath:
  - /home/jules/.gradle/caches/forge_gradle/maven_downloader/net/minecraftforge/binarypatcher/1.1.1/binarypatcher-1.1.1-fatjar.jar
 Working directory: /app/build/_applyBinpatches_2
@@ -7,12 +7,12 @@ Main class: net.minecraftforge.binarypatcher.ConsoleTool
 ====================================
 Applying: 
   Clean:     /home/jules/.gradle/caches/forge_gradle/mcp_repo/net/minecraft/joined/1.20.1-20230612.114412/joined-1.20.1-20230612.114412-srg.jar
-  Output:    /home/jules/.gradle/caches/forge_gradle/minecraft_user_repo/net/minecraftforge/forge/1.20.1-47.4.12/forge-1.20.1-47.4.12-binpatched.jar
+  Output:    /home/jules/.gradle/caches/forge_gradle/minecraft_user_repo/net/minecraftforge/forge/1.20.1-47.3.0/forge-1.20.1-47.3.0-binpatched.jar
   KeepData:  false
   Unpatched: false
   Pack200:   false
   Legacy:    false
-Loading patches file: /home/jules/.gradle/caches/forge_gradle/minecraft_user_repo/net/minecraftforge/forge/1.20.1-47.4.12/forge-1.20.1-47.4.12-binpatches.lzma
+Loading patches file: /home/jules/.gradle/caches/forge_gradle/minecraft_user_repo/net/minecraftforge/forge/1.20.1-47.3.0/forge-1.20.1-47.3.0-binpatches.lzma
   Reading patch com.mojang.blaze3d.pipeline.RenderTarget.binpatch
     Checksum: 151eb55a Exists: true
   Reading patch com.mojang.blaze3d.platform.GlStateManager$BlendState.binpatch
@@ -859,12 +859,6 @@ Loading patches file: /home/jules/.gradle/caches/forge_gradle/minecraft_user_rep
     Checksum: 424d7f36 Exists: true
   Reading patch net.minecraft.commands.Commands.binpatch
     Checksum: 46dd7307 Exists: true
-  Reading patch net.minecraft.commands.SharedSuggestionProvider$ElementSuggestionType.binpatch
-    Checksum: 4c5b8df9 Exists: true
-  Reading patch net.minecraft.commands.SharedSuggestionProvider$TextCoordinates.binpatch
-    Checksum: d992c7a2 Exists: true
-  Reading patch net.minecraft.commands.SharedSuggestionProvider.binpatch
-    Checksum: 9ebaa69a Exists: true
   Reading patch net.minecraft.commands.arguments.EntityArgument$Info$Template.binpatch
     Checksum: 8299f2e2 Exists: true
   Reading patch net.minecraft.commands.arguments.EntityArgument$Info.binpatch
@@ -1487,8 +1481,6 @@ Loading patches file: /home/jules/.gradle/caches/forge_gradle/minecraft_user_rep
     Checksum: e36b28 Exists: true
   Reading patch net.minecraft.util.datafix.schemas.V2832.binpatch
     Checksum: 1da01ebe Exists: true
-  Reading patch net.minecraft.world.Container.binpatch
-    Checksum: 1499928d Exists: true
   Reading patch net.minecraft.world.effect.MobEffect.binpatch
     Checksum: b6b6a31f Exists: true
   Reading patch net.minecraft.world.effect.MobEffectInstance$FactorData.binpatch
@@ -1889,32 +1881,6 @@ Loading patches file: /home/jules/.gradle/caches/forge_gradle/minecraft_user_rep
     Checksum: ab04472f Exists: true
   Reading patch net.minecraft.world.entity.npc.Villager.binpatch
     Checksum: dd609e65 Exists: true
-  Reading patch net.minecraft.world.entity.npc.VillagerTrades$DyedArmorForEmeralds.binpatch
-    Checksum: b0ad1aa8 Exists: true
-  Reading patch net.minecraft.world.entity.npc.VillagerTrades$EmeraldForItems.binpatch
-    Checksum: dab8e032 Exists: true
-  Reading patch net.minecraft.world.entity.npc.VillagerTrades$EmeraldsForVillagerTypeItem.binpatch
-    Checksum: cb4c3448 Exists: true
-  Reading patch net.minecraft.world.entity.npc.VillagerTrades$EnchantBookForEmeralds.binpatch
-    Checksum: e3ea256c Exists: true
-  Reading patch net.minecraft.world.entity.npc.VillagerTrades$EnchantedItemForEmeralds.binpatch
-    Checksum: bfe963a5 Exists: true
-  Reading patch net.minecraft.world.entity.npc.VillagerTrades$ItemListing.binpatch
-    Checksum: 464b8f03 Exists: true
-  Reading patch net.minecraft.world.entity.npc.VillagerTrades$ItemsAndEmeraldsToItems.binpatch
-    Checksum: b4c263f7 Exists: true
-  Reading patch net.minecraft.world.entity.npc.VillagerTrades$ItemsForEmeralds.binpatch
-    Checksum: 3c517506 Exists: true
-  Reading patch net.minecraft.world.entity.npc.VillagerTrades$SuspiciousStewForEmerald.binpatch
-    Checksum: a1140836 Exists: true
-  Reading patch net.minecraft.world.entity.npc.VillagerTrades$TippedArrowForItemsAndEmeralds.binpatch
-    Checksum: ee4b67bd Exists: true
-  Reading patch net.minecraft.world.entity.npc.VillagerTrades$TreasureMapForEmeralds.binpatch
-    Checksum: f3648239 Exists: true
-  Reading patch net.minecraft.world.entity.npc.VillagerTrades.binpatch
-    Checksum: 87a99826 Exists: true
-  Reading patch net.minecraft.world.entity.npc.VillagerType.binpatch
-    Checksum: 3dec07cf Exists: true
   Reading patch net.minecraft.world.entity.player.Inventory.binpatch
     Checksum: 464033c8 Exists: true
   Reading patch net.minecraft.world.entity.player.Player$1.binpatch
@@ -2053,26 +2019,12 @@ Loading patches file: /home/jules/.gradle/caches/forge_gradle/minecraft_user_rep
     Checksum: 6b56690a Exists: true
   Reading patch net.minecraft.world.inventory.GrindstoneMenu.binpatch
     Checksum: 2e693e80 Exists: true
-  Reading patch net.minecraft.world.inventory.HorseInventoryMenu$1.binpatch
-    Checksum: 1b95ce75 Exists: true
-  Reading patch net.minecraft.world.inventory.HorseInventoryMenu$2.binpatch
-    Checksum: 701a8e57 Exists: true
-  Reading patch net.minecraft.world.inventory.HorseInventoryMenu.binpatch
-    Checksum: 91c27f86 Exists: true
   Reading patch net.minecraft.world.inventory.InventoryMenu$1.binpatch
     Checksum: 77762aa0 Exists: true
   Reading patch net.minecraft.world.inventory.InventoryMenu$2.binpatch
     Checksum: 243b440a Exists: true
   Reading patch net.minecraft.world.inventory.InventoryMenu.binpatch
     Checksum: aec2a52a Exists: true
-  Reading patch net.minecraft.world.inventory.ItemCombinerMenu$1.binpatch
-    Checksum: db20bef5 Exists: true
-  Reading patch net.minecraft.world.inventory.ItemCombinerMenu$2.binpatch
-    Checksum: ef8f8a3c Exists: true
-  Reading patch net.minecraft.world.inventory.ItemCombinerMenu$3.binpatch
-    Checksum: ac13d661 Exists: true
-  Reading patch net.minecraft.world.inventory.ItemCombinerMenu.binpatch
-    Checksum: 251b876a Exists: true
   Reading patch net.minecraft.world.inventory.MenuType$MenuSupplier.binpatch
     Checksum: 9ea7a14d Exists: true
   Reading patch net.minecraft.world.inventory.MenuType.binpatch
@@ -2449,8 +2401,6 @@ Loading patches file: /home/jules/.gradle/caches/forge_gradle/minecraft_user_rep
     Checksum: 7b63e54a Exists: true
   Reading patch net.minecraft.world.level.block.ChorusFlowerBlock.binpatch
     Checksum: 8aca2cca Exists: true
-  Reading patch net.minecraft.world.level.block.ChorusPlantBlock.binpatch
-    Checksum: b657c137 Exists: true
   Reading patch net.minecraft.world.level.block.CocoaBlock$1.binpatch
     Checksum: b466aa81 Exists: true
   Reading patch net.minecraft.world.level.block.CocoaBlock.binpatch
@@ -2615,8 +2565,6 @@ Loading patches file: /home/jules/.gradle/caches/forge_gradle/minecraft_user_rep
     Checksum: e19ac5ed Exists: true
   Reading patch net.minecraft.world.level.block.entity.ConduitBlockEntity.binpatch
     Checksum: 95d05496 Exists: true
-  Reading patch net.minecraft.world.level.block.entity.HangingSignBlockEntity.binpatch
-    Checksum: 487928cb Exists: true
   Reading patch net.minecraft.world.level.block.entity.HopperBlockEntity.binpatch
     Checksum: e1155c60 Exists: true
   Reading patch net.minecraft.world.level.block.entity.ShulkerBoxBlockEntity$1.binpatch
@@ -3317,9 +3265,6 @@ Processing: /home/jules/.gradle/caches/forge_gradle/mcp_repo/net/minecraft/joine
   Patching net/minecraft/commands/Commands$CommandSelection 1/1
   Patching net/minecraft/commands/Commands$ParseFunction 1/1
   Patching net/minecraft/commands/Commands 1/1
-  Patching net/minecraft/commands/SharedSuggestionProvider$ElementSuggestionType 1/1
-  Patching net/minecraft/commands/SharedSuggestionProvider$TextCoordinates 1/1
-  Patching net/minecraft/commands/SharedSuggestionProvider 1/1
   Patching net/minecraft/commands/arguments/EntityArgument$Info$Template 1/1
   Patching net/minecraft/commands/arguments/EntityArgument$Info 1/1
   Patching net/minecraft/commands/arguments/EntityArgument 1/1
@@ -3631,7 +3576,6 @@ Processing: /home/jules/.gradle/caches/forge_gradle/mcp_repo/net/minecraft/joine
   Patching net/minecraft/util/datafix/fixes/StructuresBecomeConfiguredFix$Conversion 1/1
   Patching net/minecraft/util/datafix/fixes/StructuresBecomeConfiguredFix 1/1
   Patching net/minecraft/util/datafix/schemas/V2832 1/1
-  Patching net/minecraft/world/Container 1/1
   Patching net/minecraft/world/effect/MobEffect 1/1
   Patching net/minecraft/world/effect/MobEffectInstance$FactorData 1/1
   Patching net/minecraft/world/effect/MobEffectInstance 1/1
@@ -3832,19 +3776,6 @@ Processing: /home/jules/.gradle/caches/forge_gradle/mcp_repo/net/minecraft/joine
   Patching net/minecraft/world/entity/npc/AbstractVillager 1/1
   Patching net/minecraft/world/entity/npc/CatSpawner 1/1
   Patching net/minecraft/world/entity/npc/Villager 1/1
-  Patching net/minecraft/world/entity/npc/VillagerTrades$DyedArmorForEmeralds 1/1
-  Patching net/minecraft/world/entity/npc/VillagerTrades$EmeraldForItems 1/1
-  Patching net/minecraft/world/entity/npc/VillagerTrades$EmeraldsForVillagerTypeItem 1/1
-  Patching net/minecraft/world/entity/npc/VillagerTrades$EnchantBookForEmeralds 1/1
-  Patching net/minecraft/world/entity/npc/VillagerTrades$EnchantedItemForEmeralds 1/1
-  Patching net/minecraft/world/entity/npc/VillagerTrades$ItemListing 1/1
-  Patching net/minecraft/world/entity/npc/VillagerTrades$ItemsAndEmeraldsToItems 1/1
-  Patching net/minecraft/world/entity/npc/VillagerTrades$ItemsForEmeralds 1/1
-  Patching net/minecraft/world/entity/npc/VillagerTrades$SuspiciousStewForEmerald 1/1
-  Patching net/minecraft/world/entity/npc/VillagerTrades$TippedArrowForItemsAndEmeralds 1/1
-  Patching net/minecraft/world/entity/npc/VillagerTrades$TreasureMapForEmeralds 1/1
-  Patching net/minecraft/world/entity/npc/VillagerTrades 1/1
-  Patching net/minecraft/world/entity/npc/VillagerType 1/1
   Patching net/minecraft/world/entity/player/Inventory 1/1
   Patching net/minecraft/world/entity/player/Player$1 1/1
   Patching net/minecraft/world/entity/player/Player$BedSleepingProblem 1/1
@@ -3914,16 +3845,9 @@ Processing: /home/jules/.gradle/caches/forge_gradle/mcp_repo/net/minecraft/joine
   Patching net/minecraft/world/inventory/GrindstoneMenu$3 1/1
   Patching net/minecraft/world/inventory/GrindstoneMenu$4 1/1
   Patching net/minecraft/world/inventory/GrindstoneMenu 1/1
-  Patching net/minecraft/world/inventory/HorseInventoryMenu$1 1/1
-  Patching net/minecraft/world/inventory/HorseInventoryMenu$2 1/1
-  Patching net/minecraft/world/inventory/HorseInventoryMenu 1/1
   Patching net/minecraft/world/inventory/InventoryMenu$1 1/1
   Patching net/minecraft/world/inventory/InventoryMenu$2 1/1
   Patching net/minecraft/world/inventory/InventoryMenu 1/1
-  Patching net/minecraft/world/inventory/ItemCombinerMenu$1 1/1
-  Patching net/minecraft/world/inventory/ItemCombinerMenu$2 1/1
-  Patching net/minecraft/world/inventory/ItemCombinerMenu$3 1/1
-  Patching net/minecraft/world/inventory/ItemCombinerMenu 1/1
   Patching net/minecraft/world/inventory/MenuType$MenuSupplier 1/1
   Patching net/minecraft/world/inventory/MenuType 1/1
   Patching net/minecraft/world/inventory/RecipeBookMenu 1/1
@@ -4109,7 +4033,6 @@ Processing: /home/jules/.gradle/caches/forge_gradle/mcp_repo/net/minecraft/joine
   Patching net/minecraft/world/level/block/ChestBlock$4 1/1
   Patching net/minecraft/world/level/block/ChestBlock 1/1
   Patching net/minecraft/world/level/block/ChorusFlowerBlock 1/1
-  Patching net/minecraft/world/level/block/ChorusPlantBlock 1/1
   Patching net/minecraft/world/level/block/CocoaBlock$1 1/1
   Patching net/minecraft/world/level/block/CocoaBlock 1/1
   Patching net/minecraft/world/level/block/ComparatorBlock 1/1
@@ -4190,7 +4113,6 @@ Processing: /home/jules/.gradle/caches/forge_gradle/mcp_repo/net/minecraft/joine
   Patching net/minecraft/world/level/block/entity/ChestBlockEntity 1/1
   Patching net/minecraft/world/level/block/entity/ChiseledBookShelfBlockEntity 1/1
   Patching net/minecraft/world/level/block/entity/ConduitBlockEntity 1/1
-  Patching net/minecraft/world/level/block/entity/HangingSignBlockEntity 1/1
   Patching net/minecraft/world/level/block/entity/HopperBlockEntity 1/1
   Patching net/minecraft/world/level/block/entity/ShulkerBoxBlockEntity$1 1/1
   Patching net/minecraft/world/level/block/entity/ShulkerBoxBlockEntity$AnimationStatus 1/1

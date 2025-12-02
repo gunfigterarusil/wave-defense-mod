@@ -5,6 +5,8 @@ import com.wavedefense.data.Location;
 import com.wavedefense.data.WaveConfig;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import com.wavedefense.network.PacketHandler;
+import com.wavedefense.network.packets.UpdateLocationPacket;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -241,18 +243,7 @@ public class WaveConfigScreen extends Screen {
     }
 
     private void saveChanges() {
-        try {
-            int minutes = Integer.parseInt(timeBetweenWavesInput.getValue());
-            if (minutes > 0) {
-                int seconds = minutes * 60;
-
-                for (WaveConfig wave : location.getWaves()) {
-                    wave.setTimeBetweenWaves(seconds);
-                }
-            }
-        } catch (NumberFormatException ignored) {}
-
-        WaveDefenseMod.locationManager.save();
+        PacketHandler.sendToServer(new UpdateLocationPacket(location));
 
         if (minecraft.player != null) {
             minecraft.player.displayClientMessage(
