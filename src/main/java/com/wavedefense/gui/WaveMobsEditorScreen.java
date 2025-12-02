@@ -79,6 +79,7 @@ public class WaveMobsEditorScreen extends Screen {
                         button -> selectMob(finalMobIndex)
                 ).bounds(centerX - 25, yPos, 70, 20).build());
 
+                final int finalMobIndex = mobIndex;
                 this.addRenderableWidget(Button.builder(
                         Component.literal("⚙ Налашт."),
                         button -> editMob(finalMobIndex)
