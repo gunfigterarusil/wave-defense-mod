@@ -1,8 +1,8 @@
 package com.wavedefense.gui;
 
-import com.wavedefense.WaveDefenseMod;
 import com.wavedefense.data.Location;
 import com.wavedefense.network.PacketHandler;
+import com.wavedefense.network.packets.RequestLocationDataPacket;
 import com.wavedefense.network.packets.TeleportPacket;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -10,7 +10,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class PlayerMenuScreen extends Screen {
 
@@ -25,10 +24,9 @@ public class PlayerMenuScreen extends Screen {
     @Override
     protected void init() {
         super.init();
+        PacketHandler.sendToServer(new RequestLocationDataPacket());
 
-        this.locationNames = WaveDefenseMod.locationManager.getAllLocations().stream()
-                .map(Location::getName)
-                .collect(Collectors.toList());
+        this.locationNames = ClientLocationManager.getAllLocationNames();
 
         int centerX = this.width / 2;
         int startY = 40;

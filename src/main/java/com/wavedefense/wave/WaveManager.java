@@ -1,21 +1,20 @@
 package com.wavedefense.wave;
 
 import com.wavedefense.WaveDefenseMod;
-import com.wavedefense.data.Location;
-import com.wavedefense.data.WaveConfig;
-import com.wavedefense.data.WaveMob;
+import com.wavedefense.data.*;
 import com.wavedefense.network.PacketHandler;
-import com.wavedefense.network.packets.UpdatePointsPacket;
+import com.wavedefense.network.packets.SyncPlayerDataPacket;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.network.chat.Component;
+import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.*;
@@ -23,277 +22,359 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class WaveManager {
     private final Map<UUID, PlayerWaveData> playerData = new ConcurrentHashMap<>();
-    private final Map<UUID, List<UUID>> spawnedMobs = new ConcurrentHashMap<>();
+    private final Map<String, Set<UUID>> spawnedMobsByLocation = new ConcurrentHashMap<>();
+    private final Map<UUID, PlayerBackup> playerBackups = new ConcurrentHashMap<>();
+    private final Map<String, Long> locationStartTimers = new ConcurrentHashMap<>();
+    private final Map<String, Integer> locationWaveTimers = new ConcurrentHashMap<>();
+    private final Map<String, GameStats> locationStats = new ConcurrentHashMap<>();
 
-    public void startWave(ServerPlayer player, Location location) {
+    public void addPlayerToLocation(ServerPlayer player, Location location) {
         UUID playerId = player.getUUID();
-
         if (playerData.containsKey(playerId)) {
-            WaveDefenseMod.LOGGER.warn("Player {} already in wave", player.getName().getString());
+            player.displayClientMessage(Component.literal("§cВи вже берете участь у грі!"), false);
             return;
         }
+
+        playerBackups.put(playerId, new PlayerBackup(player));
+
+        if (!location.isKeepInventory()) {
+            player.getInventory().clearContent();
+            for (ItemStack item : location.getStartingItems()) {
+                player.getInventory().add(item.copy());
+            }
+        }
+
+        BlockPos spawnPos = location.getPlayerSpawn();
+        player.teleportTo(spawnPos.getX() + 0.5, spawnPos.getY(), spawnPos.getZ() + 0.5);
 
         PlayerWaveData data = new PlayerWaveData();
-
+        data.setPlayerUUID(playerId);
         data.setCurrentLocation(location);
-        data.setCurrentWave(1);
-        data.setTimerActive(true);
-        data.setWaveStartTime(System.currentTimeMillis());
-        data.setOriginalPos(player.blockPosition());
 
-        // Зберігаємо інвентар
-        List<ItemStack> inventory = new ArrayList<>();
-        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            ItemStack item = player.getInventory().getItem(i);
-            if (!item.isEmpty()) {
-                inventory.add(item.copy());
+        GameStats stats = locationStats.computeIfAbsent(location.getName(), k -> new GameStats());
+        stats.getPlayerStats(playerId);
+
+        if (!locationStartTimers.containsKey(location.getName()) && !locationWaveTimers.containsKey(location.getName())) {
+            locationStartTimers.put(location.getName(), System.currentTimeMillis() + 30000);
+            broadcastToLocation(location.getName(), "§aГра почнеться через 30 секунд!");
+            data.setCurrentWave(1);
+            data.setTimerActive(true);
+            data.setTimeUntilNextWave(30);
+        } else if (locationStartTimers.containsKey(location.getName())) {
+            long timeLeft = (locationStartTimers.get(location.getName()) - System.currentTimeMillis()) / 1000;
+            player.displayClientMessage(Component.literal("§aГра почнеться через " + timeLeft + " секунд!"), false);
+            data.setCurrentWave(1);
+            data.setTimerActive(true);
+            data.setTimeUntilNextWave((int) timeLeft);
+        } else {
+            int currentWave = playerData.values().stream()
+                .filter(d -> d.getCurrentLocation() != null && d.getCurrentLocation().getName().equals(location.getName()))
+                .mapToInt(PlayerWaveData::getCurrentWave).max().orElse(1);
+            data.setCurrentWave(currentWave);
+            player.displayClientMessage(Component.literal("§aВи приєдналися до гри на хвилі " + currentWave), false);
+
+            Integer timer = locationWaveTimers.get(location.getName());
+            if (timer != null) {
+                data.setTimerActive(true);
+                data.setTimeUntilNextWave(timer / 20);
+            } else {
+                data.setTimerActive(false);
             }
         }
-        data.setOriginalInventory(inventory);
-
         playerData.put(playerId, data);
-        location.resetPoints(playerId);
-
-        player.displayClientMessage(Component.literal("§6Хвиля 1 почнеться незабаром!"), false);
-
-        scheduleNextWave(player, location, data);
+        syncPlayerData(player);
     }
 
-    private void scheduleNextWave(ServerPlayer player, Location location, PlayerWaveData data) {
-        if (data.getCurrentWave() > location.getWaves().size()) {
-            endSession(player, location);
-            return;
-        }
-
-        WaveConfig waveConfig = location.getWaves().get(data.getCurrentWave() - 1);
-        int delaySeconds = waveConfig.getTimeBetweenWaves();
-
-        data.setTimeUntilNextWave(delaySeconds);
-        data.setTimerActive(true);
-    }
-
-    public void spawnWave(ServerPlayer player, Location location, PlayerWaveData data) {
-        ServerLevel level = player.serverLevel();
-        WaveConfig waveConfig = location.getWaves().get(data.getCurrentWave() - 1);
-
-        List<UUID> mobIds = new ArrayList<>();
-        List<BlockPos> spawnPoints = location.getMobSpawns();
-
-        if (spawnPoints.isEmpty()) {
-            player.displayClientMessage(Component.literal("§cПомилка: не налаштовані точки спавну!"), false);
-            return;
-        }
-
-        Random random = new Random();
-
-        // ОНОВЛЕНО: Використовуємо нову систему WaveMob
-        for (WaveMob waveMob : waveConfig.getMobs()) {
-            // Перевірка шансу появи
-            if (random.nextInt(100) + 1 > waveMob.getSpawnChance()) {
-                continue;
-            }
-
-            // Кількість мобів для цієї хвилі
-            int count = waveMob.getCount() + (waveMob.getGrowthPerWave() * (data.getCurrentWave() - 1));
-            EntityType<?> entityType = ForgeRegistries.ENTITY_TYPES.getValue(waveMob.getMobType());
-
-            if (entityType == null) {
-                WaveDefenseMod.LOGGER.warn("Unknown mob type: " + waveMob.getMobType());
-                continue;
-            }
-
-            for (int i = 0; i < count; i++) {
-                BlockPos spawnPos = spawnPoints.get(random.nextInt(spawnPoints.size()));
-                Entity entity = entityType.create(level);
-
-                if (entity instanceof Mob mob) {
-                    mob.moveTo(spawnPos.getX() + 0.5, spawnPos.getY(), spawnPos.getZ() + 0.5,
-                            random.nextFloat() * 360, 0);
-
-                    // Додаємо AI для атаки гравця
-                    mob.targetSelector.addGoal(1, new NearestAttackableTargetGoal<>(mob, Player.class, true));
-
-                    if (level.addFreshEntity(mob)) {
-                        mobIds.add(mob.getUUID());
-
-                        // Зберігаємо метадані моба
-                        mob.getPersistentData().putString("wavedefense_player", player.getUUID().toString());
-                        mob.getPersistentData().putInt("wavedefense_points", waveMob.getPointsPerKill());
-                    } else {
-                        WaveDefenseMod.LOGGER.warn("Failed to spawn mob: " + waveMob.getMobType());
-                    }
-                } else {
-                    WaveDefenseMod.LOGGER.warn("Entity is not a Mob: " + waveMob.getMobType());
-                    if (entity != null) {
-                        entity.discard();
+    public void tick() {
+        Iterator<Map.Entry<String, Long>> startIterator = locationStartTimers.entrySet().iterator();
+        while (startIterator.hasNext()) {
+            Map.Entry<String, Long> entry = startIterator.next();
+            if (System.currentTimeMillis() >= entry.getValue()) {
+                startIterator.remove();
+                spawnWaveForLocation(entry.getKey(), 1);
+            } else {
+                long timeLeft = (entry.getValue() - System.currentTimeMillis()) / 1000;
+                for (PlayerWaveData data : playerData.values()) {
+                    if (data.getCurrentLocation() != null && data.getCurrentLocation().getName().equals(entry.getKey())) {
+                        data.setTimeUntilNextWave((int) timeLeft);
+                        data.setTimerActive(true);
                     }
                 }
             }
         }
 
-        spawnedMobs.put(player.getUUID(), mobIds);
+        Iterator<Map.Entry<String, Integer>> waveIterator = locationWaveTimers.entrySet().iterator();
+        while (waveIterator.hasNext()) {
+            Map.Entry<String, Integer> entry = waveIterator.next();
+            entry.setValue(entry.getValue() - 1);
+            if (entry.getValue() <= 0) {
+                waveIterator.remove();
+                Optional<PlayerWaveData> anyPlayer = playerData.values().stream()
+                        .filter(d -> d.getCurrentLocation() != null && d.getCurrentLocation().getName().equals(entry.getKey()))
+                        .findFirst();
+                if (anyPlayer.isPresent()) {
+                    spawnWaveForLocation(entry.getKey(), anyPlayer.get().getCurrentWave());
+                }
+            } else {
+                for (PlayerWaveData data : playerData.values()) {
+                    if (data.getCurrentLocation() != null && data.getCurrentLocation().getName().equals(entry.getKey())) {
+                        data.setTimeUntilNextWave(entry.getValue() / 20);
+                        data.setTimerActive(true);
+                        if (data.getPlayerUUID() != null) {
+                            ServerPlayer player = WaveDefenseMod.getServer().getPlayerList().getPlayer(data.getPlayerUUID());
+                            if (player != null) {
+                                syncPlayerData(player);
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
-        player.displayClientMessage(
-                Component.literal("§6Хвиля " + data.getCurrentWave() + " розпочалася! Мобів: " + mobIds.size()),
-                false
-        );
+        checkAllWavesComplete();
+    }
 
-        // Якщо мобів немає, одразу завершуємо хвилю
-        if (mobIds.isEmpty()) {
-            onWaveComplete(player, data);
+    private void spawnWaveForLocation(String locationName, int waveNumber) {
+        Location location = WaveDefenseMod.locationManager.getLocation(locationName);
+        if (location == null || location.getWaves().isEmpty()) return;
+
+        if (waveNumber > location.getWaves().size()) {
+            endSessionForLocation(locationName, "§6§l✓ Всі хвилі завершено! Вітаємо!");
+            return;
+        }
+
+        WaveConfig waveConfig = location.getWaves().get(waveNumber - 1);
+        List<ServerPlayer> players = getPlayersInLocation(locationName);
+        if (players.isEmpty()) {
+            locationWaveTimers.remove(locationName);
+            return;
+        }
+
+        ServerLevel world = players.get(0).serverLevel();
+        Set<UUID> spawnedMobs = spawnedMobsByLocation.computeIfAbsent(locationName, k -> new HashSet<>());
+
+        broadcastToLocation(locationName, "§c§l⚔ Хвиля " + waveNumber + " розпочалася!");
+
+        for (PlayerWaveData data : playerData.values()) {
+            if (data.getCurrentLocation() != null && data.getCurrentLocation().getName().equals(locationName)) {
+                data.setTimerActive(false);
+                data.setTimeUntilNextWave(0);
+                if (data.getPlayerUUID() != null) {
+                    ServerPlayer player = WaveDefenseMod.getServer().getPlayerList().getPlayer(data.getPlayerUUID());
+                    if (player != null) {
+                        syncPlayerData(player);
+                    }
+                }
+            }
+        }
+
+        for (WaveMob waveMob : waveConfig.getMobs()) {
+            if (new Random().nextInt(100) >= waveMob.getSpawnChance()) continue;
+
+            EntityType<?> entityType = ForgeRegistries.ENTITY_TYPES.getValue(waveMob.getMobType());
+            if (entityType == null) continue;
+
+            int mobCount = waveMob.getCount() + (waveMob.getGrowthPerWave() * (waveNumber - 1));
+            for (int i = 0; i < mobCount; i++) {
+                BlockPos spawnPos = getRandomSpawnPoint(location);
+                if (spawnPos == null) continue;
+
+                try {
+                    Mob mob = (Mob) entityType.create(world);
+                    if (mob != null) {
+                        mob.moveTo(spawnPos.getX() + 0.5, spawnPos.getY(), spawnPos.getZ() + 0.5, 0, 0);
+                        mob.finalizeSpawn(world, world.getCurrentDifficultyAt(spawnPos), MobSpawnType.COMMAND, null, null);
+
+                        mob.goalSelector.addGoal(2, new NearestAttackableTargetGoal<>(mob, Player.class, true));
+                        mob.setPersistenceRequired();
+
+                        mob.getPersistentData().putString("location", locationName);
+                        mob.getPersistentData().putInt("points", waveMob.getPointsPerKill());
+
+                        world.addFreshEntity(mob);
+                        spawnedMobs.add(mob.getUUID());
+                    }
+                } catch (Exception e) {
+                    WaveDefenseMod.LOGGER.error("Failed to spawn mob: " + waveMob.getMobType(), e);
+                }
+            }
+        }
+    }
+
+    private BlockPos getRandomSpawnPoint(Location location) {
+        if (location.getMobSpawns().isEmpty()) return null;
+        return location.getMobSpawns().get(new Random().nextInt(location.getMobSpawns().size()));
+    }
+
+    private void checkAllWavesComplete() {
+        for (String locationName : new HashSet<>(spawnedMobsByLocation.keySet())) {
+            checkWaveComplete(locationName);
+        }
+    }
+
+    private void checkWaveComplete(String locationName) {
+        Set<UUID> mobs = spawnedMobsByLocation.get(locationName);
+        if (mobs == null || mobs.isEmpty()) return;
+
+        List<ServerPlayer> players = getPlayersInLocation(locationName);
+        if (players.isEmpty()) {
+            spawnedMobsByLocation.remove(locationName);
+            locationWaveTimers.remove(locationName);
+            return;
+        }
+
+        ServerLevel world = players.get(0).serverLevel();
+        mobs.removeIf(uuid -> world.getEntity(uuid) == null || !world.getEntity(uuid).isAlive());
+
+        if (mobs.isEmpty()) {
+            spawnedMobsByLocation.remove(locationName);
+            onWaveComplete(locationName);
+        }
+    }
+
+    private void onWaveComplete(String locationName) {
+        Location location = WaveDefenseMod.locationManager.getLocation(locationName);
+        if (location == null) return;
+
+        GameStats stats = locationStats.get(locationName);
+        if (stats != null) stats.incrementWavesCompleted();
+
+        int nextWave = -1;
+        for (PlayerWaveData data : playerData.values()) {
+            if (data.getCurrentLocation() != null && data.getCurrentLocation().getName().equals(locationName)) {
+                int currentWave = data.getCurrentWave();
+                if (currentWave > 0 && currentWave <= location.getWaves().size()) {
+                    WaveConfig waveConfig = location.getWaves().get(currentWave - 1);
+                    int reward = waveConfig.getPointsReward();
+                    if (reward > 0) {
+                        location.addPoints(data.getPlayerUUID(), reward);
+                    }
+                }
+                nextWave = currentWave + 1;
+                data.setCurrentWave(nextWave);
+
+                if (data.getPlayerUUID() != null) {
+                    ServerPlayer player = WaveDefenseMod.getServer().getPlayerList().getPlayer(data.getPlayerUUID());
+                    if (player != null) {
+                        syncPlayerData(player);
+                    }
+                }
+            }
+        }
+
+        if (nextWave > location.getTotalWaves()) {
+            endSessionForLocation(locationName, "§6§l✓ Всі хвилі завершено! Вітаємо!");
+        } else {
+            broadcastToLocation(locationName, "§a§l✓ Хвилю " + (nextWave - 1) + " завершено!");
+
+            if (nextWave <= location.getWaves().size()) {
+                int waveTime = location.getWaves().get(nextWave - 1).getTimeBetweenWaves();
+                locationWaveTimers.put(locationName, waveTime * 20);
+
+                for (PlayerWaveData data : playerData.values()) {
+                    if (data.getCurrentLocation() != null && data.getCurrentLocation().getName().equals(locationName)) {
+                        data.setTimerActive(true);
+                        data.setTimeUntilNextWave(waveTime);
+                    }
+                }
+            }
         }
     }
 
     public void onMobKilled(ServerPlayer player, Mob mob) {
-        UUID playerId = player.getUUID();
-        PlayerWaveData data = playerData.get(playerId);
+        String locationName = mob.getPersistentData().getString("location");
+        if (locationName.isEmpty()) return;
 
-        if (data == null || data.getCurrentLocation() == null) return;
+        PlayerWaveData data = playerData.get(player.getUUID());
+        if (data == null || data.getCurrentLocation() == null || !data.getCurrentLocation().getName().equals(locationName)) return;
 
-        String storedPlayerId = mob.getPersistentData().getString("wavedefense_player");
-        if (storedPlayerId.isEmpty() || !playerId.toString().equals(storedPlayerId)) {
-            return;
+        int points = mob.getPersistentData().getInt("points");
+        data.getCurrentLocation().addPoints(player.getUUID(), points);
+
+        GameStats stats = locationStats.get(locationName);
+        if (stats != null) {
+            stats.incrementMobsKilled();
+            stats.getPlayerStats(player.getUUID()).incrementMobsKilled();
+            stats.getPlayerStats(player.getUUID()).addPoints(points);
         }
 
-        int points = mob.getPersistentData().getInt("wavedefense_points");
-        data.getCurrentLocation().addPoints(playerId, points);
-
-        // Синхронізація поінтів з клієнтом
-        PacketHandler.sendToPlayer(
-                new UpdatePointsPacket(data.getCurrentLocation().getPlayerPoints(playerId), data.getCurrentLocation().getName()),
-                player
-        );
-
-        if (data.isShowNotifications()) {
-            player.displayClientMessage(
-                    Component.literal("§a+" + points + " поінтів! Всього: " +
-                            data.getCurrentLocation().getPlayerPoints(playerId)),
-                    true
-            );
+        Set<UUID> mobs = spawnedMobsByLocation.get(locationName);
+        if (mobs != null) {
+            mobs.remove(mob.getUUID());
         }
 
-        // Перевіряємо чи всі моби вбиті
-        checkWaveComplete(player, data);
-    }
-
-    private void checkWaveComplete(ServerPlayer player, PlayerWaveData data) {
-        UUID playerId = player.getUUID();
-        List<UUID> mobIds = spawnedMobs.get(playerId);
-
-        if (mobIds == null || mobIds.isEmpty()) return;
-
-        ServerLevel level = player.serverLevel();
-        boolean allDead = true;
-
-        Iterator<UUID> iterator = mobIds.iterator();
-        while (iterator.hasNext()) {
-            UUID mobId = iterator.next();
-            Entity entity = level.getEntity(mobId);
-
-            if (entity == null || !entity.isAlive()) {
-                iterator.remove();
-            } else {
-                allDead = false;
-            }
-        }
-
-        if (allDead) {
-            onWaveComplete(player, data);
-        }
-    }
-
-    private void onWaveComplete(ServerPlayer player, PlayerWaveData data) {
-        Location location = data.getCurrentLocation();
-        WaveConfig waveConfig = location.getWaves().get(data.getCurrentWave() - 1);
-
-        if (data.isShowNotifications()) {
-            player.displayClientMessage(
-                    Component.literal("§a§l✓ Хвилю " + data.getCurrentWave() + " завершено!"),
-                    false
-            );
-        }
-
-        // Видаємо нагороди
-        for (ItemStack reward : waveConfig.getRewards()) {
-            player.getInventory().add(reward.copy());
-        }
-
-        spawnedMobs.remove(player.getUUID());
-
-        data.setCurrentWave(data.getCurrentWave() + 1);
-        scheduleNextWave(player, location, data);
+        syncPlayerData(player);
     }
 
     public void surrenderPlayer(ServerPlayer player) {
         UUID playerId = player.getUUID();
         PlayerWaveData data = playerData.remove(playerId);
-
         if (data != null) {
-            // Телепортація на оригінальну позицію
-            if (data.getOriginalPos() != null) {
-                BlockPos pos = data.getOriginalPos();
-                player.teleportTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
+            PlayerBackup backup = playerBackups.remove(playerId);
+            if (backup != null) {
+                backup.restore(player);
             }
-
-            // Відновлення інвентаря
-            if (!data.getCurrentLocation().isKeepInventory() && data.getOriginalInventory() != null) {
-                player.getInventory().clearContent();
-                for (ItemStack item : data.getOriginalInventory()) {
-                    player.getInventory().add(item.copy());
-                }
+            if (data.getCurrentLocation() != null) {
+                checkWaveComplete(data.getCurrentLocation().getName());
             }
+            data.setCurrentLocation(null);
+            syncPlayerData(player);
         }
-
-        // Видаляємо всіх мобів цієї сесії
-        cleanupMobs(player);
-
         player.displayClientMessage(Component.literal("§cВи здалися!"), false);
     }
 
-    private void endSession(ServerPlayer player, Location location) {
-        player.displayClientMessage(
-                Component.literal("§6§l✓ Всі хвилі завершено! Вітаємо!"),
-                false
-        );
+    private void endSessionForLocation(String locationName, String message) {
+        broadcastToLocation(locationName, message);
 
-        surrenderPlayer(player);
+        List<UUID> playersToRemove = new ArrayList<>();
+        for (Map.Entry<UUID, PlayerWaveData> entry : playerData.entrySet()) {
+            if (entry.getValue().getCurrentLocation() != null &&
+                entry.getValue().getCurrentLocation().getName().equals(locationName)) {
+                playersToRemove.add(entry.getKey());
+            }
+        }
+
+        for (UUID playerId : playersToRemove) {
+            ServerPlayer player = WaveDefenseMod.getServer().getPlayerList().getPlayer(playerId);
+            if (player != null) {
+                surrenderPlayer(player);
+            }
+        }
+
+        spawnedMobsByLocation.remove(locationName);
+        locationWaveTimers.remove(locationName);
+        locationStartTimers.remove(locationName);
     }
 
-    private void cleanupMobs(ServerPlayer player) {
-        UUID playerId = player.getUUID();
-        List<UUID> mobIds = spawnedMobs.remove(playerId);
+    private void broadcastToLocation(String locationName, String message) {
+        for (ServerPlayer player : getPlayersInLocation(locationName)) {
+            player.displayClientMessage(Component.literal(message), false);
+        }
+    }
 
-        if (mobIds != null) {
-            ServerLevel level = player.serverLevel();
-            for (UUID mobId : mobIds) {
-                Entity entity = level.getEntity(mobId);
-                if (entity != null) {
-                    entity.discard();
+    private List<ServerPlayer> getPlayersInLocation(String locationName) {
+        List<ServerPlayer> players = new ArrayList<>();
+        for (Map.Entry<UUID, PlayerWaveData> entry : playerData.entrySet()) {
+            if (entry.getValue().getCurrentLocation() != null &&
+                entry.getValue().getCurrentLocation().getName().equals(locationName)) {
+                ServerPlayer player = WaveDefenseMod.getServer().getPlayerList().getPlayer(entry.getKey());
+                if (player != null) {
+                    players.add(player);
                 }
             }
+        }
+        return players;
+    }
+
+    public void syncPlayerData(ServerPlayer player) {
+        if (player == null) return;
+        PlayerWaveData data = getPlayerData(player.getUUID());
+        if (data != null) {
+            WaveDefenseMod.packetHandler.send(PacketDistributor.PLAYER.with(() -> player), new SyncPlayerDataPacket(data));
         }
     }
 
     public PlayerWaveData getPlayerData(UUID playerId) {
         return playerData.get(playerId);
-    }
-
-    public void updateTimer(ServerPlayer player) {
-        PlayerWaveData data = playerData.get(player.getUUID());
-        if (data == null || !data.isTimerActive()) return;
-
-        int timeLeft = data.getTimeUntilNextWave();
-
-        if (timeLeft > 0) {
-            data.setTimeUntilNextWave(timeLeft - 1);
-        } else if (timeLeft == 0) {
-            data.setTimerActive(false);
-            spawnWave(player, data.getCurrentLocation(), data);
-        }
-    }
-
-    public void removePlayer(UUID playerId) {
-        playerData.remove(playerId);
-        spawnedMobs.remove(playerId);
     }
 }

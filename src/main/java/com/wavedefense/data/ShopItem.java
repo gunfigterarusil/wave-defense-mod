@@ -1,21 +1,32 @@
 package com.wavedefense.data;
 
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.world.item.ItemStack;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class ShopItem {
-    private ItemStack item;
-    private int buyPrice;    // НОВОЕ: Ціна купівлі
-    private int sellPrice;   // НОВОЕ: Ціна продажу
+    private List<ItemStack> items; // Can hold up to 4 items
+    private int buyPrice;
+    private int sellPrice;
 
-    public ShopItem(ItemStack item, int buyPrice, int sellPrice) {
-        this.item = item.copy();
+    public ShopItem(List<ItemStack> items, int buyPrice, int sellPrice) {
+        // Ensure we have a mutable list and copy items to prevent outside modification
+        this.items = items.stream().map(ItemStack::copy).collect(Collectors.toList());
         this.buyPrice = buyPrice;
         this.sellPrice = sellPrice;
     }
 
-    public ItemStack getItem() { return item.copy(); }
-    public void setItem(ItemStack item) { this.item = item.copy(); }
+    public List<ItemStack> getItems() {
+        // Return copies to maintain encapsulation
+        return items.stream().map(ItemStack::copy).collect(Collectors.toList());
+    }
+
+    public void setItems(List<ItemStack> items) {
+        this.items = items.stream().map(ItemStack::copy).collect(Collectors.toList());
+    }
 
     public int getBuyPrice() { return buyPrice; }
     public void setBuyPrice(int price) { this.buyPrice = price; }
@@ -23,39 +34,30 @@ public class ShopItem {
     public int getSellPrice() { return sellPrice; }
     public void setSellPrice(int price) { this.sellPrice = price; }
 
-    // Перевірка чи можна продати цей предмет
     public boolean canSell() { return sellPrice > 0; }
 
     public CompoundTag save() {
         CompoundTag tag = new CompoundTag();
-        tag.put("item", item.save(new CompoundTag()));
+        ListTag itemsList = new ListTag();
+        for (ItemStack item : items) {
+            itemsList.add(item.save(new CompoundTag()));
+        }
+        tag.put("items", itemsList);
         tag.putInt("buyPrice", buyPrice);
         tag.putInt("sellPrice", sellPrice);
         return tag;
     }
 
     public static ShopItem load(CompoundTag tag) {
+        List<ItemStack> loadedItems = new ArrayList<>();
+        ListTag itemsList = tag.getList("items", 10); // 10 is the NBT type for CompoundTag
+        for (int i = 0; i < itemsList.size(); i++) {
+            loadedItems.add(ItemStack.of(itemsList.getCompound(i)));
+        }
         return new ShopItem(
-                ItemStack.of(tag.getCompound("item")),
+                loadedItems,
                 tag.getInt("buyPrice"),
                 tag.getInt("sellPrice")
         );
-    }
-
-    // Перевірка чи ItemStack відповідає цьому ShopItem (з NBT)
-    public boolean matches(ItemStack stack) {
-        if (stack.isEmpty() || item.isEmpty()) return false;
-
-        // Перевірка типу предмета
-        if (!ItemStack.isSameItem(stack, item)) return false;
-
-        // Перевірка NBT
-        CompoundTag stackNbt = stack.getTag();
-        CompoundTag itemNbt = item.getTag();
-
-        if (stackNbt == null && itemNbt == null) return true;
-        if (stackNbt == null || itemNbt == null) return false;
-
-        return stackNbt.equals(itemNbt);
     }
 }

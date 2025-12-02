@@ -18,18 +18,15 @@ public class KeyBindings {
 
     public static KeyMapping openMenuKey;
 
-    public static void register() {
+    @SubscribeEvent
+    public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
         openMenuKey = new KeyMapping(
                 "key.wavedefense.openmenu",
                 KeyConflictContext.IN_GAME,
                 InputConstants.Type.KEYSYM,
-                GLFW.GLFW_KEY_V, // Клавіша V за замовчуванням
+                GLFW.GLFW_KEY_V,
                 CATEGORY
         );
-    }
-
-    @SubscribeEvent
-    public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
         event.register(openMenuKey);
     }
 
@@ -37,7 +34,7 @@ public class KeyBindings {
     public static class ClientEvents {
         @SubscribeEvent
         public static void onClientTick(TickEvent.ClientTickEvent event) {
-            if (event.phase == TickEvent.Phase.END) {
+            if (openMenuKey != null && event.phase == TickEvent.Phase.END) {
                 while (openMenuKey.consumeClick()) {
                     EventHandler.openMenu();
                 }

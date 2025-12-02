@@ -73,19 +73,20 @@ public class WaveMobsEditorScreen extends Screen {
                         button -> {}
                 ).bounds(centerX - 150, yPos, 120, 20).build()).active = false;
 
+                final int finalMobIndex = mobIndex;
                 this.addRenderableWidget(Button.builder(
                         Component.literal("Змінити"),
-                        button -> selectMob(mobIndex)
+                        button -> selectMob(finalMobIndex)
                 ).bounds(centerX - 25, yPos, 70, 20).build());
 
                 this.addRenderableWidget(Button.builder(
                         Component.literal("⚙ Налашт."),
-                        button -> editMob(mobIndex)
+                        button -> editMob(finalMobIndex)
                 ).bounds(centerX + 50, yPos, 80, 20).build());
 
                 this.addRenderableWidget(Button.builder(
                         Component.literal("§c✕ Видалити"),
-                        button -> deleteMob(mobIndex)
+                        button -> deleteMob(finalMobIndex)
                 ).bounds(centerX + 135, yPos, 85, 20).build());
 
                 String info = String.format("§7К-сть: %d | Шанс: %d%% | Поінти: %d",
@@ -124,10 +125,10 @@ public class WaveMobsEditorScreen extends Screen {
             int currentCount = waveConfig.getMobs().size();
 
             if (targetCount > currentCount) {
-                ResourceLocation zombieId = new ResourceLocation("minecraft", "zombie");
+                ResourceLocation zombieId = ResourceLocation.tryParse("minecraft:zombie");
 
                 for (int i = currentCount; i < targetCount; i++) {
-                    WaveMob newMob = new WaveMob(zombieId, 5, 100, 10);
+                    WaveMob newMob = new WaveMob(zombieId, 5, 1, 100, 10);
                     waveConfig.addMob(newMob);
                 }
             } else if (targetCount < currentCount) {
@@ -146,12 +147,12 @@ public class WaveMobsEditorScreen extends Screen {
     }
 
     private void selectMob(int mobIndex) {
-        this.minecraft.setScreen(new MobTypeSelectionScreen(waveConfig, mobIndex, this));
+        this.minecraft.setScreen(new MobSelectionScreen(this, waveConfig, mobIndex));
     }
 
     private void editMob(int mobIndex) {
         if (mobIndex >= 0 && mobIndex < waveConfig.getMobs().size()) {
-            this.minecraft.setScreen(new WaveMobSettingsScreen(waveConfig, mobIndex, this));
+            this.minecraft.setScreen(new WaveMobEditScreen(this, waveConfig, mobIndex));
         }
     }
 

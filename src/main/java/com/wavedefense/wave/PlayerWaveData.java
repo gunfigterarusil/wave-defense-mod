@@ -2,11 +2,14 @@ package com.wavedefense.wave;
 
 import com.wavedefense.data.Location;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
+import java.util.UUID;
 
 public class PlayerWaveData {
+    private UUID playerUUID;
     private Location currentLocation;
     private int currentWave;
     private long waveStartTime;
@@ -18,6 +21,14 @@ public class PlayerWaveData {
     // Player settings
     private boolean showTimer = true;
     private boolean showNotifications = true;
+
+    public UUID getPlayerUUID() {
+        return playerUUID;
+    }
+
+    public void setPlayerUUID(UUID playerUUID) {
+        this.playerUUID = playerUUID;
+    }
 
     public boolean isInWave() {
         return currentLocation != null;
@@ -93,5 +104,27 @@ public class PlayerWaveData {
 
     public void setShowNotifications(boolean showNotifications) {
         this.showNotifications = showNotifications;
+    }
+
+    public CompoundTag saveClientData() {
+        CompoundTag tag = new CompoundTag();
+        if (currentLocation != null) {
+            tag.put("location", currentLocation.save());
+        }
+        tag.putInt("currentWave", currentWave);
+        tag.putInt("timeUntilNextWave", timeUntilNextWave);
+        tag.putBoolean("isTimerActive", isTimerActive);
+        tag.putBoolean("showTimer", showTimer);
+        return tag;
+    }
+
+    public void loadClientData(CompoundTag tag) {
+        if (tag.contains("location")) {
+            this.currentLocation = Location.load(tag.getCompound("location"));
+        }
+        this.currentWave = tag.getInt("currentWave");
+        this.timeUntilNextWave = tag.getInt("timeUntilNextWave");
+        this.isTimerActive = tag.getBoolean("isTimerActive");
+        this.showTimer = tag.getBoolean("showTimer");
     }
 }

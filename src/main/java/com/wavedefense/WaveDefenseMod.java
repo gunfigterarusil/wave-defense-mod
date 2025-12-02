@@ -1,6 +1,6 @@
 package com.wavedefense;
 
-import com.wavedefense.config.ModConfig;
+import com.wavedefense.config.WaveDefenseConfig;
 import com.wavedefense.data.LocationManager;
 import com.wavedefense.events.EventHandler;
 import com.wavedefense.events.KeyBindings;
@@ -26,6 +26,7 @@ public class WaveDefenseMod {
     private static MinecraftServer serverInstance;
     public static LocationManager locationManager;
     public static WaveManager waveManager;
+    public static PacketHandler packetHandler;
 
     public WaveDefenseMod() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
@@ -33,11 +34,12 @@ public class WaveDefenseMod {
         modEventBus.addListener(this::commonSetup);
         modEventBus.addListener(this::clientSetup);
 
-        ModConfig.register();
+        WaveDefenseConfig.register();
         MinecraftForge.EVENT_BUS.register(new EventHandler());
         MinecraftForge.EVENT_BUS.register(this); // Register for server events
 
         waveManager = new WaveManager();
+        packetHandler = new PacketHandler();
     }
 
     @SubscribeEvent
@@ -57,6 +59,5 @@ public class WaveDefenseMod {
 
     private void clientSetup(final FMLClientSetupEvent event) {
         LOGGER.info("Wave Defense Mod - Client Setup");
-        KeyBindings.register();
     }
 }

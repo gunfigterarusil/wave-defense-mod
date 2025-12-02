@@ -2,22 +2,21 @@ package com.wavedefense.data;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class WaveConfig {
     private int waveNumber;
-    private int timeBetweenWaves; // В секундах
-    private List<WaveMob> mobs; // ЗМІНЕНО: WaveMob замість MobSpawn
-    private List<ItemStack> rewards;
+    private int timeBetweenWaves; // In seconds
+    private List<WaveMob> mobs;
+    private int pointsReward; // Changed from List<ItemStack> to int
 
     public WaveConfig(int waveNumber, int timeBetweenWaves) {
         this.waveNumber = waveNumber;
         this.timeBetweenWaves = timeBetweenWaves;
         this.mobs = new ArrayList<>();
-        this.rewards = new ArrayList<>();
+        this.pointsReward = 0; // Default to 0 points
     }
 
     public int getWaveNumber() { return waveNumber; }
@@ -34,8 +33,8 @@ public class WaveConfig {
         }
     }
 
-    public List<ItemStack> getRewards() { return rewards; }
-    public void addReward(ItemStack item) { rewards.add(item.copy()); }
+    public int getPointsReward() { return pointsReward; }
+    public void setPointsReward(int points) { this.pointsReward = points; }
 
     public CompoundTag save() {
         CompoundTag tag = new CompoundTag();
@@ -47,12 +46,7 @@ public class WaveConfig {
             mobsList.add(mob.save());
         }
         tag.put("mobs", mobsList);
-
-        ListTag rewardsList = new ListTag();
-        for (ItemStack item : rewards) {
-            rewardsList.add(item.save(new CompoundTag()));
-        }
-        tag.put("rewards", rewardsList);
+        tag.putInt("pointsReward", pointsReward); // Save points reward
 
         return tag;
     }
@@ -68,9 +62,8 @@ public class WaveConfig {
             config.mobs.add(WaveMob.load(mobsList.getCompound(i)));
         }
 
-        ListTag rewardsList = tag.getList("rewards", 10);
-        for (int i = 0; i < rewardsList.size(); i++) {
-            config.rewards.add(ItemStack.of(rewardsList.getCompound(i)));
+        if (tag.contains("pointsReward")) {
+            config.pointsReward = tag.getInt("pointsReward");
         }
 
         return config;

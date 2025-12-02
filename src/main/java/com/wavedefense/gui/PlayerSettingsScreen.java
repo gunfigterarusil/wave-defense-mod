@@ -1,5 +1,7 @@
 package com.wavedefense.gui;
 
+import com.wavedefense.network.PacketHandler;
+import com.wavedefense.network.packets.UpdatePlayerSettingsPacket;
 import com.wavedefense.wave.PlayerWaveData;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -25,6 +27,7 @@ public class PlayerSettingsScreen extends Screen {
                 Component.literal("Показувати таймер: " + (playerData.isShowTimer() ? "§aТак" : "§cНі")),
                 button -> {
                     playerData.setShowTimer(!playerData.isShowTimer());
+                    sendSettingsUpdate();
                     this.rebuildWidgets();
                 }
         ).bounds(centerX - 100, startY, 200, 20).build());
@@ -33,6 +36,7 @@ public class PlayerSettingsScreen extends Screen {
                 Component.literal("Показувати сповіщення: " + (playerData.isShowNotifications() ? "§aТак" : "§cНі")),
                 button -> {
                     playerData.setShowNotifications(!playerData.isShowNotifications());
+                    sendSettingsUpdate();
                     this.rebuildWidgets();
                 }
         ).bounds(centerX - 100, startY + 25, 200, 20).build());
@@ -41,6 +45,10 @@ public class PlayerSettingsScreen extends Screen {
                 Component.literal("Закрити"),
                 button -> this.onClose()
         ).bounds(centerX - 50, this.height - 30, 100, 20).build());
+    }
+
+    private void sendSettingsUpdate() {
+        PacketHandler.sendToServer(new UpdatePlayerSettingsPacket(playerData.isShowTimer(), playerData.isShowNotifications()));
     }
 
     @Override
