@@ -10,25 +10,25 @@ import net.minecraftforge.network.NetworkEvent;
 
 import java.util.function.Supplier;
 
-public class PurchaseItemPacket {
+public class SellItemPacket {
     private final String locationName;
     private final int itemIndex;
 
-    public PurchaseItemPacket(String locationName, int itemIndex) {
+    public SellItemPacket(String locationName, int itemIndex) {
         this.locationName = locationName;
         this.itemIndex = itemIndex;
     }
 
-    public static void encode(PurchaseItemPacket packet, FriendlyByteBuf buf) {
+    public static void encode(SellItemPacket packet, FriendlyByteBuf buf) {
         buf.writeUtf(packet.locationName);
         buf.writeInt(packet.itemIndex);
     }
 
-    public static PurchaseItemPacket decode(FriendlyByteBuf buf) {
-        return new PurchaseItemPacket(buf.readUtf(), buf.readInt());
+    public static SellItemPacket decode(FriendlyByteBuf buf) {
+        return new SellItemPacket(buf.readUtf(), buf.readInt());
     }
 
-    public static void handle(PurchaseItemPacket packet, Supplier<NetworkEvent.Context> ctx) {
+    public static void handle(SellItemPacket packet, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
@@ -37,14 +37,15 @@ public class PurchaseItemPacket {
             if (location == null) return;
 
             ShopItem shopItem = location.getShopItems().get(packet.itemIndex);
-            int price = shopItem.getBuyPrice();
+            if (!shopItem.canSell()) return;
 
-            if (location.getPlayerPoints(player.getUUID()) >= price) {
-                location.addPoints(player.getUUID(), -price);
-                for (ItemStack item : shopItem.getItems()) {
-                    player.getInventory().add(item.copy());
+            for (ItemStack item : shopItem.getItems()) {
+                if (!player.getInventory().clearOrCountMatchingItems(p -> ItemStack.isSameItemSameTags(p, item), item.getCount(), player.inventoryMenu.getCraftSlots())) {
+                    return;
                 }
             }
+
+            location.addPoints(player.getUUID(), shopItem.getSellPrice());
         });
         ctx.get().setPacketHandled(true);
     }

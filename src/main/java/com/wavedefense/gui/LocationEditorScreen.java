@@ -1,9 +1,11 @@
 package com.wavedefense.gui;
 
-import com.wavedefense.WaveDefenseMod;
 import com.wavedefense.data.Location;
+import com.wavedefense.network.PacketHandler;
+import com.wavedefense.network.packets.UpdateLocationPacket;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -13,6 +15,8 @@ public class LocationEditorScreen extends Screen {
     private final Location location;
     private final Screen parent;
     private int currentTab = 0; // 0=основні, 1=хвилі, 2=магазин
+    private EditBox totalWavesInput;
+    private EditBox timeBetweenWavesInput;
 
     public LocationEditorScreen(Location location, Screen parent) {
         super(Component.literal("Редагування: " + location.getName()));
@@ -140,43 +144,20 @@ public class LocationEditorScreen extends Screen {
     }
 
     private void initWavesTab(int centerX, int startY) {
-        this.addRenderableWidget(Button.builder(
-                Component.literal(String.format("§6Налаштовано хвиль: §e%d", location.getWaves().size())),
-                button -> {}
-        ).bounds(centerX - 150, startY, 300, 20).build()).active = false;
+        // Total Waves
+        totalWavesInput = new EditBox(this.font, centerX - 100, startY, 200, 20, Component.literal("Кількість хвиль"));
+        totalWavesInput.setValue(String.valueOf(location.getTotalWaves()));
+        this.addRenderableWidget(totalWavesInput);
+
+        // Time Between Waves
+        timeBetweenWavesInput = new EditBox(this.font, centerX - 100, startY + 30, 200, 20, Component.literal("Час між хвилями (сек)"));
+        timeBetweenWavesInput.setValue(String.valueOf(location.getTimeBetweenWaves()));
+        this.addRenderableWidget(timeBetweenWavesInput);
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("⚙ Налаштувати хвилі"),
+                Component.literal("⚙ Налаштувати мобів для хвиль"),
                 button -> openWaveConfig()
-        ).bounds(centerX - 100, startY + 30, 200, 25).build());
-
-        if (!location.getWaves().isEmpty()) {
-            int previewY = startY + 70;
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("§7Попередній перегляд:"),
-                    button -> {}
-            ).bounds(centerX - 150, previewY, 300, 18).build()).active = false;
-
-            for (int i = 0; i < Math.min(5, location.getWaves().size()); i++) {
-                String info = String.format("§7Хвиля %d: §f%d типів мобів, %d нагород",
-                        i + 1,
-                        location.getWaves().get(i).getMobs().size(),
-                        location.getWaves().get(i).getRewards().size()
-                );
-
-                this.addRenderableWidget(Button.builder(
-                        Component.literal(info),
-                        button -> {}
-                ).bounds(centerX - 150, previewY + 20 + (i * 20), 300, 18).build()).active = false;
-            }
-
-            if (location.getWaves().size() > 5) {
-                this.addRenderableWidget(Button.builder(
-                        Component.literal(String.format("§7... ще %d хвиль", location.getWaves().size() - 5)),
-                        button -> {}
-                ).bounds(centerX - 150, previewY + 120, 300, 18).build()).active = false;
-            }
-        }
+        ).bounds(centerX - 100, startY + 60, 200, 25).build());
     }
 
     private void initShopTab(int centerX, int startY) {
@@ -199,7 +180,7 @@ public class LocationEditorScreen extends Screen {
 
             for (int i = 0; i < Math.min(5, location.getShopItems().size()); i++) {
                 var shopItem = location.getShopItems().get(i);
-                String itemName = shopItem.getItem().getHoverName().getString();
+                String itemName = shopItem.getItems().get(0).getHoverName().getString();
                 if (itemName.length() > 20) {
                     itemName = itemName.substring(0, 17) + "...";
                 }
@@ -267,7 +248,23 @@ public class LocationEditorScreen extends Screen {
     }
 
     private void saveChanges() {
-        WaveDefenseMod.locationManager.save();
+        if (currentTab == 1) { // Only parse wave settings if on the wave tab
+            try {
+                int totalWaves = Integer.parseInt(totalWavesInput.getValue());
+                location.setTotalWaves(totalWaves);
+            } catch (NumberFormatException e) {
+                // Optionally provide feedback to the user
+            }
+
+            try {
+                int timeBetween = Integer.parseInt(timeBetweenWavesInput.getValue());
+                location.setTimeBetweenWaves(timeBetween);
+            } catch (NumberFormatException e) {
+                // Optionally provide feedback to the user
+            }
+        }
+
+        PacketHandler.sendToServer(new UpdateLocationPacket(location));
         if (minecraft.player != null) {
             minecraft.player.displayClientMessage(
                     Component.literal("§a✓ Зміни збережено!"),

@@ -1,6 +1,9 @@
 package com.wavedefense.gui;
 
-import com.wavedefense.WaveDefenseMod;
+import com.wavedefense.network.PacketHandler;
+import com.wavedefense.network.packets.CreateLocationPacket;
+import com.wavedefense.network.packets.DeleteLocationPacket;
+import com.wavedefense.network.packets.RequestLocationDataPacket;
 import com.wavedefense.data.Location;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -9,7 +12,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class AdminMenuScreen extends Screen {
 
@@ -26,10 +28,9 @@ public class AdminMenuScreen extends Screen {
     @Override
     protected void init() {
         super.init();
+        PacketHandler.sendToServer(new RequestLocationDataPacket());
 
-        this.locationNames = WaveDefenseMod.locationManager.getAllLocations().stream()
-                .map(Location::getName)
-                .collect(Collectors.toList());
+        this.locationNames = ClientLocationManager.getAllLocationNames();
 
         int centerX = this.width / 2;
         int startY = 40;
@@ -88,11 +89,13 @@ public class AdminMenuScreen extends Screen {
 
     private void createNewLocation() {
         String name = locationNameInput.getValue().trim();
-        if (name.isEmpty() || WaveDefenseMod.locationManager.locationExists(name)) {
+        if (name.isEmpty() || ClientLocationManager.getLocation(name) != null) {
             return;
         }
-        WaveDefenseMod.locationManager.createLocation(name);
+        PacketHandler.sendToServer(new CreateLocationPacket(name));
         locationNameInput.setValue("");
+        // Request a refresh of the location list
+        PacketHandler.sendToServer(new RequestLocationDataPacket());
         this.rebuildWidgets();
     }
 
@@ -101,14 +104,16 @@ public class AdminMenuScreen extends Screen {
     }
 
     private void editLocation(String name) {
-        Location location = WaveDefenseMod.locationManager.getLocation(name);
+        Location location = ClientLocationManager.getLocation(name);
         if (location != null) {
             this.minecraft.setScreen(new LocationEditorScreen(location, this));
         }
     }
 
     private void deleteLocation(String name) {
-        WaveDefenseMod.locationManager.removeLocation(name);
+        PacketHandler.sendToServer(new DeleteLocationPacket(name));
+        // Request a refresh of the location list
+        PacketHandler.sendToServer(new RequestLocationDataPacket());
         this.rebuildWidgets();
     }
 

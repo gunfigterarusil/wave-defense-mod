@@ -1,6 +1,6 @@
 package com.wavedefense.network.packets;
 
-import com.wavedefense.WaveDefenseMod;
+import com.wavedefense.gui.ClientLocationManager;
 import com.wavedefense.gui.PlayerShopScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
@@ -32,17 +32,13 @@ public class UpdatePointsPacket {
         ctx.get().enqueueWork(() -> {
             DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
                 if (Minecraft.getInstance().player != null) {
-                    WaveDefenseMod.locationManager.getLocation(packet.locationName).addPoints(Minecraft.getInstance().player.getUUID(), packet.points - WaveDefenseMod.locationManager.getLocation(packet.locationName).getPlayerPoints(Minecraft.getInstance().player.getUUID()));
+                    ClientLocationManager.getLocation(packet.locationName).addPoints(Minecraft.getInstance().player.getUUID(), packet.points - ClientLocationManager.getLocation(packet.locationName).getPlayerPoints(Minecraft.getInstance().player.getUUID()));
                     if (Minecraft.getInstance().screen instanceof PlayerShopScreen) {
-                        ((PlayerShopScreen) Minecraft.getInstance().screen).forceRefresh();
+                        Minecraft.getInstance().setScreen(new PlayerShopScreen(ClientLocationManager.getLocation(packet.locationName)));
                     }
                 }
             });
         });
         ctx.get().setPacketHandled(true);
-    }
-
-    public int getPoints() {
-        return points;
     }
 }

@@ -87,19 +87,20 @@ public class WaveConfigScreen extends Screen {
                         button -> {}
                 ).bounds(centerX - 150, yPos, 200, 20).build()).active = false;
 
+                final int finalWaveIndex = waveIndex;
                 this.addRenderableWidget(Button.builder(
                         Component.literal("✎ Моби"),
-                        button -> editWaveMobs(waveIndex)
+                        button -> editWaveMobs(finalWaveIndex)
                 ).bounds(centerX - 150, yPos + 25, 90, 20).build());
 
                 this.addRenderableWidget(Button.builder(
                         Component.literal("🎁 Нагороди"),
-                        button -> editWaveRewards(waveIndex)
+                        button -> editWaveRewards(finalWaveIndex)
                 ).bounds(centerX - 55, yPos + 25, 100, 20).build());
 
                 Button deleteButton = Button.builder(
                         Component.literal("✕"),
-                        button -> deleteWave(waveIndex)
+                        button -> deleteWave(finalWaveIndex)
                 ).bounds(centerX + 50, yPos, 20, 20).build();
                 deleteButton.active = location.getWaves().size() > 1;
                 this.addRenderableWidget(deleteButton);
@@ -213,10 +214,7 @@ public class WaveConfigScreen extends Screen {
 
     private void editWaveRewards(int waveIndex) {
         if (waveIndex >= 0 && waveIndex < location.getWaves().size()) {
-            this.minecraft.setScreen(new RewardsConfigScreen(
-                    location.getWaves().get(waveIndex),
-                    this
-            ));
+            this.minecraft.setScreen(new RewardsConfigScreen(this, location.getWaves().get(waveIndex)));
         }
     }
 

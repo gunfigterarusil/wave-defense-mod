@@ -1,5 +1,6 @@
 package com.wavedefense.network.packets;
 
+import com.wavedefense.gui.ClientLocationManager;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.network.NetworkEvent;
@@ -23,7 +24,8 @@ public class SyncLocationDataPacket {
 
     public static void handle(SyncLocationDataPacket packet, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
-            // Обробка синхронізації даних локацій на клієнті
+            // Updated to use ClientLocationManager
+            ClientLocationManager.updateLocations(packet.getData());
         });
         ctx.get().setPacketHandled(true);
     }
