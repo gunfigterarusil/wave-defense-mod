@@ -25,20 +25,20 @@ public class LocationManager {
     public void createLocation(String name) {
         if (getLocation(name) == null) {
             locations.add(new Location(name));
-            save();
+            saveToFile();
         }
     }
 
     public void removeLocation(String name) {
         locations.removeIf(loc -> loc.getName().equals(name));
-        save();
+        saveToFile();
     }
 
     public void updateLocation(Location updatedLocation) {
         for (int i = 0; i < locations.size(); i++) {
             if (locations.get(i).getName().equals(updatedLocation.getName())) {
                 locations.set(i, updatedLocation);
-                save();
+                saveToFile();
                 return;
             }
         }
@@ -60,17 +60,20 @@ public class LocationManager {
         return locations.stream().anyMatch(loc -> loc.getName().equals(name));
     }
 
-    public void save() {
+    public CompoundTag save() {
         CompoundTag data = new CompoundTag();
         ListTag locationsList = new ListTag();
         for (Location loc : locations) {
             locationsList.add(loc.save());
         }
         data.put("locations", locationsList);
+        return data;
+    }
 
+    public void saveToFile() {
         try {
             dataFile.getParentFile().mkdirs();
-            NbtIo.writeCompressed(data, dataFile);
+            NbtIo.writeCompressed(save(), dataFile);
         } catch (IOException e) {
             WaveDefenseMod.LOGGER.error("Could not save location data", e);
         }

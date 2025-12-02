@@ -48,6 +48,11 @@ public class PacketHandler {
                 SyncStatsPacket::decode,
                 SyncStatsPacket::handle);
 
+        INSTANCE.registerMessage(id(), SyncPlayerDataPacket.class,
+                SyncPlayerDataPacket::encode,
+                SyncPlayerDataPacket::decode,
+                SyncPlayerDataPacket::handle);
+
         INSTANCE.registerMessage(id(), SyncLocationDataPacket.class,
                 SyncLocationDataPacket::encode,
                 SyncLocationDataPacket::decode,

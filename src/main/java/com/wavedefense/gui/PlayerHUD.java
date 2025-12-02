@@ -1,6 +1,5 @@
 package com.wavedefense.gui;
 
-import com.wavedefense.WaveDefenseMod;
 import com.wavedefense.wave.PlayerWaveData;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -11,11 +10,10 @@ public class PlayerHUD {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null) return;
 
-        UUID playerId = minecraft.player.getUUID();
-        PlayerWaveData data = WaveDefenseMod.waveManager.getPlayerData(playerId);
+        PlayerWaveData data = ClientPlayerDataManager.getPlayerData();
 
         if (data != null && data.isInWave()) {
-            int points = data.getCurrentLocation().getPlayerPoints(playerId);
+            int points = data.getCurrentLocation().getPlayerPoints(minecraft.player.getUUID());
             String pointsText = "Очки: " + points;
             int textWidth = minecraft.font.width(pointsText);
             graphics.drawString(minecraft.font, pointsText, width - textWidth - 10, height - 20, 0xFFFFFF);
