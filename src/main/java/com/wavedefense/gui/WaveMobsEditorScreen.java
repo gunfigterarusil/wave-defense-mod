@@ -5,21 +5,22 @@ import com.wavedefense.data.WaveConfig;
 import com.wavedefense.data.WaveMob;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraftforge.registries.ForgeRegistries;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class WaveMobsEditorScreen extends Screen {
+    private static final Logger LOGGER = LoggerFactory.getLogger(WaveMobsEditorScreen.class);
     private final Location location;
     private final int waveIndex;
     private final Screen parent;
     private final WaveConfig waveConfig;
     private int scrollOffset = 0;
     private static final int ITEMS_PER_PAGE = 5;
-    private EditBox mobCountInput;
 
     public WaveMobsEditorScreen(Location location, int waveIndex, Screen parent) {
         super(Component.literal("Моби хвилі " + (waveIndex + 1)));
@@ -27,6 +28,7 @@ public class WaveMobsEditorScreen extends Screen {
         this.waveIndex = waveIndex;
         this.parent = parent;
         this.waveConfig = location.getWaves().get(waveIndex);
+        LOGGER.info("Opened mob editor for wave {} in location {}", waveIndex + 1, location.getName());
     }
 
     @Override
@@ -36,25 +38,15 @@ public class WaveMobsEditorScreen extends Screen {
         int centerX = this.width / 2;
         int startY = 60;
 
+        // Кнопка додавання моба
         this.addRenderableWidget(Button.builder(
-                Component.literal("Кількість типів мобів:"),
-                button -> {}
-        ).bounds(centerX - 150, 35, 140, 20).build()).active = false;
-
-        mobCountInput = new EditBox(this.font, centerX - 5, 35, 60, 20,
-                Component.literal("К-сть"));
-        mobCountInput.setValue(String.valueOf(waveConfig.getMobs().size()));
-        mobCountInput.setMaxLength(2);
-        this.addRenderableWidget(mobCountInput);
-
-        this.addRenderableWidget(Button.builder(
-                Component.literal("Застосувати"),
-                button -> applyMobCount()
-        ).bounds(centerX + 60, 35, 90, 20).build());
+                Component.literal("➕ Додати моба"),
+                button -> addNewMob()
+        ).bounds(centerX - 100, 35, 200, 20).build());
 
         if (waveConfig.getMobs().isEmpty()) {
             this.addRenderableWidget(Button.builder(
-                    Component.literal("§7Моби не додані. Встановіть кількість вище."),
+                    Component.literal("§7Моби не додані. Натисніть 'Додати моба' вище."),
                     button -> {}
             ).bounds(centerX - 150, startY, 300, 20).build()).active = false;
         } else {
@@ -89,8 +81,8 @@ public class WaveMobsEditorScreen extends Screen {
                         button -> deleteMob(finalMobIndex)
                 ).bounds(centerX + 135, yPos, 85, 20).build());
 
-                String info = String.format("§7К-сть: %d | Шанс: %d%% | Поінти: %d",
-                        mob.getCount(), mob.getSpawnChance(), mob.getPointsPerKill());
+                String info = String.format("§7К-сть: %d | Приріст: %d | Шанс: %d%% | Поінти: %d",
+                        mob.getCount(), mob.getGrowthPerWave(), mob.getSpawnChance(), mob.getPointsPerKill());
 
                 this.addRenderableWidget(Button.builder(
                         Component.literal(info),
@@ -117,51 +109,27 @@ public class WaveMobsEditorScreen extends Screen {
         ).bounds(centerX - 50, this.height - 30, 100, 20).build());
     }
 
-    private void applyMobCount() {
-        try {
-            int targetCount = Integer.parseInt(mobCountInput.getValue());
-            if (targetCount < 0 || targetCount > 10) return;
-
-            int currentCount = waveConfig.getMobs().size();
-
-            if (targetCount > currentCount) {
-                // Use new ResourceLocation constructor for 1.20.1
-                ResourceLocation zombieId = new ResourceLocation("minecraft", "zombie");
-
-                for (int i = currentCount; i < targetCount; i++) {
-                    WaveMob newMob = new WaveMob(zombieId, 5, 1, 100, 10);
-                    waveConfig.addMob(newMob);
-                }
-            } else if (targetCount < currentCount) {
-                while (waveConfig.getMobs().size() > targetCount) {
-                    waveConfig.getMobs().remove(waveConfig.getMobs().size() - 1);
-                }
-            }
-
-            if (scrollOffset > 0 && scrollOffset >= waveConfig.getMobs().size()) {
-                scrollOffset = Math.max(0, waveConfig.getMobs().size() - ITEMS_PER_PAGE);
-            }
-
-            this.rebuildWidgets();
-        } catch (NumberFormatException e) {
-            // Invalid input
-        }
+    private void addNewMob() {
+        LOGGER.debug("Opening mob selection screen");
+        this.minecraft.setScreen(new MobSelectionScreen(this, waveConfig, -1));
     }
 
     private void selectMob(int mobIndex) {
+        LOGGER.debug("Changing mob type at index {}", mobIndex);
         this.minecraft.setScreen(new MobSelectionScreen(this, waveConfig, mobIndex));
     }
 
     private void editMob(int mobIndex) {
         if (mobIndex >= 0 && mobIndex < waveConfig.getMobs().size()) {
-            this.minecraft.setScreen(new WaveMobEditScreen(this, waveConfig, mobIndex));
+            LOGGER.debug("Editing mob settings at index {}", mobIndex);
+            this.minecraft.setScreen(new WaveMobSettingsScreen(this, waveConfig, mobIndex));
         }
     }
 
     private void deleteMob(int mobIndex) {
         if (mobIndex >= 0 && mobIndex < waveConfig.getMobs().size()) {
+            LOGGER.info("Deleting mob at index {} from wave {}", mobIndex, waveIndex + 1);
             waveConfig.removeMob(mobIndex);
-            mobCountInput.setValue(String.valueOf(waveConfig.getMobs().size()));
 
             if (scrollOffset > 0 && scrollOffset >= waveConfig.getMobs().size()) {
                 scrollOffset = Math.max(0, waveConfig.getMobs().size() - ITEMS_PER_PAGE);
@@ -195,6 +163,10 @@ public class WaveMobsEditorScreen extends Screen {
             graphics.drawString(this.font,
                     "§7Налаштуйте кожного моба або видаліть непотрібних",
                     this.width / 2 - 150, 20, 0xFFFFFF);
+        } else {
+            graphics.drawString(this.font,
+                    "§7Спочатку додайте мобів для цієї хвилі",
+                    this.width / 2 - 120, 20, 0xFFFFFF);
         }
 
         super.render(graphics, mouseX, mouseY, partialTick);
