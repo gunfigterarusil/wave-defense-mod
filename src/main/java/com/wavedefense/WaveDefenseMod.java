@@ -3,12 +3,12 @@ package com.wavedefense;
 import com.wavedefense.config.WaveDefenseConfig;
 import com.wavedefense.data.LocationManager;
 import com.wavedefense.events.EventHandler;
-import com.wavedefense.events.KeyBindings;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.wave.WaveManager;
 import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.server.ServerStartingEvent;
+import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -36,16 +36,28 @@ public class WaveDefenseMod {
 
         WaveDefenseConfig.register();
         MinecraftForge.EVENT_BUS.register(new EventHandler());
-        MinecraftForge.EVENT_BUS.register(this); // Register for server events
+        MinecraftForge.EVENT_BUS.register(this);
 
         waveManager = new WaveManager();
         packetHandler = new PacketHandler();
+
+        LOGGER.info("Wave Defense Mod initialized");
     }
 
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
         serverInstance = event.getServer();
         locationManager = new LocationManager(serverInstance);
+        LOGGER.info("Server starting - LocationManager initialized");
+    }
+
+    @SubscribeEvent
+    public void onServerStopping(ServerStoppingEvent event) {
+        if (locationManager != null) {
+            locationManager.saveToFile();
+            LOGGER.info("Server stopping - Data saved");
+        }
+        serverInstance = null;
     }
 
     public static MinecraftServer getServer() {
@@ -53,10 +65,16 @@ public class WaveDefenseMod {
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
-        LOGGER.info("Wave Defense Mod - Common Setup");
-        PacketHandler.register();
+        event.enqueueWork(() -> {
+            PacketHandler.register();
+            LOGGER.info("Wave Defense Mod - Common Setup Complete");
+        });
     }
 
+    private void clientSetup(final FMLClientSetupEvent event) {
+        LOGGER.info("Wave Defense Mod - Client Setup Complete");
+    }
+}
     private void clientSetup(final FMLClientSetupEvent event) {
         LOGGER.info("Wave Defense Mod - Client Setup");
     }
