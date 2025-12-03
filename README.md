@@ -101,12 +101,13 @@ cd wave-defense-mod
 
 ## 👥 Автори
 
-- **Ваше ім'я** - [GitHub](https://github.com/YOUR_USERNAME)
+Rayman for GummerCraft- [GitHub](https://github.com/YOUR_USERNAME)
 
 ## 🙏 Подяки
 
 - Спільноті Minecraft Forge
 - Всім контриб'юторам
+- GummerCraft server minecraft
 
 ## 📞 Підтримка
 
@@ -115,5 +116,6 @@ cd wave-defense-mod
 - Приєднуйтесь до нашого [Discord](#) (опціонально)
 
 ---
+
 
 **Зроблено з ❤️ для спільноти Minecraft**
