@@ -14,6 +14,8 @@ import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents; // Добавлен импорт
+import net.minecraft.sounds.SoundSource; // Добавлен импорт
 import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.registries.ForgeRegistries;
 
@@ -324,12 +326,14 @@ public class WaveManager {
     }
 
     private void endSessionForLocation(String locationName, String message) {
+        Location location = WaveDefenseMod.locationManager.getLocation(locationName);
+
         broadcastToLocation(locationName, message);
 
         List<UUID> playersToRemove = new ArrayList<>();
         for (Map.Entry<UUID, PlayerWaveData> entry : playerData.entrySet()) {
             if (entry.getValue().getCurrentLocation() != null &&
-                entry.getValue().getCurrentLocation().getName().equals(locationName)) {
+                    entry.getValue().getCurrentLocation().getName().equals(locationName)) {
                 playersToRemove.add(entry.getKey());
             }
         }
@@ -337,6 +341,10 @@ public class WaveManager {
         for (UUID playerId : playersToRemove) {
             ServerPlayer player = WaveDefenseMod.getServer().getPlayerList().getPlayer(playerId);
             if (player != null) {
+                // Видаємо нагороди, якщо всі хвилі завершено успішно (шукаємо ключове слово)
+                if (location != null && message.contains("завершено")) {
+                    giveCompletionRewards(player, location);
+                }
                 surrenderPlayer(player);
             }
         }
@@ -344,6 +352,47 @@ public class WaveManager {
         spawnedMobsByLocation.remove(locationName);
         locationWaveTimers.remove(locationName);
         locationStartTimers.remove(locationName);
+    }
+
+    /**
+     * Видає гравцю нагороди за завершення всіх хвиль
+     */
+    private void giveCompletionRewards(ServerPlayer player, Location location) {
+        if (location.getCompletionRewards().isEmpty()) {
+            return;
+        }
+
+        int rewardsGiven = 0;
+        for (ItemStack reward : location.getCompletionRewards()) {
+            if (!reward.isEmpty()) {
+                ItemStack rewardCopy = reward.copy();
+                if (player.getInventory().add(rewardCopy)) {
+                    rewardsGiven++;
+                } else {
+                    // Якщо інвентар повний, викидаємо предмет
+                    player.drop(rewardCopy, false);
+                    rewardsGiven++;
+                }
+            }
+        }
+
+        if (rewardsGiven > 0) {
+            player.displayClientMessage(
+                    Component.literal(String.format("§6§l✓ Ви отримали %d нагород за завершення!", rewardsGiven)),
+                    false
+            );
+
+            // Звуковий ефект
+            player.playNotifySound(
+                    SoundEvents.PLAYER_LEVELUP,
+                    SoundSource.PLAYERS,
+                    1.0F,
+                    1.0F
+            );
+
+            WaveDefenseMod.LOGGER.info("Player {} received {} completion rewards from location {}",
+                    player.getName().getString(), rewardsGiven, location.getName());
+        }
     }
 
     private void broadcastToLocation(String locationName, String message) {
@@ -377,4 +426,4 @@ public class WaveManager {
     public PlayerWaveData getPlayerData(UUID playerId) {
         return playerData.get(playerId);
     }
-}
+    }
