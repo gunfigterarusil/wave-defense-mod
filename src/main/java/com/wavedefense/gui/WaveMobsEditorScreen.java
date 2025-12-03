@@ -125,7 +125,8 @@ public class WaveMobsEditorScreen extends Screen {
             int currentCount = waveConfig.getMobs().size();
 
             if (targetCount > currentCount) {
-                ResourceLocation zombieId = ResourceLocation.tryParse("minecraft:zombie");
+                // Use new ResourceLocation constructor for 1.20.1
+                ResourceLocation zombieId = new ResourceLocation("minecraft", "zombie");
 
                 for (int i = currentCount; i < targetCount; i++) {
                     WaveMob newMob = new WaveMob(zombieId, 5, 1, 100, 10);
@@ -143,6 +144,7 @@ public class WaveMobsEditorScreen extends Screen {
 
             this.rebuildWidgets();
         } catch (NumberFormatException e) {
+            // Invalid input
         }
     }
 
