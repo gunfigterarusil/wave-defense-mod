@@ -75,7 +75,3 @@ public class WaveDefenseMod {
         LOGGER.info("Wave Defense Mod - Client Setup Complete");
     }
 }
-    private void clientSetup(final FMLClientSetupEvent event) {
-        LOGGER.info("Wave Defense Mod - Client Setup");
-    }
-}
