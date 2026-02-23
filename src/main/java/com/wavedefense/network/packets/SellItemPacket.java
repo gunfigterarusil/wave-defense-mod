@@ -5,12 +5,13 @@ import com.wavedefense.data.Location;
 import com.wavedefense.data.ShopItem;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
 
-import java.util.function.Supplier;
-import java.util.Map;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Supplier;
 
 public class SellItemPacket {
     private final String locationName;
@@ -37,39 +38,50 @@ public class SellItemPacket {
 
             Location location = WaveDefenseMod.locationManager.getLocation(packet.locationName);
             if (location == null) return;
+            if (packet.itemIndex < 0 || packet.itemIndex >= location.getShopItems().size()) return;
 
             ShopItem shopItem = location.getShopItems().get(packet.itemIndex);
             if (!shopItem.canSell()) return;
 
-            // Group items to correctly check for counts
-            Map<ItemStack, Integer> requiredItems = new HashMap<>();
-            for (ItemStack item : shopItem.getItems()) {
-                boolean found = false;
-                for (ItemStack key : requiredItems.keySet()) {
-                    if (ItemStack.isSameItemSameTags(key, item)) {
-                        requiredItems.put(key, requiredItems.get(key) + item.getCount());
-                        found = true;
-                        break;
+            // Підраховуємо скільки кожного ТИПУ предмета потрібно
+            // Порівнюємо тільки за Item (без NBT) — щоб арбуз з будь-якими тегами приймався
+            Map<Item, Integer> requiredCounts = new HashMap<>();
+            for (ItemStack required : shopItem.getItems()) {
+                requiredCounts.merge(required.getItem(), required.getCount(), Integer::sum);
+            }
+
+            // Перевіряємо наявність у гравця (лише за типом предмету, без NBT)
+            for (Map.Entry<Item, Integer> entry : requiredCounts.entrySet()) {
+                int inInventory = player.getInventory().countItem(entry.getKey());
+                if (inInventory < entry.getValue()) {
+                    // Не вистачає предметів — відмовляємо
+                    return;
+                }
+            }
+
+            // Забираємо предмети (лише за типом, без перевірки NBT)
+            for (Map.Entry<Item, Integer> entry : requiredCounts.entrySet()) {
+                int toRemove = entry.getValue();
+                Item targetItem = entry.getKey();
+                // Проходимо інвентар і видаляємо потрібну кількість
+                for (int i = 0; i < player.getInventory().getContainerSize() && toRemove > 0; i++) {
+                    ItemStack slot = player.getInventory().getItem(i);
+                    if (!slot.isEmpty() && slot.getItem() == targetItem) {
+                        int removeFromSlot = Math.min(slot.getCount(), toRemove);
+                        slot.shrink(removeFromSlot);
+                        toRemove -= removeFromSlot;
+                        if (slot.isEmpty()) {
+                            player.getInventory().setItem(i, ItemStack.EMPTY);
+                        }
                     }
                 }
-                if (!found) {
-                    requiredItems.put(item.copy(), item.getCount());
-                }
             }
 
-            // Check if player has all required items
-            for (Map.Entry<ItemStack, Integer> entry : requiredItems.entrySet()) {
-                if (player.getInventory().countItem(entry.getKey().getItem()) < entry.getValue()) {
-                    return; // Player doesn't have enough items
-                }
-            }
-
-            // Remove items from player's inventory
-            for (Map.Entry<ItemStack, Integer> entry : requiredItems.entrySet()) {
-                player.getInventory().clearOrCountMatchingItems(p -> ItemStack.isSameItemSameTags(p, entry.getKey()), entry.getValue(), player.inventoryMenu.getCraftSlots());
-            }
-
+            // Нараховуємо поінти
             location.addPoints(player.getUUID(), shopItem.getSellPrice());
+
+            // Синхронізуємо гравця
+            WaveDefenseMod.waveManager.syncPlayerData(player);
         });
         ctx.get().setPacketHandled(true);
     }

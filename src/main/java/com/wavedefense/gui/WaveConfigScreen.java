@@ -1,6 +1,5 @@
 package com.wavedefense.gui;
 
-import com.wavedefense.WaveDefenseMod;
 import com.wavedefense.data.Location;
 import com.wavedefense.data.WaveConfig;
 import net.minecraft.client.gui.GuiGraphics;
@@ -15,14 +14,18 @@ public class WaveConfigScreen extends Screen {
     private final Location location;
     private final Screen parent;
     private EditBox waveCountInput;
-    private EditBox timeBetweenWavesInput;
+    private EditBox timeBetweenWavesInput; // тепер у секундах
     private int scrollOffset = 0;
-    private static final int ITEMS_PER_PAGE = 5;
+
+    private int getItemsPerPage() {
+        return Math.max(2, (this.height - 145) / 50);
+    }
+
     private boolean showConfirmDialog = false;
     private int pendingWaveCount = 0;
 
     public WaveConfigScreen(Location location, Screen parent) {
-        super(Component.literal("Налаштування хвиль"));
+        super(Component.literal("Налаштування хвиль: " + location.getName()));
         this.location = location;
         this.parent = parent;
     }
@@ -30,22 +33,20 @@ public class WaveConfigScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-
         int centerX = this.width / 2;
-        int startY = 50;
+        int startY = 45;
 
         if (showConfirmDialog) {
             initConfirmDialog(centerX);
             return;
         }
 
+        // Кількість хвиль
         this.addRenderableWidget(Button.builder(
-                Component.literal("Кількість хвиль:"),
-                button -> {}
-        ).bounds(centerX - 150, startY, 120, 20).build()).active = false;
+                Component.literal("§7Кількість хвиль:"), button -> {}
+        ).bounds(centerX - 150, startY, 115, 18).build()).active = false;
 
-        waveCountInput = new EditBox(this.font, centerX - 25, startY, 60, 20,
-                Component.literal("К-сть"));
+        waveCountInput = new EditBox(this.font, centerX - 30, startY, 55, 20, Component.literal("К-сть"));
         waveCountInput.setValue(String.valueOf(location.getWaves().size()));
         waveCountInput.setMaxLength(3);
         this.addRenderableWidget(waveCountInput);
@@ -53,236 +54,248 @@ public class WaveConfigScreen extends Screen {
         this.addRenderableWidget(Button.builder(
                 Component.literal("Застосувати"),
                 button -> applyWaveCount()
-        ).bounds(centerX + 40, startY, 80, 20).build());
+        ).bounds(centerX + 30, startY, 90, 20).build());
 
+        // Час між хвилями — у СЕКУНДАХ
         this.addRenderableWidget(Button.builder(
-                Component.literal("Час між хвилями (хв):"),
-                button -> {}
-        ).bounds(centerX - 150, startY + 30, 140, 20).build()).active = false;
+                Component.literal("§7Час між хвилями (сек):"), button -> {}
+        ).bounds(centerX - 150, startY + 27, 150, 18).build()).active = false;
 
-        timeBetweenWavesInput = new EditBox(this.font, centerX - 5, startY + 30, 60, 20,
-                Component.literal("Час"));
-        if (!location.getWaves().isEmpty()) {
-            timeBetweenWavesInput.setValue(String.valueOf(location.getWaves().get(0).getTimeBetweenWaves() / 60));
-        } else {
-            timeBetweenWavesInput.setValue("2");
-        }
-        timeBetweenWavesInput.setMaxLength(3);
+        timeBetweenWavesInput = new EditBox(this.font, centerX + 5, startY + 27, 55, 20, Component.literal("Секунди"));
+        // Беремо значення з першої хвилі або з location
+        int currentTime = location.getWaves().isEmpty()
+                ? location.getTimeBetweenWaves()
+                : location.getWaves().get(0).getTimeBetweenWaves();
+        timeBetweenWavesInput.setValue(String.valueOf(currentTime));
+        timeBetweenWavesInput.setMaxLength(5);
         this.addRenderableWidget(timeBetweenWavesInput);
+
+        // Кнопка «Застосувати час» до всіх хвиль
+        this.addRenderableWidget(Button.builder(
+                Component.literal("До всіх"),
+                button -> applyTimeToAll()
+        ).bounds(centerX + 65, startY + 27, 75, 20).build());
+
+        int listStartY = startY + 55;
 
         if (location.getWaves().isEmpty()) {
             this.addRenderableWidget(Button.builder(
                     Component.literal("§7Хвилі не налаштовані. Встановіть кількість вище."),
                     button -> {}
-            ).bounds(centerX - 180, startY + 70, 360, 20).build()).active = false;
+            ).bounds(centerX - 170, listStartY, 340, 20).build()).active = false;
         } else {
-            int listStartY = startY + 70;
-            for (int i = 0; i < Math.min(ITEMS_PER_PAGE, location.getWaves().size()); i++) {
+            int itemsPerPage = getItemsPerPage();
+            int rowH = 46;
+
+            for (int i = 0; i < Math.min(itemsPerPage, location.getWaves().size()); i++) {
                 int waveIndex = i + scrollOffset;
                 if (waveIndex >= location.getWaves().size()) break;
 
                 WaveConfig wave = location.getWaves().get(waveIndex);
-                int yPos = listStartY + (i * 60);
+                int yPos = listStartY + (i * rowH);
 
+                // Заголовок хвилі
+                String waveLabel = String.format("§6Хвиля %d §7(Мобів: %d | Час: §e%d сек§7)",
+                        waveIndex + 1, wave.getMobs().size(), wave.getTimeBetweenWaves());
                 this.addRenderableWidget(Button.builder(
-                        Component.literal("§6Хвиля " + (waveIndex + 1) + " §7(Мобів: " + wave.getMobs().size() + ")"),
-                        button -> {}
-                ).bounds(centerX - 150, yPos, 200, 20).build()).active = false;
+                        Component.literal(waveLabel), button -> {}
+                ).bounds(centerX - 150, yPos, 245, 18).build()).active = false;
 
                 final int finalWaveIndex = waveIndex;
+                Button deleteBtn = Button.builder(
+                        Component.literal("✕"), button -> deleteWave(finalWaveIndex)
+                ).bounds(centerX + 100, yPos, 20, 18).build();
+                deleteBtn.active = location.getWaves().size() > 1;
+                this.addRenderableWidget(deleteBtn);
+
+                // Кнопки редагування
                 this.addRenderableWidget(Button.builder(
                         Component.literal("✎ Моби"),
                         button -> editWaveMobs(finalWaveIndex)
-                ).bounds(centerX - 150, yPos + 25, 90, 20).build());
+                ).bounds(centerX - 150, yPos + 22, 85, 20).build());
 
                 this.addRenderableWidget(Button.builder(
                         Component.literal("🎁 Нагороди"),
                         button -> editWaveRewards(finalWaveIndex)
-                ).bounds(centerX - 55, yPos + 25, 100, 20).build());
+                ).bounds(centerX - 60, yPos + 22, 95, 20).build());
 
-                Button deleteButton = Button.builder(
-                        Component.literal("✕"),
-                        button -> deleteWave(finalWaveIndex)
-                ).bounds(centerX + 50, yPos, 20, 20).build();
-                deleteButton.active = location.getWaves().size() > 1;
-                this.addRenderableWidget(deleteButton);
+                // Поле індивідуального часу для хвилі (inline)
+                this.addRenderableWidget(Button.builder(
+                        Component.literal("§7сек:"), button -> {}
+                ).bounds(centerX + 40, yPos + 22, 30, 20).build()).active = false;
+
+                // Кнопки + і - для часу цієї хвилі
+                this.addRenderableWidget(Button.builder(
+                        Component.literal("-"),
+                        button -> adjustWaveTime(finalWaveIndex, -10)
+                ).bounds(centerX + 73, yPos + 22, 16, 20).build());
+                this.addRenderableWidget(Button.builder(
+                        Component.literal(String.valueOf(wave.getTimeBetweenWaves())),
+                        button -> {}
+                ).bounds(centerX + 90, yPos + 22, 40, 20).build()).active = false;
+                this.addRenderableWidget(Button.builder(
+                        Component.literal("+"),
+                        button -> adjustWaveTime(finalWaveIndex, 10)
+                ).bounds(centerX + 131, yPos + 22, 16, 20).build());
             }
 
-            if (location.getWaves().size() > ITEMS_PER_PAGE) {
+            // Скрол
+            if (location.getWaves().size() > itemsPerPage) {
                 this.addRenderableWidget(Button.builder(
-                        Component.literal("▲"),
-                        button -> scrollUp()
-                ).bounds(centerX + 80, listStartY, 25, 25).build());
-
+                        Component.literal("▲"), button -> scrollUp()
+                ).bounds(centerX + 155, listStartY, 22, 20).build());
                 this.addRenderableWidget(Button.builder(
-                        Component.literal("▼"),
-                        button -> scrollDown()
-                ).bounds(centerX + 80, listStartY + 200, 25, 25).build());
+                        Component.literal("▼"), button -> scrollDown()
+                ).bounds(centerX + 155, listStartY + (itemsPerPage - 1) * rowH + 22, 22, 20).build());
             }
         }
 
         this.addRenderableWidget(Button.builder(
                 Component.literal("Зберегти і повернутися"),
                 button -> saveChanges()
-        ).bounds(centerX - 110, this.height - 30, 220, 20).build());
+        ).bounds(centerX - 110, this.height - 28, 220, 20).build());
+    }
+
+    private void adjustWaveTime(int waveIndex, int delta) {
+        if (waveIndex < 0 || waveIndex >= location.getWaves().size()) return;
+        WaveConfig wave = location.getWaves().get(waveIndex);
+        int newTime = Math.max(5, wave.getTimeBetweenWaves() + delta);
+        wave.setTimeBetweenWaves(newTime);
+        rebuildWidgets();
+    }
+
+    private void applyTimeToAll() {
+        try {
+            int seconds = Integer.parseInt(timeBetweenWavesInput.getValue());
+            if (seconds < 1) return;
+            for (WaveConfig wave : location.getWaves()) {
+                wave.setTimeBetweenWaves(seconds);
+            }
+            location.setTimeBetweenWaves(seconds);
+            rebuildWidgets();
+        } catch (NumberFormatException ignored) {}
     }
 
     private void initConfirmDialog(int centerX) {
         int dialogY = this.height / 2 - 60;
-
         this.addRenderableWidget(Button.builder(
-                Component.literal("§c⚠ ПОПЕРЕДЖЕННЯ"),
-                button -> {}
+                Component.literal("§c⚠ ПОПЕРЕДЖЕННЯ"), button -> {}
         ).bounds(centerX - 150, dialogY, 300, 25).build()).active = false;
-
         this.addRenderableWidget(Button.builder(
-                Component.literal("§7Ви зменшуєте кількість хвиль з §e" + location.getWaves().size() + " §7до §e" + pendingWaveCount),
-                button -> {}
+                Component.literal("§7Зменшення з §e" + location.getWaves().size() + " §7до §e" + pendingWaveCount), button -> {}
         ).bounds(centerX - 150, dialogY + 30, 300, 20).build()).active = false;
-
         this.addRenderableWidget(Button.builder(
-                Component.literal("§cВСІ налаштування зайвих хвиль буде ВИДАЛЕНО!"),
-                button -> {}
+                Component.literal("§cВСІ налаштування зайвих хвиль буде ВИДАЛЕНО!"), button -> {}
         ).bounds(centerX - 150, dialogY + 55, 300, 20).build()).active = false;
-
         this.addRenderableWidget(Button.builder(
-                Component.literal("§cЦю дію НЕ можна скасувати!"),
-                button -> {}
-        ).bounds(centerX - 150, dialogY + 80, 300, 20).build()).active = false;
-
+                Component.literal("§a✓ Підтвердити"), button -> confirmWaveCountChange()
+        ).bounds(centerX - 110, dialogY + 90, 100, 25).build());
         this.addRenderableWidget(Button.builder(
-                Component.literal("§a✓ Підтвердити"),
-                button -> confirmWaveCountChange()
-        ).bounds(centerX - 110, dialogY + 110, 100, 25).build());
-
-        this.addRenderableWidget(Button.builder(
-                Component.literal("§c✕ Скасувати"),
-                button -> cancelWaveCountChange()
-        ).bounds(centerX + 10, dialogY + 110, 100, 25).build());
+                Component.literal("§c✕ Скасувати"), button -> cancelWaveCountChange()
+        ).bounds(centerX + 10, dialogY + 90, 100, 25).build());
     }
 
     private void applyWaveCount() {
         try {
             int targetCount = Integer.parseInt(waveCountInput.getValue());
             if (targetCount < 1 || targetCount > 50) return;
-
             int currentCount = location.getWaves().size();
-
             if (targetCount < currentCount) {
                 pendingWaveCount = targetCount;
                 showConfirmDialog = true;
-                this.rebuildWidgets();
+                rebuildWidgets();
                 return;
             }
-
             if (targetCount > currentCount) {
-                int minutes = 2;
-                try {
-                    minutes = Integer.parseInt(timeBetweenWavesInput.getValue());
-                } catch (NumberFormatException ignored) {}
-
+                int seconds = 60;
+                try { seconds = Integer.parseInt(timeBetweenWavesInput.getValue()); } catch (NumberFormatException ignored) {}
                 for (int i = currentCount; i < targetCount; i++) {
-                    WaveConfig newWave = new WaveConfig(i + 1, minutes * 60);
-                    location.addWave(newWave);
+                    location.addWave(new WaveConfig(i + 1, seconds));
                 }
             }
-
-            this.rebuildWidgets();
-        } catch (NumberFormatException e) {
-        }
+            rebuildWidgets();
+        } catch (NumberFormatException ignored) {}
     }
 
     private void confirmWaveCountChange() {
         while (location.getWaves().size() > pendingWaveCount) {
             location.getWaves().remove(location.getWaves().size() - 1);
         }
-
         waveCountInput.setValue(String.valueOf(pendingWaveCount));
         showConfirmDialog = false;
-        this.rebuildWidgets();
+        rebuildWidgets();
     }
 
     private void cancelWaveCountChange() {
         showConfirmDialog = false;
         pendingWaveCount = 0;
-        this.rebuildWidgets();
+        rebuildWidgets();
     }
 
-    private void editWaveMobs(int waveIndex) {
-        if (waveIndex >= 0 && waveIndex < location.getWaves().size()) {
-            this.minecraft.setScreen(new WaveMobsEditorScreen(location, waveIndex, this));
+    private void editWaveMobs(int idx) {
+        if (idx >= 0 && idx < location.getWaves().size()) {
+            this.minecraft.setScreen(new WaveMobsEditorScreen(location, idx, this));
         }
     }
 
-    private void editWaveRewards(int waveIndex) {
-        if (waveIndex >= 0 && waveIndex < location.getWaves().size()) {
-            this.minecraft.setScreen(new RewardsConfigScreen(this, location.getWaves().get(waveIndex)));
+    private void editWaveRewards(int idx) {
+        if (idx >= 0 && idx < location.getWaves().size()) {
+            this.minecraft.setScreen(new RewardsConfigScreen(this, location.getWaves().get(idx)));
         }
     }
 
-    private void deleteWave(int waveIndex) {
-        if (location.getWaves().size() > 1 && waveIndex >= 0 && waveIndex < location.getWaves().size()) {
-            location.getWaves().remove(waveIndex);
-            waveCountInput.setValue(String.valueOf(location.getWaves().size()));
-            this.rebuildWidgets();
+    private void deleteWave(int idx) {
+        if (location.getWaves().size() > 1 && idx >= 0 && idx < location.getWaves().size()) {
+            location.getWaves().remove(idx);
+            if (scrollOffset > 0 && scrollOffset >= location.getWaves().size()) {
+                scrollOffset = Math.max(0, location.getWaves().size() - getItemsPerPage());
+            }
+            rebuildWidgets();
         }
     }
 
-    private void scrollUp() {
-        if (scrollOffset > 0) {
-            scrollOffset--;
-            this.rebuildWidgets();
-        }
-    }
+    private void scrollUp() { if (scrollOffset > 0) { scrollOffset--; rebuildWidgets(); } }
+    private void scrollDown() { if (scrollOffset + getItemsPerPage() < location.getWaves().size()) { scrollOffset++; rebuildWidgets(); } }
 
-    private void scrollDown() {
-        if (scrollOffset + ITEMS_PER_PAGE < location.getWaves().size()) {
-            scrollOffset++;
-            this.rebuildWidgets();
-        }
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        if (delta > 0) scrollUp(); else scrollDown(); return true;
     }
 
     private void saveChanges() {
+        // Зберігаємо глобальний час між хвилями
+        try {
+            int seconds = Integer.parseInt(timeBetweenWavesInput.getValue());
+            location.setTimeBetweenWaves(seconds);
+        } catch (NumberFormatException ignored) {}
+
         PacketHandler.sendToServer(new UpdateLocationPacket(location));
-
         if (minecraft.player != null) {
-            minecraft.player.displayClientMessage(
-                    Component.literal("§a✓ Зміни збережено!"),
-                    true
-            );
+            minecraft.player.displayClientMessage(Component.literal("§a✓ Зміни збережено!"), true);
         }
-
         this.minecraft.setScreen(parent);
     }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics);
-
         if (showConfirmDialog) {
             graphics.fill(0, 0, this.width, this.height, 0xAA000000);
-
-            int centerX = this.width / 2;
-            int dialogY = this.height / 2 - 60;
-
-            graphics.fill(centerX - 155, dialogY - 5, centerX + 155, dialogY + 145, 0xFF1a1a1a);
-            graphics.fill(centerX - 156, dialogY - 6, centerX + 156, dialogY - 5, 0xFFef4444);
-            graphics.fill(centerX - 156, dialogY + 145, centerX + 156, dialogY + 146, 0xFFef4444);
-            graphics.fill(centerX - 156, dialogY - 5, centerX - 155, dialogY + 145, 0xFFef4444);
-            graphics.fill(centerX + 155, dialogY - 5, centerX + 156, dialogY + 145, 0xFFef4444);
+            int cx = this.width / 2;
+            int dy = this.height / 2 - 60;
+            graphics.fill(cx - 155, dy - 5, cx + 155, dy + 130, 0xFF1a1a1a);
+            graphics.fill(cx - 156, dy - 6, cx + 156, dy - 5, 0xFFef4444);
+            graphics.fill(cx - 156, dy + 130, cx + 156, dy + 131, 0xFFef4444);
+            graphics.fill(cx - 156, dy - 5, cx - 155, dy + 130, 0xFFef4444);
+            graphics.fill(cx + 155, dy - 5, cx + 156, dy + 130, 0xFFef4444);
         } else {
             graphics.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
-
-            graphics.drawString(this.font,
-                    "§7Налаштуйте кількість хвиль, потім редагуйте кожну",
-                    this.width / 2 - 150, 30, 0xFFFFFF);
+            graphics.drawString(this.font, "§7Час між хвилями зберігається окремо для кожної хвилі",
+                    this.width / 2 - 150, 28, 0x888888);
         }
-
         super.render(graphics, mouseX, mouseY, partialTick);
     }
 
     @Override
-    public boolean isPauseScreen() {
-        return false;
-    }
+    public boolean isPauseScreen() { return false; }
 }

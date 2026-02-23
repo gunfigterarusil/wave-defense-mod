@@ -9,76 +9,47 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class LocationEditorScreen extends Screen {
-    private static final Logger LOGGER = LoggerFactory.getLogger(LocationEditorScreen.class);
-    
+
     private final Location location;
     private final Screen parent;
-    private int currentTab = 0;
-    private EditBox totalWavesInput;
-    private EditBox timeBetweenWavesInput;
-    
-    // Поля для координат спавну гравця
-    private EditBox playerSpawnXInput;
-    private EditBox playerSpawnYInput;
-    private EditBox playerSpawnZInput;
-    
-    // Поля для координат спавну мобів
-    private EditBox mobSpawnXInput;
-    private EditBox mobSpawnYInput;
-    private EditBox mobSpawnZInput;
-    
-    // Скролінг для списків
-    private int mobSpawnsScrollOffset = 0;
-    private static final int MOB_SPAWNS_PER_PAGE = 3;
+    private int currentTab = 0; // 0=основні, 1=хвилі, 2=магазин, 3=лут
+    private int mobSpawnScrollOffset = 0;
+    private static final int MOB_SPAWN_PER_PAGE = 5;
 
     public LocationEditorScreen(Location location, Screen parent) {
         super(Component.literal("Редагування: " + location.getName()));
         this.location = location;
         this.parent = parent;
-        LOGGER.info("Opened location editor for: {}", location.getName());
     }
 
     @Override
     protected void init() {
         super.init();
-
         int centerX = this.width / 2;
         int startY = 50;
 
-        // Вкладки (4 замість 3)
+        // Вкладки
         this.addRenderableWidget(Button.builder(
                 Component.literal(currentTab == 0 ? "§a§l⬤ Основні" : "§7○ Основні"),
                 button -> switchTab(0)
-        ).bounds(centerX - 200, 25, 90, 20).build());
+        ).bounds(centerX - 160, 25, 100, 20).build());
 
         this.addRenderableWidget(Button.builder(
                 Component.literal(currentTab == 1 ? "§a§l⬤ Хвилі" : "§7○ Хвилі"),
                 button -> switchTab(1)
-        ).bounds(centerX - 105, 25, 90, 20).build());
+        ).bounds(centerX - 50, 25, 100, 20).build());
 
         this.addRenderableWidget(Button.builder(
                 Component.literal(currentTab == 2 ? "§a§l⬤ Магазин" : "§7○ Магазин"),
                 button -> switchTab(2)
-        ).bounds(centerX - 10, 25, 90, 20).build());
+        ).bounds(centerX + 60, 25, 100, 20).build());
 
         this.addRenderableWidget(Button.builder(
-                Component.literal(currentTab == 3 ? "§a§l⬤ Нагороди" : "§7○ Нагороди"),
+                Component.literal(currentTab == 3 ? "§a§l⬤ Лут" : "§7○ Лут"),
                 button -> switchTab(3)
-        ).bounds(centerX + 85, 25, 100, 20).build());
-
-        totalWavesInput = new EditBox(this.font, centerX - 100, startY, 200, 20, Component.literal("Кількість хвиль"));
-        totalWavesInput.setValue(String.valueOf(location.getTotalWaves()));
-        totalWavesInput.setVisible(false);
-        this.addRenderableWidget(totalWavesInput);
-
-        timeBetweenWavesInput = new EditBox(this.font, centerX - 100, startY + 30, 200, 20, Component.literal("Час між хвилями"));
-        timeBetweenWavesInput.setValue(String.valueOf(location.getTimeBetweenWaves()));
-        timeBetweenWavesInput.setVisible(false);
-        this.addRenderableWidget(timeBetweenWavesInput);
+        ).bounds(centerX + 165, 25, 70, 20).build());
 
         if (currentTab == 0) {
             initBasicTab(centerX, startY);
@@ -87,215 +58,135 @@ public class LocationEditorScreen extends Screen {
         } else if (currentTab == 2) {
             initShopTab(centerX, startY);
         } else if (currentTab == 3) {
-            initRewardsTab(centerX, startY);
+            initLootTab(centerX, startY);
         }
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("§a✓ Зберегти"),
+                Component.literal("§a✓ Зберегти зміни"),
                 button -> saveChanges()
-        ).bounds(centerX - 160, this.height - 30, 100, 20).build());
+        ).bounds(centerX - 160, this.height - 30, 130, 20).build());
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("Назад"),
+                Component.literal("Назад до списку"),
                 button -> this.minecraft.setScreen(parent)
-        ).bounds(centerX - 50, this.height - 30, 100, 20).build());
+        ).bounds(centerX - 20, this.height - 30, 130, 20).build());
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("✕"),
+                Component.literal("Закрити"),
                 button -> this.onClose()
-        ).bounds(centerX + 60, this.height - 30, 40, 20).build());
+        ).bounds(centerX + 120, this.height - 30, 40, 20).build());
     }
 
     private void initBasicTab(int centerX, int startY) {
-        // === ТОЧКА СПАВНУ ГРАВЦЯ ===
+        // Точка спавну гравця
         this.addRenderableWidget(Button.builder(
-                Component.literal("§6=== Точка спавну гравця ==="),
+                Component.literal("📍 Встановити точку спавну гравця"),
+                button -> setPlayerSpawn()
+        ).bounds(centerX - 150, startY, 300, 20).build());
+
+        BlockPos playerSpawn = location.getPlayerSpawn();
+        String spawnText = playerSpawn != null
+                ? String.format("§aПоточна: X:%d Y:%d Z:%d", playerSpawn.getX(), playerSpawn.getY(), playerSpawn.getZ())
+                : "§cТочка спавну не встановлена!";
+        this.addRenderableWidget(Button.builder(
+                Component.literal(spawnText), button -> {}
+        ).bounds(centerX - 150, startY + 22, 300, 18).build()).active = false;
+
+        // Точки спавну мобів
+        int mobSpawnY = startY + 50;
+        this.addRenderableWidget(Button.builder(
+                Component.literal("➕ Додати точку спавну мобів"),
+                button -> addMobSpawn()
+        ).bounds(centerX - 150, mobSpawnY, 200, 20).build());
+
+        this.addRenderableWidget(Button.builder(
+                Component.literal(String.format("§7Налаштовано: %d/10", location.getMobSpawns().size())),
                 button -> {}
-        ).bounds(centerX - 150, startY, 300, 18).build()).active = false;
+        ).bounds(centerX - 150, mobSpawnY + 22, 200, 18).build()).active = false;
 
-        BlockPos currentPlayerSpawn = location.getPlayerSpawn();
-        
-        this.addRenderableWidget(Button.builder(
-                Component.literal("X:"),
-                button -> {}
-        ).bounds(centerX - 150, startY + 22, 20, 20).build()).active = false;
-        
-        playerSpawnXInput = new EditBox(this.font, centerX - 125, startY + 22, 50, 20,
-                Component.literal("X"));
-        playerSpawnXInput.setHint(Component.literal("X"));
-        if (currentPlayerSpawn != null) {
-            playerSpawnXInput.setValue(String.valueOf(currentPlayerSpawn.getX()));
-        }
-        playerSpawnXInput.setFilter(s -> s.isEmpty() || s.matches("-?\\d*"));
-        this.addRenderableWidget(playerSpawnXInput);
-
-        this.addRenderableWidget(Button.builder(
-                Component.literal("Y:"),
-                button -> {}
-        ).bounds(centerX - 70, startY + 22, 20, 20).build()).active = false;
-        
-        playerSpawnYInput = new EditBox(this.font, centerX - 45, startY + 22, 50, 20,
-                Component.literal("Y"));
-        playerSpawnYInput.setHint(Component.literal("Y"));
-        if (currentPlayerSpawn != null) {
-            playerSpawnYInput.setValue(String.valueOf(currentPlayerSpawn.getY()));
-        }
-        playerSpawnYInput.setFilter(s -> s.isEmpty() || s.matches("-?\\d*"));
-        this.addRenderableWidget(playerSpawnYInput);
-
-        this.addRenderableWidget(Button.builder(
-                Component.literal("Z:"),
-                button -> {}
-        ).bounds(centerX + 10, startY + 22, 20, 20).build()).active = false;
-        
-        playerSpawnZInput = new EditBox(this.font, centerX + 35, startY + 22, 50, 20,
-                Component.literal("Z"));
-        playerSpawnZInput.setHint(Component.literal("Z"));
-        if (currentPlayerSpawn != null) {
-            playerSpawnZInput.setValue(String.valueOf(currentPlayerSpawn.getZ()));
-        }
-        playerSpawnZInput.setFilter(s -> s.isEmpty() || s.matches("-?\\d*"));
-        this.addRenderableWidget(playerSpawnZInput);
-
-        this.addRenderableWidget(Button.builder(
-                Component.literal("✓"),
-                button -> setPlayerSpawnFromFields()
-        ).bounds(centerX + 90, startY + 22, 30, 20).build());
-
-        this.addRenderableWidget(Button.builder(
-                Component.literal("Поточна"),
-                button -> setPlayerSpawnFromCurrentPos()
-        ).bounds(centerX + 125, startY + 22, 60, 20).build());
-
-        if (currentPlayerSpawn != null) {
+        // Список точок зі скролом
+        int listY = mobSpawnY + 48;
+        int maxVisible = Math.min(MOB_SPAWN_PER_PAGE, location.getMobSpawns().size());
+        for (int i = 0; i < maxVisible; i++) {
+            int realIndex = i + mobSpawnScrollOffset;
+            if (realIndex >= location.getMobSpawns().size()) break;
+            BlockPos pos = location.getMobSpawns().get(realIndex);
+            final int index = realIndex;
             this.addRenderableWidget(Button.builder(
-                    Component.literal(String.format("§a✓ Встановлено: [%d, %d, %d]",
-                            currentPlayerSpawn.getX(), currentPlayerSpawn.getY(), currentPlayerSpawn.getZ())),
+                    Component.literal(String.format("§7#%d: §fX:%d Y:%d Z:%d", realIndex + 1, pos.getX(), pos.getY(), pos.getZ())),
                     button -> {}
-            ).bounds(centerX - 150, startY + 45, 300, 16).build()).active = false;
-        } else {
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("§c✕ Не встановлено!"),
-                    button -> {}
-            ).bounds(centerX - 150, startY + 45, 300, 16).build()).active = false;
-        }
-
-        // === ТОЧКИ СПАВНУ МОБІВ ===
-        int mobSpawnY = startY + 75;
-        this.addRenderableWidget(Button.builder(
-                Component.literal(String.format("§6=== Точки спавну мобів (%d/10) ===", location.getMobSpawns().size())),
-                button -> {}
-        ).bounds(centerX - 150, mobSpawnY, 300, 18).build()).active = false;
-
-        this.addRenderableWidget(Button.builder(
-                Component.literal("X:"),
-                button -> {}
-        ).bounds(centerX - 150, mobSpawnY + 22, 20, 20).build()).active = false;
-        
-        mobSpawnXInput = new EditBox(this.font, centerX - 125, mobSpawnY + 22, 50, 20,
-                Component.literal("X"));
-        mobSpawnXInput.setHint(Component.literal("X"));
-        mobSpawnXInput.setFilter(s -> s.isEmpty() || s.matches("-?\\d*"));
-        this.addRenderableWidget(mobSpawnXInput);
-
-        this.addRenderableWidget(Button.builder(
-                Component.literal("Y:"),
-                button -> {}
-        ).bounds(centerX - 70, mobSpawnY + 22, 20, 20).build()).active = false;
-        
-        mobSpawnYInput = new EditBox(this.font, centerX - 45, mobSpawnY + 22, 50, 20,
-                Component.literal("Y"));
-        mobSpawnYInput.setHint(Component.literal("Y"));
-        mobSpawnYInput.setFilter(s -> s.isEmpty() || s.matches("-?\\d*"));
-        this.addRenderableWidget(mobSpawnYInput);
-
-        this.addRenderableWidget(Button.builder(
-                Component.literal("Z:"),
-                button -> {}
-        ).bounds(centerX + 10, mobSpawnY + 22, 20, 20).build()).active = false;
-        
-        mobSpawnZInput = new EditBox(this.font, centerX + 35, mobSpawnY + 22, 50, 20,
-                Component.literal("Z"));
-        mobSpawnZInput.setHint(Component.literal("Z"));
-        mobSpawnZInput.setFilter(s -> s.isEmpty() || s.matches("-?\\d*"));
-        this.addRenderableWidget(mobSpawnZInput);
-
-        Button addMobSpawnButton = Button.builder(
-                Component.literal("➕"),
-                button -> addMobSpawnFromFields()
-        ).bounds(centerX + 90, mobSpawnY + 22, 30, 20).build();
-        addMobSpawnButton.active = location.getMobSpawns().size() < 10;
-        this.addRenderableWidget(addMobSpawnButton);
-
-        Button addCurrentPosButton = Button.builder(
-                Component.literal("Поточна"),
-                button -> addMobSpawnFromCurrentPos()
-        ).bounds(centerX + 125, mobSpawnY + 22, 60, 20).build();
-        addCurrentPosButton.active = location.getMobSpawns().size() < 10;
-        this.addRenderableWidget(addCurrentPosButton);
-
-        // Список точок спавну
-        int listY = mobSpawnY + 52;
-        for (int i = 0; i < Math.min(MOB_SPAWNS_PER_PAGE, location.getMobSpawns().size()); i++) {
-            int index = i + mobSpawnsScrollOffset;
-            if (index >= location.getMobSpawns().size()) break;
-
-            BlockPos pos = location.getMobSpawns().get(index);
-            final int finalIndex = index;
-
-            this.addRenderableWidget(Button.builder(
-                    Component.literal(String.format("§7#%d §f[%d, %d, %d]",
-                            index + 1, pos.getX(), pos.getY(), pos.getZ())),
-                    button -> {}
-            ).bounds(centerX - 150, listY + (i * 25), 250, 20).build()).active = false;
-
+            ).bounds(centerX - 150, listY + (i * 22), 220, 20).build()).active = false;
             this.addRenderableWidget(Button.builder(
                     Component.literal("✕"),
-                    button -> removeMobSpawn(finalIndex)
-            ).bounds(centerX + 105, listY + (i * 25), 25, 20).build());
+                    button -> removeMobSpawn(index)
+            ).bounds(centerX + 75, listY + (i * 22), 25, 20).build());
         }
 
-        if (location.getMobSpawns().size() > MOB_SPAWNS_PER_PAGE) {
+        if (location.getMobSpawns().size() > MOB_SPAWN_PER_PAGE) {
             this.addRenderableWidget(Button.builder(
                     Component.literal("▲"),
-                    button -> scrollMobSpawnsUp()
-            ).bounds(centerX + 135, listY, 25, 25).build());
-
+                    button -> { if (mobSpawnScrollOffset > 0) { mobSpawnScrollOffset--; rebuildWidgets(); } }
+            ).bounds(centerX + 105, listY, 20, 20).build());
             this.addRenderableWidget(Button.builder(
                     Component.literal("▼"),
-                    button -> scrollMobSpawnsDown()
-            ).bounds(centerX + 135, listY + 50, 25, 25).build());
+                    button -> { if (mobSpawnScrollOffset + MOB_SPAWN_PER_PAGE < location.getMobSpawns().size()) { mobSpawnScrollOffset++; rebuildWidgets(); } }
+            ).bounds(centerX + 105, listY + (MOB_SPAWN_PER_PAGE - 1) * 22, 20, 20).build());
         }
 
-        // Інвентар
-        int invY = this.height - 90;
+        int invY = listY + MOB_SPAWN_PER_PAGE * 22 + 8;
+        if (invY > this.height - 90) invY = this.height - 90;
+
         this.addRenderableWidget(Button.builder(
-                Component.literal(location.isKeepInventory() ? 
-                        "§a☑ Зберігати інвентар" : "§c☐ Зберігати інвентар"),
+                Component.literal(location.isKeepInventory() ? "§a☑ Зберігати інвентар" : "§c☐ Зберігати інвентар"),
                 button -> toggleKeepInventory()
         ).bounds(centerX - 150, invY, 200, 20).build());
 
         if (!location.isKeepInventory()) {
             this.addRenderableWidget(Button.builder(
-                    Component.literal("⚙ Стартове спорядження (12 слотів)"),
+                    Component.literal("⚙ Налаштувати стартове спорядження"),
                     button -> openStartingItemsScreen()
-            ).bounds(centerX - 150, invY + 25, 200, 20).build());
+            ).bounds(centerX - 150, invY + 25, 300, 20).build());
         }
     }
 
     private void initWavesTab(int centerX, int startY) {
-        totalWavesInput.setVisible(true);
-        timeBetweenWavesInput.setVisible(true);
+        // Тут тільки кнопки переходу до підменю — дублів полів вводу немає
+        this.addRenderableWidget(Button.builder(
+                Component.literal("§7Налаштування хвиль (моби, час, нагороди):"),
+                button -> {}
+        ).bounds(centerX - 150, startY, 300, 18).build()).active = false;
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("⚙ Налаштувати хвилі та мобів"),
+                Component.literal("⚙ Налаштувати моби та хвилі"),
                 button -> openWaveConfig()
-        ).bounds(centerX - 100, startY + 60, 200, 25).build());
+        ).bounds(centerX - 130, startY + 26, 260, 24).build());
+
+        // Інфо про поточний стан
+        int waveCount = location.getWaves().size();
+        String waveInfo = waveCount > 0
+                ? String.format("§7Хвиль: §e%d §7| Час між хвилями: §e%d сек", waveCount,
+                    location.getWaves().isEmpty() ? 0 : location.getWaves().get(0).getTimeBetweenWaves())
+                : "§cХвилі не налаштовані";
+        this.addRenderableWidget(Button.builder(
+                Component.literal(waveInfo), button -> {}
+        ).bounds(centerX - 150, startY + 58, 300, 18).build()).active = false;
+
+        // Нагороди за проходження локації
+        this.addRenderableWidget(Button.builder(
+                Component.literal("§6🏆 Нагороди за проходження локації"),
+                button -> openCompletionRewards()
+        ).bounds(centerX - 130, startY + 84, 260, 24).build());
+
+        String rewardInfo = String.format("§7Поінти: §e%d §7| Предмети: §e%d",
+                location.getCompletionPointsReward(), location.getCompletionRewards().size());
+        this.addRenderableWidget(Button.builder(
+                Component.literal(rewardInfo), button -> {}
+        ).bounds(centerX - 150, startY + 116, 300, 18).build()).active = false;
     }
 
     private void initShopTab(int centerX, int startY) {
         this.addRenderableWidget(Button.builder(
-                Component.literal(String.format("§6Товарів: §e%d", location.getShopItems().size())),
+                Component.literal(String.format("§6Товарів у магазині: §e%d", location.getShopItems().size())),
                 button -> {}
         ).bounds(centerX - 150, startY, 300, 20).build()).active = false;
 
@@ -303,149 +194,55 @@ public class LocationEditorScreen extends Screen {
                 Component.literal("🛒 Редагувати магазин"),
                 button -> openShopEditor()
         ).bounds(centerX - 100, startY + 30, 200, 25).build());
-    }
 
-    private void initRewardsTab(int centerX, int startY) {
-        // Інформація про нагороди
-        int rewardCount = (int) location.getCompletionRewards().stream()
-            .filter(item -> !item.isEmpty()).count();
-
-        this.addRenderableWidget(Button.builder(
-                Component.literal("§6=== Нагороди за завершення всіх хвиль ==="),
-                button -> {}
-        ).bounds(centerX - 150, startY, 300, 20).build()).active = false;
-
-        this.addRenderableWidget(Button.builder(
-                Component.literal(String.format("§eНагород встановлено: §a%d§e/§a12", rewardCount)),
-                button -> {}
-        ).bounds(centerX - 150, startY + 25, 300, 18).build()).active = false;
-
-        this.addRenderableWidget(Button.builder(
-                Component.literal("§7Ці предмети гравці отримають після"),
-                button -> {}
-        ).bounds(centerX - 150, startY + 50, 300, 16).build()).active = false;
-
-        this.addRenderableWidget(Button.builder(
-                Component.literal("§7успішного завершення всіх хвиль локації"),
-                button -> {}
-        ).bounds(centerX - 150, startY + 65, 300, 16).build()).active = false;
-
-        this.addRenderableWidget(Button.builder(
-                Component.literal("🎁 Налаштувати нагороди (12 слотів)"),
-                button -> openCompletionRewardsScreen()
-        ).bounds(centerX - 110, startY + 95, 220, 25).build());
-
-        // Попередній перегляд нагород
-        if (rewardCount > 0) {
+        if (!location.getShopItems().isEmpty()) {
+            int previewY = startY + 70;
             this.addRenderableWidget(Button.builder(
-                    Component.literal("§a§l✓ Нагороди налаштовані"),
-                    button -> {}
-            ).bounds(centerX - 100, startY + 130, 200, 20).build()).active = false;
-        } else {
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("§c§l⚠ Нагороди не налаштовані"),
-                    button -> {}
-            ).bounds(centerX - 100, startY + 130, 200, 20).build()).active = false;
+                    Component.literal("§7Попередній перегляд:"), button -> {}
+            ).bounds(centerX - 150, previewY, 300, 18).build()).active = false;
+
+            for (int i = 0; i < Math.min(5, location.getShopItems().size()); i++) {
+                var shopItem = location.getShopItems().get(i);
+                String itemName = shopItem.getItems().get(0).getHoverName().getString();
+                if (itemName.length() > 20) itemName = itemName.substring(0, 17) + "...";
+                String info = String.format("§e%s §7- Купівля: §6%d §7Продаж: §a%d",
+                        itemName, shopItem.getBuyPrice(), shopItem.getSellPrice());
+                this.addRenderableWidget(Button.builder(
+                        Component.literal(info), button -> {}
+                ).bounds(centerX - 150, previewY + 20 + (i * 20), 300, 18).build()).active = false;
+            }
         }
     }
 
-    // Методи обробки подій (продовження в наступній частині)
-    private void setPlayerSpawnFromFields() {
-        try {
-            int x = playerSpawnXInput.getValue().isEmpty() ? 
-                    (minecraft.player != null ? minecraft.player.blockPosition().getX() : 0) : 
-                    Integer.parseInt(playerSpawnXInput.getValue());
-            int y = playerSpawnYInput.getValue().isEmpty() ? 
-                    (minecraft.player != null ? minecraft.player.blockPosition().getY() : 0) : 
-                    Integer.parseInt(playerSpawnYInput.getValue());
-            int z = playerSpawnZInput.getValue().isEmpty() ? 
-                    (minecraft.player != null ? minecraft.player.blockPosition().getZ() : 0) : 
-                    Integer.parseInt(playerSpawnZInput.getValue());
-            
-            location.setPlayerSpawn(new BlockPos(x, y, z));
-            LOGGER.info("Set player spawn to: [{}, {}, {}]", x, y, z);
-            this.rebuildWidgets();
-        } catch (NumberFormatException e) {
-            LOGGER.error("Invalid coordinates for player spawn", e);
-            showError("Введіть коректні координати");
-        }
+    private void switchTab(int tab) {
+        this.currentTab = tab;
+        this.rebuildWidgets();
     }
 
-    private void setPlayerSpawnFromCurrentPos() {
+    private void setPlayerSpawn() {
         if (minecraft.player != null) {
-            BlockPos pos = minecraft.player.blockPosition();
-            location.setPlayerSpawn(pos);
-            LOGGER.info("Set player spawn to current position: [{}, {}, {}]", pos.getX(), pos.getY(), pos.getZ());
+            location.setPlayerSpawn(minecraft.player.blockPosition());
             this.rebuildWidgets();
         }
     }
 
-    private void addMobSpawnFromFields() {
-        if (location.getMobSpawns().size() >= 10) {
-            showError("Досягнуто максимум (10 точок)");
-            return;
-        }
-        
-        try {
-            int x = mobSpawnXInput.getValue().isEmpty() ? 
-                    (minecraft.player != null ? minecraft.player.blockPosition().getX() : 0) : 
-                    Integer.parseInt(mobSpawnXInput.getValue());
-            int y = mobSpawnYInput.getValue().isEmpty() ? 
-                    (minecraft.player != null ? minecraft.player.blockPosition().getY() : 0) : 
-                    Integer.parseInt(mobSpawnYInput.getValue());
-            int z = mobSpawnZInput.getValue().isEmpty() ? 
-                    (minecraft.player != null ? minecraft.player.blockPosition().getZ() : 0) : 
-                    Integer.parseInt(mobSpawnZInput.getValue());
-            
-            location.addMobSpawn(new BlockPos(x, y, z));
-            LOGGER.info("Added mob spawn point: [{}, {}, {}]", x, y, z);
-            mobSpawnXInput.setValue("");
-            mobSpawnYInput.setValue("");
-            mobSpawnZInput.setValue("");
-            this.rebuildWidgets();
-        } catch (NumberFormatException e) {
-            LOGGER.error("Invalid coordinates for mob spawn", e);
-            showError("Введіть коректні координати");
-        }
-    }
-
-    private void addMobSpawnFromCurrentPos() {
+    private void addMobSpawn() {
         if (minecraft.player != null && location.getMobSpawns().size() < 10) {
-            BlockPos pos = minecraft.player.blockPosition();
-            location.addMobSpawn(pos);
-            LOGGER.info("Added mob spawn at current position: [{}, {}, {}]", pos.getX(), pos.getY(), pos.getZ());
+            location.addMobSpawn(minecraft.player.blockPosition());
             this.rebuildWidgets();
         }
     }
 
     private void removeMobSpawn(int index) {
         location.removeMobSpawn(index);
-        LOGGER.info("Removed mob spawn at index: {}", index);
-        
-        if (mobSpawnsScrollOffset > 0 && mobSpawnsScrollOffset >= location.getMobSpawns().size()) {
-            mobSpawnsScrollOffset = Math.max(0, location.getMobSpawns().size() - MOB_SPAWNS_PER_PAGE);
+        if (mobSpawnScrollOffset > 0 && mobSpawnScrollOffset >= location.getMobSpawns().size()) {
+            mobSpawnScrollOffset = Math.max(0, location.getMobSpawns().size() - MOB_SPAWN_PER_PAGE);
         }
-        
         this.rebuildWidgets();
-    }
-
-    private void scrollMobSpawnsUp() {
-        if (mobSpawnsScrollOffset > 0) {
-            mobSpawnsScrollOffset--;
-            this.rebuildWidgets();
-        }
-    }
-
-    private void scrollMobSpawnsDown() {
-        if (mobSpawnsScrollOffset + MOB_SPAWNS_PER_PAGE < location.getMobSpawns().size()) {
-            mobSpawnsScrollOffset++;
-            this.rebuildWidgets();
-        }
     }
 
     private void toggleKeepInventory() {
         location.setKeepInventory(!location.isKeepInventory());
-        LOGGER.info("Toggled keep inventory: {}", location.isKeepInventory());
         this.rebuildWidgets();
     }
 
@@ -453,12 +250,63 @@ public class LocationEditorScreen extends Screen {
         this.minecraft.setScreen(new StartingItemsScreen(this, location));
     }
 
-    private void openCompletionRewardsScreen() {
-        this.minecraft.setScreen(new CompletionRewardsScreen(this, location));
+    private void openWaveConfig() {
+        this.minecraft.setScreen(new WaveConfigScreen(location, this));
     }
 
-    private void switchTab(int tab) {
-        this.currentTab = tab;
-        LOGGER.debug("Switched to tab: {}", tab);
-        this.
-  
+    private void openCompletionRewards() {
+        this.minecraft.setScreen(new CompletionRewardScreen(location, this));
+    }
+
+    private void initLootTab(int centerX, int startY) {
+        this.addRenderableWidget(Button.builder(
+                Component.literal(String.format("§7Точок луту: §e%d", location.getLootSpawns().size())),
+                button -> {}
+        ).bounds(centerX - 150, startY, 300, 20).build()).active = false;
+
+        this.addRenderableWidget(Button.builder(
+                Component.literal("📦 Редагувати точки луту"),
+                button -> openLootEditor()
+        ).bounds(centerX - 100, startY + 30, 200, 25).build());
+
+        this.addRenderableWidget(Button.builder(
+                Component.literal("§7Лут з'являється у вказаних точках з заданим шансом"),
+                button -> {}
+        ).bounds(centerX - 150, startY + 64, 300, 18).build()).active = false;
+    }
+
+    private void openLootEditor() {
+        this.minecraft.setScreen(new LootSpawnEditorScreen(location, this));
+    }
+
+    private void openShopEditor() {
+        this.minecraft.setScreen(new ShopEditorScreen(location, this));
+    }
+
+    private void saveChanges() {
+        PacketHandler.sendToServer(new UpdateLocationPacket(location));
+        if (minecraft.player != null) {
+            minecraft.player.displayClientMessage(Component.literal("§a✓ Зміни збережено!"), true);
+        }
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        if (currentTab == 0) {
+            if (delta > 0 && mobSpawnScrollOffset > 0) { mobSpawnScrollOffset--; rebuildWidgets(); }
+            else if (delta < 0 && mobSpawnScrollOffset + MOB_SPAWN_PER_PAGE < location.getMobSpawns().size()) { mobSpawnScrollOffset++; rebuildWidgets(); }
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, delta);
+    }
+
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        this.renderBackground(graphics);
+        graphics.drawCenteredString(this.font, "§6§l" + this.title.getString(), this.width / 2, 10, 0xFFFFFF);
+        super.render(graphics, mouseX, mouseY, partialTick);
+    }
+
+    @Override
+    public boolean isPauseScreen() { return false; }
+}

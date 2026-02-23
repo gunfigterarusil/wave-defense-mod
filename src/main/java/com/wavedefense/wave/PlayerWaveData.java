@@ -22,6 +22,12 @@ public class PlayerWaveData {
     private boolean showTimer = true;
     private boolean showNotifications = true;
 
+    // Лічильник мобів поточної хвилі (синхронізується з сервера)
+    private int mobsRemaining = 0;
+
+    public int getMobsRemaining() { return mobsRemaining; }
+    public void setMobsRemaining(int mobsRemaining) { this.mobsRemaining = mobsRemaining; }
+
     public UUID getPlayerUUID() {
         return playerUUID;
     }
@@ -108,23 +114,21 @@ public class PlayerWaveData {
 
     public CompoundTag saveClientData() {
         CompoundTag tag = new CompoundTag();
-        if (currentLocation != null) {
-            tag.put("location", currentLocation.save());
-        }
+        if (currentLocation != null) tag.put("location", currentLocation.save());
         tag.putInt("currentWave", currentWave);
         tag.putInt("timeUntilNextWave", timeUntilNextWave);
         tag.putBoolean("isTimerActive", isTimerActive);
         tag.putBoolean("showTimer", showTimer);
+        tag.putInt("mobsRemaining", mobsRemaining);
         return tag;
     }
 
     public void loadClientData(CompoundTag tag) {
-        if (tag.contains("location")) {
-            this.currentLocation = Location.load(tag.getCompound("location"));
-        }
+        if (tag.contains("location")) this.currentLocation = Location.load(tag.getCompound("location"));
         this.currentWave = tag.getInt("currentWave");
         this.timeUntilNextWave = tag.getInt("timeUntilNextWave");
         this.isTimerActive = tag.getBoolean("isTimerActive");
         this.showTimer = tag.getBoolean("showTimer");
+        this.mobsRemaining = tag.contains("mobsRemaining") ? tag.getInt("mobsRemaining") : 0;
     }
 }

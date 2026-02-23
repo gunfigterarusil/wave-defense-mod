@@ -79,6 +79,8 @@ public class LocationManager {
         }
     }
 
+    public void loadLocations() { load(); }
+
     private void load() {
         if (!dataFile.exists()) {
             return;

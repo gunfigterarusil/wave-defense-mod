@@ -9,38 +9,28 @@ import net.minecraftforge.network.NetworkEvent;
 import java.util.function.Supplier;
 
 public class UpdateLocationPacket {
-    private final CompoundTag locationData;
+    private final Location location;
 
     public UpdateLocationPacket(Location location) {
-        this.locationData = location.save();
-    }
-
-    private UpdateLocationPacket(CompoundTag data) {
-        this.locationData = data;
+        this.location = location;
     }
 
     public static void encode(UpdateLocationPacket packet, FriendlyByteBuf buf) {
-        buf.writeNbt(packet.locationData);
+        buf.writeNbt(packet.location.save());
     }
 
     public static UpdateLocationPacket decode(FriendlyByteBuf buf) {
         CompoundTag tag = buf.readNbt();
-        return new UpdateLocationPacket(tag != null ? tag : new CompoundTag());
+        if (tag == null) return null;
+        return new UpdateLocationPacket(Location.load(tag));
     }
 
     public static void handle(UpdateLocationPacket packet, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player != null && player.hasPermissions(2)) {
-                if (packet.locationData != null && !packet.locationData.isEmpty()) {
-                    try {
-                        Location updatedLocation = Location.load(packet.locationData);
-                        WaveDefenseMod.locationManager.updateLocation(updatedLocation);
-                        WaveDefenseMod.LOGGER.info("Location '{}' updated by {}", 
-                            updatedLocation.getName(), player.getName().getString());
-                    } catch (Exception e) {
-                        WaveDefenseMod.LOGGER.error("Failed to update location", e);
-                    }
+                if (packet.location != null) {
+                    WaveDefenseMod.locationManager.updateLocation(packet.location);
                 }
             }
         });

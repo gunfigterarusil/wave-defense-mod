@@ -18,6 +18,10 @@ public class Location {
     private boolean keepInventory;
     private List<ItemStack> startingItems;
     private List<ShopItem> shopItems;
+    // Нагорода за проходження локації (предмети та поінти)
+    private List<ShopItem> completionRewards; // використовуємо ShopItem як контейнер предметів
+    private int completionPointsReward;
+    private List<LootSpawn> lootSpawns;
 
     public Location(String name) {
         this.name = name;
@@ -28,10 +32,12 @@ public class Location {
         this.playerPoints = new HashMap<>();
         this.startingItems = new ArrayList<>();
         this.shopItems = new ArrayList<>();
+        this.completionRewards = new ArrayList<>();
+        this.completionPointsReward = 0;
+        this.lootSpawns = new ArrayList<>();
         this.keepInventory = true;
     }
 
-    // Getters and Setters
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
 
@@ -39,12 +45,8 @@ public class Location {
     public void setPlayerSpawn(BlockPos pos) { this.playerSpawn = pos; }
 
     public List<BlockPos> getMobSpawns() { return mobSpawns; }
-    public void addMobSpawn(BlockPos pos) {
-        if (mobSpawns.size() < 10) mobSpawns.add(pos);
-    }
-    public void removeMobSpawn(int index) {
-        if (index >= 0 && index < mobSpawns.size()) mobSpawns.remove(index);
-    }
+    public void addMobSpawn(BlockPos pos) { if (mobSpawns.size() < 10) mobSpawns.add(pos); }
+    public void removeMobSpawn(int index) { if (index >= 0 && index < mobSpawns.size()) mobSpawns.remove(index); }
 
     public List<WaveConfig> getWaves() { return waves; }
     public void addWave(WaveConfig wave) { waves.add(wave); }
@@ -63,32 +65,31 @@ public class Location {
 
     public List<ShopItem> getShopItems() { return shopItems; }
     public void addShopItem(ShopItem item) { shopItems.add(item); }
-    public void removeShopItem(int index) {
-        if (index >= 0 && index < shopItems.size()) shopItems.remove(index);
-    }
+    public void removeShopItem(int index) { if (index >= 0 && index < shopItems.size()) shopItems.remove(index); }
 
-    public int getPlayerPoints(UUID playerId) {
-        return playerPoints.getOrDefault(playerId, 0);
-    }
+    // Нагороди за завершення локації
+    public List<ShopItem> getCompletionRewards() { return completionRewards; }
+    public void addCompletionReward(ShopItem item) { completionRewards.add(item); }
+    public void removeCompletionReward(int index) { if (index >= 0 && index < completionRewards.size()) completionRewards.remove(index); }
+    public int getCompletionPointsReward() { return completionPointsReward; }
+    public void setCompletionPointsReward(int points) { this.completionPointsReward = points; }
 
-    public void addPoints(UUID playerId, int points) {
-        playerPoints.put(playerId, getPlayerPoints(playerId) + points);
-    }
+    public List<LootSpawn> getLootSpawns() { return lootSpawns; }
+    public void addLootSpawn(LootSpawn ls) { lootSpawns.add(ls); }
+    public void removeLootSpawn(int index) { if (index >= 0 && index < lootSpawns.size()) lootSpawns.remove(index); }
 
-    public void resetPoints(UUID playerId) {
-        playerPoints.put(playerId, 0);
-    }
+    public int getPlayerPoints(UUID playerId) { return playerPoints.getOrDefault(playerId, 0); }
+    public void addPoints(UUID playerId, int points) { playerPoints.put(playerId, getPlayerPoints(playerId) + points); }
+    public void resetPoints(UUID playerId) { playerPoints.put(playerId, 0); }
 
-    // NBT Serialization
     public CompoundTag save() {
         CompoundTag tag = new CompoundTag();
         tag.putString("name", name);
         tag.putInt("totalWaves", totalWaves);
         tag.putInt("timeBetweenWaves", timeBetweenWaves);
+        tag.putInt("completionPointsReward", completionPointsReward);
 
-        if (playerSpawn != null) {
-            tag.putLong("playerSpawn", playerSpawn.asLong());
-        }
+        if (playerSpawn != null) tag.putLong("playerSpawn", playerSpawn.asLong());
 
         ListTag mobSpawnsList = new ListTag();
         for (BlockPos pos : mobSpawns) {
@@ -99,24 +100,26 @@ public class Location {
         tag.put("mobSpawns", mobSpawnsList);
 
         ListTag wavesList = new ListTag();
-        for (WaveConfig wave : waves) {
-            wavesList.add(wave.save());
-        }
+        for (WaveConfig wave : waves) wavesList.add(wave.save());
         tag.put("waves", wavesList);
 
         tag.putBoolean("keepInventory", keepInventory);
 
         ListTag startingItemsList = new ListTag();
-        for (ItemStack item : startingItems) {
-            startingItemsList.add(item.save(new CompoundTag()));
-        }
+        for (ItemStack item : startingItems) startingItemsList.add(item.save(new CompoundTag()));
         tag.put("startingItems", startingItemsList);
 
         ListTag shopItemsList = new ListTag();
-        for (ShopItem item : shopItems) {
-            shopItemsList.add(item.save());
-        }
+        for (ShopItem item : shopItems) shopItemsList.add(item.save());
         tag.put("shopItems", shopItemsList);
+
+        ListTag completionRewardsList = new ListTag();
+        for (ShopItem item : completionRewards) completionRewardsList.add(item.save());
+        tag.put("completionRewards", completionRewardsList);
+
+        ListTag lootSpawnsList = new ListTag();
+        for (LootSpawn ls : lootSpawns) lootSpawnsList.add(ls.save());
+        tag.put("lootSpawns", lootSpawnsList);
 
         return tag;
     }
@@ -125,32 +128,34 @@ public class Location {
         Location location = new Location(tag.getString("name"));
         location.totalWaves = tag.getInt("totalWaves");
         location.timeBetweenWaves = tag.getInt("timeBetweenWaves");
+        location.completionPointsReward = tag.contains("completionPointsReward") ? tag.getInt("completionPointsReward") : 0;
 
-        if (tag.contains("playerSpawn")) {
-            location.playerSpawn = BlockPos.of(tag.getLong("playerSpawn"));
-        }
+        if (tag.contains("playerSpawn")) location.playerSpawn = BlockPos.of(tag.getLong("playerSpawn"));
 
         ListTag mobSpawnsList = tag.getList("mobSpawns", 10);
         for (int i = 0; i < mobSpawnsList.size(); i++) {
-            CompoundTag posTag = mobSpawnsList.getCompound(i);
-            location.mobSpawns.add(BlockPos.of(posTag.getLong("pos")));
+            location.mobSpawns.add(BlockPos.of(mobSpawnsList.getCompound(i).getLong("pos")));
         }
 
         ListTag wavesList = tag.getList("waves", 10);
-        for (int i = 0; i < wavesList.size(); i++) {
-            location.waves.add(WaveConfig.load(wavesList.getCompound(i)));
-        }
+        for (int i = 0; i < wavesList.size(); i++) location.waves.add(WaveConfig.load(wavesList.getCompound(i)));
 
         location.keepInventory = tag.getBoolean("keepInventory");
 
         ListTag startingItemsList = tag.getList("startingItems", 10);
-        for (int i = 0; i < startingItemsList.size(); i++) {
-            location.startingItems.add(ItemStack.of(startingItemsList.getCompound(i)));
-        }
+        for (int i = 0; i < startingItemsList.size(); i++) location.startingItems.add(ItemStack.of(startingItemsList.getCompound(i)));
 
         ListTag shopItemsList = tag.getList("shopItems", 10);
-        for (int i = 0; i < shopItemsList.size(); i++) {
-            location.shopItems.add(ShopItem.load(shopItemsList.getCompound(i)));
+        for (int i = 0; i < shopItemsList.size(); i++) location.shopItems.add(ShopItem.load(shopItemsList.getCompound(i)));
+
+        ListTag completionRewardsList = tag.getList("completionRewards", 10);
+        for (int i = 0; i < completionRewardsList.size(); i++) location.completionRewards.add(ShopItem.load(completionRewardsList.getCompound(i)));
+
+        if (tag.contains("lootSpawns")) {
+            ListTag lootSpawnsList = tag.getList("lootSpawns", 10);
+            for (int i = 0; i < lootSpawnsList.size(); i++) {
+                location.lootSpawns.add(LootSpawn.load(lootSpawnsList.getCompound(i)));
+            }
         }
 
         return location;

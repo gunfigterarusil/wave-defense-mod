@@ -4,6 +4,7 @@ import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.CreateLocationPacket;
 import com.wavedefense.network.packets.DeleteLocationPacket;
 import com.wavedefense.network.packets.RequestLocationDataPacket;
+import com.wavedefense.network.packets.TeleportPacket;
 import com.wavedefense.data.Location;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -16,8 +17,8 @@ import java.util.List;
 public class AdminMenuScreen extends Screen {
 
     private List<String> locationNames;
-    private int selectedLocationIndex = -1;
     private EditBox locationNameInput;
+    private String errorMessage = "";
     private int scrollOffset = 0;
     private static final int ITEMS_PER_PAGE = 8;
 
@@ -29,22 +30,24 @@ public class AdminMenuScreen extends Screen {
     protected void init() {
         super.init();
         PacketHandler.sendToServer(new RequestLocationDataPacket());
-
         this.locationNames = ClientLocationManager.getAllLocationNames();
 
         int centerX = this.width / 2;
-        int startY = 40;
+        int startY = 50;
 
-        locationNameInput = new EditBox(this.font, centerX - 100, startY, 200, 20, Component.literal("Назва локації"));
+        // EditBox збережений між rebuildWidgets через поле
+        locationNameInput = new EditBox(this.font, centerX - 100, startY, 200, 20, Component.literal("Location name"));
         locationNameInput.setMaxLength(32);
+        // Дозволяємо лише латинські літери, цифри, підкреслення та дефіс
+        locationNameInput.setFilter(s -> s.matches("[a-zA-Z0-9_\\-]*"));
         this.addRenderableWidget(locationNameInput);
 
         this.addRenderableWidget(Button.builder(
                 Component.literal("Створити нову локацію"),
                 button -> createNewLocation()
-        ).bounds(centerX - 100, startY + 30, 200, 20).build());
+        ).bounds(centerX - 100, startY + 28, 200, 20).build());
 
-        int listStartY = startY + 60;
+        int listStartY = startY + 65;
         for (int i = 0; i < Math.min(ITEMS_PER_PAGE, locationNames.size()); i++) {
             int index = i + scrollOffset;
             if (index >= locationNames.size()) break;
@@ -52,20 +55,21 @@ public class AdminMenuScreen extends Screen {
             String name = locationNames.get(index);
             int yPos = listStartY + (i * 25);
 
-            final int finalIndex = index;
+            final String finalName = name;
+            final int finalIdx = index;
             this.addRenderableWidget(Button.builder(
                     Component.literal(name),
-                    button -> selectLocation(finalIndex)
+                    button -> selectLocation(finalName)
             ).bounds(centerX - 100, yPos, 120, 20).build());
 
             this.addRenderableWidget(Button.builder(
                     Component.literal("✎"),
-                    button -> editLocation(name)
+                    button -> editLocation(finalName)
             ).bounds(centerX + 25, yPos, 35, 20).build());
 
             this.addRenderableWidget(Button.builder(
                     Component.literal("✕"),
-                    button -> deleteLocation(name)
+                    button -> deleteLocation(finalName)
             ).bounds(centerX + 65, yPos, 35, 20).build());
         }
 
@@ -78,7 +82,7 @@ public class AdminMenuScreen extends Screen {
             this.addRenderableWidget(Button.builder(
                     Component.literal("▼"),
                     button -> scrollDown()
-            ).bounds(centerX + 105, listStartY + 180, 20, 20).build());
+            ).bounds(centerX + 105, listStartY + (ITEMS_PER_PAGE - 1) * 25, 20, 20).build());
         }
 
         this.addRenderableWidget(Button.builder(
@@ -89,18 +93,31 @@ public class AdminMenuScreen extends Screen {
 
     private void createNewLocation() {
         String name = locationNameInput.getValue().trim();
-        if (name.isEmpty() || ClientLocationManager.getLocation(name) != null) {
+        if (name.isEmpty()) {
+            errorMessage = "§cНазва не може бути порожньою!";
             return;
         }
+        if (ClientLocationManager.getLocation(name) != null) {
+            errorMessage = "§cЛокація з такою назвою вже існує!";
+            return;
+        }
+        errorMessage = "";
         PacketHandler.sendToServer(new CreateLocationPacket(name));
         locationNameInput.setValue("");
-        // Request a refresh of the location list
+        // Запит даних і оновлення через невелику затримку
         PacketHandler.sendToServer(new RequestLocationDataPacket());
-        this.rebuildWidgets();
+        // Оновлення локального кешу та екрану
+        net.minecraft.client.Minecraft.getInstance().tell(() -> {
+            this.locationNames = ClientLocationManager.getAllLocationNames();
+            this.rebuildWidgets();
+        });
     }
 
-    private void selectLocation(int index) {
-        selectedLocationIndex = index;
+    private void selectLocation(String name) {
+        Location location = ClientLocationManager.getLocation(name);
+        if (location != null) {
+            editLocation(name);
+        }
     }
 
     private void editLocation(String name) {
@@ -112,9 +129,20 @@ public class AdminMenuScreen extends Screen {
 
     private void deleteLocation(String name) {
         PacketHandler.sendToServer(new DeleteLocationPacket(name));
-        // Request a refresh of the location list
         PacketHandler.sendToServer(new RequestLocationDataPacket());
-        this.rebuildWidgets();
+        // Оновлення після видалення
+        if (scrollOffset > 0 && scrollOffset >= locationNames.size() - 1) {
+            scrollOffset = Math.max(0, locationNames.size() - 2);
+        }
+        net.minecraft.client.Minecraft.getInstance().tell(() -> {
+            this.locationNames = ClientLocationManager.getAllLocationNames();
+            this.rebuildWidgets();
+        });
+    }
+
+    private void enterLocation(String name) {
+        PacketHandler.sendToServer(new TeleportPacket(name));
+        this.onClose();
     }
 
     private void scrollUp() {
@@ -132,9 +160,26 @@ public class AdminMenuScreen extends Screen {
     }
 
     @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        if (delta > 0) scrollUp();
+        else scrollDown();
+        return true;
+    }
+
+    @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics);
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 15, 0xFFFFFF);
+
+        int centerX = this.width / 2;
+        // Підпис до поля вводу
+        graphics.drawString(this.font, "§7Назва (лише латиниця/цифри/_-):", centerX - 100, 38, 0xFFFFFF);
+
+        // Повідомлення про помилку
+        if (!errorMessage.isEmpty()) {
+            graphics.drawCenteredString(this.font, errorMessage, centerX, 75, 0xFFFFFF);
+        }
+
         super.render(graphics, mouseX, mouseY, partialTick);
     }
 

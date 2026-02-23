@@ -39,6 +39,17 @@ public class TeleportPacket {
                 return;
             }
 
+            // Перевіряємо ігрове правило — чи дозволений вхід на локацію
+            if (!com.wavedefense.config.WaveGameRules.isLocationEntryAllowed(player)) {
+                player.displayClientMessage(
+                    net.minecraft.network.chat.Component.literal("§cВхід на локацію зараз заблокований адміністратором."),
+                    true
+                );
+                return;
+            }
+
+            // Пункт 11: Очищення ефектів
+            player.removeAllEffects();
             WaveDefenseMod.waveManager.addPlayerToLocation(player, location);
         });
         ctx.get().setPacketHandled(true);
