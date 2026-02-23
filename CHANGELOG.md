@@ -1,36 +1,98 @@
-# Changelog
+package com.wavedefense.data;
 
-Всі значні зміни цього проекту будуть документовані у цьому файлі.
+import com.wavedefense.WaveDefenseMod;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtIo;
+import net.minecraft.server.MinecraftServer;
 
-## [1.0.0] - 2024-12-02
+import javax.annotation.Nullable;
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
-### Додано
-- 🎮 Початковий реліз Wave Defense Mod
-- 🗺️ Система локацій з необмеженою кількістю
-- 👾 Повне налаштування хвиль мобів
-- 💰 Магазин з купівлею та продажем
-- 🎁 Система нагород за хвилі
-- 📊 HUD та статистика гравця
-- 💎 Система поінтів
-- 🌐 Підтримка NBT даних у магазині
-- 🇺🇦 Українська локалізація
-- 🇬🇧 Англійська локалізація
+public class LocationManager {
+    private final List<Location> locations = new ArrayList<>();
+    private final File dataFile;
 
-### Особливості
-- До 10 точок спавну мобів на локацію
-- Підтримка модових мобів
-- Налаштування шансу появи (1-100%)
-- Збереження/очищення інвентаря
-- Діалоги підтвердження для критичних дій
-- Оптимізація продуктивності
+    public LocationManager(MinecraftServer server) {
+        this.dataFile = server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("data/wavedefense_locations.dat").toFile();
+        load();
+    }
 
----
+    public void createLocation(String name) {
+        if (getLocation(name) == null) {
+            locations.add(new Location(name));
+            saveToFile();
+        }
+    }
 
-## [Unreleased]
+    public void removeLocation(String name) {
+        locations.removeIf(loc -> loc.getName().equals(name));
+        saveToFile();
+    }
 
-### Плануються
-- Босс-хвилі
-- Турнірна таблиця
-- Особливі здібності
-- Звукові ефекти
-- Частинки при спавні
+    public void updateLocation(Location updatedLocation) {
+        for (int i = 0; i < locations.size(); i++) {
+            if (locations.get(i).getName().equals(updatedLocation.getName())) {
+                locations.set(i, updatedLocation);
+                saveToFile();
+                return;
+            }
+        }
+    }
+
+    @Nullable
+    public Location getLocation(String name) {
+        return locations.stream()
+                .filter(loc -> loc.getName().equals(name))
+                .findFirst()
+                .orElse(null);
+    }
+
+    public List<Location> getAllLocations() {
+        return locations;
+    }
+
+    public boolean locationExists(String name) {
+        return locations.stream().anyMatch(loc -> loc.getName().equals(name));
+    }
+
+    public CompoundTag save() {
+        CompoundTag data = new CompoundTag();
+        ListTag locationsList = new ListTag();
+        for (Location loc : locations) {
+            locationsList.add(loc.save());
+        }
+        data.put("locations", locationsList);
+        return data;
+    }
+
+    public void saveToFile() {
+        try {
+            dataFile.getParentFile().mkdirs();
+            NbtIo.writeCompressed(save(), dataFile);
+        } catch (IOException e) {
+            WaveDefenseMod.LOGGER.error("Could not save location data", e);
+        }
+    }
+
+    public void loadLocations() { load(); }
+
+    private void load() {
+        if (!dataFile.exists()) {
+            return;
+        }
+        try {
+            CompoundTag data = NbtIo.readCompressed(dataFile);
+            ListTag locationsList = data.getList("locations", 10);
+            for (int i = 0; i < locationsList.size(); i++) {
+                locations.add(Location.load(locationsList.getCompound(i)));
+            }
+        } catch (IOException e) {
+            WaveDefenseMod.LOGGER.error("Could not load location data", e);
+        }
+    }
+}

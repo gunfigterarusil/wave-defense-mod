@@ -1,121 +1,35 @@
-# 🎮 Wave Defense Mod
+package com.wavedefense.network.packets;
 
-Мод для Minecraft 1.20.1 Forge, який додає систему захисту від хвиль мобів з налаштовуваними локаціями, магазином та системою поінтів.
+import com.wavedefense.data.GameStats;
+import com.wavedefense.gui.ClientStatsManager;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraftforge.network.NetworkEvent;
+import java.util.function.Supplier;
 
-[![Forge Version](https://img.shields.io/badge/Forge-1.20.1--47.2.0-orange.svg)](https://files.minecraftforge.net/)
-[![Minecraft Version](https://img.shields.io/badge/Minecraft-1.20.1-brightgreen.svg)](https://www.minecraft.net/)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+public class SyncStatsPacket {
+    private final CompoundTag statsData;
 
-## ✨ Можливості
+    public SyncStatsPacket(GameStats stats) {
+        this.statsData = stats.save();
+    }
 
-### Для Адміністраторів
-- 🗺️ Створення необмеженої кількості локацій
-- 📍 Налаштування точок спавну гравців та мобів (до 10)
-- 👾 Вибір будь-яких мобів (включно з модовими)
-- 🌊 Повне керування хвилями мобів
-- 💰 Система магазину з купівлею/продажем
-- 🎁 Нагороди за завершення хвиль
-- 💾 Збереження всіх налаштувань
+    private SyncStatsPacket(CompoundTag tag) {
+        this.statsData = tag;
+    }
 
-### Для Гравців
-- 🎯 Вибір локації для гри
-- ⚔️ Захист від хвиль мобів
-- 💎 Накопичення поінтів за вбивства
-- 🛒 Покупка та продаж предметів у магазині
-- 📊 Статистика прогресу
-- 🏳️ Можливість здатися
-- 🎮 HUD з інформацією про хвилю та поінти
+    public static void encode(SyncStatsPacket packet, FriendlyByteBuf buf) {
+        buf.writeNbt(packet.statsData);
+    }
 
-## 🔧 Встановлення
+    public static SyncStatsPacket decode(FriendlyByteBuf buf) {
+        return new SyncStatsPacket(buf.readNbt());
+    }
 
-### Вимоги
-- Minecraft 1.20.1
-- Forge 1.20.1-47.2.0 або новіше
-- Java 17
-
-### Кроки
-1. Завантажте останню версію з [Releases](../../releases)
-2. Покладіть `.jar` файл у папку `mods/`
-3. Запустіть Minecraft з профілем Forge
-
-## 📖 Як використовувати
-
-### Для Адміна
-
-1. **Відкрийте меню** - натисніть `V` (у режимі креатив)
-2. **Створіть локацію** - введіть назву та натисніть "Створити"
-3. **Налаштуйте локацію**:
-    - Встановіть точку спавну гравця
-    - Додайте точки спавну мобів (до 10)
-    - Налаштуйте хвилі та мобів
-    - Створіть магазин з товарами
-4. **Збережіть зміни**
-
-### Для Гравця
-
-1. **Відкрийте меню** - натисніть `V`
-2. **Виберіть локацію** - натисніть на назву
-3. **Телепортуйтеся** - розпочніть гру
-4. **Відбивайте хвилі** - збирайте поінти
-5. **Купуйте в магазині** - покращуйте екіпірування
-
-## 🎨 Скріншоти
-
-_(Тут можна додати скріншоти моду)_
-
-## 🛠️ Збірка з вихідного коду
-```bash
-# Клонуйте репозиторій
-git clone https://github.com/YOUR_USERNAME/wave-defense-mod.git
-cd wave-defense-mod
-
-# Зберіть мод
-./gradlew build
-
-# JAR файл буде у build/libs/
-```
-
-## 📋 Системні вимоги
-
-- **Minecraft:** 1.20.1
-- **Forge:** 47.2.0+
-- **Java:** 17
-- **RAM:** Мінімум 4GB
-
-## 🤝 Внесок
-
-Внески вітаються! Будь ласка:
-1. Зробіть Fork репозиторію
-2. Створіть гілку для нової функції (`git checkout -b feature/AmazingFeature`)
-3. Закомітьте зміни (`git commit -m 'Add some AmazingFeature'`)
-4. Відправте в гілку (`git push origin feature/AmazingFeature`)
-5. Відкрийте Pull Request
-
-## 📝 Changelog
-
-Дивіться [CHANGELOG.md](CHANGELOG.md) для списку змін.
-
-## 📄 Ліцензія
-
-Цей проект ліцензовано під MIT License - дивіться [LICENSE](LICENSE) для деталей.
-
-## 👥 Автори
-
-Rayman for GummerCraft- [GitHub](https://github.com/YOUR_USERNAME)
-
-## 🙏 Подяки
-
-- Спільноті Minecraft Forge
-- Всім контриб'юторам
-- GummerCraft server minecraft
-
-## 📞 Підтримка
-
-Якщо у вас є питання або проблеми:
-- Відкрийте [Issue](../../issues)
-- Приєднуйтесь до нашого [Discord](#) (опціонально)
-
----
-
-
-**Зроблено з ❤️ для спільноти Minecraft**
+    public static void handle(SyncStatsPacket packet, Supplier<NetworkEvent.Context> ctx) {
+        ctx.get().enqueueWork(() -> {
+            ClientStatsManager.updateStats(packet.statsData);
+        });
+        ctx.get().setPacketHandled(true);
+    }
+}
