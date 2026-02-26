@@ -191,9 +191,10 @@ cd wave-defense-mod
 ## 👥 Автори
 
 - **Rayman for GummerCraft** - [GitHub](https://github.com/gunfigterarusil)
+- **Lazydev** - [GitHub](Ще не сказав очікую на обновлення данних)
 
 ## 🙏 Подяки
-
+- Мазахістичному тестеру Богдану і його дотошному "ФІКСИ Б__ ЦЮ Х___"
 - Спільноті Minecraft Forge
 - Всім контриб'юторам
 
@@ -207,4 +208,5 @@ cd wave-defense-mod
 
 
 **Зроблено з ❤️ для спільноти Minecraft**
+
 
