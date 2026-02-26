@@ -25,7 +25,7 @@ public class WaveConfigScreen extends Screen {
     private int pendingWaveCount = 0;
 
     public WaveConfigScreen(Location location, Screen parent) {
-        super(Component.literal("Налаштування хвиль: " + location.getName()));
+        super(Component.translatable("wavedefense.title.wave_config").append(": ").append(location.getName()));
         this.location = location;
         this.parent = parent;
     }
@@ -48,7 +48,7 @@ public class WaveConfigScreen extends Screen {
 
         waveCountInput = new EditBox(this.font, centerX - 30, startY, 55, 20, Component.literal("К-сть"));
         waveCountInput.setValue(String.valueOf(location.getWaves().size()));
-        waveCountInput.setMaxLength(3);
+        waveCountInput.setMaxLength(4);
         this.addRenderableWidget(waveCountInput);
 
         this.addRenderableWidget(Button.builder(
@@ -198,7 +198,7 @@ public class WaveConfigScreen extends Screen {
     private void applyWaveCount() {
         try {
             int targetCount = Integer.parseInt(waveCountInput.getValue());
-            if (targetCount < 1 || targetCount > 50) return;
+            if (targetCount < 1 || targetCount > 9999) return;
             int currentCount = location.getWaves().size();
             if (targetCount < currentCount) {
                 pendingWaveCount = targetCount;

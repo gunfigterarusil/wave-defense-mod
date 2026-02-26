@@ -9,7 +9,9 @@ import net.minecraft.server.level.ServerPlayer;
  * GameRules.register() є @Internal API, тому ми реалізуємо
  * аналог через статичне поле + команду /wavedefense entry on|off.
  *
- * Адміни (permission >= 2) ігнорують це налаштування.
+ * ВАЖЛИВО: перевірка hasPermissions(2) НЕ застосовується для обходу заборони,
+ * бо creative-гравці на деяких серверах мають permission 2 але не є адмінами.
+ * Адміни замість цього використовують /wavedefense tp для примусового входу.
  */
 public class WaveGameRules {
 
@@ -25,10 +27,11 @@ public class WaveGameRules {
 
     /**
      * Перевіряє чи може гравець увійти на локацію.
-     * Адміни (permission >= 2) — завжди так.
+     * Блокування поширюється на ВСІХ гравців включно з адмінами,
+     * що дозволяє адміністратору повністю зупинити вхід перед подією.
+     * Адміни можуть обійти через /wavedefense tp.
      */
     public static boolean isLocationEntryAllowed(ServerPlayer player) {
-        if (player.hasPermissions(2)) return true;
         return locationEntryAllowed;
     }
 }

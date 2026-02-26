@@ -10,17 +10,27 @@ import java.util.function.Supplier;
 
 public class TeleportPacket {
     private final String locationName;
+    private final int pvpSpawnIndex; // -1 = PvE (звичайний вхід)
 
     public TeleportPacket(String locationName) {
+        this(locationName, -1);
+    }
+
+    /** Конструктор для PvP: вказується індекс команди (точки спавну) */
+    public TeleportPacket(String locationName, int pvpSpawnIndex) {
         this.locationName = locationName;
+        this.pvpSpawnIndex = pvpSpawnIndex;
     }
 
     public static void encode(TeleportPacket packet, FriendlyByteBuf buf) {
         buf.writeUtf(packet.locationName);
+        buf.writeInt(packet.pvpSpawnIndex);
     }
 
     public static TeleportPacket decode(FriendlyByteBuf buf) {
-        return new TeleportPacket(buf.readUtf());
+        String name = buf.readUtf();
+        int idx = buf.readInt();
+        return new TeleportPacket(name, idx);
     }
 
     public static void handle(TeleportPacket packet, Supplier<NetworkEvent.Context> ctx) {
@@ -34,12 +44,12 @@ public class TeleportPacket {
             }
 
             Location location = WaveDefenseMod.locationManager.getLocation(packet.locationName);
-            if (location == null || location.getPlayerSpawn() == null) {
+            if (location == null) {
                 WaveDefenseMod.LOGGER.warn("Invalid location: " + packet.locationName);
                 return;
             }
 
-            // Перевіряємо ігрове правило — чи дозволений вхід на локацію
+            // Перевіряємо ігрове правило заборони входу
             if (!com.wavedefense.config.WaveGameRules.isLocationEntryAllowed(player)) {
                 player.displayClientMessage(
                     net.minecraft.network.chat.Component.literal("§cВхід на локацію зараз заблокований адміністратором."),
@@ -48,7 +58,25 @@ public class TeleportPacket {
                 return;
             }
 
-            // Пункт 11: Очищення ефектів
+            // PvP: окрема перевірка і вхід
+            if (location.isPvp()) {
+                int spawnIdx = packet.pvpSpawnIndex;
+                if (spawnIdx < 0 || spawnIdx >= location.getPvpSpawnPoints().size()) {
+                    player.displayClientMessage(
+                        net.minecraft.network.chat.Component.literal("§cНеправильна команда для PvP локації!"), true);
+                    return;
+                }
+                player.removeAllEffects();
+                WaveDefenseMod.waveManager.addPlayerToPvpLocation(player, location, spawnIdx);
+                return;
+            }
+
+            // PvE: стандартна перевірка точки спавну
+            if (location.getPlayerSpawn() == null) {
+                WaveDefenseMod.LOGGER.warn("No player spawn for PvE location: " + packet.locationName);
+                return;
+            }
+
             player.removeAllEffects();
             WaveDefenseMod.waveManager.addPlayerToLocation(player, location);
         });

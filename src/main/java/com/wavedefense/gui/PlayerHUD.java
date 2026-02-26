@@ -3,7 +3,7 @@ package com.wavedefense.gui;
 import com.wavedefense.wave.PlayerWaveData;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import java.util.UUID;
+import net.minecraft.client.resources.language.I18n;
 
 public class PlayerHUD {
     public static void render(GuiGraphics graphics, float partialTick, int width, int height) {
@@ -14,12 +14,12 @@ public class PlayerHUD {
 
         if (data != null && data.isInWave()) {
             int points = data.getCurrentLocation().getPlayerPoints(minecraft.player.getUUID());
-            String pointsText = "Очки: " + points;
+            String pointsText = I18n.get("wavedefense.hud.points", points);
             int textWidth = minecraft.font.width(pointsText);
             graphics.drawString(minecraft.font, pointsText, width - textWidth - 10, height - 20, 0xFFFFFF);
 
             if (data.isTimerActive() && data.isShowTimer()) {
-                String timerText = "Наступна хвиля: " + data.getTimeUntilNextWave();
+                String timerText = I18n.get("wavedefense.hud.next_wave_timer", data.getTimeUntilNextWave());
                 int timerWidth = minecraft.font.width(timerText);
                 graphics.drawString(minecraft.font, timerText, width - timerWidth - 10, height - 35, 0xFFFFFF);
             }

@@ -5,6 +5,7 @@ import com.wavedefense.data.*;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.SyncPlayerDataPacket;
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
@@ -37,8 +38,10 @@ public class WaveManager {
             return;
         }
 
+        // ── Завжди зберігаємо речі та позицію гравця ──────────────────────
         playerBackups.put(playerId, new PlayerBackup(player));
 
+        // Очищаємо інвентар і видаємо стартові предмети (keepInventory вимкнено за замовч.)
         if (!location.isKeepInventory()) {
             player.getInventory().clearContent();
             for (ItemStack item : location.getStartingItems()) {
@@ -46,8 +49,16 @@ public class WaveManager {
             }
         }
 
+        // Стартові поінти (якщо налаштовано)
+        if (location.getStartingPoints() > 0) {
+            location.addPoints(playerId, location.getStartingPoints());
+        }
+
+        // Телепорт на точку спавну
         BlockPos spawnPos = location.getPlayerSpawn();
-        player.teleportTo(spawnPos.getX() + 0.5, spawnPos.getY(), spawnPos.getZ() + 0.5);
+        if (spawnPos != null) {
+            player.teleportTo(spawnPos.getX() + 0.5, spawnPos.getY(), spawnPos.getZ() + 0.5);
+        }
 
         PlayerWaveData data = new PlayerWaveData();
         data.setPlayerUUID(playerId);
@@ -55,24 +66,34 @@ public class WaveManager {
 
         locationStats.computeIfAbsent(location.getName(), k -> new GameStats()).getPlayerStats(playerId);
 
+        int lobbyTime = com.wavedefense.config.WaveDefenseConfig.LOBBY_TIMER_SECONDS.get();
+
         if (!locationStartTimers.containsKey(location.getName()) && !locationWaveTimers.containsKey(location.getName())
                 && !locationCurrentWave.containsKey(location.getName())) {
-            locationStartTimers.put(location.getName(), System.currentTimeMillis() + 30000);
+            // ── Перший гравець — починаємо таймер лоббі ──────────────────
+            locationStartTimers.put(location.getName(), System.currentTimeMillis() + lobbyTime * 1000L);
             locationCurrentWave.put(location.getName(), 1);
-            broadcastToLocation(location.getName(), "§aГра почнеться через 30 секунд!");
+            broadcastToLocation(location.getName(),
+                String.format("§a🕐 Гра починається через §e%d §aсек! (очікуємо гравців)", lobbyTime));
             data.setCurrentWave(1);
             data.setTimerActive(true);
-            data.setTimeUntilNextWave(30);
+            data.setTimeUntilNextWave(lobbyTime);
         } else if (locationStartTimers.containsKey(location.getName())) {
-            long timeLeft = (locationStartTimers.get(location.getName()) - System.currentTimeMillis()) / 1000;
-            player.displayClientMessage(Component.literal("§aГра почнеться через " + timeLeft + " секунд!"), false);
+            // ── Новий гравець у лоббі — ПЕРЕЗАПУСКАЄМО таймер ───────────
+            long newEnd = System.currentTimeMillis() + lobbyTime * 1000L;
+            locationStartTimers.put(location.getName(), newEnd);
+            broadcastToLocation(location.getName(),
+                String.format("§e👤 §6%s §eприєднався! Таймер скинуто: §a%d сек",
+                    player.getName().getString(), lobbyTime));
             data.setCurrentWave(locationCurrentWave.getOrDefault(location.getName(), 1));
             data.setTimerActive(true);
-            data.setTimeUntilNextWave((int) timeLeft);
+            data.setTimeUntilNextWave(lobbyTime);
         } else {
+            // ── Гра вже йде — приєднуємось на льоту ──────────────────────
             int currentWave = locationCurrentWave.getOrDefault(location.getName(), 1);
             data.setCurrentWave(currentWave);
-            player.displayClientMessage(Component.literal("§aВи приєдналися до гри на хвилі " + currentWave), false);
+            player.displayClientMessage(
+                Component.literal("§aВи приєдналися до гри на хвилі " + currentWave), false);
             Integer timer = locationWaveTimers.get(location.getName());
             if (timer != null) {
                 data.setTimerActive(true);
@@ -82,9 +103,27 @@ public class WaveManager {
 
         playerData.put(playerId, data);
         syncPlayerData(player);
+        // Тригер PLAYER_JOIN для лут-спавну
+        java.util.List<ServerPlayer> allInLoc = getPlayersInLocation(location.getName());
+        if (!allInLoc.isEmpty()) {
+            fireLootTrigger(location, allInLoc.get(0).serverLevel(),
+                com.wavedefense.data.LootSpawn.Trigger.PLAYER_JOIN);
+        }
     }
 
+    // ── Авто-активація зон (feature #4) ────────────────────────────────
+    /** locationName → тіків до активації (відрахування від 600 до 0) */
+    private final Map<String, Integer> zoneCountdownTickers = new ConcurrentHashMap<>();
+    /** locationName → Set гравців у зоні активації */
+    private final Map<String, Set<UUID>> zonePlayersInRange = new ConcurrentHashMap<>();
+
     public void tick() {
+        // PvP раундова логіка
+        tickPvp();
+
+        // Авто-активація зон
+        tickZoneActivation();
+
         // Старт-таймер
         Iterator<Map.Entry<String, Long>> startIterator = locationStartTimers.entrySet().iterator();
         while (startIterator.hasNext()) {
@@ -128,6 +167,37 @@ public class WaveManager {
         }
 
         checkAllWavesComplete();
+
+        // ── Таймерні лут-тригери ──────────────────────────────────────
+        globalLootTimer60++;
+        if (globalLootTimer60 >= 60 * 20) {
+            globalLootTimer60 = 0;
+            for (String locName : getActiveLocationNames()) {
+                fireLootTriggerByName(locName, com.wavedefense.data.LootSpawn.Trigger.TIMER_60);
+            }
+        }
+        globalLootTimer120++;
+        if (globalLootTimer120 >= 120 * 20) {
+            globalLootTimer120 = 0;
+            for (String locName : getActiveLocationNames()) {
+                fireLootTriggerByName(locName, com.wavedefense.data.LootSpawn.Trigger.TIMER_120);
+            }
+        }
+        globalLootTimer300++;
+        if (globalLootTimer300 >= 300 * 20) {
+            globalLootTimer300 = 0;
+            for (String locName : getActiveLocationNames()) {
+                fireLootTriggerByName(locName, com.wavedefense.data.LootSpawn.Trigger.TIMER_300);
+            }
+        }
+    }
+
+    private java.util.Set<String> getActiveLocationNames() {
+        java.util.Set<String> names = new java.util.HashSet<>();
+        for (PlayerWaveData d : playerData.values()) {
+            if (d.getCurrentLocation() != null) names.add(d.getCurrentLocation().getName());
+        }
+        return names;
     }
 
     private void spawnWaveForLocation(String locationName, int waveNumber) {
@@ -152,6 +222,9 @@ public class WaveManager {
         Set<UUID> spawnedMobs = spawnedMobsByLocation.computeIfAbsent(locationName, k -> new HashSet<>());
 
         broadcastToLocation(locationName, "§c§l⚔ Хвиля " + waveNumber + " розпочалася!");
+        // Записуємо кількість мобів для HALF_MOBS_DEAD
+        waveStartMobCounts.put(locationName, spawnedMobsByLocation.getOrDefault(locationName, java.util.Collections.emptySet()).size());
+        halfMobsTriggered.remove(locationName); // скидаємо між хвилями
 
         // Оновлюємо стан для всіх гравців
         for (PlayerWaveData data : playerData.values()) {
@@ -196,6 +269,10 @@ public class WaveManager {
                         mob.setPersistenceRequired();
                         mob.getPersistentData().putString("location", locationName);
                         mob.getPersistentData().putInt("points", waveMob.getPointsPerKill());
+
+                        // ── Спорядження мобів (feature #5) ─────────────────────────
+                        applyMobEquipment(mob, waveMob);
+
                         world.addFreshEntity(mob);
                         spawnedMobs.add(mob.getUUID());
                         anyMobSpawned = true;
@@ -269,8 +346,18 @@ public class WaveManager {
             return entity == null || !entity.isAlive();
         });
 
+        // Тригер HALF_MOBS_DEAD — один раз коли половина знищена
+        int currentCount = mobs.size();
+        int originalCount = waveStartMobCounts.getOrDefault(locationName, 0);
+        if (originalCount > 0 && currentCount > 0 && currentCount <= originalCount / 2
+                && !halfMobsTriggered.contains(locationName)) {
+            halfMobsTriggered.add(locationName);
+            fireLootTriggerByName(locationName, com.wavedefense.data.LootSpawn.Trigger.HALF_MOBS_DEAD);
+        }
+
         if (mobs.isEmpty()) {
             spawnedMobsByLocation.remove(locationName);
+            halfMobsTriggered.remove(locationName);
             onWaveComplete(locationName);
         }
     }
@@ -278,6 +365,13 @@ public class WaveManager {
     private void onWaveComplete(String locationName) {
         Location location = WaveDefenseMod.locationManager.getLocation(locationName);
         if (location == null) return;
+
+        // WAVE_END тригер
+        fireLootTriggerByName(locationName, com.wavedefense.data.LootSpawn.Trigger.WAVE_END);
+
+
+        // WAVE_END тригер для луту
+        fireLootTriggerByName(locationName, com.wavedefense.data.LootSpawn.Trigger.WAVE_END);
 
         GameStats stats = locationStats.get(locationName);
         if (stats != null) stats.incrementWavesCompleted();
@@ -388,15 +482,225 @@ public class WaveManager {
         }
     }
 
+    /**
+     * Авто-активація зон (feature #4).
+     * Щотіку перевіряємо гравців поруч з точкою спавну PvE локацій з autoActivate=true.
+     * Якщо гравці в радіусі — починаємо 30-секундний зворотний відлік (відображаємо частинки).
+     * Якщо всі вийшли — скасовуємо відлік.
+     * Після відліку — автоматично запускаємо локацію для гравців що залишились.
+     */
+    private void tickZoneActivation() {
+        if (WaveDefenseMod.getServer() == null) return;
+
+        for (Location location : WaveDefenseMod.locationManager.getAllLocations()) {
+            if (!location.isAutoActivate() || location.isPvp()) continue;
+            if (location.getPlayerSpawn() == null) continue;
+
+            String locName = location.getName();
+
+            // Пропускаємо якщо локація вже активна
+            boolean alreadyActive = playerData.values().stream()
+                    .anyMatch(d -> d.getCurrentLocation() != null &&
+                                  d.getCurrentLocation().getName().equals(locName));
+            if (alreadyActive) {
+                // Скасовуємо відлік якщо активна
+                zoneCountdownTickers.remove(locName);
+                zonePlayersInRange.remove(locName);
+                continue;
+            }
+
+            // Збираємо гравців в радіусі
+            net.minecraft.core.BlockPos spawn = location.getPlayerSpawn();
+            int radius = location.getAutoActivateRadius();
+            Set<UUID> inRange = new java.util.HashSet<>();
+
+            for (var p : WaveDefenseMod.getServer().getPlayerList().getPlayers()) {
+                if (playerData.containsKey(p.getUUID())) continue; // вже в грі
+                double dist = p.blockPosition().distSqr(spawn);
+                if (dist <= (double) radius * radius) {
+                    inRange.add(p.getUUID());
+                }
+            }
+
+            zonePlayersInRange.put(locName, inRange);
+
+            if (inRange.isEmpty()) {
+                // Якщо вийшли — скасовуємо таймер
+                if (zoneCountdownTickers.containsKey(locName)) {
+                    zoneCountdownTickers.remove(locName);
+                    broadcastToNearby(spawn, location, "§7Активацію скасовано — зона порожня.");
+                }
+                continue;
+            }
+
+            // Є гравці — починаємо або продовжуємо відлік
+            if (!zoneCountdownTickers.containsKey(locName)) {
+                int countdown = com.wavedefense.config.WaveDefenseConfig.ZONE_ACTIVATION_COUNTDOWN.get();
+                zoneCountdownTickers.put(locName, countdown * 20); // в тіках
+                // Повідомляємо
+                broadcastToNearby(spawn, location,
+                    String.format("§e⚠ Активація локації §6%s§e через §a%d сек§e! Вийдіть щоб скасувати.", locName, countdown));
+            }
+
+            // Тікаємо
+            int ticks = zoneCountdownTickers.getOrDefault(locName, 0) - 1;
+            if (ticks <= 0) {
+                // Час вийшов — активуємо!
+                zoneCountdownTickers.remove(locName);
+                zonePlayersInRange.remove(locName);
+                activateZoneForPlayers(location, inRange);
+            } else {
+                zoneCountdownTickers.put(locName, ticks);
+                // Частинки раз на секунду
+                if (ticks % 20 == 0) {
+                    spawnZoneParticles(spawn, radius);
+                    int secsLeft = ticks / 20;
+                    if (secsLeft <= 5 || secsLeft % 5 == 0) {
+                        broadcastToNearby(spawn, location,
+                            String.format("§c⏱ Активація через §e%d §cсек...", secsLeft));
+                    }
+                }
+            }
+        }
+    }
+
+    private void broadcastToNearby(net.minecraft.core.BlockPos pos, Location location, String msg) {
+        for (var p : WaveDefenseMod.getServer().getPlayerList().getPlayers()) {
+            if (p.blockPosition().distSqr(pos) <= 400) { // 20 блоків
+                p.displayClientMessage(net.minecraft.network.chat.Component.literal(msg), true);
+            }
+        }
+    }
+
+    /**
+     * Спавнить коло чорних частинок навколо точки спавну (у площині Y).
+     */
+    private void spawnZoneParticles(net.minecraft.core.BlockPos center, int radius) {
+        net.minecraft.server.level.ServerLevel overworld =
+            (net.minecraft.server.level.ServerLevel) WaveDefenseMod.getServer().getLevel(net.minecraft.world.level.Level.OVERWORLD);
+        if (overworld == null) return;
+
+        int steps = Math.max(16, radius * 8);
+        for (int i = 0; i < steps; i++) {
+            double angle = 2 * Math.PI * i / steps;
+            double px = center.getX() + 0.5 + radius * Math.cos(angle);
+            double pz = center.getZ() + 0.5 + radius * Math.sin(angle);
+            overworld.sendParticles(
+                net.minecraft.core.particles.ParticleTypes.SQUID_INK,
+                px, center.getY() + 0.1, pz,
+                1, 0, 0.1, 0, 0.02
+            );
+        }
+    }
+
+    /**
+     * Активує локацію для гравців які залишились у зоні.
+     * autoActivate-локація автоматично зберігає інвентар.
+     */
+    private void activateZoneForPlayers(Location location, Set<UUID> playerIds) {
+        // Форсуємо збереження інвентаря для авто-активованих локацій
+        location.setKeepInventory(true);
+
+        int activated = 0;
+        for (UUID uid : playerIds) {
+            net.minecraft.server.level.ServerPlayer player =
+                WaveDefenseMod.getServer().getPlayerList().getPlayer(uid);
+            if (player == null) continue;
+            addPlayerToLocation(player, location);
+            activated++;
+        }
+
+        if (activated > 0) {
+            broadcastToNearby(location.getPlayerSpawn(), location,
+                String.format("§a🎮 Локацію §e%s §aактивовано для §e%d §aгравців!", location.getName(), activated));
+        }
+    }
+
+    /**
+     * Applies mob equipment and effects when spawning.
+     */
+    private void applyMobEquipment(Mob mob, com.wavedefense.data.WaveMob waveMob) {
+        if (!com.wavedefense.config.WaveDefenseConfig.MOBS_CAN_HAVE_EQUIPMENT.get()) return;
+
+        float dropChance = (float) com.wavedefense.config.WaveDefenseConfig.MOB_ARMOR_DROP_CHANCE.get().floatValue();
+
+        if (!waveMob.getHelmet().isEmpty()) {
+            mob.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, waveMob.getHelmet().copy());
+            mob.setDropChance(net.minecraft.world.entity.EquipmentSlot.HEAD, dropChance);
+        }
+        if (!waveMob.getChestplate().isEmpty()) {
+            mob.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, waveMob.getChestplate().copy());
+            mob.setDropChance(net.minecraft.world.entity.EquipmentSlot.CHEST, dropChance);
+        }
+        if (!waveMob.getLeggings().isEmpty()) {
+            mob.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, waveMob.getLeggings().copy());
+            mob.setDropChance(net.minecraft.world.entity.EquipmentSlot.LEGS, dropChance);
+        }
+        if (!waveMob.getBoots().isEmpty()) {
+            mob.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, waveMob.getBoots().copy());
+            mob.setDropChance(net.minecraft.world.entity.EquipmentSlot.FEET, dropChance);
+        }
+        if (!waveMob.getMainHand().isEmpty()) {
+            mob.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, waveMob.getMainHand().copy());
+            mob.setDropChance(net.minecraft.world.entity.EquipmentSlot.MAINHAND, dropChance);
+        }
+        if (!waveMob.getOffHand().isEmpty()) {
+            mob.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, waveMob.getOffHand().copy());
+            mob.setDropChance(net.minecraft.world.entity.EquipmentSlot.OFFHAND, dropChance);
+        }
+
+        // Ефекти: format "namespace:path:amplifier:durationTicks"
+        for (String effectStr : waveMob.getEffects()) {
+            try {
+                String[] parts = effectStr.split(":");
+                // Формат: "namespace:path:amp:dur"
+                if (parts.length == 4) {
+                    ResourceLocation effectId = new ResourceLocation(parts[0], parts[1]);
+                    int amp = Integer.parseInt(parts[2]);
+                    int dur = Integer.parseInt(parts[3]);
+                    net.minecraft.world.effect.MobEffect effect =
+                        net.minecraftforge.registries.ForgeRegistries.MOB_EFFECTS.getValue(effectId);
+                    if (effect != null) {
+                        mob.addEffect(new net.minecraft.world.effect.MobEffectInstance(effect, dur, amp));
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+    }
+
     public void surrenderPlayer(ServerPlayer player) {
         UUID playerId = player.getUUID();
         PlayerWaveData data = playerData.remove(playerId);
         if (data != null) {
+            // Якщо гравець у спектаторі (PvP смерть) — відновлюємо survival перед backup.restore
+            if (player.gameMode.getGameModeForPlayer() == net.minecraft.world.level.GameType.SPECTATOR) {
+                player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+            }
             PlayerBackup backup = playerBackups.remove(playerId);
             if (backup != null) backup.restore(player);
+
             if (data.getCurrentLocation() != null) {
                 String locName = data.getCurrentLocation().getName();
-                // Якщо більше немає гравців — очищаємо
+                Location locRef = data.getCurrentLocation();
+
+                // Очищаємо команду гравця в PvP
+                locRef.removePlayerTeam(playerId);
+
+                // Видаляємо з PvP round state
+                com.wavedefense.data.PvpRoundState state = pvpStates.get(locName);
+                if (state != null) {
+                    state.removePlayer(playerId);
+                    // Перевіряємо чи завершився раунд після виходу
+                    String winner = state.checkRoundWinner();
+                    if (winner != null && state.getPhase() == com.wavedefense.data.PvpRoundState.Phase.ACTIVE) {
+                        endRound(locRef, state, winner);
+                    } else {
+                        updatePvpEnemyCounts(locRef, state);
+                        broadcastPvpSync(locRef);
+                    }
+                }
+
+                // Якщо більше немає гравців — очищаємо все
                 boolean anyLeft = playerData.values().stream()
                         .anyMatch(d -> d.getCurrentLocation() != null && d.getCurrentLocation().getName().equals(locName));
                 if (!anyLeft) {
@@ -404,6 +708,9 @@ public class WaveManager {
                     locationWaveTimers.remove(locName);
                     locationStartTimers.remove(locName);
                     locationCurrentWave.remove(locName);
+                    pvpStates.remove(locName);
+                } else {
+                    for (ServerPlayer p : getPlayersInLocation(locName)) syncPlayerData(p);
                 }
             }
             data.setCurrentLocation(null);
@@ -471,29 +778,46 @@ public class WaveManager {
 
     /**
      * Спавнить лут у точках луту локації.
-     * Для кожного LootSpawn кидається шанс, і якщо вдалось — скидає предмети на землю.
+     * Спавнить лут для вказаного тригера (перевіряє trigger + шанс).
      */
     private void spawnLootForLocation(Location location, ServerLevel world, int waveNumber) {
-        if (location.getLootSpawns().isEmpty()) return;
+        // Legacy: викликається при старті хвилі
+        fireLootTrigger(location, world, com.wavedefense.data.LootSpawn.Trigger.WAVE_START);
+    }
+
+    public void fireLootTrigger(Location location, ServerLevel world,
+                                 com.wavedefense.data.LootSpawn.Trigger trigger) {
+        if (location == null || location.getLootSpawns().isEmpty()) return;
         Random rng = new Random();
         for (com.wavedefense.data.LootSpawn lootSpawn : location.getLootSpawns()) {
-            // Перевіряємо шанс для цієї точки
+            if (!lootSpawn.hasTrigger(trigger)) continue;
             if (rng.nextInt(100) >= lootSpawn.getSpawnChance()) continue;
-            net.minecraft.core.BlockPos pos = lootSpawn.getPos();
-            for (net.minecraft.world.item.ItemStack item : lootSpawn.getItems()) {
-                if (item.isEmpty()) continue;
-                for (int n = 0; n < lootSpawn.getCount(); n++) {
-                    net.minecraft.world.entity.item.ItemEntity itemEntity =
-                        new net.minecraft.world.entity.item.ItemEntity(
-                            world,
-                            pos.getX() + 0.5,
-                            pos.getY() + 0.5,
-                            pos.getZ() + 0.5,
-                            item.copy()
-                        );
-                    itemEntity.setPickUpDelay(20); // 1 секунда перед підбором
-                    world.addFreshEntity(itemEntity);
-                }
+            dropLootAt(lootSpawn, world);
+        }
+    }
+
+    public void fireLootTriggerByName(String locationName, com.wavedefense.data.LootSpawn.Trigger trigger) {
+        Location location = WaveDefenseMod.locationManager.getLocation(locationName);
+        if (location == null) return;
+        java.util.List<ServerPlayer> players = getPlayersInLocation(locationName);
+        if (players.isEmpty()) return;
+        ServerLevel world = players.get(0).serverLevel();
+        fireLootTrigger(location, world, trigger);
+    }
+
+    private void dropLootAt(com.wavedefense.data.LootSpawn lootSpawn, ServerLevel world) {
+        net.minecraft.core.BlockPos pos = lootSpawn.getPos();
+        for (net.minecraft.world.item.ItemStack item : lootSpawn.getItems()) {
+            if (item.isEmpty()) continue;
+            for (int n = 0; n < lootSpawn.getCount(); n++) {
+                net.minecraft.world.entity.item.ItemEntity itemEntity =
+                    new net.minecraft.world.entity.item.ItemEntity(
+                        world,
+                        pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
+                        item.copy()
+                    );
+                itemEntity.setPickUpDelay(20);
+                world.addFreshEntity(itemEntity);
             }
         }
     }
@@ -526,5 +850,353 @@ public class WaveManager {
 
     public PlayerWaveData getPlayerData(UUID playerId) {
         return playerData.get(playerId);
+    }
+
+
+    // ════════════════════════════════════════════════════════════════════
+    //  PvP — Round-Based System
+    // ════════════════════════════════════════════════════════════════════
+
+    /** Кількість мобів на початку хвилі (для HALF_MOBS_DEAD) */
+    // Таймери для time-based лут-тригерів (в тіках)
+    private int globalLootTimer60  = 0;
+    private int globalLootTimer120 = 0;
+    private int globalLootTimer300 = 0;
+
+    private final java.util.Map<String, Integer> waveStartMobCounts = new java.util.concurrent.ConcurrentHashMap<>();
+    /** Локації де вже спрацював тригер HALF_MOBS_DEAD у цій хвилі */
+    private final java.util.Set<String> halfMobsTriggered = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    private final java.util.Map<String, Integer> waveStartMobCounts = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Set<String> halfMobsTriggered = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /** Стан раунду кожної PvP локації (за назвою) */
+    private final Map<String, com.wavedefense.data.PvpRoundState> pvpStates = new ConcurrentHashMap<>();
+
+    /**
+     * Додає гравця до PvP локації, призначає команду і ставить у WAITING фазу.
+     */
+    public void addPlayerToPvpLocation(ServerPlayer player, Location location, int spawnIndex) {
+        UUID playerId = player.getUUID();
+        if (playerData.containsKey(playerId)) {
+            player.displayClientMessage(Component.literal("§cВи вже берете участь у грі!"), false);
+            return;
+        }
+
+        playerBackups.put(playerId, new PlayerBackup(player));
+
+        if (!location.isKeepInventory()) {
+            player.getInventory().clearContent();
+            for (ItemStack item : location.getStartingItems()) player.getInventory().add(item.copy());
+        }
+
+        // Стартові поінти для покупок у магазині
+        if (location.getStartingPoints() > 0) {
+            location.addPoints(playerId, location.getStartingPoints());
+        }
+
+        com.wavedefense.data.PvpSpawnPoint spawnPoint = location.getPvpSpawnPoints().get(spawnIndex);
+        location.setPlayerTeam(playerId, spawnPoint.getTeamName());
+
+        PlayerWaveData data = new PlayerWaveData();
+        data.setPlayerUUID(playerId);
+        data.setCurrentLocation(location);
+        data.setInPvp(true);
+        data.setCurrentWave(0);
+        data.setTimerActive(false);
+        playerData.put(playerId, data);
+
+        // Спектатор поки чекаємо старту
+        setSpectator(player, true);
+        teleportToSafeSpawn(player, spawnPoint.getPos());
+
+        // Ініціалізуємо або оновлюємо PvpRoundState
+        com.wavedefense.data.PvpRoundState state = pvpStates.computeIfAbsent(
+            location.getName(),
+            k -> new com.wavedefense.data.PvpRoundState(location.getPvpTotalRounds(), location.getPvpBuyTime())
+        );
+        state.registerPlayer(playerId, player.getName().getString(), spawnPoint.getTeamName());
+
+        player.displayClientMessage(Component.literal(
+            "§aВи в команді §e" + spawnPoint.getTeamName() +
+            "§a! Чекаємо гравців... (потрібно мін. §e" + location.getPvpMinPlayers() + "§a)"), false);
+
+        checkPvpStart(location);
+        broadcastPvpSync(location);
+        syncPlayerData(player);
+    }
+
+    private void checkPvpStart(Location location) {
+        com.wavedefense.data.PvpRoundState state = pvpStates.get(location.getName());
+        if (state == null || state.getPhase() != com.wavedefense.data.PvpRoundState.Phase.WAITING) return;
+
+        long count = playerData.values().stream()
+            .filter(d -> d.getCurrentLocation() != null &&
+                         d.getCurrentLocation().getName().equals(location.getName()))
+            .count();
+
+        if (count >= location.getPvpMinPlayers()) {
+            state.startBuyPhase();
+            broadcastToLocation(location.getName(), "§a✓ Достатньо гравців! §eЧас покупок: §a" +
+                location.getPvpBuyTime() + " сек.");
+        }
+    }
+
+    /** PvP tick — викликається з загального tick() */
+    public void tickPvp() {
+        for (Map.Entry<String, com.wavedefense.data.PvpRoundState> entry : pvpStates.entrySet()) {
+            String locName = entry.getKey();
+            com.wavedefense.data.PvpRoundState state = entry.getValue();
+            Location location = WaveDefenseMod.locationManager.getLocation(locName);
+            if (location == null) continue;
+
+            if (state.getPhase() == com.wavedefense.data.PvpRoundState.Phase.BUY) {
+                state.tickDown();
+                if (state.getTimerTicks() % 20 == 0) broadcastPvpSync(location);
+                if (state.getTimerTicks() <= 0) startActiveRound(location, state);
+
+            } else if (state.getPhase() == com.wavedefense.data.PvpRoundState.Phase.ACTIVE) {
+                String winner = state.checkRoundWinner();
+                if (winner != null) endRound(location, state, winner);
+            }
+        }
+    }
+
+    private void startActiveRound(Location location, com.wavedefense.data.PvpRoundState state) {
+        Set<UUID> allInLoc = new HashSet<>();
+        for (Map.Entry<UUID, PlayerWaveData> e : playerData.entrySet()) {
+            if (e.getValue().getCurrentLocation() != null &&
+                e.getValue().getCurrentLocation().getName().equals(location.getName())) {
+                allInLoc.add(e.getKey());
+            }
+        }
+        state.startActiveRound(allInLoc);
+
+        for (UUID pid : allInLoc) {
+            ServerPlayer p = WaveDefenseMod.getServer().getPlayerList().getPlayer(pid);
+            if (p == null) continue;
+            setSpectator(p, false);
+            String team = location.getPlayerTeam(pid);
+            if (team != null) {
+                for (com.wavedefense.data.PvpSpawnPoint sp : location.getPvpSpawnPoints()) {
+                    if (sp.getTeamName().equals(team)) { teleportToSafeSpawn(p, sp.getPos()); break; }
+                }
+            }
+        }
+
+        // ROUND_START лут
+        fireLootTriggerByName(location.getName(), com.wavedefense.data.LootSpawn.Trigger.ROUND_START);
+        broadcastToLocation(location.getName(),
+            String.format("§c⚔ РАУНД §e%d§c/§e%d §cпочався!",
+                state.getCurrentRound(), state.getTotalRounds()));
+        broadcastPvpSync(location);
+    }
+
+    private void endRound(Location location, com.wavedefense.data.PvpRoundState state, String winnerTeam) {
+        state.recordTeamWin(winnerTeam);
+        // ROUND_END лут
+        fireLootTriggerByName(location.getName(), com.wavedefense.data.LootSpawn.Trigger.ROUND_END);
+        broadcastToLocation(location.getName(),
+            "§6🏆 §e" + winnerTeam + " §6виграли раунд! §7" + formatTeamWins(state));
+
+        if (state.isAllRoundsDone()) {
+            endPvpMatch(location, state);
+            return;
+        }
+
+        // Наступний BUY раунд
+        state.startBuyPhase();
+        for (ServerPlayer p : getPlayersInLocation(location.getName())) {
+            p.setHealth(p.getMaxHealth());
+            setSpectator(p, true);
+            syncPlayerData(p);
+        }
+        // BUY_PHASE лут
+        fireLootTriggerByName(location.getName(), com.wavedefense.data.LootSpawn.Trigger.BUY_PHASE);
+        broadcastToLocation(location.getName(),
+            "§aЧас покупок: §e" + location.getPvpBuyTime() + " сек. перед раундом §e" +
+            state.getCurrentRound() + "§a!");
+        broadcastPvpSync(location);
+    }
+
+    private void endPvpMatch(Location location, com.wavedefense.data.PvpRoundState state) {
+        state.setPhase(com.wavedefense.data.PvpRoundState.Phase.ENDED);
+
+        String champion = state.getTeamWins().entrySet().stream()
+            .max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse("Нікого");
+
+        broadcastToLocation(location.getName(),
+            "§6§l🏆 МАТЧ ЗАВЕРШЕНО! Переможець: §e§l" + champion + " §6§l🏆");
+        broadcastPvpSync(location);
+
+        List<UUID> toRemove = new ArrayList<>();
+        for (Map.Entry<UUID, PlayerWaveData> e : playerData.entrySet()) {
+            if (e.getValue().getCurrentLocation() != null &&
+                e.getValue().getCurrentLocation().getName().equals(location.getName()))
+                toRemove.add(e.getKey());
+        }
+        for (UUID pid : toRemove) {
+            ServerPlayer p = WaveDefenseMod.getServer().getPlayerList().getPlayer(pid);
+            if (p != null) {
+                setSpectator(p, false);
+                PlayerBackup backup = playerBackups.remove(pid);
+                if (backup != null) backup.restore(p);
+            }
+            playerData.remove(pid);
+            location.removePlayerTeam(pid);
+        }
+        pvpStates.remove(location.getName());
+    }
+
+    private String formatTeamWins(com.wavedefense.data.PvpRoundState state) {
+        StringBuilder sb = new StringBuilder();
+        state.getTeamWins().forEach((t, w) -> sb.append("§e").append(t).append("§7:").append(w).append(" "));
+        return sb.toString().trim();
+    }
+
+    public void onPlayerKilledPlayer(ServerPlayer killer, ServerPlayer victim) {
+        PlayerWaveData victimData = playerData.get(victim.getUUID());
+        if (victimData == null || victimData.getCurrentLocation() == null) return;
+        Location location = victimData.getCurrentLocation();
+        if (!location.isPvp()) return;
+
+        com.wavedefense.data.PvpRoundState state = pvpStates.get(location.getName());
+        if (state == null || state.getPhase() != com.wavedefense.data.PvpRoundState.Phase.ACTIVE) return;
+
+        String killerTeam = location.getPlayerTeam(killer.getUUID());
+        String victimTeam = location.getPlayerTeam(victim.getUUID());
+        if (killerTeam != null && killerTeam.equals(victimTeam)) return;
+
+        int kill = location.getPvpKillPoints();
+        location.addPoints(killer.getUUID(), kill);
+        killer.displayClientMessage(
+            Component.literal("§a+§e" + kill + " §aочків | вбито §e" + victim.getName().getString()), true);
+        location.removePoints(victim.getUUID(), location.getPvpDeathPenalty());
+
+        String roundWinner = state.recordDeath(victim.getUUID(), killer.getUUID());
+        setSpectator(victim, true);
+
+        if (roundWinner != null) endRound(location, state, roundWinner);
+        else {
+            updatePvpEnemyCounts(location, state);
+            broadcastPvpSync(location);
+        }
+
+        for (ServerPlayer p : getPlayersInLocation(location.getName())) syncPlayerData(p);
+    }
+
+    public void onPvpHit(ServerPlayer attacker, ServerPlayer victim) {
+        PlayerWaveData data = playerData.get(victim.getUUID());
+        if (data == null || data.getCurrentLocation() == null || !data.getCurrentLocation().isPvp()) return;
+        com.wavedefense.data.PvpRoundState state = pvpStates.get(data.getCurrentLocation().getName());
+        if (state != null) state.recordHit(attacker.getUUID(), victim.getUUID());
+    }
+
+    public void onPvpPlayerDeath(ServerPlayer player) {
+        PlayerWaveData data = playerData.get(player.getUUID());
+        if (data == null || data.getCurrentLocation() == null || !data.getCurrentLocation().isPvp()) return;
+        Location location = data.getCurrentLocation();
+        com.wavedefense.data.PvpRoundState state = pvpStates.get(location.getName());
+
+        if (state != null && state.getPhase() == com.wavedefense.data.PvpRoundState.Phase.ACTIVE) {
+            location.removePoints(player.getUUID(), location.getPvpDeathPenalty());
+            String roundWinner = state.recordDeath(player.getUUID(), null);
+            setSpectator(player, true);
+            if (roundWinner != null) endRound(location, state, roundWinner);
+            else { updatePvpEnemyCounts(location, state); broadcastPvpSync(location); }
+        }
+    }
+
+    public boolean canPvpAttack(ServerPlayer attacker, ServerPlayer target) {
+        PlayerWaveData data = playerData.get(attacker.getUUID());
+        if (data == null || data.getCurrentLocation() == null) return true;
+        Location location = data.getCurrentLocation();
+        if (!location.isPvp()) return true;
+        com.wavedefense.data.PvpRoundState state = pvpStates.get(location.getName());
+        if (state == null || state.getPhase() != com.wavedefense.data.PvpRoundState.Phase.ACTIVE) return false;
+        if (location.isPvpFriendlyFire()) return true;
+        return !location.isSameTeam(attacker.getUUID(), target.getUUID());
+    }
+
+    private void updatePvpEnemyCounts(Location location, com.wavedefense.data.PvpRoundState state) {
+        Set<UUID> alive = state.getAliveThisRound();
+        for (Map.Entry<UUID, PlayerWaveData> entry : playerData.entrySet()) {
+            PlayerWaveData d = entry.getValue();
+            if (d.getCurrentLocation() == null || !d.getCurrentLocation().getName().equals(location.getName())) continue;
+            UUID pid = entry.getKey();
+            String myTeam = location.getPlayerTeam(pid);
+            int enemies = (int) alive.stream()
+                .filter(id -> !id.equals(pid))
+                .filter(id -> { String t = location.getPlayerTeam(id); return t != null && !t.equals(myTeam); })
+                .count();
+            d.setMobsRemaining(enemies);
+        }
+    }
+
+    private void teleportToSafeSpawn(ServerPlayer player, net.minecraft.core.BlockPos center) {
+        net.minecraft.server.level.ServerLevel level = player.serverLevel();
+        net.minecraft.core.BlockPos safe = findSafePos(level, center, 5);
+        player.teleportTo(safe.getX() + 0.5, safe.getY(), safe.getZ() + 0.5);
+    }
+
+    private net.minecraft.core.BlockPos findSafePos(
+            net.minecraft.server.level.ServerLevel level,
+            net.minecraft.core.BlockPos center, int radius) {
+        if (isSafePos(level, center)) return center;
+        for (int r = 1; r <= radius; r++) {
+            for (int dx = -r; dx <= r; dx++) {
+                for (int dz = -r; dz <= r; dz++) {
+                    if (Math.abs(dx) != r && Math.abs(dz) != r) continue;
+                    for (int dy : new int[]{0, 1, -1}) {
+                        net.minecraft.core.BlockPos c = center.offset(dx, dy, dz);
+                        if (isSafePos(level, c)) return c;
+                    }
+                }
+            }
+        }
+        return center;
+    }
+
+    private boolean isSafePos(net.minecraft.server.level.ServerLevel level, net.minecraft.core.BlockPos pos) {
+        return level.getBlockState(pos).isAir()
+            && level.getBlockState(pos.above()).isAir()
+            && !level.getBlockState(pos.below()).isAir();
+    }
+
+    private void setSpectator(ServerPlayer player, boolean spectator) {
+        if (spectator) {
+            player.setGameMode(net.minecraft.world.level.GameType.SPECTATOR);
+        } else {
+            player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+            player.setHealth(player.getMaxHealth());
+        }
+    }
+
+    private void broadcastPvpSync(Location location) {
+        com.wavedefense.data.PvpRoundState state = pvpStates.get(location.getName());
+        if (state == null) return;
+
+        List<com.wavedefense.network.packets.SyncPvpStatePacket.PlayerEntry> entries = new ArrayList<>();
+        for (Map.Entry<UUID, com.wavedefense.data.PvpPlayerStats> e : state.getAllStats().entrySet()) {
+            com.wavedefense.data.PvpPlayerStats ps = e.getValue();
+            boolean alive = state.getAliveThisRound().contains(e.getKey());
+            entries.add(new com.wavedefense.network.packets.SyncPvpStatePacket.PlayerEntry(
+                ps.getPlayerName(), ps.getTeamName(), ps.getKills(), ps.getDeaths(), ps.getAssists(), alive));
+        }
+
+        for (ServerPlayer p : getPlayersInLocation(location.getName())) {
+            String myTeam = location.getPlayerTeam(p.getUUID());
+            net.minecraft.nbt.CompoundTag tag = com.wavedefense.network.packets.SyncPvpStatePacket.build(
+                location.getName(), state.getPhase().name(),
+                state.getCurrentRound(), state.getTotalRounds(), state.getTimerSeconds(),
+                state.getTeamWins(), entries, myTeam);
+            WaveDefenseMod.packetHandler.send(
+                net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> p),
+                new com.wavedefense.network.packets.SyncPvpStatePacket(tag));
+        }
+    }
+
+    public com.wavedefense.data.PvpRoundState getPvpState(String locationName) {
+        return pvpStates.get(locationName);
     }
 }

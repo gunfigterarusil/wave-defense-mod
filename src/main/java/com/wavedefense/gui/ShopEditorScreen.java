@@ -19,7 +19,7 @@ public class ShopEditorScreen extends Screen {
     private static final int ITEMS_PER_PAGE = 6;
 
     public ShopEditorScreen(Location location, Screen parent) {
-        super(Component.literal("Магазин - " + location.getName()));
+        super(Component.translatable("wavedefense.title.shop_editor").append(": ").append(location.getName()));
         this.location = location;
         this.parent = parent;
     }

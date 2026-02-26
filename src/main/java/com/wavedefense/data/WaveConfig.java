@@ -37,7 +37,7 @@ public class WaveConfig {
     public void setTimeBetweenWaves(int time) { this.timeBetweenWaves = time; }
 
     public List<WaveMob> getMobs() { return mobs; }
-    public void addMob(WaveMob mob) { if (mobs.size() < 10) mobs.add(mob); }
+    public void addMob(WaveMob mob) { if (mobs.size() < com.wavedefense.config.WaveDefenseConfig.MAX_MOB_TYPES.get()) mobs.add(mob); }
     public void removeMob(int index) { if (index >= 0 && index < mobs.size()) mobs.remove(index); }
 
     public int getPointsReward() { return pointsReward; }

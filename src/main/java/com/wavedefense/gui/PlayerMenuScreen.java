@@ -15,69 +15,68 @@ public class PlayerMenuScreen extends Screen {
 
     private List<String> locationNames;
     private int scrollOffset = 0;
-    private static final int ITEMS_PER_PAGE = 8;
-
     public PlayerMenuScreen() {
-        super(Component.literal("Wave Defense - Вибір локації"));
+        super(Component.translatable("wavedefense.title.player_menu"));
     }
 
     @Override
     protected void init() {
         super.init();
         PacketHandler.sendToServer(new RequestLocationDataPacket());
-
         this.locationNames = ClientLocationManager.getAllLocationNames();
 
-        int centerX = this.width / 2;
-        int startY = 40;
+        // Адаптивні розміри
+        int cx          = this.width / 2;
+        int btnW        = Math.min(260, this.width - 80);
+        int rowH        = this.height < 200 ? 20 : 25;
+        int startY      = 40;
+        int itemsPerPage = Math.max(4, (this.height - startY - 50) / rowH);
 
-        for (int i = 0; i < Math.min(ITEMS_PER_PAGE, locationNames.size()); i++) {
+        for (int i = 0; i < Math.min(itemsPerPage, locationNames.size()); i++) {
             int index = i + scrollOffset;
             if (index >= locationNames.size()) break;
 
             String name = locationNames.get(index);
-            int yPos = startY + (i * 25);
+            int yPos = startY + (i * rowH);
 
-            this.addRenderableWidget(Button.builder(
-                    Component.literal(name),
-                    button -> teleportToLocation(name)
-            ).bounds(centerX - 100, yPos, 200, 20).build());
+            Location loc = ClientLocationManager.getLocation(name);
+            boolean isPvp   = loc != null && loc.isPvp();
+            String badge    = isPvp ? "§c[PvP] §f" : "§a[PvE] §f";
+            boolean pvpReady = !isPvp || (loc != null && loc.getPvpSpawnPoints().size() >= 2);
+
+            Button btn = Button.builder(
+                    Component.literal(badge + name + (isPvp && !pvpReady ? " §c(не готово)" : "")),
+                    button -> handleLocationClick(name, isPvp, loc)
+            ).bounds(cx - btnW / 2, yPos, btnW, rowH - 2).build();
+            btn.active = pvpReady;
+            this.addRenderableWidget(btn);
         }
 
-        if (locationNames.size() > ITEMS_PER_PAGE) {
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("▲"),
-                    button -> scrollUp()
-            ).bounds(centerX + 105, startY, 20, 20).build());
-
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("▼"),
-                    button -> scrollDown()
-            ).bounds(centerX + 105, startY + 180, 20, 20).build());
+        if (locationNames.size() > itemsPerPage) {
+            int sbX = cx + btnW / 2 + 4;
+            this.addRenderableWidget(Button.builder(Component.literal("▲"),
+                    button -> { if (scrollOffset > 0) { scrollOffset--; rebuildWidgets(); } }
+            ).bounds(sbX, startY, 20, 20).build());
+            this.addRenderableWidget(Button.builder(Component.literal("▼"),
+                    button -> { if (scrollOffset + itemsPerPage < locationNames.size()) {
+                        scrollOffset++; rebuildWidgets(); }
+                    }
+            ).bounds(sbX, startY + (itemsPerPage - 1) * rowH, 20, 20).build());
         }
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("Закрити"),
-                button -> this.onClose()
-        ).bounds(centerX - 50, this.height - 30, 100, 20).build());
+                Component.literal("Закрити"), button -> this.onClose()
+        ).bounds(cx - 55, this.height - 28, 110, 20).build());
     }
 
-    private void teleportToLocation(String name) {
-        PacketHandler.sendToServer(new TeleportPacket(name));
-        this.onClose();
-    }
-
-    private void scrollUp() {
-        if (scrollOffset > 0) {
-            scrollOffset--;
-            this.rebuildWidgets();
-        }
-    }
-
-    private void scrollDown() {
-        if (scrollOffset + ITEMS_PER_PAGE < locationNames.size()) {
-            scrollOffset++;
-            this.rebuildWidgets();
+    private void handleLocationClick(String name, boolean isPvp, Location loc) {
+        if (isPvp && loc != null && loc.getPvpSpawnPoints().size() >= 2) {
+            // PvP: відкриваємо вибір команди
+            this.minecraft.setScreen(new PvpTeamSelectScreen(loc, this));
+        } else {
+            // PvE: телепортуємо напряму
+            PacketHandler.sendToServer(new TeleportPacket(name));
+            this.onClose();
         }
     }
 
@@ -89,7 +88,5 @@ public class PlayerMenuScreen extends Screen {
     }
 
     @Override
-    public boolean isPauseScreen() {
-        return false;
-    }
+    public boolean isPauseScreen() { return false; }
 }

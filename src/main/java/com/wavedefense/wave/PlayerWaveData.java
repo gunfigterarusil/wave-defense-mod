@@ -22,11 +22,15 @@ public class PlayerWaveData {
     private boolean showTimer = true;
     private boolean showNotifications = true;
 
-    // Лічильник мобів поточної хвилі (синхронізується з сервера)
+    // Лічильник мобів/ворогів поточної хвилі (синхронізується з сервера)
     private int mobsRemaining = 0;
+    // PvP режим
+    private boolean isInPvp = false;
 
     public int getMobsRemaining() { return mobsRemaining; }
     public void setMobsRemaining(int mobsRemaining) { this.mobsRemaining = mobsRemaining; }
+    public boolean isInPvp() { return isInPvp; }
+    public void setInPvp(boolean inPvp) { this.isInPvp = inPvp; }
 
     public UUID getPlayerUUID() {
         return playerUUID;
@@ -120,6 +124,7 @@ public class PlayerWaveData {
         tag.putBoolean("isTimerActive", isTimerActive);
         tag.putBoolean("showTimer", showTimer);
         tag.putInt("mobsRemaining", mobsRemaining);
+        tag.putBoolean("isInPvp", isInPvp);
         return tag;
     }
 
@@ -130,5 +135,6 @@ public class PlayerWaveData {
         this.isTimerActive = tag.getBoolean("isTimerActive");
         this.showTimer = tag.getBoolean("showTimer");
         this.mobsRemaining = tag.contains("mobsRemaining") ? tag.getInt("mobsRemaining") : 0;
+        this.isInPvp = tag.contains("isInPvp") && tag.getBoolean("isInPvp");
     }
 }

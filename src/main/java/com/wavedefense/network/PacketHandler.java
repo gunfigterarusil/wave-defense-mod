@@ -8,7 +8,7 @@ import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.network.simple.SimpleChannel;
 
 public class PacketHandler {
-    private static final String PROTOCOL_VERSION = "2";
+    private static final String PROTOCOL_VERSION = "3";
     public static final SimpleChannel INSTANCE = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(WaveDefenseMod.MODID, "main"),
             () -> PROTOCOL_VERSION,
@@ -52,6 +52,10 @@ public class PacketHandler {
         // Адмін-телепорт (сервер-side тільки, ніколи не йде до клієнта)
         INSTANCE.registerMessage(id(), AdminTeleportPacket.class,
                 AdminTeleportPacket::encode, AdminTeleportPacket::decode, AdminTeleportPacket::handle);
+
+        // PvP стан (сервер → клієнт)
+        INSTANCE.registerMessage(id(), SyncPvpStatePacket.class,
+                SyncPvpStatePacket::encode, SyncPvpStatePacket::decode, SyncPvpStatePacket::handle);
 
         WaveDefenseMod.LOGGER.info("Network packets registered");
     }

@@ -8,7 +8,15 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class ShopItem {
+    public enum ShopCategory {
+        ALL("Всі"), WEAPON("⚔ Зброя"), ARMOR("🛡 Броня"),
+        CONSUMABLE("🧪 Розхідники"), OTHER("📦 Інше");
+        public final String label;
+        ShopCategory(String l) { this.label = l; }
+    }
+
     private List<ItemStack> items; // Can hold up to 4 items
+    private ShopCategory category = ShopCategory.OTHER;
     private int buyPrice;
     private int sellPrice;
 
@@ -36,6 +44,9 @@ public class ShopItem {
 
     public boolean canSell() { return sellPrice > 0; }
 
+    public ShopCategory getCategory() { return category; }
+    public void setCategory(ShopCategory c) { this.category = c; }
+
     public CompoundTag save() {
         CompoundTag tag = new CompoundTag();
         ListTag itemsList = new ListTag();
@@ -45,6 +56,7 @@ public class ShopItem {
         tag.put("items", itemsList);
         tag.putInt("buyPrice", buyPrice);
         tag.putInt("sellPrice", sellPrice);
+        tag.putString("category", category.name());
         return tag;
     }
 

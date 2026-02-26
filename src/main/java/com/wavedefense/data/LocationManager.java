@@ -87,6 +87,7 @@ public class LocationManager {
         }
         try {
             CompoundTag data = NbtIo.readCompressed(dataFile);
+            locations.clear(); // Очищаємо перед завантаженням щоб уникнути дублікатів при reload
             ListTag locationsList = data.getList("locations", 10);
             for (int i = 0; i < locationsList.size(); i++) {
                 locations.add(Location.load(locationsList.getCompound(i)));

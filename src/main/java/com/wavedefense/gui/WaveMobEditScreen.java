@@ -7,10 +7,16 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import com.wavedefense.gui.TooltipHelper;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.registries.ForgeRegistries;
 
+/**
+ * Редактор параметрів конкретного моба у хвилі.
+ * Додано: вибір броні (4 слоти), зброя (mainHand/offHand), ефекти.
+ * Підказки при наведенні (feature #1).
+ */
 public class WaveMobEditScreen extends Screen {
     private final Screen parentScreen;
     private final WaveConfig waveConfig;
@@ -22,95 +28,230 @@ public class WaveMobEditScreen extends Screen {
     private EditBox spawnChanceInput;
     private EditBox pointsPerKillInput;
 
+    // Поточний стан спорядження (зберігається між перебудовами)
+    private WaveMob editMob;
+
+    // Tooltip підказки
+    private static final java.util.Map<String, String> TOOLTIPS = new java.util.HashMap<>();
+    static {
+        TOOLTIPS.put("count",   "Скільки мобів цього типу спавниться за хвилю");
+        TOOLTIPS.put("growth",  "На скільки збільшується кількість мобів з кожною хвилею");
+        TOOLTIPS.put("chance",  "Шанс (1-100%) що цей моб з'явиться у хвилі");
+        TOOLTIPS.put("points",  "Кількість очок гравцю за вбивство цього моба");
+        TOOLTIPS.put("armor",   "Видати мобам цього типу броню. Вибір через меню предметів");
+        TOOLTIPS.put("weapon",  "Видати мобам основну зброю (права рука)");
+        TOOLTIPS.put("effects", "Додати мобам ефекти (зілля). Формат: effectId:рівень:тіків");
+    }
+
     public WaveMobEditScreen(Screen parentScreen, WaveConfig waveConfig, int mobIndex) {
         super(Component.literal("Редагування моба"));
         this.parentScreen = parentScreen;
         this.waveConfig = waveConfig;
         this.mobIndex = mobIndex;
         this.mobType = waveConfig.getMobs().get(mobIndex).getMobType();
+        // Клонуємо для редагування
+        this.editMob = cloneMob(waveConfig.getMobs().get(mobIndex));
+    }
+
+    private WaveMob cloneMob(WaveMob src) {
+        WaveMob copy = new WaveMob(src.getMobType(), src.getCount(), src.getGrowthPerWave(),
+                src.getSpawnChance(), src.getPointsPerKill());
+        copy.setHelmet(src.getHelmet());
+        copy.setChestplate(src.getChestplate());
+        copy.setLeggings(src.getLeggings());
+        copy.setBoots(src.getBoots());
+        copy.setMainHand(src.getMainHand());
+        copy.setOffHand(src.getOffHand());
+        copy.setEffects(src.getEffects());
+        return copy;
     }
 
     @Override
     protected void init() {
         super.init();
-        int centerX = this.width / 2;
-        int startY = 50;
+        int cx = this.width / 2;
+        int startY = 35;
 
-        WaveMob existingMob = (mobIndex != -1) ? waveConfig.getMobs().get(mobIndex) : null;
-
-        EntityType<?> entityType = ForgeRegistries.ENTITY_TYPES.getValue(mobType);
+        var entityType = ForgeRegistries.ENTITY_TYPES.getValue(mobType);
         String mobName = entityType != null ? entityType.getDescription().getString() : "???";
 
-        // Підпис — назва моба
+        // Назва моба
         this.addRenderableWidget(Button.builder(
                 Component.literal("§6Моб: §e" + mobName), button -> {}
-        ).bounds(centerX - 150, startY - 20, 300, 18).build()).active = false;
+        ).bounds(cx - 150, startY - 20, 300, 18).build()).active = false;
 
         // Кількість мобів
-        this.addRenderableWidget(Button.builder(
-                Component.literal("§7Кількість мобів у хвилі:"), button -> {}
-        ).bounds(centerX - 150, startY, 190, 18).build()).active = false;
-        countInput = new EditBox(this.font, centerX + 45, startY, 80, 20, Component.literal("Кількість"));
-        countInput.setValue(existingMob != null ? String.valueOf(existingMob.getCount()) : "1");
+        addLabeledField(cx, startY, "§7Кількість мобів у хвилі:", "count");
+        countInput = new EditBox(this.font, cx + 45, startY, 80, 20, Component.literal("Кількість"));
+        countInput.setValue(String.valueOf(editMob.getCount()));
         this.addRenderableWidget(countInput);
+        startY += 26;
 
-        // Приріст за хвилю
-        this.addRenderableWidget(Button.builder(
-                Component.literal("§7Приріст кількості за хвилю:"), button -> {}
-        ).bounds(centerX - 150, startY + 28, 190, 18).build()).active = false;
-        growthPerWaveInput = new EditBox(this.font, centerX + 45, startY + 28, 80, 20, Component.literal("Приріст"));
-        growthPerWaveInput.setValue(existingMob != null ? String.valueOf(existingMob.getGrowthPerWave()) : "0");
+        // Приріст
+        addLabeledField(cx, startY, "§7Приріст кількості за хвилю:", "growth");
+        growthPerWaveInput = new EditBox(this.font, cx + 45, startY, 80, 20, Component.literal("Приріст"));
+        growthPerWaveInput.setValue(String.valueOf(editMob.getGrowthPerWave()));
         this.addRenderableWidget(growthPerWaveInput);
+        startY += 26;
 
         // Шанс появи
-        this.addRenderableWidget(Button.builder(
-                Component.literal("§7Шанс появи (1-100%):"), button -> {}
-        ).bounds(centerX - 150, startY + 56, 190, 18).build()).active = false;
-        spawnChanceInput = new EditBox(this.font, centerX + 45, startY + 56, 80, 20, Component.literal("Шанс"));
-        spawnChanceInput.setValue(existingMob != null ? String.valueOf(existingMob.getSpawnChance()) : "100");
+        addLabeledField(cx, startY, "§7Шанс появи (1-100%):", "chance");
+        spawnChanceInput = new EditBox(this.font, cx + 45, startY, 80, 20, Component.literal("Шанс"));
+        spawnChanceInput.setValue(String.valueOf(editMob.getSpawnChance()));
         this.addRenderableWidget(spawnChanceInput);
+        startY += 26;
 
         // Поінти за вбивство
-        this.addRenderableWidget(Button.builder(
-                Component.literal("§7Поінтів за вбивство:"), button -> {}
-        ).bounds(centerX - 150, startY + 84, 190, 18).build()).active = false;
-        pointsPerKillInput = new EditBox(this.font, centerX + 45, startY + 84, 80, 20, Component.literal("Поінти"));
-        pointsPerKillInput.setValue(existingMob != null ? String.valueOf(existingMob.getPointsPerKill()) : "10");
+        addLabeledField(cx, startY, "§7Поінтів за вбивство:", "points");
+        pointsPerKillInput = new EditBox(this.font, cx + 45, startY, 80, 20, Component.literal("Поінти"));
+        pointsPerKillInput.setValue(String.valueOf(editMob.getPointsPerKill()));
         this.addRenderableWidget(pointsPerKillInput);
+        startY += 30;
 
+        // ── БРОНЯ ──────────────────────────────────────────────────────────
         this.addRenderableWidget(Button.builder(
-                Component.literal("Зберегти"),
-                button -> save()
-        ).bounds(centerX - 100, this.height - 40, 80, 20).build());
+                Component.literal("§9🛡 Броня мобів"), b -> {}
+        ).bounds(cx - 150, startY, 300, 12).build()).active = false;
+        startY += 14;
 
+        String[] armorLabels = {"Шолом", "Нагруд.", "Поноги", "Чоботи"};
+        ItemStack[] armorSlots = {editMob.getHelmet(), editMob.getChestplate(), editMob.getLeggings(), editMob.getBoots()};
+        int armorW = 70, armorGap = 4;
+        int totalArmorW = 4 * armorW + 3 * armorGap;
+        int armorLeft = cx - totalArmorW / 2;
+
+        for (int i = 0; i < 4; i++) {
+            final int si = i;
+            int x = armorLeft + i * (armorW + armorGap);
+
+            this.addRenderableWidget(Button.builder(
+                    Component.literal("§8" + armorLabels[i]), b -> {}
+            ).bounds(x, startY, armorW, 10).build()).active = false;
+
+            this.addRenderableWidget(Button.builder(
+                    Component.literal(armorSlots[i].isEmpty() ? "§8[—]" : "§a✓"),
+                    b -> minecraft.setScreen(new ItemSelectionScreen(this, stack -> {
+                        switch (si) {
+                            case 0 -> editMob.setHelmet(stack);
+                            case 1 -> editMob.setChestplate(stack);
+                            case 2 -> editMob.setLeggings(stack);
+                            case 3 -> editMob.setBoots(stack);
+                        }
+                        rebuildWidgets();
+                    }))
+            ).bounds(x, startY + 12, armorW, 16).build());
+        }
+        startY += 32;
+
+        // ── ЗБРОЯ ─────────────────────────────────────────────────────────
         this.addRenderableWidget(Button.builder(
-                Component.literal("Скасувати"),
-                button -> this.minecraft.setScreen(parentScreen)
-        ).bounds(centerX + 20, this.height - 40, 80, 20).build());
+                Component.literal("§c⚔ Зброя мобів"), b -> {}
+        ).bounds(cx - 150, startY, 300, 12).build()).active = false;
+        startY += 14;
+
+        String mainLabel = editMob.getMainHand().isEmpty() ? "§8Осн. рука [—]" : "§aОсн. рука ✓";
+        this.addRenderableWidget(Button.builder(
+                Component.literal(mainLabel),
+                b -> minecraft.setScreen(new ItemSelectionScreen(this, stack -> {
+                    editMob.setMainHand(stack); rebuildWidgets();
+                }))
+        ).bounds(cx - 150, startY, 140, 20).build());
+
+        String offLabel = editMob.getOffHand().isEmpty() ? "§8Ліва рука [—]" : "§aЛіва рука ✓";
+        this.addRenderableWidget(Button.builder(
+                Component.literal(offLabel),
+                b -> minecraft.setScreen(new ItemSelectionScreen(this, stack -> {
+                    editMob.setOffHand(stack); rebuildWidgets();
+                }))
+        ).bounds(cx + 5, startY, 140, 20).build());
+        startY += 26;
+
+        // ── ЕФЕКТИ ────────────────────────────────────────────────────────
+        int effectCount = editMob.getEffects().size();
+        this.addRenderableWidget(Button.builder(
+                Component.literal("§5✨ Ефекти (" + effectCount + ")"),
+                b -> minecraft.setScreen(new MobEffectsEditorScreen(this, editMob))
+        ).bounds(cx - 150, startY, 300, 20).build());
+
+        // Кнопки збереження
+        this.addRenderableWidget(Button.builder(
+                Component.literal("§aЗберегти"), b -> save()
+        ).bounds(cx - 105, this.height - 32, 100, 20).build());
+        this.addRenderableWidget(Button.builder(
+                Component.literal("Скасувати"), b -> this.minecraft.setScreen(parentScreen)
+        ).bounds(cx + 5, this.height - 32, 100, 20).build());
+    }
+
+    private void addLabeledField(int cx, int y, String text, String tooltipKey) {
+        this.addRenderableWidget(Button.builder(
+                Component.literal(text), b -> {}
+        ).bounds(cx - 150, y, 190, 18).build()).active = false;
     }
 
     private void save() {
         try {
-            int count = Integer.parseInt(countInput.getValue());
+            int count  = Integer.parseInt(countInput.getValue());
             int growth = Integer.parseInt(growthPerWaveInput.getValue());
             int chance = Math.min(100, Math.max(1, Integer.parseInt(spawnChanceInput.getValue())));
             int points = Integer.parseInt(pointsPerKillInput.getValue());
 
-            WaveMob newMob = new WaveMob(mobType, count, growth, chance, points);
-            if (mobIndex != -1) {
-                waveConfig.getMobs().set(mobIndex, newMob);
-            }
+            editMob.setCount(count);
+            editMob.setGrowthPerWave(growth);
+            editMob.setSpawnChance(chance);
+            editMob.setPointsPerKill(points);
+
+            if (mobIndex != -1) waveConfig.getMobs().set(mobIndex, editMob);
             this.minecraft.setScreen(parentScreen);
-        } catch (NumberFormatException e) {
-            // нічого не робимо
-        }
+        } catch (NumberFormatException ignored) {}
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(graphics);
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, 20, 0xFFFFFF);
-        super.render(graphics, mouseX, mouseY, partialTick);
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        this.renderBackground(g);
+        g.drawCenteredString(this.font, this.title, this.width / 2, 12, 0xFFFFFF);
+
+        // Рендер іконок спорядження
+        renderEquipmentIcons(g, mouseX, mouseY);
+
+        super.render(g, mouseX, mouseY, partialTick);
+    }
+
+    private void renderEquipmentIcons(GuiGraphics g, int mouseX, int mouseY) {
+        int cx = this.width / 2;
+        // Розраховуємо y броні (виходячи з init структури)
+        int armorRowY = 35 + 26 * 4 + 14 + 12 + 2; // приблизно
+        int armorW = 70, armorGap = 4;
+        int totalW = 4 * armorW + 3 * armorGap;
+        int armorLeft = cx - totalW / 2;
+
+        ItemStack[] slots = {editMob.getHelmet(), editMob.getChestplate(), editMob.getLeggings(), editMob.getBoots()};
+        for (int i = 0; i < 4; i++) {
+            if (!slots[i].isEmpty()) {
+                int x = armorLeft + i * (armorW + armorGap) + (armorW - 16) / 2;
+                g.renderItem(slots[i], x, armorRowY - 1);
+                if (mouseX >= x && mouseX < x + 16 && mouseY >= armorRowY - 1 && mouseY < armorRowY + 15) {
+                    g.renderTooltip(this.font, slots[i], mouseX, mouseY);
+                }
+            }
+        }
+
+        // Зброя
+        if (!editMob.getMainHand().isEmpty()) {
+            g.renderItem(editMob.getMainHand(), cx - 150, armorRowY + 48);
+        }
+        if (!editMob.getOffHand().isEmpty()) {
+            g.renderItem(editMob.getOffHand(), cx + 5, armorRowY + 48);
+        }
+    }
+
+    private String getMobTip(String label) {
+        if (label.contains("Шолом") || label.contains("Нагрудник") || label.contains("Поножі") || label.contains("Чоботи"))
+            return TooltipHelper.MOB_ARMOR;
+        if (label.contains("зброю") || label.contains("MainHand") || label.contains("зброя"))
+            return TooltipHelper.MOB_WEAPON;
+        if (label.contains("Ефект") || label.contains("ефект"))
+            return TooltipHelper.MOB_EFFECT;
+        return null;
     }
 
     @Override

@@ -1,0 +1,111 @@
+package com.wavedefense.events;
+
+import com.wavedefense.WaveDefenseMod;
+import com.wavedefense.gui.ClientPlayerDataManager;
+import com.wavedefense.gui.ClientPvpStateManager;
+import com.wavedefense.wave.PlayerWaveData;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Player;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.RenderNameTagEvent;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.eventbus.api.Event;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
+
+/**
+ * Клієнтські події:
+ *  1) Анти-читинг хітбоксів на PvP
+ *  2) Приховування нікнеймів ворожих гравців в PvP (RenderNameTagEvent)
+ *     - Союзники: зелений колір ніку
+ *     - Вороги під час ACTIVE: ніки не відображаються
+ *     - FriendlyFire ON: не відображаються взагалі
+ */
+@Mod.EventBusSubscriber(modid = WaveDefenseMod.MODID, value = Dist.CLIENT)
+public class ClientEventHandler {
+
+    @SubscribeEvent
+    public static void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.level == null) return;
+
+        PlayerWaveData data = ClientPlayerDataManager.getPlayerData();
+        if (data == null || !data.isInPvp()) return;
+
+        EntityRenderDispatcher erd = mc.getEntityRenderDispatcher();
+        if (erd.shouldRenderHitBoxes()) {
+            erd.setRenderHitBoxes(false);
+            mc.player.displayClientMessage(
+                Component.literal("§cХітбокси заборонені на PvP локаціях!"), true);
+        }
+    }
+
+    /**
+     * Обробник нікнеймів над головами гравців у PvP.
+     *
+     * Правила:
+     *  - Якщо NOT PvP: показуємо нормально.
+     *  - FriendlyFire ON: ховаємо всіх (не знаєш де хто).
+     *  - Своя команда: зелений нік.
+     *  - Ворог під час ACTIVE раунду: ховаємо нік.
+     *  - Ворог під час BUY/WAITING: показуємо нормально.
+     */
+    @SubscribeEvent
+    public static void onRenderNameTag(RenderNameTagEvent event) {
+        if (!(event.getEntity() instanceof Player target)) return;
+
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return;
+
+        // Перевіряємо чи ми в PvP
+        PlayerWaveData myData = ClientPlayerDataManager.getPlayerData();
+        if (myData == null || !myData.isInPvp()) return;
+
+        String myTeam = ClientPvpStateManager.getMyTeam();
+        String phase  = ClientPvpStateManager.getPhase();
+        boolean isActiveRound = "ACTIVE".equals(phase);
+
+        // Знаходимо команду target гравця
+        String targetTeam = getTargetTeam(target);
+
+        // Якщо target — це я сам, нічого не змінюємо
+        if (target.getUUID().equals(mc.player.getUUID())) return;
+
+        // Friendly fire — ховаємо всіх
+        if (isFriendlyFireOn(myData)) {
+            event.setResult(Event.Result.DENY);
+            return;
+        }
+
+        boolean sameTeam = myTeam != null && myTeam.equals(targetTeam);
+
+        if (sameTeam) {
+            // Союзник: зелений нік
+            Component greenName = Component.literal("§a" + target.getName().getString());
+            event.setContent(greenName);
+            event.setResult(Event.Result.ALLOW);
+        } else if (isActiveRound) {
+            // Ворог під час активного раунду: ховаємо
+            event.setResult(Event.Result.DENY);
+        }
+        // В BUY/WAITING: показуємо нормально (не втручаємось)
+    }
+
+    private static String getTargetTeam(Player target) {
+        // Шукаємо команду гравця в ClientPvpStateManager
+        for (ClientPvpStateManager.PlayerRow row : ClientPvpStateManager.getPlayers()) {
+            if (row.name.equals(target.getName().getString())) {
+                return row.team;
+            }
+        }
+        return null;
+    }
+
+    private static boolean isFriendlyFireOn(PlayerWaveData data) {
+        if (data.getCurrentLocation() == null) return false;
+        return data.getCurrentLocation().isPvpFriendlyFire();
+    }
+}

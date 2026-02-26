@@ -20,10 +20,10 @@ public class AdminMenuScreen extends Screen {
     private EditBox locationNameInput;
     private String errorMessage = "";
     private int scrollOffset = 0;
-    private static final int ITEMS_PER_PAGE = 8;
+    // Динамічне число рядків — перераховується в init()
 
     public AdminMenuScreen() {
-        super(Component.literal("Wave Defense - Управління"));
+        super(Component.translatable("wavedefense.title.admin_menu"));
     }
 
     @Override
@@ -32,8 +32,11 @@ public class AdminMenuScreen extends Screen {
         PacketHandler.sendToServer(new RequestLocationDataPacket());
         this.locationNames = ClientLocationManager.getAllLocationNames();
 
+        // Адаптивні розміри
+        int itemsPerPage = Math.max(4, (this.height - 130) / 25);
         int centerX = this.width / 2;
-        int startY = 50;
+        int panelW  = Math.min(300, this.width - 60);
+        int startY  = 50;
 
         // EditBox збережений між rebuildWidgets через поле
         locationNameInput = new EditBox(this.font, centerX - 100, startY, 200, 20, Component.literal("Location name"));
@@ -45,10 +48,10 @@ public class AdminMenuScreen extends Screen {
         this.addRenderableWidget(Button.builder(
                 Component.literal("Створити нову локацію"),
                 button -> createNewLocation()
-        ).bounds(centerX - 100, startY + 28, 200, 20).build());
+        ).bounds(centerX - panelW / 2, startY + 28, panelW, 20).build());
 
         int listStartY = startY + 65;
-        for (int i = 0; i < Math.min(ITEMS_PER_PAGE, locationNames.size()); i++) {
+        for (int i = 0; i < Math.min(itemsPerPage, locationNames.size()); i++) {
             int index = i + scrollOffset;
             if (index >= locationNames.size()) break;
 
@@ -60,20 +63,20 @@ public class AdminMenuScreen extends Screen {
             this.addRenderableWidget(Button.builder(
                     Component.literal(name),
                     button -> selectLocation(finalName)
-            ).bounds(centerX - 100, yPos, 120, 20).build());
+            ).bounds(centerX - panelW / 2, yPos, panelW - 80, 20).build());
 
             this.addRenderableWidget(Button.builder(
                     Component.literal("✎"),
                     button -> editLocation(finalName)
-            ).bounds(centerX + 25, yPos, 35, 20).build());
+            ).bounds(centerX + panelW / 2 - 75, yPos, 35, 20).build());
 
             this.addRenderableWidget(Button.builder(
                     Component.literal("✕"),
                     button -> deleteLocation(finalName)
-            ).bounds(centerX + 65, yPos, 35, 20).build());
+            ).bounds(centerX + panelW / 2 - 35, yPos, 35, 20).build());
         }
 
-        if (locationNames.size() > ITEMS_PER_PAGE) {
+        if (locationNames.size() > itemsPerPage) {
             this.addRenderableWidget(Button.builder(
                     Component.literal("▲"),
                     button -> scrollUp()
@@ -175,9 +178,12 @@ public class AdminMenuScreen extends Screen {
         // Підпис до поля вводу
         graphics.drawString(this.font, "§7Назва (лише латиниця/цифри/_-):", centerX - 100, 38, 0xFFFFFF);
 
-        // Повідомлення про помилку
+        // Повідомлення про помилку — внизу екрану щоб не накладатись на список
         if (!errorMessage.isEmpty()) {
-            graphics.drawCenteredString(this.font, errorMessage, centerX, 75, 0xFFFFFF);
+            int errY = this.height - 50;
+            int errW = this.font.width(errorMessage) + 14;
+            graphics.fill(centerX - errW / 2, errY - 3, centerX + errW / 2, errY + this.font.lineHeight + 3, 0xDD000000);
+            graphics.drawCenteredString(this.font, errorMessage, centerX, errY, 0xFFFFFF);
         }
 
         super.render(graphics, mouseX, mouseY, partialTick);
