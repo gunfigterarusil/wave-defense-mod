@@ -49,7 +49,7 @@ public class PlayerShopScreen extends Screen {
         List<ShopItem> all = location.getShopItems();
         // Отримуємо поточну хвилю для перевірки тригерів доступності
         int curWave = 0;
-        com.wavedefense.data.PlayerWaveData cpd = com.wavedefense.gui.ClientPlayerDataManager.getPlayerData();
+        com.wavedefense.wave.PlayerWaveData cpd = com.wavedefense.gui.ClientPlayerDataManager.getPlayerData();
         if (cpd != null) curWave = cpd.getCurrentWave();
 
         for (int i = 0; i < all.size(); i++) {
