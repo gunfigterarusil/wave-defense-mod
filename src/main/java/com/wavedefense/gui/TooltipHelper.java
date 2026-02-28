@@ -53,6 +53,9 @@ public class TooltipHelper {
     public static void render(GuiGraphics g, Font font,
                                String tooltipText, int mouseX, int mouseY) {
         if (tooltipText == null || tooltipText.isBlank()) return;
+        // Strip color codes for blank check
+        String stripped = tooltipText.replaceAll("§.", "").trim();
+        if (stripped.isEmpty()) return;
         String[] lines = tooltipText.split("\\\\n|\n");
         java.util.List<Component> comps = new java.util.ArrayList<>();
         for (String line : lines) comps.add(Component.literal(line));

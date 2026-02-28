@@ -1,7 +1,6 @@
 {
   "key.categories.wavedefense": "Wave Defense",
   "key.wavedefense.openmenu": "Відкрити меню Wave Defense",
-
   "wavedefense.title.admin_menu": "Wave Defense - Управління",
   "wavedefense.title.player_menu": "Wave Defense - Вибір локації",
   "wavedefense.title.location_editor": "Редагування локації",
@@ -10,12 +9,10 @@
   "wavedefense.title.completion_rewards": "Нагороди за проходження",
   "wavedefense.title.loot_spawns": "Точки луту",
   "wavedefense.title.wave_actions": "Меню гравця",
-
   "wavedefense.tab.general": "Основні",
   "wavedefense.tab.waves": "Хвилі",
   "wavedefense.tab.shop": "Магазин",
   "wavedefense.tab.loot": "Лут",
-
   "wavedefense.label.location_name": "Назва (лише латиниця/цифри/_-):",
   "wavedefense.label.new_location": "Створити нову локацію",
   "wavedefense.label.wave_count": "Кількість хвиль:",
@@ -42,7 +39,6 @@
   "wavedefense.label.completion_points": "Поінти за проходження (всім):",
   "wavedefense.label.slots": "Предмети (візьміть у руку → «Встановити»):",
   "wavedefense.label.slot": "Слот",
-
   "wavedefense.button.create": "Створити",
   "wavedefense.button.save": "Зберегти",
   "wavedefense.button.save_back": "§a✓ Зберегти і назад",
@@ -65,12 +61,10 @@
   "wavedefense.button.inventory": "📦 Інвентар",
   "wavedefense.button.wave_mobs": "✎ Моби",
   "wavedefense.button.wave_rewards": "🎁 Нагороди",
-
   "wavedefense.hud.location": "Локація: %s",
   "wavedefense.hud.wave_active": "⚔ ХВИЛЯ В ПРОЦЕСІ ⚔",
   "wavedefense.hud.next_wave": "%d:%02d до наступної хвилі",
   "wavedefense.hud.mobs_left": "Мобів залишилось: %d",
-
   "wavedefense.msg.save_ok": "§a✓ Зміни збережено!",
   "wavedefense.msg.rewards_saved": "§a✓ Нагороди збережено!",
   "wavedefense.msg.loot_saved": "§a✓ Точки луту збережено!",
@@ -81,7 +75,6 @@
   "wavedefense.msg.wave_complete": "§a§l✓ Хвилю %d завершено!",
   "wavedefense.msg.all_waves_complete": "§6§lВсі хвилі завершено! Вітаємо!",
   "wavedefense.msg.wave_started": "§c§l⚔ Хвиля %d розпочалася!",
-
   "wavedefense.info.waves": "§7Хвиль: §e%d §7| Час: §e%d сек",
   "wavedefense.info.no_waves": "§cХвилі не налаштовані",
   "wavedefense.info.completion_rewards": "§7Поінти: §e%d §7| Предмети: §e%d",
@@ -89,11 +82,12 @@
   "wavedefense.info.loot_spawns": "§7Точок луту: §e%d",
   "wavedefense.info.mob_spawns": "Налаштовано: %d/10",
   "wavedefense.info.players_scale": "§7Кількість мобів залежить від кількості гравців",
-
   "wavedefense.warning.reduce_waves": "§c⚠ ПОПЕРЕДЖЕННЯ",
   "wavedefense.warning.reduce_detail": "§7Зменшення з §e%d §7до §e%d",
   "wavedefense.warning.reduce_confirm": "§cВСІ налаштування зайвих хвиль буде ВИДАЛЕНО!",
   "wavedefense.button.confirm": "§a✓ Підтвердити",
-
-  "wavedefense.gamerule.waveAllowLocationEntry": "Дозволити гравцям входити на локації Wave Defense"
+  "wavedefense.hud.points": "Очки: %d",
+  "wavedefense.hud.next_wave_timer": "Наступна хвиля: %s",
+  "wavedefense.gamerule.waveAllowLocationEntry": "Дозволити гравцям входити на локації Wave Defense",
+  "key.wavedefense.openshop": "Відкрити магазин напряму"
 }

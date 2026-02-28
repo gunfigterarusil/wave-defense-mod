@@ -37,6 +37,34 @@ public class Location {
     private int startingPoints = 0; // стартові поінти при вході на локацію
     private Map<UUID, String> playerTeamMap;
 
+    // ── Радіус локації та таймер виходу ─────────────────────────────
+    // Якщо locationBoundaryEnabled=true — гравець що вийшов за radius отримує таймер
+    private boolean locationBoundaryEnabled = false;
+    private int     locationBoundaryRadius  = 50;   // блоків, 1-9999
+    private int     locationLeaveTimerSec   = 30;   // секунд на повернення
+
+    // ── Тригер запуску локації ────────────────────────────────────────
+    private boolean locationTriggerEnabled  = false;
+    private com.wavedefense.data.WaveTrigger locationTriggerType = com.wavedefense.data.WaveTrigger.PLAYER_ENTER_ZONE;
+
+    // ── Портал ────────────────────────────────────────────────────────
+    private boolean portalEnabled       = false;
+    // Штрафна хвиля: -1 = всі хвилі по порядку, 0+ = індекс конкретної хвилі
+    private int     portalPenaltyWave   = -1;
+    // Час очікування до штрафної хвилі (тіки, 0 = відразу)
+    private int     portalPenaltyTimerSec = 60;
+    // Чи зникає портал після проходження локації?
+    private boolean portalDisappearsOnComplete = true;
+    // Якщо зникає — через скільки секунд зʼявляється знову в іншому місці
+    private int     portalRespawnTimerSec = 300;
+
+    // Зберігати лут підібраний в локації після виходу
+    private boolean keepLootOnExit = false;
+
+    // Точка входу в портал (server-side, не serialized — зберігається у WaveManager.portalEntryPositions)
+    // Авто-активація: окрема точка входу (якщо null — використовується playerSpawn)
+    private net.minecraft.core.BlockPos autoActivateEntryPos = null;
+
     public Location(String name) {
         this.name = name;
         this.mode = LocationMode.PVE;
@@ -91,7 +119,7 @@ public class Location {
     public boolean isAutoActivate() { return autoActivate; }
     public void setAutoActivate(boolean v) { this.autoActivate = v; }
     public int getAutoActivateRadius() { return autoActivateRadius; }
-    public void setAutoActivateRadius(int r) { this.autoActivateRadius = Math.max(1, Math.min(20, r)); }
+    public void setAutoActivateRadius(int r) { this.autoActivateRadius = Math.max(5, Math.min(9999, r)); }
 
     public List<ItemStack> getStartingItems() { return startingItems; }
     public void addStartingItem(ItemStack item) { startingItems.add(item.copy()); }
@@ -168,6 +196,38 @@ public class Location {
         return ta != null && ta.equals(tb);
     }
 
+    // ── Boundary / Leave timer ───────────────────────────────────────
+    public boolean isLocationBoundaryEnabled()         { return locationBoundaryEnabled; }
+    public void    setLocationBoundaryEnabled(boolean v){ this.locationBoundaryEnabled = v; }
+    public int     getLocationBoundaryRadius()          { return locationBoundaryRadius; }
+    public void    setLocationBoundaryRadius(int r)     { this.locationBoundaryRadius = Math.max(1, Math.min(9999, r)); }
+    public int     getLocationLeaveTimerSec()           { return locationLeaveTimerSec; }
+    public void    setLocationLeaveTimerSec(int s)      { this.locationLeaveTimerSec = Math.max(5, s); }
+
+    // ── Location trigger ─────────────────────────────────────────────
+    public boolean isLocationTriggerEnabled()          { return locationTriggerEnabled; }
+    public void    setLocationTriggerEnabled(boolean v){ this.locationTriggerEnabled = v; }
+    public com.wavedefense.data.WaveTrigger getLocationTriggerType() { return locationTriggerType; }
+    public void setLocationTriggerType(com.wavedefense.data.WaveTrigger t) { this.locationTriggerType = t; }
+
+    // ── Portal ───────────────────────────────────────────────────────
+    public boolean isPortalEnabled()                  { return portalEnabled; }
+    public void    setPortalEnabled(boolean v)        { this.portalEnabled = v; }
+    public int     getPortalPenaltyWave()             { return portalPenaltyWave; }
+    public void    setPortalPenaltyWave(int w)        { this.portalPenaltyWave = w; }
+    public int     getPortalPenaltyTimerSec()         { return portalPenaltyTimerSec; }
+    public void    setPortalPenaltyTimerSec(int s)    { this.portalPenaltyTimerSec = Math.max(0, s); }
+    public boolean isPortalDisappearsOnComplete()     { return portalDisappearsOnComplete; }
+    public void    setPortalDisappearsOnComplete(boolean v){ this.portalDisappearsOnComplete = v; }
+    public int     getPortalRespawnTimerSec()         { return portalRespawnTimerSec; }
+    public void    setPortalRespawnTimerSec(int s)    { this.portalRespawnTimerSec = Math.max(30, s); }
+
+    public boolean isKeepLootOnExit()              { return keepLootOnExit; }
+    public void    setKeepLootOnExit(boolean v)    { this.keepLootOnExit = v; }
+
+    public net.minecraft.core.BlockPos getAutoActivateEntryPos() { return autoActivateEntryPos; }
+    public void setAutoActivateEntryPos(net.minecraft.core.BlockPos pos) { this.autoActivateEntryPos = pos; }
+
     public CompoundTag save() {
         CompoundTag tag = new CompoundTag();
         tag.putString("name", name);
@@ -220,6 +280,21 @@ public class Location {
         for (LootSpawn ls : lootSpawns) lootSpawnsList.add(ls.save());
         tag.put("lootSpawns", lootSpawnsList);
 
+        // Boundary
+        tag.putBoolean("locationBoundaryEnabled", locationBoundaryEnabled);
+        tag.putInt("locationBoundaryRadius", locationBoundaryRadius);
+        tag.putInt("locationLeaveTimerSec", locationLeaveTimerSec);
+        // Location trigger
+        tag.putBoolean("locationTriggerEnabled", locationTriggerEnabled);
+        tag.putString("locationTriggerType", locationTriggerType.name());
+        // Portal
+        tag.putBoolean("portalEnabled", portalEnabled);
+        tag.putInt("portalPenaltyWave", portalPenaltyWave);
+        tag.putInt("portalPenaltyTimerSec", portalPenaltyTimerSec);
+        tag.putBoolean("portalDisappearsOnComplete", portalDisappearsOnComplete);
+        tag.putBoolean("keepLootOnExit", keepLootOnExit);
+        if (autoActivateEntryPos != null) tag.putLong("autoActivateEntryPos", autoActivateEntryPos.asLong());
+        tag.putInt("portalRespawnTimerSec", portalRespawnTimerSec);
         return tag;
     }
 
@@ -262,6 +337,25 @@ public class Location {
 
         ListTag crList = tag.getList("completionRewards", 10);
         for (int i = 0; i < crList.size(); i++) location.completionRewards.add(ShopItem.load(crList.getCompound(i)));
+
+        // Boundary
+        location.locationBoundaryEnabled = tag.contains("locationBoundaryEnabled") && tag.getBoolean("locationBoundaryEnabled");
+        location.locationBoundaryRadius  = tag.contains("locationBoundaryRadius")  ? tag.getInt("locationBoundaryRadius")  : 50;
+        location.locationLeaveTimerSec   = tag.contains("locationLeaveTimerSec")   ? tag.getInt("locationLeaveTimerSec")   : 30;
+        // Location trigger
+        location.locationTriggerEnabled  = tag.contains("locationTriggerEnabled") && tag.getBoolean("locationTriggerEnabled");
+        if (tag.contains("locationTriggerType")) {
+            try { location.locationTriggerType = com.wavedefense.data.WaveTrigger.valueOf(tag.getString("locationTriggerType")); }
+            catch (Exception ignored) {}
+        }
+        // Portal
+        location.portalEnabled            = tag.contains("portalEnabled") && tag.getBoolean("portalEnabled");
+        location.portalPenaltyWave        = tag.contains("portalPenaltyWave")        ? tag.getInt("portalPenaltyWave")        : -1;
+        location.portalPenaltyTimerSec    = tag.contains("portalPenaltyTimerSec")    ? tag.getInt("portalPenaltyTimerSec")    : 60;
+        location.portalDisappearsOnComplete= tag.contains("portalDisappearsOnComplete") ? tag.getBoolean("portalDisappearsOnComplete") : true;
+        location.portalRespawnTimerSec    = tag.contains("portalRespawnTimerSec")    ? tag.getInt("portalRespawnTimerSec")    : 300;
+        location.keepLootOnExit           = tag.contains("keepLootOnExit") && tag.getBoolean("keepLootOnExit");
+        if (tag.contains("autoActivateEntryPos")) location.autoActivateEntryPos = net.minecraft.core.BlockPos.of(tag.getLong("autoActivateEntryPos"));
 
         if (tag.contains("lootSpawns")) {
             ListTag lsList = tag.getList("lootSpawns", 10);

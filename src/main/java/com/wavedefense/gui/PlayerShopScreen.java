@@ -47,11 +47,22 @@ public class PlayerShopScreen extends Screen {
     private void rebuildFilter() {
         filteredIndices.clear();
         List<ShopItem> all = location.getShopItems();
+        // Отримуємо поточну хвилю для перевірки тригерів доступності
+        int curWave = 0;
+        com.wavedefense.data.PlayerWaveData cpd = com.wavedefense.gui.ClientPlayerDataManager.getPlayerData();
+        if (cpd != null) curWave = cpd.getCurrentWave();
+
         for (int i = 0; i < all.size(); i++) {
             ShopItem s = all.get(i);
-            if (activeCategory == ShopItem.ShopCategory.ALL || s.getCategory() == activeCategory) {
-                filteredIndices.add(i);
+            if (activeCategory != ShopItem.ShopCategory.ALL && s.getCategory() != activeCategory) continue;
+            // Тригер доступності (client-side: wave number only, no server player)
+            if (s.hasAvailabilityTrigger()) {
+                com.wavedefense.data.WaveTrigger at = s.getAvailabilityTrigger();
+                if (at == com.wavedefense.data.WaveTrigger.SHOP_WAVE_START && curWave <= 0) continue;
+                if (at == com.wavedefense.data.WaveTrigger.SHOP_WAVE_N && curWave != s.getAvailabilityWave()) continue;
+                // SHOP_PLAYER_HAS_ITEM — перевіряється на сервері, тут показуємо завжди
             }
+            filteredIndices.add(i);
         }
         scrollOffset = 0;
     }

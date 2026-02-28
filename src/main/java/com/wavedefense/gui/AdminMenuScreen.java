@@ -20,7 +20,7 @@ public class AdminMenuScreen extends Screen {
     private EditBox locationNameInput;
     private String errorMessage = "";
     private int scrollOffset = 0;
-    // Динамічне число рядків — перераховується в init()
+    private int itemsPerPage = 4; // Динамічне число рядків — перераховується в init()
 
     public AdminMenuScreen() {
         super(Component.translatable("wavedefense.title.admin_menu"));
@@ -33,7 +33,7 @@ public class AdminMenuScreen extends Screen {
         this.locationNames = ClientLocationManager.getAllLocationNames();
 
         // Адаптивні розміри
-        int itemsPerPage = Math.max(4, (this.height - 130) / 25);
+        itemsPerPage = Math.max(4, (this.height - 130) / 25);
         int centerX = this.width / 2;
         int panelW  = Math.min(300, this.width - 60);
         int startY  = 50;
@@ -85,7 +85,7 @@ public class AdminMenuScreen extends Screen {
             this.addRenderableWidget(Button.builder(
                     Component.literal("▼"),
                     button -> scrollDown()
-            ).bounds(centerX + 105, listStartY + (ITEMS_PER_PAGE - 1) * 25, 20, 20).build());
+            ).bounds(centerX + 105, listStartY + (itemsPerPage - 1) * 25, 20, 20).build());
         }
 
         this.addRenderableWidget(Button.builder(
@@ -156,7 +156,7 @@ public class AdminMenuScreen extends Screen {
     }
 
     private void scrollDown() {
-        if (scrollOffset + ITEMS_PER_PAGE < locationNames.size()) {
+        if (scrollOffset + itemsPerPage < locationNames.size()) {
             scrollOffset++;
             this.rebuildWidgets();
         }

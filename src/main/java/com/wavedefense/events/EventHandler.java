@@ -19,6 +19,9 @@ import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.event.entity.player.PlayerContainerEvent;
+import com.wavedefense.data.WaveTrigger;
 
 public class EventHandler {
 
@@ -54,13 +57,15 @@ public class EventHandler {
             return;
         }
 
-        // PvP: гравець загинув
+        // PvE/PvP: гравець загинув
         if (entity instanceof ServerPlayer victim) {
-            // Нараховуємо очки вбивці (якщо вбив інший гравець)
+            // Тригер PLAYER_DEATH для тригерних хвиль та локаційних тригерів
+            WaveDefenseMod.waveManager.fireWaveTriggerForPlayer(victim, WaveTrigger.PLAYER_DEATH);
+            WaveDefenseMod.waveManager.fireLocationTrigger(victim, WaveTrigger.PLAYER_DEATH);
+            // PvP-специфіка
             if (event.getSource().getEntity() instanceof ServerPlayer killer) {
                 WaveDefenseMod.waveManager.onPlayerKilledPlayer(killer, victim);
             }
-            // Штраф за смерть + респавн на точці команди
             WaveDefenseMod.waveManager.onPvpPlayerDeath(victim);
         }
     }
@@ -86,6 +91,40 @@ public class EventHandler {
         if (!(event.getEntity() instanceof ServerPlayer victim)) return;
         if (!(event.getSource().getEntity() instanceof ServerPlayer attacker)) return;
         WaveDefenseMod.waveManager.onPvpHit(attacker, victim);
+    }
+
+    /**
+     * Тригер PLAYER_OPEN_CHEST — гравець відкриває скриню/контейнер.
+     */
+    @SubscribeEvent
+    public void onPlayerOpenContainer(PlayerContainerEvent.Open event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        WaveDefenseMod.waveManager.fireWaveTriggerForPlayer(player, WaveTrigger.PLAYER_OPEN_CHEST);
+    }
+
+    /**
+     * Тригер PLAYER_OPEN_DOOR — гравець натискає на двері/ворота/люк.
+     */
+    @SubscribeEvent
+    public void onPlayerRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+        if (event.getEntity().level().isClientSide) return;
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        net.minecraft.world.level.block.state.BlockState state =
+            event.getEntity().level().getBlockState(event.getHitVec().getBlockPos());
+        if (state.getBlock() instanceof net.minecraft.world.level.block.DoorBlock
+            || state.getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock
+            || state.getBlock() instanceof net.minecraft.world.level.block.FenceGateBlock) {
+            WaveDefenseMod.waveManager.fireWaveTriggerForPlayer(player, WaveTrigger.PLAYER_OPEN_DOOR);
+        }
+    }
+
+    /**
+     * Тригер PLAYER_JOIN для локаційних тригерів (запуск локації при вході гравця на сервер).
+     */
+    @SubscribeEvent
+    public void onPlayerLogin(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        WaveDefenseMod.waveManager.fireLocationTrigger(player, WaveTrigger.PLAYER_JOIN);
     }
 
     @OnlyIn(Dist.CLIENT)

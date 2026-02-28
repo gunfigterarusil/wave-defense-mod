@@ -5,7 +5,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.effect.MobEffect;
@@ -17,8 +16,9 @@ import java.util.stream.Collectors;
 
 /**
  * Редактор ефектів моба у хвилі.
- * Список ефектів з кнопками додати/видалити.
- * Формат збереження: "effectId:рівень:тіків"
+ * ✓ Виправлено GUI верстку
+ * ✓ Скрол списку ефектів
+ * ✓ Розширений список з пошуком
  */
 public class MobEffectsEditorScreen extends Screen {
 
@@ -29,16 +29,19 @@ public class MobEffectsEditorScreen extends Screen {
     private List<MobEffect> allEffects;
     private List<MobEffect> filteredEffects;
     private EditBox searchBox;
-    private int scrollOffset = 0;
+    private int effectScrollOffset = 0;
+    private int activeScrollOffset = 0;
 
-    // Поля нового ефекту
     private EditBox amplifierInput;
     private EditBox durationInput;
 
     private MobEffect selectedEffect = null;
 
+    private static final int EFFECT_ROW_H = 16;
+    private static final int ACTIVE_ROW_H = 18;
+
     public MobEffectsEditorScreen(Screen parent, WaveMob mob) {
-        super(Component.literal("Ефекти моба"));
+        super(Component.literal("⚗ Ефекти моба"));
         this.parent = parent;
         this.mob = mob;
         this.effects = new ArrayList<>(mob.getEffects());
@@ -51,71 +54,143 @@ public class MobEffectsEditorScreen extends Screen {
 
     @Override
     protected void init() {
-        super.init();
+        super.init();;
         int cx = this.width / 2;
+        int panelH = this.height - 60;
 
-        // Ліва частина: список поточних ефектів
-        int leftW = cx - 10;
-        int y = 30;
+        // ── Ліва панель: активні ефекти ──────────────────────────────
+        int leftW = cx - 14;
+        int lx = 4;
+        int y = 28;
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("§7Активні ефекти (" + effects.size() + "):"), b -> {}
-        ).bounds(4, y, leftW - 4, 14).build()).active = false;
+                Component.literal("§6§l Активні ефекти (" + effects.size() + "):"), b -> {}
+        ).bounds(lx, y, leftW - 4, 14).build()).active = false;
         y += 16;
 
-        for (int i = 0; i < effects.size(); i++) {
-            final int fi = i;
-            String ef = effects.get(i);
+        int activeVisibleMax = Math.max(2, (panelH - 100) / ACTIVE_ROW_H);
+        // clamp scroll
+        if (activeScrollOffset > 0 && activeScrollOffset >= effects.size())
+            activeScrollOffset = Math.max(0, effects.size() - 1);
+
+        for (int i = 0; i < Math.min(activeVisibleMax, effects.size()); i++) {
+            int idx = i + activeScrollOffset;
+            if (idx >= effects.size()) break;
+            final int fi = idx;
+            String ef = effects.get(idx);
+            String label = formatEffect(ef);
+            // Скорочуємо якщо довге
+            if (label.length() > 22) label = label.substring(0, 20) + "…";
+
             this.addRenderableWidget(Button.builder(
-                    Component.literal("§e" + formatEffect(ef)),
-                    b -> {}
-            ).bounds(4, y, leftW - 30, 18).build()).active = false;
+                    Component.literal("§e" + label), b -> {}
+            ).bounds(lx, y, leftW - 26, ACTIVE_ROW_H).build()).active = false;
+
             this.addRenderableWidget(Button.builder(
                     Component.literal("§c✕"),
-                    b -> { effects.remove(fi); rebuildWidgets(); }
-            ).bounds(leftW - 24, y, 22, 18).build());
-            y += 20;
+                    b -> { effects.remove(fi); if (activeScrollOffset > 0 && activeScrollOffset >= effects.size()) activeScrollOffset--; rebuildWidgets(); }
+            ).bounds(lx + leftW - 24, y, 20, ACTIVE_ROW_H).build());
+            y += ACTIVE_ROW_H + 1;
         }
 
-        // Права частина: вибір нового ефекту
-        int rightX = cx + 5;
-        int rightW = cx - 10;
+        // Скрол активних ефектів
+        if (effects.size() > activeVisibleMax) {
+            int sbX = lx + leftW - 4;
+            this.addRenderableWidget(Button.builder(Component.literal("▲"),
+                    b -> { if (activeScrollOffset > 0) { activeScrollOffset--; rebuildWidgets(); } }
+            ).bounds(sbX, 44, 14, 14).build());
+            this.addRenderableWidget(Button.builder(Component.literal("▼"),
+                    b -> { if (activeScrollOffset + activeVisibleMax < effects.size()) { activeScrollOffset++; rebuildWidgets(); } }
+            ).bounds(sbX, 44 + (activeVisibleMax - 1) * ACTIVE_ROW_H, 14, 14).build());
+        }
 
-        searchBox = new EditBox(this.font, rightX, 26, rightW - 2, 16, Component.literal("Пошук ефекту..."));
-        searchBox.setResponder(s -> { scrollOffset = 0; applyFilter(s); });
-        this.addRenderableWidget(searchBox);
+        // ── Права панель: вибір ефекту ────────────────────────────────
+        int rightX = cx + 4;
+        int rightW = this.width - rightX - 4;
+        int ry = 28;
 
-        buildEffectList(rightX, rightW);
-
-        // Поля для amplifier та duration
-        int bottomY = this.height - 72;
         this.addRenderableWidget(Button.builder(
-                Component.literal("§7Рівень (0=1, 1=2...):"), b -> {}
-        ).bounds(rightX, bottomY, rightW, 14).build()).active = false;
-        amplifierInput = new EditBox(this.font, rightX, bottomY + 16, 80, 18, Component.literal("0"));
+                Component.literal("§6§l Вибір ефекту:"), b -> {}
+        ).bounds(rightX, ry, rightW, 14).build()).active = false;
+        ry += 16;
+
+        // Пошук
+        searchBox = new EditBox(this.font, rightX, ry, rightW, 16, Component.literal("Пошук..."));
+        searchBox.setResponder(s -> { effectScrollOffset = 0; applyFilter(s); });
+        this.addRenderableWidget(searchBox);
+        ry += 20;
+
+        // Список ефектів зі скролом
+        int effectListH = panelH - 110;
+        int effectVisibleMax = Math.max(3, effectListH / EFFECT_ROW_H);
+
+        // clamp
+        if (effectScrollOffset > 0 && effectScrollOffset >= filteredEffects.size())
+            effectScrollOffset = Math.max(0, filteredEffects.size() - effectVisibleMax);
+
+        for (int i = 0; i < Math.min(effectVisibleMax, filteredEffects.size()); i++) {
+            int idx = effectScrollOffset + i;
+            if (idx >= filteredEffects.size()) break;
+            MobEffect ef = filteredEffects.get(idx);
+            final MobEffect fef = ef;
+            boolean sel = ef == selectedEffect;
+            // Колір ефекту
+            int color = ef.getColor();
+            String hex = String.format("%06X", color & 0xFFFFFF);
+            String label = (sel ? "§a§l▶ " : "§7") + ef.getDisplayName().getString();
+
+            this.addRenderableWidget(Button.builder(
+                    Component.literal(label),
+                    b -> { selectedEffect = fef; rebuildWidgets(); }
+            ).bounds(rightX, ry + i * EFFECT_ROW_H, rightW - (filteredEffects.size() > effectVisibleMax ? 16 : 0), EFFECT_ROW_H - 1).build());
+        }
+
+        // Скрол списку ефектів
+        if (filteredEffects.size() > effectVisibleMax) {
+            int sbX = rightX + rightW - 14;
+            this.addRenderableWidget(Button.builder(Component.literal("▲"),
+                    b -> { if (effectScrollOffset > 0) { effectScrollOffset--; rebuildWidgets(); } }
+            ).bounds(sbX, ry, 12, 14).build());
+            this.addRenderableWidget(Button.builder(Component.literal("▼"),
+                    b -> { if (effectScrollOffset + effectVisibleMax < filteredEffects.size()) { effectScrollOffset++; rebuildWidgets(); } }
+            ).bounds(sbX, ry + (effectVisibleMax - 1) * EFFECT_ROW_H, 12, 14).build());
+        }
+
+        // Нижня частина: рівень, тривалість, додати
+        int bottomY = this.height - 58;
+
+        this.addRenderableWidget(Button.builder(
+                Component.literal("§7Рівень (0=I):"), b -> {}
+        ).bounds(rightX, bottomY, 80, 14).build()).active = false;
+        amplifierInput = new EditBox(this.font, rightX + 82, bottomY, 40, 14, Component.literal("0"));
         amplifierInput.setValue("0");
+        amplifierInput.setMaxLength(2);
         this.addRenderableWidget(amplifierInput);
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("§7Тривалість (тіків, 600=30c):"), b -> {}
-        ).bounds(rightX + 85, bottomY, rightW - 85, 14).build()).active = false;
-        durationInput = new EditBox(this.font, rightX + 85, bottomY + 16, 80, 18, Component.literal("600"));
+                Component.literal("§7Тіків (600=30с):"), b -> {}
+        ).bounds(rightX, bottomY + 16, 90, 14).build()).active = false;
+        durationInput = new EditBox(this.font, rightX + 92, bottomY + 16, 50, 14, Component.literal("600"));
         durationInput.setValue("600");
+        durationInput.setMaxLength(6);
         this.addRenderableWidget(durationInput);
 
-        // Додати ефект
+        String addLbl = selectedEffect != null
+                ? "§a➕ " + selectedEffect.getDisplayName().getString()
+                : "§8[Виберіть ефект вище]";
+        if (addLbl.length() > 28) addLbl = addLbl.substring(0, 27) + "…";
         this.addRenderableWidget(Button.builder(
-                Component.literal(selectedEffect != null ? "§a➕ Додати: " + selectedEffect.getDisplayName().getString() : "§7[Виберіть ефект]"),
+                Component.literal(addLbl),
                 b -> addSelectedEffect()
-        ).bounds(rightX, bottomY + 36, rightW, 20).build());
+        ).bounds(rightX, bottomY + 32, rightW, 18).build());
 
-        // ОК / Скасувати
+        // ── Кнопки знизу ──────────────────────────────────────────────
         this.addRenderableWidget(Button.builder(
                 Component.literal("§a✓ Зберегти"), b -> save()
-        ).bounds(cx - 110, this.height - 26, 100, 20).build());
+        ).bounds(cx - 110, this.height - 24, 100, 20).build());
         this.addRenderableWidget(Button.builder(
                 Component.literal("Скасувати"), b -> this.minecraft.setScreen(parent)
-        ).bounds(cx + 10, this.height - 26, 100, 20).build());
+        ).bounds(cx + 10, this.height - 24, 100, 20).build());
     }
 
     private void applyFilter(String q) {
@@ -127,27 +202,11 @@ public class MobEffectsEditorScreen extends Screen {
         rebuildWidgets();
     }
 
-    private void buildEffectList(int rightX, int rightW) {
-        int startY = 46;
-        int ipp = Math.max(3, (this.height - 140) / 18);
-        for (int i = 0; i < Math.min(ipp, filteredEffects.size()); i++) {
-            int idx = scrollOffset + i;
-            if (idx >= filteredEffects.size()) break;
-            MobEffect ef = filteredEffects.get(idx);
-            final MobEffect fef = ef;
-            boolean sel = ef == selectedEffect;
-            this.addRenderableWidget(Button.builder(
-                    Component.literal(sel ? "§a▶ " + ef.getDisplayName().getString() : "§7" + ef.getDisplayName().getString()),
-                    b -> { selectedEffect = fef; rebuildWidgets(); }
-            ).bounds(rightX, startY + i * 18, rightW - 2, 16).build());
-        }
-    }
-
     private void addSelectedEffect() {
         if (selectedEffect == null) return;
         try {
-            int amp = Integer.parseInt(amplifierInput.getValue());
-            int dur = Integer.parseInt(durationInput.getValue());
+            int amp = Integer.parseInt(amplifierInput.getValue().trim());
+            int dur = Integer.parseInt(durationInput.getValue().trim());
             ResourceLocation key = ForgeRegistries.MOB_EFFECTS.getKey(selectedEffect);
             if (key != null) {
                 effects.add(key + ":" + amp + ":" + dur);
@@ -158,13 +217,24 @@ public class MobEffectsEditorScreen extends Screen {
 
     private String formatEffect(String raw) {
         String[] parts = raw.split(":");
-        if (parts.length >= 3) {
-            String id = parts[0] + (parts.length > 1 && parts[0].contains(":") ? "" : ":" + parts[1]);
-            // "namespace:path:amp:dur"
-            if (parts.length == 4) {
-                return parts[0] + ":" + parts[1] + " Lv" + (Integer.parseInt(parts[2]) + 1) + " " + parts[3] + "t";
-            }
-            return raw;
+        // Format: "namespace:path:amp:dur" (4 parts) or "namespace:path:amp" (3)
+        if (parts.length >= 4) {
+            // namespace:path:amp:dur
+            String name = parts[0] + ":" + parts[1];
+            int amp = 0, dur = 0;
+            try { amp = Integer.parseInt(parts[2]); } catch (Exception ignored) {}
+            try { dur = Integer.parseInt(parts[3]); } catch (Exception ignored) {}
+            MobEffect ef = ForgeRegistries.MOB_EFFECTS.getValue(new ResourceLocation(name));
+            String displayName = ef != null ? ef.getDisplayName().getString() : name;
+            return displayName + " Lv" + (amp + 1) + " " + dur + "t";
+        } else if (parts.length == 3) {
+            String name = parts[0];
+            int amp = 0, dur = 0;
+            try { amp = Integer.parseInt(parts[1]); } catch (Exception ignored) {}
+            try { dur = Integer.parseInt(parts[2]); } catch (Exception ignored) {}
+            MobEffect ef = ForgeRegistries.MOB_EFFECTS.getValue(new ResourceLocation(name));
+            String displayName = ef != null ? ef.getDisplayName().getString() : name;
+            return displayName + " Lv" + (amp + 1) + " " + dur + "t";
         }
         return raw;
     }
@@ -175,11 +245,29 @@ public class MobEffectsEditorScreen extends Screen {
     }
 
     @Override
+    public boolean mouseScrolled(double mx, double my, double delta) {
+        // Scroll effects list on right side
+        int cx = this.width / 2;
+        if (mx > cx) {
+            int panelH = this.height - 60;
+            int effectListH = panelH - 110;
+            int effectVisibleMax = Math.max(3, effectListH / EFFECT_ROW_H);
+            if (delta > 0 && effectScrollOffset > 0) { effectScrollOffset--; rebuildWidgets(); }
+            else if (delta < 0 && effectScrollOffset + effectVisibleMax < filteredEffects.size()) { effectScrollOffset++; rebuildWidgets(); }
+        } else {
+            if (delta > 0 && activeScrollOffset > 0) { activeScrollOffset--; rebuildWidgets(); }
+            else if (delta < 0) { activeScrollOffset++; rebuildWidgets(); }
+        }
+        return true;
+    }
+
+    @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
         this.renderBackground(g);
-        g.drawCenteredString(this.font, this.title, this.width / 2, 8, 0xFFFFFF);
+        int cx = this.width / 2;
+        g.drawCenteredString(this.font, this.title, cx, 10, 0xFFFFFF);
         // Роздільник між двома панелями
-        g.fill(this.width / 2, 20, this.width / 2 + 1, this.height - 30, 0xFF444444);
+        g.fill(cx, 24, cx + 1, this.height - 28, 0xFF444444);
         super.render(g, mouseX, mouseY, partial);
     }
 

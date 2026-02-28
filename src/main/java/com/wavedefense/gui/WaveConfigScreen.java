@@ -2,6 +2,7 @@ package com.wavedefense.gui;
 
 import com.wavedefense.data.Location;
 import com.wavedefense.data.WaveConfig;
+import com.wavedefense.data.WaveTrigger;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import com.wavedefense.network.PacketHandler;
@@ -112,31 +113,53 @@ public class WaveConfigScreen extends Screen {
                 this.addRenderableWidget(Button.builder(
                         Component.literal("✎ Моби"),
                         button -> editWaveMobs(finalWaveIndex)
-                ).bounds(centerX - 150, yPos + 22, 85, 20).build());
+                ).bounds(centerX - 150, yPos + 22, 80, 20).build());
 
                 this.addRenderableWidget(Button.builder(
                         Component.literal("🎁 Нагороди"),
                         button -> editWaveRewards(finalWaveIndex)
-                ).bounds(centerX - 60, yPos + 22, 95, 20).build());
+                ).bounds(centerX - 65, yPos + 22, 88, 20).build());
 
-                // Поле індивідуального часу для хвилі (inline)
+                // Тригер хвилі
+                boolean hasTrigger = wave.isTriggerEnabled();
+                String trigShort = hasTrigger ? wave.getTriggerType().label.substring(0, Math.min(7, wave.getTriggerType().label.length())) : "";
+                String oneTimeSuffix = (hasTrigger && wave.isOneTimeOnly()) ? "§8¹" : "";
+                String fromSuffix = (hasTrigger && wave.getActivateFromWave() > 0) ? "§8≥" + wave.getActivateFromWave() : "";
+                String trigLbl = hasTrigger
+                    ? "§d§l⚡§r §d" + trigShort + oneTimeSuffix + fromSuffix
+                    : "§7⚡ Тригер";
+                this.addRenderableWidget(Button.builder(
+                        Component.literal(trigLbl),
+                        button -> openWaveTrigger(finalWaveIndex)
+                ).bounds(centerX + 28, yPos + 22, 70, 20).build());
+
+                // Кнопка точки спавну хвилі
+                boolean hasWSpawn = wave.hasWaveSpawnPos();
+                this.addRenderableWidget(Button.builder(
+                        Component.literal(hasWSpawn ? "§a§l📍" : "§7📍"),
+                        button -> openWaveSpawnEditor(finalWaveIndex)
+                ).bounds(centerX + 100, yPos + 22, 20, 20).build())
+                .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                    Component.literal(hasWSpawn
+                        ? "§aСпавн хвилі: §eX" + wave.getWaveSpawnPos().getX() + " Y" + wave.getWaveSpawnPos().getY() + " Z" + wave.getWaveSpawnPos().getZ()
+                        : "§7Особливий спавн мобів для цієї хвилі\n§8(за замовч. — точки спавну локації)")));
+
+                // Поле індивідуального часу для хвилі (inline) — зміщено правіше
                 this.addRenderableWidget(Button.builder(
                         Component.literal("§7сек:"), button -> {}
-                ).bounds(centerX + 40, yPos + 22, 30, 20).build()).active = false;
-
-                // Кнопки + і - для часу цієї хвилі
+                ).bounds(centerX + 122, yPos + 22, 28, 20).build()).active = false;
                 this.addRenderableWidget(Button.builder(
                         Component.literal("-"),
                         button -> adjustWaveTime(finalWaveIndex, -10)
-                ).bounds(centerX + 73, yPos + 22, 16, 20).build());
+                ).bounds(centerX + 152, yPos + 22, 16, 20).build());
                 this.addRenderableWidget(Button.builder(
                         Component.literal(String.valueOf(wave.getTimeBetweenWaves())),
                         button -> {}
-                ).bounds(centerX + 90, yPos + 22, 40, 20).build()).active = false;
+                ).bounds(centerX + 169, yPos + 22, 34, 20).build()).active = false;
                 this.addRenderableWidget(Button.builder(
                         Component.literal("+"),
                         button -> adjustWaveTime(finalWaveIndex, 10)
-                ).bounds(centerX + 131, yPos + 22, 16, 20).build());
+                ).bounds(centerX + 204, yPos + 22, 16, 20).build());
             }
 
             // Скрол
@@ -238,9 +261,22 @@ public class WaveConfigScreen extends Screen {
         }
     }
 
+    private void openWaveSpawnEditor(int idx) {
+        if (idx < 0 || idx >= location.getWaves().size()) return;
+        this.minecraft.setScreen(new WaveSpawnEditorScreen(this, location.getWaves().get(idx), idx));
+    }
+
     private void editWaveRewards(int idx) {
         if (idx >= 0 && idx < location.getWaves().size()) {
             this.minecraft.setScreen(new RewardsConfigScreen(this, location.getWaves().get(idx)));
+        }
+    }
+
+    private void openWaveTrigger(int idx) {
+        if (idx >= 0 && idx < location.getWaves().size()) {
+            boolean isPvp = location.isPvp();
+            this.minecraft.setScreen(new WaveTriggerEditorScreen(
+                this, location.getWaves().get(idx), idx, isPvp));
         }
     }
 

@@ -132,8 +132,18 @@ public class ShopItemEditorScreen extends Screen {
             catX += 62;
         }
 
+        // Тригер доступності товару
+        com.wavedefense.data.WaveTrigger avTrig = (itemIndex >= 0 && itemIndex < location.getShopItems().size())
+                ? location.getShopItems().get(itemIndex).getAvailabilityTrigger() : null;
+        String avTrigLbl = avTrig == null ? "§7☐ Тригер доступності: Завжди"
+                : "§a☑ Тригер: §e" + avTrig.label;
         this.addRenderableWidget(Button.builder(
-                Component.literal("Зберегти"), button -> save()
+                Component.literal(avTrigLbl.length() > 42 ? avTrigLbl.substring(0, 40) + "…" : avTrigLbl),
+                b -> this.minecraft.setScreen(new ShopAvailabilityScreen(this, location, itemIndex))
+        ).bounds(cx - 155, this.height - 54, 310, 16).build());
+
+        this.addRenderableWidget(Button.builder(
+                Component.literal("§aЗберегти"), button -> save()
         ).bounds(cx - 110, this.height - 30, 100, 20).build());
 
         this.addRenderableWidget(Button.builder(
@@ -149,8 +159,16 @@ public class ShopItemEditorScreen extends Screen {
             int sellPrice = Integer.parseInt(sellPriceInput.getValue());
             ShopItem shopItem = new ShopItem(finalItems, buyPrice, sellPrice);
             shopItem.setCategory(selectedCategory);
-            if (itemIndex >= 0) location.getShopItems().set(itemIndex, shopItem);
-            else location.addShopItem(shopItem);
+            // Зберігаємо тригер доступності (якщо вже є)
+            if (itemIndex >= 0 && itemIndex < location.getShopItems().size()) {
+                ShopItem existing = location.getShopItems().get(itemIndex);
+                shopItem.setAvailabilityTrigger(existing.getAvailabilityTrigger());
+                shopItem.setAvailabilityWave(existing.getAvailabilityWave());
+                shopItem.setAvailabilityItemId(existing.getAvailabilityItemId());
+                location.getShopItems().set(itemIndex, shopItem);
+            } else {
+                location.addShopItem(shopItem);
+            }
             this.minecraft.setScreen(parent);
         } catch (NumberFormatException ignored) {}
     }

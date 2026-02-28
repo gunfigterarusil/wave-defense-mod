@@ -328,17 +328,20 @@ public class MobSelectionScreen extends Screen {
                 net.minecraft.world.entity.Entity entity = display.create(mc.level);
                 if (entity instanceof net.minecraft.world.entity.LivingEntity living) {
                     int cx = px + pw / 2;
-                    int cy = py + ph - 10;
+                    int cy = py + ph / 2 + 15; // Підняти точку origin моба
                     float scale = Math.min(pw * 0.8f, (ph - 30) * 0.8f)
                             / Math.max(1f, (float) living.getBbHeight());
                     scale = Math.min(scale, 50f);
 
+                    // Rotate around Y (spin), slight downward tilt so head isn't cut off
                     org.joml.Quaternionf rotation = new org.joml.Quaternionf()
                             .rotateY((float) Math.toRadians(previewAngle));
                     org.joml.Quaternionf initial  = new org.joml.Quaternionf()
-                            .rotateX((float) Math.toRadians(-15));
+                            .rotateX((float) Math.toRadians(-15)); // negative = slight backward tilt
+                    // Move origin up so full body is visible (feet near bottom of panel)
+                    int renderY = cy + (int)(living.getBbHeight() * scale * 0.35f);
                     net.minecraft.client.gui.screens.inventory.InventoryScreen
-                            .renderEntityInInventory(g, cx, cy, (int) scale, rotation, initial, living);
+                            .renderEntityInInventory(g, cx, renderY, (int) scale, rotation, initial, living);
                 }
             }
         } catch (Exception ignored) {

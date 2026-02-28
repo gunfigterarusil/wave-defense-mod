@@ -32,6 +32,8 @@ public class LootSpawnEditorScreen extends Screen {
     private List<ItemStack> editItems = new ArrayList<>();
     private EditBox chanceInput;
     private EditBox countInput;
+    // Координати точки спавну луту
+    private EditBox lootXInput, lootYInput, lootZInput;
 
     private int scrollOffset = 0;
     private static final int PER_PAGE = 5;
@@ -140,13 +142,49 @@ public class LootSpawnEditorScreen extends Screen {
     private void initEditMode(int cx, int y) {
         int btnW = Math.min(340, this.width - 40);
 
-        if (editingIndex >= 0 && editingIndex < location.getLootSpawns().size()) {
-            BlockPos pos = location.getLootSpawns().get(editingIndex).getPos();
+        // Координати точки спавну луту
+        {
+            net.minecraft.core.BlockPos curPos;
+            if (editingIndex >= 0 && editingIndex < location.getLootSpawns().size()) {
+                curPos = location.getLootSpawns().get(editingIndex).getPos();
+            } else {
+                curPos = minecraft.player != null ? minecraft.player.blockPosition() : net.minecraft.core.BlockPos.ZERO;
+            }
+
             this.addRenderableWidget(Button.builder(
-                    Component.literal(String.format("§7Позиція: X%d Y%d Z%d",
-                            pos.getX(), pos.getY(), pos.getZ())), b -> {}
-            ).bounds(cx - btnW / 2, y, btnW, 14).build()).active = false;
+                    Component.literal("§7📍 Позиція точки луту:"), b -> {}
+            ).bounds(cx - btnW / 2, y, 130, 14).build()).active = false;
+
+            // Кнопка "моя позиція"
+            this.addRenderableWidget(Button.builder(
+                    Component.literal("📌 Моя позиція"),
+                    b -> {
+                        if (minecraft.player != null) {
+                            net.minecraft.core.BlockPos pp = minecraft.player.blockPosition();
+                            if (lootXInput != null) lootXInput.setValue(String.valueOf(pp.getX()));
+                            if (lootYInput != null) lootYInput.setValue(String.valueOf(pp.getY()));
+                            if (lootZInput != null) lootZInput.setValue(String.valueOf(pp.getZ()));
+                        }
+                    }
+            ).bounds(cx + btnW / 2 - 100, y, 100, 14).build());
             y += 18;
+
+            int fw = 50;
+            this.addRenderableWidget(Button.builder(Component.literal("§7X:"), b -> {}).bounds(cx - btnW / 2, y, 14, 14).build()).active = false;
+            lootXInput = new EditBox(this.font, cx - btnW / 2 + 16, y, fw, 14, Component.literal("X"));
+            lootXInput.setValue(String.valueOf(curPos.getX())); lootXInput.setMaxLength(7);
+            this.addRenderableWidget(lootXInput);
+
+            this.addRenderableWidget(Button.builder(Component.literal("§7Y:"), b -> {}).bounds(cx - btnW / 2 + 70, y, 14, 14).build()).active = false;
+            lootYInput = new EditBox(this.font, cx - btnW / 2 + 84, y, fw, 14, Component.literal("Y"));
+            lootYInput.setValue(String.valueOf(curPos.getY())); lootYInput.setMaxLength(7);
+            this.addRenderableWidget(lootYInput);
+
+            this.addRenderableWidget(Button.builder(Component.literal("§7Z:"), b -> {}).bounds(cx - btnW / 2 + 138, y, 14, 14).build()).active = false;
+            lootZInput = new EditBox(this.font, cx - btnW / 2 + 152, y, fw, 14, Component.literal("Z"));
+            lootZInput.setValue(String.valueOf(curPos.getZ())); lootZInput.setMaxLength(7);
+            this.addRenderableWidget(lootZInput);
+            y += 20;
         }
 
         // Слоти предметів
@@ -323,16 +361,26 @@ public class LootSpawnEditorScreen extends Screen {
                 return;
             }
 
+            // Читаємо координати
+            BlockPos newPos = BlockPos.ZERO;
+            try {
+                int lx = Integer.parseInt(lootXInput != null ? lootXInput.getValue().trim() : "0");
+                int ly = Integer.parseInt(lootYInput != null ? lootYInput.getValue().trim() : "0");
+                int lz = Integer.parseInt(lootZInput != null ? lootZInput.getValue().trim() : "0");
+                newPos = new BlockPos(lx, ly, lz);
+            } catch (NumberFormatException ignored) {
+                if (minecraft.player != null) newPos = minecraft.player.blockPosition();
+            }
+
             if (editingIndex >= 0) {
                 LootSpawn existing = location.getLootSpawns().get(editingIndex);
+                existing.setPos(newPos);
                 existing.setItems(finalItems);
                 existing.setSpawnChance(chance);
                 existing.setCount(count);
                 // тригери вже оновлюються in-place через кнопки
             } else {
-                BlockPos pos = minecraft.player != null
-                        ? minecraft.player.blockPosition() : BlockPos.ZERO;
-                LootSpawn newLs = new LootSpawn(pos, finalItems, chance, count);
+                LootSpawn newLs = new LootSpawn(newPos, finalItems, chance, count);
                 newLs.setTriggers(new LinkedHashSet<>(editTriggers));
                 location.addLootSpawn(newLs);
             }

@@ -1,7 +1,6 @@
 {
   "key.categories.wavedefense": "Wave Defense",
   "key.wavedefense.openmenu": "Open Wave Defense Menu",
-
   "wavedefense.title.admin_menu": "Wave Defense - Admin Panel",
   "wavedefense.title.player_menu": "Wave Defense - Location Select",
   "wavedefense.title.location_editor": "Edit Location",
@@ -10,12 +9,10 @@
   "wavedefense.title.completion_rewards": "Completion Rewards",
   "wavedefense.title.loot_spawns": "Loot Spawn Points",
   "wavedefense.title.wave_actions": "Wave Defense Menu",
-
   "wavedefense.tab.general": "General",
   "wavedefense.tab.waves": "Waves",
   "wavedefense.tab.shop": "Shop",
   "wavedefense.tab.loot": "Loot",
-
   "wavedefense.label.location_name": "Name (latin/digits/_-) only:",
   "wavedefense.label.new_location": "Create new location",
   "wavedefense.label.wave_count": "Wave count:",
@@ -42,7 +39,6 @@
   "wavedefense.label.completion_points": "Points on completion (all players):",
   "wavedefense.label.slots": "Items (hold in hand → 'Set'):",
   "wavedefense.label.slot": "Slot",
-
   "wavedefense.button.create": "Create",
   "wavedefense.button.save": "Save",
   "wavedefense.button.save_back": "✓ Save & Back",
@@ -65,12 +61,10 @@
   "wavedefense.button.inventory": "📦 Inventory",
   "wavedefense.button.wave_mobs": "✎ Mobs",
   "wavedefense.button.wave_rewards": "🎁 Rewards",
-
   "wavedefense.hud.location": "Location: %s",
   "wavedefense.hud.wave_active": "⚔ WAVE IN PROGRESS ⚔",
   "wavedefense.hud.next_wave": "%d:%02d until next wave",
   "wavedefense.hud.mobs_left": "Mobs left: %d",
-
   "wavedefense.msg.save_ok": "§a✓ Changes saved!",
   "wavedefense.msg.rewards_saved": "§a✓ Rewards saved!",
   "wavedefense.msg.loot_saved": "§a✓ Loot spawn points saved!",
@@ -81,7 +75,6 @@
   "wavedefense.msg.wave_complete": "§a§l✓ Wave %d complete!",
   "wavedefense.msg.all_waves_complete": "§6§lAll waves complete! Congratulations!",
   "wavedefense.msg.wave_started": "§c§l⚔ Wave %d started!",
-
   "wavedefense.info.waves": "§7Waves: §e%d §7| Time: §e%d sec",
   "wavedefense.info.no_waves": "§cWaves not configured",
   "wavedefense.info.completion_rewards": "§7Points: §e%d §7| Items: §e%d",
@@ -89,11 +82,12 @@
   "wavedefense.info.loot_spawns": "§7Loot points: §e%d",
   "wavedefense.info.mob_spawns": "Configured: %d/10",
   "wavedefense.info.players_scale": "§7Mobs scale with player count",
-
   "wavedefense.warning.reduce_waves": "§cWARNING",
   "wavedefense.warning.reduce_detail": "§7Reducing from §e%d §7to §e%d",
   "wavedefense.warning.reduce_confirm": "§cAll extra wave settings will be DELETED!",
   "wavedefense.button.confirm": "§a✓ Confirm",
-
-  "wavedefense.gamerule.waveAllowLocationEntry": "Allow players to enter Wave Defense locations"
+  "wavedefense.hud.points": "Points: %d",
+  "wavedefense.hud.next_wave_timer": "Next wave: %s",
+  "wavedefense.gamerule.waveAllowLocationEntry": "Allow players to enter Wave Defense locations",
+  "key.wavedefense.openshop": "Open Shop directly"
 }

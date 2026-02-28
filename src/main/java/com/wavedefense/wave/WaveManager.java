@@ -26,6 +26,26 @@ public class WaveManager {
     private final Map<String, Set<UUID>> spawnedMobsByLocation = new ConcurrentHashMap<>();
     private final Map<UUID, PlayerBackup> playerBackups = new ConcurrentHashMap<>();
     private final Map<String, Long> locationStartTimers = new ConcurrentHashMap<>();
+    // ── Boundary / Leave timer ────────────────────────────────────────
+    // playerId → ticks until surrender (countdown)
+    private final Map<UUID, Integer> leaveCountdownTicks = new ConcurrentHashMap<>();
+    // ── Portal state ──────────────────────────────────────────────────
+    // locationName → current portal position (null = no portal)
+    private final Map<String, net.minecraft.core.BlockPos> portalPositions = new ConcurrentHashMap<>();
+    // locationName → ticks until penalty wave
+    private final Map<String, Integer> portalPenaltyTimers = new ConcurrentHashMap<>();
+    // locationName → ticks until portal respawn
+    private final Map<String, Integer> portalRespawnTimers = new ConcurrentHashMap<>();
+    // locationName → позиція входу в портал (для повернення гравців після виходу)
+    private final Map<String, net.minecraft.core.BlockPos> portalEntryPositions = new ConcurrentHashMap<>();
+    private final java.util.Set<String> portalFirstPlayerEntered = ConcurrentHashMap.newKeySet();
+    // locationName → UUID гравців що потрапили через портал
+    private final Map<String, java.util.Set<UUID>> portalEnteredPlayers = new ConcurrentHashMap<>();
+    // ── Location trigger ──────────────────────────────────────────────
+    // locationName → last wave-trigger fire tick (for cooldown)
+    private final Map<String, Long> waveTriggerLastFired = new ConcurrentHashMap<>();
+    // locationName → waves-completed counter for WAVES cooldown
+    private final Map<String, Integer> waveTriggerWaveCounters = new ConcurrentHashMap<>();
     private final Map<String, Integer> locationWaveTimers = new ConcurrentHashMap<>();
     private final Map<String, GameStats> locationStats = new ConcurrentHashMap<>();
     // Відстежуємо поточну хвилю для кожної локації незалежно від гравців
@@ -103,11 +123,12 @@ public class WaveManager {
 
         playerData.put(playerId, data);
         syncPlayerData(player);
-        // Тригер PLAYER_JOIN для лут-спавну
+        // Тригери PLAYER_JOIN + LOCATION_START для лут-спавну
         java.util.List<ServerPlayer> allInLoc = getPlayersInLocation(location.getName());
         if (!allInLoc.isEmpty()) {
-            fireLootTrigger(location, allInLoc.get(0).serverLevel(),
-                com.wavedefense.data.LootSpawn.Trigger.PLAYER_JOIN);
+            ServerLevel lootWorld = allInLoc.get(0).serverLevel();
+            fireLootTrigger(location, lootWorld, com.wavedefense.data.LootSpawn.Trigger.PLAYER_JOIN);
+            // LOCATION_START fires when wave 1 actually starts (see spawnWave)
         }
     }
 
@@ -167,6 +188,18 @@ public class WaveManager {
         }
 
         checkAllWavesComplete();
+
+        // ── Перевірка кордону локації (вихід за радіус) ──────────────
+        tickBoundaryCheck();
+
+        // ── Портали ──────────────────────────────────────────────────
+        tickPortals();
+
+        // ── Тригери запуску локацій ───────────────────────────────────
+        tickLocationTriggers();
+
+        // ── Тригерні хвилі ────────────────────────────────────────────
+        tickWaveTriggers();
 
         // ── Таймерні лут-тригери ──────────────────────────────────────
         globalLootTimer60++;
@@ -257,7 +290,10 @@ public class WaveManager {
                 // Шанс для кожного моба окремо
                 if (rng.nextInt(100) >= spawnChance) continue;
 
-                BlockPos spawnPos = getRandomSpawnPoint(location);
+                // Пріоритет: спавн хвилі → точки спавну локації
+                BlockPos spawnPos = waveConfig.hasWaveSpawnPos()
+                        ? waveConfig.getWaveSpawnPos()
+                        : getRandomSpawnPoint(location);
                 if (spawnPos == null) continue;
 
                 try {
@@ -366,10 +402,6 @@ public class WaveManager {
         Location location = WaveDefenseMod.locationManager.getLocation(locationName);
         if (location == null) return;
 
-        // WAVE_END тригер
-        fireLootTriggerByName(locationName, com.wavedefense.data.LootSpawn.Trigger.WAVE_END);
-
-
         // WAVE_END тригер для луту
         fireLootTriggerByName(locationName, com.wavedefense.data.LootSpawn.Trigger.WAVE_END);
 
@@ -436,6 +468,7 @@ public class WaveManager {
             broadcastToLocation(locationName, "§a§l✓ Хвилю " + completedWave + " завершено!");
             // Запускаємо таймер до наступної хвилі
             int waveTime = location.getWaves().get(nextWave - 1).getTimeBetweenWaves();
+            locationMobsKilled.putIfAbsent(location.getName(), 0);
             locationWaveTimers.put(locationName, waveTime * 20);
 
             for (PlayerWaveData data : playerData.values()) {
@@ -460,6 +493,7 @@ public class WaveManager {
         data.getCurrentLocation().addPoints(player.getUUID(), points);
 
         GameStats stats = locationStats.get(locationName);
+        locationMobsKilled.merge(locationName, 1, Integer::sum);
         if (stats != null) {
             stats.incrementMobsKilled();
             stats.getPlayerStats(player.getUUID()).incrementMobsKilled();
@@ -511,7 +545,7 @@ public class WaveManager {
 
             // Збираємо гравців в радіусі
             net.minecraft.core.BlockPos spawn = location.getPlayerSpawn();
-            int radius = location.getAutoActivateRadius();
+            int radius = Math.max(5, location.getAutoActivateRadius());
             Set<UUID> inRange = new java.util.HashSet<>();
 
             for (var p : WaveDefenseMod.getServer().getPlayerList().getPlayers()) {
@@ -672,12 +706,30 @@ public class WaveManager {
         UUID playerId = player.getUUID();
         PlayerWaveData data = playerData.remove(playerId);
         if (data != null) {
+            Location currentLoc = data.getCurrentLocation();
+            boolean keepLoot = currentLoc != null && currentLoc.isKeepLootOnExit();
+
             // Якщо гравець у спектаторі (PvP смерть) — відновлюємо survival перед backup.restore
             if (player.gameMode.getGameModeForPlayer() == net.minecraft.world.level.GameType.SPECTATOR) {
                 player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
             }
-            PlayerBackup backup = playerBackups.remove(playerId);
-            if (backup != null) backup.restore(player);
+            // Якщо keepLootOnExit — зберігаємо поточний інвентар, але відновлюємо позицію/ефекти
+            if (keepLoot) {
+                // Зберігаємо поточні предмети
+                java.util.List<net.minecraft.world.item.ItemStack> savedItems = new java.util.ArrayList<>();
+                for (int si = 0; si < player.getInventory().getContainerSize(); si++) {
+                    savedItems.add(player.getInventory().getItem(si).copy());
+                }
+                PlayerBackup backup = playerBackups.remove(playerId);
+                if (backup != null) backup.restore(player);
+                // Відновлюємо зібраний лут поверх
+                for (int si = 0; si < savedItems.size() && si < player.getInventory().getContainerSize(); si++) {
+                    if (!savedItems.get(si).isEmpty()) player.getInventory().setItem(si, savedItems.get(si));
+                }
+            } else {
+                PlayerBackup backup = playerBackups.remove(playerId);
+                if (backup != null) backup.restore(player);
+            }
 
             if (data.getCurrentLocation() != null) {
                 String locName = data.getCurrentLocation().getName();
@@ -722,6 +774,8 @@ public class WaveManager {
     private void endSessionForLocation(String locationName, String message) {
         broadcastToLocation(locationName, message);
 
+        // Якщо гравці потрапили через портал — запам'ятовуємо позицію для телепорту назад
+        net.minecraft.core.BlockPos portalReturnPos = portalEntryPositions.get(locationName);
         // Знімаємо знімок поінтів ДО відновлення гравців
         Location locReward = WaveDefenseMod.locationManager.getLocation(locationName);
         Map<UUID, Integer> pointsSnapshot = new HashMap<>();
@@ -745,6 +799,12 @@ public class WaveManager {
                 if (backup != null) backup.restore(player);
                 PlayerWaveData data = playerData.remove(playerId);
                 if (data != null) { data.setCurrentLocation(null); }
+                // Якщо гравці потрапили через портал — телепортуємо до місця входу
+                if (portalReturnPos != null) {
+                    player.teleportTo(portalReturnPos.getX() + 0.5,
+                                       portalReturnPos.getY(),
+                                       portalReturnPos.getZ() + 0.5);
+                }
 
                 // Видаємо нагороди за проходження ПІСЛЯ restore (щоб предмети не губились)
                 if (locReward != null && !locReward.getCompletionRewards().isEmpty()) {
@@ -781,8 +841,12 @@ public class WaveManager {
      * Спавнить лут для вказаного тригера (перевіряє trigger + шанс).
      */
     private void spawnLootForLocation(Location location, ServerLevel world, int waveNumber) {
-        // Legacy: викликається при старті хвилі
+        // Лут тригер WAVE_START кожну хвилю
         fireLootTrigger(location, world, com.wavedefense.data.LootSpawn.Trigger.WAVE_START);
+        // LOCATION_START — тільки при першій хвилі (коли гра реально починається)
+        if (waveNumber == 1) {
+            fireLootTrigger(location, world, com.wavedefense.data.LootSpawn.Trigger.LOCATION_START);
+        }
     }
 
     public void fireLootTrigger(Location location, ServerLevel world,
@@ -864,10 +928,7 @@ public class WaveManager {
     private int globalLootTimer300 = 0;
 
     private final java.util.Map<String, Integer> waveStartMobCounts = new java.util.concurrent.ConcurrentHashMap<>();
-    /** Локації де вже спрацював тригер HALF_MOBS_DEAD у цій хвилі */
-    private final java.util.Set<String> halfMobsTriggered = java.util.concurrent.ConcurrentHashMap.newKeySet();
-
-    private final java.util.Map<String, Integer> waveStartMobCounts = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, Integer>              locationMobsKilled = new ConcurrentHashMap<>();
     private final java.util.Set<String> halfMobsTriggered = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     /** Стан раунду кожної PvP локації (за назвою) */
@@ -1198,5 +1259,716 @@ public class WaveManager {
 
     public com.wavedefense.data.PvpRoundState getPvpState(String locationName) {
         return pvpStates.get(locationName);
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    //  BOUNDARY CHECK — вихід за радіус локації
+    // ════════════════════════════════════════════════════════════════════
+
+    // Глобальний кулдаун між будь-якими тригерними хвилями на локацію (5 секунд)
+    private final Map<String, Long> triggerWaveGlobalCooldown = new java.util.concurrent.ConcurrentHashMap<>();
+    // Глобальний кулдаун між будь-якими тригерними хвилями на локацію (5 секунд)
+    private final Map<String, Long> triggerWaveGlobalCooldown = new ConcurrentHashMap<>();
+    /** Таймер виходу: секунд до здачі. 0 = не активний. */
+    private void tickBoundaryCheck() {
+        if (WaveDefenseMod.getServer() == null) return;
+        for (Map.Entry<UUID, PlayerWaveData> e : playerData.entrySet()) {
+            UUID uid = e.getKey();
+            PlayerWaveData data = e.getValue();
+            if (data.getCurrentLocation() == null) continue;
+            Location loc = data.getCurrentLocation();
+            if (!loc.isLocationBoundaryEnabled()) continue;
+            if (loc.getPlayerSpawn() == null) continue;
+
+            ServerPlayer player = WaveDefenseMod.getServer().getPlayerList().getPlayer(uid);
+            if (player == null) continue;
+
+            double dist = Math.sqrt(player.blockPosition().distSqr(loc.getPlayerSpawn()));
+            boolean outside = dist > loc.getLocationBoundaryRadius();
+
+            if (outside) {
+                int ticks = leaveCountdownTicks.getOrDefault(uid, 0);
+                if (ticks <= 0) {
+                    // Починаємо відлік — одразу показуємо title
+                    int secs = loc.getLocationLeaveTimerSec();
+                    leaveCountdownTicks.put(uid, secs * 20);
+                    // Title
+                    net.minecraft.network.chat.MutableComponent title0 =
+                        net.minecraft.network.chat.Component.literal("§c⚠ Ви покидаєте Бій");
+                    net.minecraft.network.chat.MutableComponent subtitle0 =
+                        net.minecraft.network.chat.Component.literal("§eПоверніться! §c" + secs + " сек");
+                    player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(title0));
+                    player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket(subtitle0));
+                    player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket(0, 25, 10));
+                } else {
+                    ticks--;
+                    leaveCountdownTicks.put(uid, ticks);
+                    // Title кожну секунду
+                    if (ticks % 20 == 0) {
+                        int secsLeft = ticks / 20;
+                        net.minecraft.network.chat.MutableComponent title =
+                            net.minecraft.network.chat.Component.literal("§c⚠ Ви покидаєте Бій");
+                        net.minecraft.network.chat.MutableComponent subtitle =
+                            net.minecraft.network.chat.Component.literal(secsLeft > 0
+                                ? "§eПоверніться! §c" + secsLeft + " сек"
+                                : "§cЧас вийшов!");
+                        player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(title));
+                        player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket(subtitle));
+                        player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket(0, 25, 10));
+                    }
+                    if (ticks <= 0) {
+                        // Час вийшов — здається
+                        leaveCountdownTicks.remove(uid);
+                        player.displayClientMessage(
+                            net.minecraft.network.chat.Component.literal("§cВи не повернулись у зону бою — здача!"), false);
+                        surrenderPlayer(player);
+                    }
+                }
+            } else {
+                // Повернувся — скасовуємо відлік
+                if (leaveCountdownTicks.containsKey(uid)) {
+                    leaveCountdownTicks.remove(uid);
+                    // Прибираємо title
+                    player.connection.send(new net.minecraft.network.protocol.game.ClientboundClearTitlesPacket(false));
+                    player.displayClientMessage(
+                        net.minecraft.network.chat.Component.literal("§a✓ Ви повернулись у зону бою"), false);
+                }
+            }
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    //  LOCATION TRIGGER — запуск локації по тригеру
+    // ════════════════════════════════════════════════════════════════════
+
+    private void tickLocationTriggers() {
+        if (WaveDefenseMod.getServer() == null) return;
+        long now = System.currentTimeMillis();
+        for (Location loc : WaveDefenseMod.locationManager.getAllLocations()) {
+            if (!loc.isLocationTriggerEnabled()) continue;
+            if (loc.isPvp()) continue;
+            if (loc.getPlayerSpawn() == null) continue;
+
+            String name = loc.getName();
+            // Якщо вже активна — пропускаємо
+            boolean active = playerData.values().stream()
+                .anyMatch(d -> d.getCurrentLocation() != null && d.getCurrentLocation().getName().equals(name));
+            if (active) continue;
+
+            // Збираємо гравців поблизу (не в локації)
+            int radius = Math.max(5, loc.isAutoActivate()
+                ? loc.getAutoActivateRadius()
+                : (loc.isLocationBoundaryEnabled() ? loc.getLocationBoundaryRadius() : 30));
+
+            java.util.List<ServerPlayer> nearbyPlayers = new java.util.ArrayList<>();
+            for (ServerPlayer p : WaveDefenseMod.getServer().getPlayerList().getPlayers()) {
+                if (playerData.containsKey(p.getUUID())) continue;
+                if (p.blockPosition().distSqr(loc.getPlayerSpawn()) <= (double) radius * radius) {
+                    nearbyPlayers.add(p);
+                }
+            }
+
+            WaveTrigger trigger = loc.getLocationTriggerType();
+            boolean fired = false;
+
+            switch (trigger) {
+                case PLAYER_ENTER_ZONE:
+                    // Спрацьовує коли хтось увійшов у радіус
+                    fired = !nearbyPlayers.isEmpty();
+                    break;
+                case PLAYER_DEATH:
+                case PLAYER_JOIN:
+                    // event-driven — обробляються в EventHandler.onEntityDeath / PlayerEvent
+                    fired = false;
+                    break;
+                case PLAYER_FULL_INVENT:
+                case PLAYER_HAS_DIAMOND:
+                case PLAYER_HAS_IRON:
+                case PLAYER_HAS_SWORD:
+                case PLAYER_HAS_ITEM:
+                case PLAYER_LOW_HEALTH:
+                    // Для запуску локації — перевіряємо будь-якого гравця поблизу
+                    fired = !nearbyPlayers.isEmpty() && checkWaveTriggerCondition(trigger, name, null);
+                    break;
+                default:
+                    // Всі інші — стандартна перевірка
+                    fired = checkWaveTriggerCondition(trigger, name, null);
+                    break;
+            }
+
+            if (!fired) continue;
+
+            // Запускаємо для всіх гравців поблизу
+            java.util.Set<UUID> inRange = new java.util.HashSet<>();
+            for (ServerPlayer p : nearbyPlayers) inRange.add(p.getUUID());
+            // Якщо гравців поблизу немає але тригер спрацював — шукаємо будь-яких поблизу
+            if (inRange.isEmpty()) {
+                for (ServerPlayer p : WaveDefenseMod.getServer().getPlayerList().getPlayers()) {
+                    if (!playerData.containsKey(p.getUUID())) inRange.add(p.getUUID());
+                }
+            }
+            if (!inRange.isEmpty()) {
+                activateZoneForPlayers(loc, inRange);
+            }
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    //  TRIGGER WAVE — хвиля що запускається по тригеру
+    // ════════════════════════════════════════════════════════════════════
+
+    private void tickWaveTriggers() {
+        for (Map.Entry<UUID, PlayerWaveData> e : playerData.entrySet()) {
+            PlayerWaveData data = e.getValue();
+            if (data.getCurrentLocation() == null) continue;
+            Location loc = data.getCurrentLocation();
+            if (loc.isPvp()) continue;
+            String locName = loc.getName();
+
+            // Тільки один раз на локацію за тік
+            break; // Обробляємо локацію нижче окремо
+        }
+        // Обробка по локаціях
+        for (String locName : getActiveLocationNames()) {
+            Location loc = WaveDefenseMod.locationManager.getLocation(locName);
+            if (loc == null || loc.isPvp()) continue;
+            for (int wi = 0; wi < loc.getWaves().size(); wi++) {
+                com.wavedefense.data.WaveConfig wave = loc.getWaves().get(wi);
+                if (!wave.isTriggerEnabled()) continue;
+                // Перевіряємо cooldown
+                String coolKey = locName + "_w" + wi;
+                if (!isTriggerWaveCooldownReady(wave, coolKey, locName)) continue;
+                // Перевіряємо тригер
+                if (!checkWaveTriggerCondition(wave.getTriggerType(), locName, null)) continue;
+                // Разово
+                if (wave.isOneTimeOnly() && wave.isFiredThisSession()) continue;
+                // activateFromWave
+                int curWave2 = locationCurrentWave.getOrDefault(locName, 1);
+                if (wave.getActivateFromWave() > 0 && curWave2 < wave.getActivateFromWave()) continue;
+                // AND умови
+                boolean andOk = true;
+                for (com.wavedefense.data.WaveTrigger extra : wave.getExtraTriggers()) {
+                    if (!checkWaveTriggerCondition(extra, locName, null)) { andOk = false; break; }
+                }
+                if (!andOk) continue;
+                // Запускаємо хвилю паралельно
+                fireTriggerWave(loc, wi);
+                recordTriggerWaveFire(wave, coolKey, locName);
+                if (wave.isOneTimeOnly()) wave.setFiredThisSession(true);
+            }
+        }
+    }
+
+    private static final long MIN_TRIGGER_WAVE_COOLDOWN_MS = 5000L; // обов'язкові 5 сек між активаціями
+
+    private boolean isTriggerWaveCooldownReady(com.wavedefense.data.WaveConfig wave, String key, String locName) {
+        // Обов'язкова мінімальна пауза 5 секунд між будь-якими тригерними хвилями
+        long lastFired = waveTriggerLastFired.getOrDefault(key, 0L);
+        if (System.currentTimeMillis() - lastFired < MIN_TRIGGER_WAVE_COOLDOWN_MS) return false;
+
+        switch (wave.getCooldownMode()) {
+            case NONE: return true;
+            case SECONDS: {
+                return (System.currentTimeMillis() - lastFired) >= wave.getCooldownValue() * 1000L;
+            }
+            case WAVES: {
+                int wavesDone = waveTriggerWaveCounters.getOrDefault(key, 0);
+                int required = wave.getCooldownValue();
+                return wavesDone >= required;
+            }
+        }
+        return true;
+    }
+
+    private void recordTriggerWaveFire(com.wavedefense.data.WaveConfig wave, String key, String locName) {
+        switch (wave.getCooldownMode()) {
+            case SECONDS: waveTriggerLastFired.put(key, System.currentTimeMillis()); break;
+            case WAVES:   waveTriggerWaveCounters.put(key, 0); break;
+            default: break;
+        }
+    }
+
+    /** Скидаємо лічильник хвиль у cooldown при завершенні основної хвилі */
+    private void incrementWaveTriggerCounters(String locName) {
+        waveTriggerWaveCounters.replaceAll((k, v) -> k.startsWith(locName + "_w") ? v + 1 : v);
+    }
+
+    private void fireTriggerWave(Location location, int waveIndex) {
+        if (waveIndex < 0 || waveIndex >= location.getWaves().size()) return;
+        List<ServerPlayer> players = getPlayersInLocation(location.getName());
+        if (players.isEmpty()) return;
+        ServerLevel world = players.get(0).serverLevel();
+        com.wavedefense.data.WaveConfig wave = location.getWaves().get(waveIndex);
+
+        broadcastToLocation(location.getName(),
+            "§d⚡ Тригерна хвиля §e" + (waveIndex+1) + " §dзапущена!");
+
+        Set<UUID> spawnedMobs = spawnedMobsByLocation.computeIfAbsent(
+            location.getName() + "_trigger_" + waveIndex, k -> new HashSet<>());
+
+        Random rng = new Random();
+        for (com.wavedefense.data.WaveMob waveMob : wave.getMobs()) {
+            net.minecraft.world.entity.EntityType<?> entityType =
+                ForgeRegistries.ENTITY_TYPES.getValue(waveMob.getMobType());
+            if (entityType == null) continue;
+            int count = waveMob.getCount();
+            for (int i = 0; i < count; i++) {
+                if (rng.nextInt(100) >= waveMob.getSpawnChance()) continue;
+                BlockPos sp = getRandomSpawnPoint(location);
+                if (sp == null) continue;
+                try {
+                    net.minecraft.world.entity.Mob mob = (net.minecraft.world.entity.Mob) entityType.create(world);
+                    if (mob != null) {
+                        mob.moveTo(sp.getX()+0.5, sp.getY(), sp.getZ()+0.5, 0, 0);
+                        mob.finalizeSpawn(world, world.getCurrentDifficultyAt(sp),
+                            net.minecraft.world.entity.MobSpawnType.COMMAND, null, null);
+                        mob.goalSelector.addGoal(2, new net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal<>(
+                            mob, net.minecraft.world.entity.player.Player.class, true));
+                        mob.setPersistenceRequired();
+                        mob.getPersistentData().putString("location", location.getName());
+                        mob.getPersistentData().putInt("points", waveMob.getPointsPerKill());
+                        applyMobEquipment(mob, waveMob);
+                        world.addFreshEntity(mob);
+                        spawnedMobs.add(mob.getUUID());
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    //  PORTALS — рандомна поява порталу
+    // ════════════════════════════════════════════════════════════════════
+
+    private static final int PORTAL_PARTICLE_RADIUS_BASE = 2; // блоки
+    private static final int PORTAL_HEIGHT_BASE          = 2;
+
+    private void tickPortals() {
+        if (WaveDefenseMod.getServer() == null) return;
+
+        for (Location loc : WaveDefenseMod.locationManager.getAllLocations()) {
+            if (!loc.isPortalEnabled()) continue;
+            String name = loc.getName();
+
+            // Якщо гравці в локації — тікаємо штрафний таймер
+            boolean active = playerData.values().stream()
+                .anyMatch(d -> d.getCurrentLocation() != null && d.getCurrentLocation().getName().equals(name));
+
+            net.minecraft.core.BlockPos portalPos = portalPositions.get(name);
+
+            if (portalPos != null) {
+                // Рендер частинок порталу
+                spawnPortalParticles(loc, portalPos);
+
+                // Перевіряємо вхід гравця в портал
+                for (var p : WaveDefenseMod.getServer().getPlayerList().getPlayers()) {
+                    if (playerData.containsKey(p.getUUID())) continue; // вже в грі
+                    double dist = p.blockPosition().distSqr(portalPos);
+                    if (dist <= 4) { // 2 блоки
+                        enterPortal(p, loc, portalPos);
+                        break;
+                    }
+                }
+                // Перевіряємо завершення grace period після входу першого гравця
+                closePortalIfGraceExpired(name, portalPos);
+
+                if (!active) {
+                    // Штрафний таймер
+                    int timer = portalPenaltyTimers.getOrDefault(name, loc.getPortalPenaltyTimerSec() * 20);
+                    timer--;
+                    if (timer <= 0) {
+                        // Запускаємо штрафну хвилю навколо порталу
+                        firePenaltyWaveAtPortal(loc, portalPos);
+                        // Скидаємо таймер
+                        portalPenaltyTimers.put(name, loc.getPortalPenaltyTimerSec() * 20);
+                    } else {
+                        portalPenaltyTimers.put(name, timer);
+                        // Попередження
+                        if (timer % (20 * 15) == 0) {
+                            int secsLeft = timer / 20;
+                            broadcastNearPortal(portalPos, name,
+                                "§c⚠ Портал §e" + name + "§c: штрафна хвиля через §e" + secsLeft + " сек§c!");
+                        }
+                    }
+                }
+            } else {
+                // Портал відсутній — перевіряємо таймер відродження
+                int respawn = portalRespawnTimers.getOrDefault(name, -1);
+                if (respawn < 0) {
+                    // Перший запуск — одразу спавнимо портал
+                    spawnPortalAtRandom(loc);
+                } else if (respawn > 0) {
+                    portalRespawnTimers.put(name, respawn - 1);
+                } else {
+                    // Час — спавнимо портал у новому місці
+                    spawnPortalAtRandom(loc);
+                }
+            }
+        }
+    }
+
+    private void spawnPortalAtRandom(Location loc) {
+        if (WaveDefenseMod.getServer() == null) return;
+        // Знаходимо позицію де є гравці (або random у overworld)
+        net.minecraft.server.level.ServerLevel world =
+            (net.minecraft.server.level.ServerLevel) WaveDefenseMod.getServer()
+                .getLevel(net.minecraft.world.level.Level.OVERWORLD);
+        if (world == null) return;
+
+        // Беремо позицію найближчого онлайн-гравця поза локацією + рандомний оффсет
+        java.util.List<ServerPlayer> all = WaveDefenseMod.getServer().getPlayerList().getPlayers();
+        if (all.isEmpty()) return;
+        ServerPlayer target = all.get(new Random().nextInt(all.size()));
+        Random rng = new Random();
+        int ox = (rng.nextInt(61) - 30);
+        int oz = (rng.nextInt(61) - 30);
+        BlockPos base = target.blockPosition().offset(ox, 0, oz);
+        // Знаходимо безпечну висоту
+        int y = world.getHeightmapPos(
+            net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, base).getY();
+        BlockPos portalPos = new BlockPos(base.getX(), y + 1, base.getZ());
+
+        portalPositions.put(loc.getName(), portalPos);
+        portalPenaltyTimers.put(loc.getName(), loc.getPortalPenaltyTimerSec() * 20);
+
+        // Оголошення всім гравцям
+        for (var p : WaveDefenseMod.getServer().getPlayerList().getPlayers()) {
+            p.displayClientMessage(
+                net.minecraft.network.chat.Component.literal(
+                    "§5🌀 Портал до §e" + loc.getName() + "§5 зʼявився!"),
+                false);
+        }
+    }
+
+    // Таймер grace period після входу першого гравця (30 сек)
+    private final Map<String, Long> portalGraceEndTime = new ConcurrentHashMap<>();
+    // Кількість гравців що вже увійшли через цей портал у поточній хвилі
+    private final Map<String, Integer> portalEnteredCount = new ConcurrentHashMap<>();
+
+    private void enterPortal(ServerPlayer player, Location loc, net.minecraft.core.BlockPos portalPos) {
+        String name = loc.getName();
+        int enteredCount = portalEnteredCount.getOrDefault(name, 0);
+
+        if (enteredCount == 0) {
+            // Перший гравець — зберігаємо позицію входу і відкриваємо grace period 30 сек
+            portalEntryPositions.put(name, portalPos);
+            portalFirstPlayerEntered.add(name); // close portal for others (grace period passed)
+            portalGraceEndTime.put(name, System.currentTimeMillis() + 30000L);
+            portalEnteredCount.put(name, 1);
+
+            // Портал НЕ видаляємо одразу — ще 30 сек для інших
+            addPlayerToLocation(player, loc);
+            player.displayClientMessage(
+                net.minecraft.network.chat.Component.literal("§5🌀 Ви увійшли в портал §e" + loc.getName() + "§5! §7(30 сек для інших)"),
+                false);
+            broadcastNearPortal(portalPos, name, "§5🌀 §e" + player.getName().getString() + " §5увійшов у портал! У вас 30 сек щоб приєднатись.");
+        } else {
+            // Наступні гравці в grace period
+            long grace = portalGraceEndTime.getOrDefault(name, 0L);
+            if (System.currentTimeMillis() <= grace) {
+                portalEnteredCount.put(name, enteredCount + 1);
+                addPlayerToLocation(player, loc);
+                player.displayClientMessage(
+                    net.minecraft.network.chat.Component.literal("§5🌀 Ви увійшли в портал §e" + loc.getName() + "§5!"),
+                    false);
+            } else {
+                player.displayClientMessage(
+                    net.minecraft.network.chat.Component.literal("§cПортал вже закрито. Зачекайте наступного."),
+                    true);
+            }
+        }
+    }
+
+    /** Закриває портал після grace period (викликається з tickPortals) */
+    private void closePortalIfGraceExpired(String locName, net.minecraft.core.BlockPos portalPos) {
+        Long graceEnd = portalGraceEndTime.get(locName);
+        if (graceEnd != null && System.currentTimeMillis() > graceEnd) {
+            // Grace period скінчився — видаляємо портал
+            portalPositions.remove(locName);
+            portalPenaltyTimers.remove(locName);
+            portalGraceEndTime.remove(locName);
+            portalEnteredCount.remove(locName);
+            // Якщо після проходження локації потрібно відродити — налаштовується автоматично
+            Location loc = WaveDefenseMod.locationManager.getLocation(locName);
+            if (loc != null && loc.isPortalDisappearsOnComplete()) {
+                portalRespawnTimers.put(locName, loc.getPortalRespawnTimerSec() * 20);
+            }
+        }
+    }
+
+    private void firePenaltyWaveAtPortal(Location loc, net.minecraft.core.BlockPos portalPos) {
+        if (WaveDefenseMod.getServer() == null) return;
+        net.minecraft.server.level.ServerLevel world =
+            (net.minecraft.server.level.ServerLevel) WaveDefenseMod.getServer()
+                .getLevel(net.minecraft.world.level.Level.OVERWORLD);
+        if (world == null || loc.getWaves().isEmpty()) return;
+
+        broadcastNearPortal(portalPos, loc.getName(),
+            "§c💥 Штрафна хвиля порталу §e" + loc.getName() + "§c!");
+
+        if (loc.getPortalPenaltyWave() == -1) {
+            // Всі хвилі по порядку навколо порталу
+            for (com.wavedefense.data.WaveConfig wave : loc.getWaves()) {
+                spawnWaveAroundPos(wave, loc, world, portalPos, 8);
+            }
+        } else {
+            int wi = loc.getPortalPenaltyWave();
+            if (wi >= 0 && wi < loc.getWaves().size()) {
+                spawnWaveAroundPos(loc.getWaves().get(wi), loc, world, portalPos, 8);
+            }
+        }
+    }
+
+    private void spawnWaveAroundPos(com.wavedefense.data.WaveConfig wave, Location loc,
+                                     net.minecraft.server.level.ServerLevel world,
+                                     net.minecraft.core.BlockPos center, int radius) {
+        Random rng = new Random();
+        for (com.wavedefense.data.WaveMob waveMob : wave.getMobs()) {
+            net.minecraft.world.entity.EntityType<?> et = ForgeRegistries.ENTITY_TYPES.getValue(waveMob.getMobType());
+            if (et == null) continue;
+            for (int i = 0; i < waveMob.getCount(); i++) {
+                if (rng.nextInt(100) >= waveMob.getSpawnChance()) continue;
+                double angle = rng.nextDouble() * 2 * Math.PI;
+                double r = rng.nextDouble() * radius;
+                BlockPos sp = center.offset((int)(r * Math.cos(angle)), 0, (int)(r * Math.sin(angle)));
+                try {
+                    net.minecraft.world.entity.Mob mob = (net.minecraft.world.entity.Mob) et.create(world);
+                    if (mob == null) continue;
+                    mob.moveTo(sp.getX()+0.5, sp.getY(), sp.getZ()+0.5, 0, 0);
+                    mob.finalizeSpawn(world, world.getCurrentDifficultyAt(sp),
+                        net.minecraft.world.entity.MobSpawnType.COMMAND, null, null);
+                    mob.setPersistenceRequired();
+                    mob.getPersistentData().putString("location", loc.getName() + "_portal");
+                    applyMobEquipment(mob, waveMob);
+                    world.addFreshEntity(mob);
+                } catch (Exception ignored) {}
+            }
+        }
+    }
+
+    private void spawnPortalParticles(Location loc, net.minecraft.core.BlockPos pos) {
+        net.minecraft.server.level.ServerLevel world =
+            (net.minecraft.server.level.ServerLevel) WaveDefenseMod.getServer()
+                .getLevel(net.minecraft.world.level.Level.OVERWORLD);
+        if (world == null) return;
+
+        // Розмір порталу залежить від кількості хвиль та мобів
+        int waveCount = loc.getWaves().size();
+        int totalMobs = loc.getWaves().stream()
+            .mapToInt(w -> w.getMobs().stream().mapToInt(m -> m.getCount()).sum()).sum();
+        float radiusF = Math.min(10, PORTAL_PARTICLE_RADIUS_BASE + waveCount * 0.3f + totalMobs * 0.02f);
+        float heightF = Math.min(8,  PORTAL_HEIGHT_BASE           + waveCount * 0.2f + totalMobs * 0.01f);
+        radiusF = Math.max(2, radiusF);
+        heightF = Math.max(2, heightF);
+
+        // Кольір: від синього (мало) до пурпурного (багато)
+        float r = Math.min(1, totalMobs / 200f);
+        float g = 0;
+        float b = 1 - r * 0.3f;
+
+        // Вертикальне коло (в площині XZ з кутом) + заповнення
+        int steps = Math.max(16, (int)(radiusF * 12));
+        for (int i = 0; i < steps; i++) {
+            double angle = 2 * Math.PI * i / steps;
+            // Зовнішнє кільце — вертикально (XY площина)
+            double px = pos.getX() + 0.5 + radiusF * Math.cos(angle);
+            double py = pos.getY() + 1 + heightF * Math.sin(angle);
+            double pz = pos.getZ() + 0.5;
+            world.sendParticles(net.minecraft.core.particles.ParticleTypes.PORTAL,
+                px, py, pz, 1, 0, 0, 0, 0.05);
+            world.sendParticles(net.minecraft.core.particles.ParticleTypes.WITCH,
+                px, py, pz, 1, 0, 0, 0, 0.02);
+        }
+        // Заповнення
+        for (int fy = 0; fy < (int)(heightF * 2); fy++) {
+            for (int fx = 0; fx < (int)(radiusF * 2); fx++) {
+                double px = pos.getX() + 0.5 - radiusF + fx;
+                double py = pos.getY() + 1 - heightF + fy;
+                if (Math.pow((px - pos.getX() - 0.5) / radiusF, 2) +
+                    Math.pow((py - pos.getY() - 1) / heightF, 2) <= 1.0) {
+                    world.sendParticles(net.minecraft.core.particles.ParticleTypes.END_ROD,
+                        px, py, pos.getZ() + 0.5, 0, 0, 0, 0, 0.01);
+                }
+            }
+        }
+    }
+
+    private void broadcastNearPortal(net.minecraft.core.BlockPos pos, String locName, String msg) {
+        if (WaveDefenseMod.getServer() == null) return;
+        for (var p : WaveDefenseMod.getServer().getPlayerList().getPlayers()) {
+            if (p.blockPosition().distSqr(pos) <= 2500) { // 50 блоків
+                p.displayClientMessage(net.minecraft.network.chat.Component.literal(msg), false);
+            }
+        }
+    }
+
+    /** Перевіряємо умову WaveTrigger для даної локації */
+    private boolean checkWaveTriggerCondition(com.wavedefense.data.WaveTrigger trigger,
+                                               String locName, ServerPlayer actor) {
+        List<ServerPlayer> players = getPlayersInLocation(locName);
+        GameStats stats = locationStats.get(locName);
+        switch (trigger) {
+            case WAVE_COMPLETE:     return false; // обробляється через onWaveComplete
+            case MOBS_REMAINING_LOW: {
+                Set<UUID> mobs = spawnedMobsByLocation.get(locName);
+                if (mobs == null || mobs.isEmpty()) return false;
+                int orig = waveStartMobCounts.getOrDefault(locName, 1);
+                return mobs.size() <= orig / 5;
+            }
+            case TIMER_60:  case TIMER_120: case TIMER_300:
+                return false; // handled by loot timer loop
+            case PLAYER_JOIN:   return actor != null;
+            case PLAYER_DEATH:  return actor != null;
+            case PLAYER_OPEN_CHEST: case PLAYER_OPEN_DOOR:
+                return false; // event-driven — fired directly via fireWaveTriggerForPlayer()
+            case PLAYER_ENTER_ZONE: {
+                Location loc = WaveDefenseMod.locationManager.getLocation(locName);
+                if (loc == null || loc.getPlayerSpawn() == null) return false;
+                int r = loc.isAutoActivate() ? loc.getAutoActivateRadius() : 30;
+                for (var p : WaveDefenseMod.getServer().getPlayerList().getPlayers()) {
+                    if (playerData.containsKey(p.getUUID())) continue;
+                    if (p.blockPosition().distSqr(loc.getPlayerSpawn()) <= (double)r*r) return true;
+                }
+                return false;
+            }
+            case PLAYER_LOW_HEALTH: {
+                for (ServerPlayer p : players) if (p.getHealth() <= 4) return true;
+                return false;
+            }
+            case PLAYER_FULL_INVENT: {
+                for (ServerPlayer p : players) {
+                    if (p.getInventory().getFreeSlot() != -1) return false; // getFreeSlot() returns -1 when full
+                }
+                return !players.isEmpty();
+            }
+            case PLAYER_HAS_DIAMOND: {
+                for (ServerPlayer p : players) {
+                    if (p.getInventory().hasAnyMatching(s ->
+                        s.getItem() == net.minecraft.world.item.Items.DIAMOND ||
+                        s.getItem() instanceof net.minecraft.world.item.ArmorItem ai &&
+                        ai.getMaterial() == net.minecraft.world.item.ArmorMaterials.DIAMOND)) return true;
+                }
+                return false;
+            }
+            case PLAYER_HAS_IRON: {
+                for (ServerPlayer p : players) {
+                    if (p.getInventory().hasAnyMatching(s ->
+                        s.getItem() == net.minecraft.world.item.Items.IRON_INGOT ||
+                        s.getItem() instanceof net.minecraft.world.item.ArmorItem ai &&
+                        ai.getMaterial() == net.minecraft.world.item.ArmorMaterials.IRON)) return true;
+                }
+                return false;
+            }
+            case PLAYER_HAS_SWORD: {
+                for (ServerPlayer p : players) {
+                    if (p.getInventory().hasAnyMatching(s -> s.getItem() instanceof net.minecraft.world.item.SwordItem)) return true;
+                }
+                return false;
+            }
+            case PLAYER_HAS_ITEM: {
+                // Шукаємо customItemId у хвилях локації з цим тригером
+                Location loc2 = WaveDefenseMod.locationManager.getLocation(locName);
+                String itemId = "";
+                if (loc2 != null) {
+                    for (com.wavedefense.data.WaveConfig wc : loc2.getWaves()) {
+                        if (wc.isTriggerEnabled() && wc.getTriggerType() == com.wavedefense.data.WaveTrigger.PLAYER_HAS_ITEM
+                                && !wc.getTriggerCustomItemId().isBlank()) {
+                            itemId = wc.getTriggerCustomItemId(); break;
+                        }
+                    }
+                }
+                if (itemId.isBlank()) return false;
+                try {
+                    net.minecraft.resources.ResourceLocation rl = new net.minecraft.resources.ResourceLocation(itemId);
+                    net.minecraft.world.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(rl);
+                    if (item == null) return false;
+                    net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(item);
+                    for (ServerPlayer p : players) { if (p.getInventory().contains(stack)) return true; }
+                } catch (Exception ignored) {}
+                return false;
+            }
+            case SHOP_WAVE_START: case SHOP_WAVE_N: case SHOP_LOCATION_START: case SHOP_PLAYER_HAS_ITEM:
+                return false; // shop-only triggers, not used in wave conditions
+            case WAVES_SURVIVED_5:  { int w = locationCurrentWave.getOrDefault(locName,1); return w > 5; }
+            case WAVES_SURVIVED_10: { int w = locationCurrentWave.getOrDefault(locName,1); return w > 10; }
+            case WAVES_SURVIVED_20: { int w = locationCurrentWave.getOrDefault(locName,1); return w > 20; }
+            case MOBS_KILLED_10:  { return locationMobsKilled.getOrDefault(locName, 0) >= 10; }
+            case MOBS_KILLED_50:  { return locationMobsKilled.getOrDefault(locName, 0) >= 50; }
+            case MOBS_KILLED_100: { return locationMobsKilled.getOrDefault(locName, 0) >= 100; }
+            case ROUND_START: case ROUND_END: case BUY_PHASE:
+            case TEAM_WIPE: case KILL_STREAK_3:
+                return false; // PvP only, handled separately
+            default: return false;
+        }
+    }
+
+    /**
+     * Викликається з EventHandler при діях гравця (відкриття скрині, дверей).
+     * Перевіряємо чи гравець у локації та запускаємо тригерні хвилі з цим тригером.
+     */
+    public void fireWaveTriggerForPlayer(net.minecraft.server.level.ServerPlayer player,
+                                          com.wavedefense.data.WaveTrigger trigger) {
+        PlayerWaveData data = playerData.get(player.getUUID());
+        if (data == null || data.getCurrentLocation() == null) return;
+        Location loc = data.getCurrentLocation();
+        if (loc.isPvp()) return;
+        String locName = loc.getName();
+        int curWave = locationCurrentWave.getOrDefault(locName, 1);
+
+        for (int wi = 0; wi < loc.getWaves().size(); wi++) {
+            com.wavedefense.data.WaveConfig wave = loc.getWaves().get(wi);
+            if (!wave.isTriggerEnabled()) continue;
+            if (wave.getTriggerType() != trigger) continue;
+            // Перевірка разово
+            if (wave.isOneTimeOnly() && wave.isFiredThisSession()) continue;
+            // Перевірка мінімальної хвилі активації
+            if (wave.getActivateFromWave() > 0 && curWave < wave.getActivateFromWave()) continue;
+            // Перевірка AND умов (extra triggers)
+            boolean andOk = true;
+            for (com.wavedefense.data.WaveTrigger extra : wave.getExtraTriggers()) {
+                if (!checkWaveTriggerCondition(extra, locName, null)) { andOk = false; break; }
+            }
+            if (!andOk) continue;
+            String coolKey = locName + "_w" + wi;
+            if (!isTriggerWaveCooldownReady(wave, coolKey, locName)) continue;
+            fireTriggerWave(loc, wi);
+            recordTriggerWaveFire(wave, coolKey, locName);
+            if (wave.isOneTimeOnly()) wave.setFiredThisSession(true);
+        }
+    }
+
+    /**
+     * Перевіряє чи потрібно запустити локацію по event-driven тригеру для гравця поруч.
+     */
+    public void fireLocationTrigger(net.minecraft.server.level.ServerPlayer player,
+                                    com.wavedefense.data.WaveTrigger trigger) {
+        if (WaveDefenseMod.getServer() == null) return;
+        if (playerData.containsKey(player.getUUID())) return; // вже в локації
+
+        for (Location loc : WaveDefenseMod.locationManager.getAllLocations()) {
+            if (!loc.isLocationTriggerEnabled()) continue;
+            if (loc.isPvp()) continue;
+            if (loc.getLocationTriggerType() != trigger) continue;
+            if (loc.getPlayerSpawn() == null) continue;
+
+            String name = loc.getName();
+            boolean active = playerData.values().stream()
+                .anyMatch(d -> d.getCurrentLocation() != null && d.getCurrentLocation().getName().equals(name));
+            if (active) continue;
+
+            int radius = loc.isAutoActivate() ? loc.getAutoActivateRadius()
+                : (loc.isLocationBoundaryEnabled() ? loc.getLocationBoundaryRadius() : 30);
+            if (player.blockPosition().distSqr(loc.getPlayerSpawn()) > (double) radius * radius) continue;
+
+            java.util.Set<UUID> set = new java.util.HashSet<>();
+            set.add(player.getUUID());
+            activateZoneForPlayers(loc, set);
+            break;
+        }
+    }
+
+    /** Перевірка getFreeSlot — повертає індекс або -1 */
+    private static final class InventoryUtils {
+        private InventoryUtils() {}
     }
 }

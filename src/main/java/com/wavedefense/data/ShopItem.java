@@ -19,6 +19,12 @@ public class ShopItem {
     private ShopCategory category = ShopCategory.OTHER;
     private int buyPrice;
     private int sellPrice;
+    // Тригер доступності товару (null = завжди доступний)
+    private com.wavedefense.data.WaveTrigger availabilityTrigger = null;
+    // Для SHOP_WAVE_N — номер хвилі (1-based)
+    private int availabilityWave = 1;
+    // Для SHOP_PLAYER_HAS_ITEM — id предмета
+    private String availabilityItemId = "";
 
     public ShopItem(List<ItemStack> items, int buyPrice, int sellPrice) {
         // Ensure we have a mutable list and copy items to prevent outside modification
@@ -47,6 +53,40 @@ public class ShopItem {
     public ShopCategory getCategory() { return category; }
     public void setCategory(ShopCategory c) { this.category = c; }
 
+    public com.wavedefense.data.WaveTrigger getAvailabilityTrigger() { return availabilityTrigger; }
+    public void setAvailabilityTrigger(com.wavedefense.data.WaveTrigger t) { this.availabilityTrigger = t; }
+    public boolean hasAvailabilityTrigger() { return availabilityTrigger != null; }
+
+    public int  getAvailabilityWave()      { return availabilityWave; }
+    public void setAvailabilityWave(int w) { this.availabilityWave = Math.max(1, w); }
+
+    public String getAvailabilityItemId()       { return availabilityItemId == null ? "" : availabilityItemId; }
+    public void   setAvailabilityItemId(String s){ this.availabilityItemId = s == null ? "" : s; }
+
+    /**
+     * Перевіряє чи доступний цей товар для гравця/поточної хвилі.
+     * @param currentWave поточна хвиля (1-based), 0 = поза хвилею
+     * @param player гравець для перевірки інвентаря
+     */
+    public boolean isAvailable(int currentWave, net.minecraft.server.level.ServerPlayer player) {
+        if (availabilityTrigger == null) return true;
+        return switch (availabilityTrigger) {
+            case SHOP_LOCATION_START -> true; // завжди
+            case SHOP_WAVE_START     -> currentWave > 0;
+            case SHOP_WAVE_N         -> currentWave == availabilityWave;
+            case SHOP_PLAYER_HAS_ITEM -> {
+                if (player == null || availabilityItemId.isBlank()) yield false;
+                try {
+                    net.minecraft.resources.ResourceLocation rl =
+                        new net.minecraft.resources.ResourceLocation(availabilityItemId);
+                    net.minecraft.world.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(rl);
+                    yield item != null && player.getInventory().contains(new net.minecraft.world.item.ItemStack(item));
+                } catch (Exception e) { yield false; }
+            }
+            default -> true;
+        };
+    }
+
     public CompoundTag save() {
         CompoundTag tag = new CompoundTag();
         ListTag itemsList = new ListTag();
@@ -57,6 +97,11 @@ public class ShopItem {
         tag.putInt("buyPrice", buyPrice);
         tag.putInt("sellPrice", sellPrice);
         tag.putString("category", category.name());
+        if (availabilityTrigger != null) {
+            tag.putString("availabilityTrigger", availabilityTrigger.name());
+            tag.putInt("availabilityWave", availabilityWave);
+            if (!availabilityItemId.isEmpty()) tag.putString("availabilityItemId", availabilityItemId);
+        }
         return tag;
     }
 
@@ -66,10 +111,20 @@ public class ShopItem {
         for (int i = 0; i < itemsList.size(); i++) {
             loadedItems.add(ItemStack.of(itemsList.getCompound(i)));
         }
-        return new ShopItem(
+        ShopItem si = new ShopItem(
                 loadedItems,
                 tag.getInt("buyPrice"),
                 tag.getInt("sellPrice")
         );
+        if (tag.contains("category")) {
+            try { si.category = ShopCategory.valueOf(tag.getString("category")); } catch (Exception ignored) {}
+        }
+        if (tag.contains("availabilityTrigger")) {
+            try { si.availabilityTrigger = com.wavedefense.data.WaveTrigger.valueOf(tag.getString("availabilityTrigger")); }
+            catch (Exception ignored) {}
+            si.availabilityWave = tag.contains("availabilityWave") ? tag.getInt("availabilityWave") : 1;
+            si.availabilityItemId = tag.contains("availabilityItemId") ? tag.getString("availabilityItemId") : "";
+        }
+        return si;
     }
 }
