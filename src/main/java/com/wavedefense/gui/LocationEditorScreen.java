@@ -610,7 +610,7 @@ public class LocationEditorScreen extends Screen {
         if (label.contains("поінти") || label.contains("Стартові")) return TooltipHelper.STARTING_POINTS;
         if (label.contains("📌") || label.contains("Моя позиція")) return TooltipHelper.SPAWN_COORDS;
         if (label.contains("Застосувати")) return TooltipHelper.SPAWN_COORDS;
-        if (label.contains("Кордон") || label.contains("кордон")) return "§7Відстежує чи гравець вийшов за межі локації\n§8При виході — відлік, потім автоздача\n§8Радіус кордону = радіус де гравці ще вважаються "в локації"";
+        if (label.contains("Кордон") || label.contains("кордон")) return "§7Відстежує чи гравець вийшов за межі локації\n§8При виході — відлік, потім автоздача\n§8Радіус кордону = радіус де гравці ще вважаються 'в локації'";
         if (label.contains("Тригер запуску")) return "§7Локація стартує автоматично при спрацюванні тригера\n§8Всі гравці в радіусі одразу телепортуються";
         if (label.contains("Портал")) return "§7Рандомний портал — вертикальне кільце частинок\n§8Після першого гравця — портал закривається\n§8Якщо ніхто не зайшов — штрафна хвиля";
         if (label.contains("Разово")) return "§7Тригерна хвиля спрацює лише один раз за всю сесію локації";
