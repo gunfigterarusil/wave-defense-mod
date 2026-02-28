@@ -1267,8 +1267,6 @@ public class WaveManager {
 
     // Глобальний кулдаун між будь-якими тригерними хвилями на локацію (5 секунд)
     private final Map<String, Long> triggerWaveGlobalCooldown = new java.util.concurrent.ConcurrentHashMap<>();
-    // Глобальний кулдаун між будь-якими тригерними хвилями на локацію (5 секунд)
-    private final Map<String, Long> triggerWaveGlobalCooldown = new ConcurrentHashMap<>();
     /** Таймер виходу: секунд до здачі. 0 = не активний. */
     private void tickBoundaryCheck() {
         if (WaveDefenseMod.getServer() == null) return;
