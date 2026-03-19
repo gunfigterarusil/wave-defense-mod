@@ -10,29 +10,35 @@ import java.util.function.Supplier;
 public class UpdatePlayerSettingsPacket {
     private final boolean showTimer;
     private final boolean showNotifications;
+    private final boolean showTeammates;
 
-    public UpdatePlayerSettingsPacket(boolean showTimer, boolean showNotifications) {
+    public UpdatePlayerSettingsPacket(boolean showTimer, boolean showNotifications, boolean showTeammates) {
         this.showTimer = showTimer;
         this.showNotifications = showNotifications;
+        this.showTeammates = showTeammates;
     }
 
-    public static void encode(UpdatePlayerSettingsPacket packet, FriendlyByteBuf buf) {
-        buf.writeBoolean(packet.showTimer);
-        buf.writeBoolean(packet.showNotifications);
+    public static void encode(UpdatePlayerSettingsPacket p, FriendlyByteBuf buf) {
+        buf.writeBoolean(p.showTimer);
+        buf.writeBoolean(p.showNotifications);
+        buf.writeBoolean(p.showTeammates);
     }
 
     public static UpdatePlayerSettingsPacket decode(FriendlyByteBuf buf) {
-        return new UpdatePlayerSettingsPacket(buf.readBoolean(), buf.readBoolean());
+        return new UpdatePlayerSettingsPacket(buf.readBoolean(), buf.readBoolean(), buf.readBoolean());
     }
 
-    public static void handle(UpdatePlayerSettingsPacket packet, Supplier<NetworkEvent.Context> ctx) {
+    public static void handle(UpdatePlayerSettingsPacket p, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player != null) {
                 PlayerWaveData data = WaveDefenseMod.waveManager.getPlayerData(player.getUUID());
                 if (data != null) {
-                    data.setShowTimer(packet.showTimer);
-                    data.setShowNotifications(packet.showNotifications);
+                    data.setShowTimer(p.showTimer);
+                    data.setShowNotifications(p.showNotifications);
+                    data.setShowTeammates(p.showTeammates);
+                    // Надсилаємо оновлені дані назад клієнту (щоб HUD одразу відреагував)
+                    WaveDefenseMod.waveManager.syncPlayerData(player);
                 }
             }
         });

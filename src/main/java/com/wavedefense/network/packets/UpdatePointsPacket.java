@@ -1,10 +1,8 @@
 package com.wavedefense.network.packets;
 
-import com.wavedefense.gui.ClientLocationManager;
-import com.wavedefense.gui.PlayerShopScreen;
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkEvent;
 
@@ -29,16 +27,25 @@ public class UpdatePointsPacket {
     }
 
     public static void handle(UpdatePointsPacket packet, Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> {
-            DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
-                if (Minecraft.getInstance().player != null) {
-                    ClientLocationManager.getLocation(packet.locationName).addPoints(Minecraft.getInstance().player.getUUID(), packet.points - ClientLocationManager.getLocation(packet.locationName).getPlayerPoints(Minecraft.getInstance().player.getUUID()));
-                    if (Minecraft.getInstance().screen instanceof PlayerShopScreen) {
-                        Minecraft.getInstance().setScreen(new PlayerShopScreen(ClientLocationManager.getLocation(packet.locationName)));
-                    }
-                }
-            });
-        });
+        ctx.get().enqueueWork(() ->
+            DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientHandler.handle(packet))
+        );
         ctx.get().setPacketHandled(true);
+    }
+
+    @OnlyIn(Dist.CLIENT)
+    private static class ClientHandler {
+        static void handle(UpdatePointsPacket packet) {
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            if (mc.player == null) return;
+            com.wavedefense.data.Location loc =
+                    com.wavedefense.gui.ClientLocationManager.getLocation(packet.locationName);
+            if (loc == null) return;
+            int current = loc.getPlayerPoints(mc.player.getUUID());
+            loc.addPoints(mc.player.getUUID(), packet.points - current);
+            if (mc.screen instanceof com.wavedefense.gui.PlayerShopScreen curShop) {
+                mc.setScreen(new com.wavedefense.gui.PlayerShopScreen(loc, curShop.getShopPoint()));
+            }
+        }
     }
 }

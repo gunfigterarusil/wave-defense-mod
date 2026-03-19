@@ -21,16 +21,21 @@ public class PlayerWaveData {
     // Player settings
     private boolean showTimer = true;
     private boolean showNotifications = true;
+    private boolean showTeammates = true;
 
     // Лічильник мобів/ворогів поточної хвилі (синхронізується з сервера)
     private int mobsRemaining = 0;
     // PvP режим
     private boolean isInPvp = false;
+    // Таймер перемоги (секунди що залишились до виходу після перемоги), 0 = не активний
+    private int victoryCountdownSec = 0;
 
     public int getMobsRemaining() { return mobsRemaining; }
     public void setMobsRemaining(int mobsRemaining) { this.mobsRemaining = mobsRemaining; }
     public boolean isInPvp() { return isInPvp; }
     public void setInPvp(boolean inPvp) { this.isInPvp = inPvp; }
+    public int  getVictoryCountdownSec() { return victoryCountdownSec; }
+    public void setVictoryCountdownSec(int v) { this.victoryCountdownSec = Math.max(0, v); }
 
     public UUID getPlayerUUID() {
         return playerUUID;
@@ -116,6 +121,9 @@ public class PlayerWaveData {
         this.showNotifications = showNotifications;
     }
 
+    public boolean isShowTeammates() { return showTeammates; }
+    public void setShowTeammates(boolean v) { this.showTeammates = v; }
+
     public CompoundTag saveClientData() {
         CompoundTag tag = new CompoundTag();
         if (currentLocation != null) tag.put("location", currentLocation.save());
@@ -123,18 +131,28 @@ public class PlayerWaveData {
         tag.putInt("timeUntilNextWave", timeUntilNextWave);
         tag.putBoolean("isTimerActive", isTimerActive);
         tag.putBoolean("showTimer", showTimer);
+        tag.putBoolean("showTeammates", showTeammates);
         tag.putInt("mobsRemaining", mobsRemaining);
         tag.putBoolean("isInPvp", isInPvp);
+        tag.putInt("victoryCountdownSec", victoryCountdownSec);
         return tag;
     }
 
     public void loadClientData(CompoundTag tag) {
-        if (tag.contains("location")) this.currentLocation = Location.load(tag.getCompound("location"));
+        // ВАЖЛИВО: завжди скидаємо location на null якщо ключа нема —
+        // це сигнал "гравець вийшов з локації" (порожній пакет від surrenderPlayer)
+        if (tag.contains("location")) {
+            this.currentLocation = Location.load(tag.getCompound("location"));
+        } else {
+            this.currentLocation = null;
+        }
         this.currentWave = tag.getInt("currentWave");
         this.timeUntilNextWave = tag.getInt("timeUntilNextWave");
         this.isTimerActive = tag.getBoolean("isTimerActive");
-        this.showTimer = tag.getBoolean("showTimer");
+        this.showTimer = !tag.contains("showTimer") || tag.getBoolean("showTimer");
+        this.showTeammates = !tag.contains("showTeammates") || tag.getBoolean("showTeammates");
         this.mobsRemaining = tag.contains("mobsRemaining") ? tag.getInt("mobsRemaining") : 0;
         this.isInPvp = tag.contains("isInPvp") && tag.getBoolean("isInPvp");
+        this.victoryCountdownSec = tag.contains("victoryCountdownSec") ? tag.getInt("victoryCountdownSec") : 0;
     }
 }

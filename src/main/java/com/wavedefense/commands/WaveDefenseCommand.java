@@ -36,8 +36,7 @@ public class WaveDefenseCommand {
                         )
                 )
 
-                // /wavedefense tp <локація> <гравець1> [гравець2 ...]
-                // Телепортує гравців на локацію від імені адміна (обходить gamerule)
+                // /wavedefense tp <локація> <гравці> — телепортує на локацію
                 .then(Commands.literal("tp")
                         .then(Commands.argument("location", StringArgumentType.word())
                                 .then(Commands.argument("targets", EntityArgument.players())
@@ -50,12 +49,62 @@ public class WaveDefenseCommand {
                         )
                 )
 
-                // /wavedefense entry <true|false> — вмикає/вимикає можливість входу для гравців
+                // /wavedefense kick <гравці> — примусово викидає з локації
+                .then(Commands.literal("kick")
+                        .then(Commands.argument("targets", EntityArgument.players())
+                                .executes(ctx -> kickPlayersFromLocation(
+                                        ctx.getSource(),
+                                        EntityArgument.getPlayers(ctx, "targets")))
+                        )
+                )
+
+                // /wavedefense entry <on|off>
                 .then(Commands.literal("entry")
                         .then(Commands.literal("on")
                                 .executes(ctx -> setLocationEntry(ctx.getSource(), true)))
                         .then(Commands.literal("off")
                                 .executes(ctx -> setLocationEntry(ctx.getSource(), false)))
+                )
+
+                // /wavedefense debug admin <on|off> / log <on|off>
+                .then(Commands.literal("debug")
+                        .then(Commands.literal("admin")
+                                .then(Commands.literal("on").executes(ctx -> {
+                                    com.wavedefense.config.WaveDefenseConfig.DEBUG_ADMIN_MESSAGES.set(true);
+                                    ctx.getSource().sendSuccess(() -> Component.literal(
+                                        "§a✓ Повідомлення відладки для адмінів УВІМКНЕНО"), true);
+                                    return 1;
+                                }))
+                                .then(Commands.literal("off").executes(ctx -> {
+                                    com.wavedefense.config.WaveDefenseConfig.DEBUG_ADMIN_MESSAGES.set(false);
+                                    ctx.getSource().sendSuccess(() -> Component.literal(
+                                        "§7Повідомлення відладки для адмінів ВИМКНЕНО"), true);
+                                    return 1;
+                                }))
+                        )
+                        .then(Commands.literal("log")
+                                .then(Commands.literal("on").executes(ctx -> {
+                                    com.wavedefense.config.WaveDefenseConfig.DEBUG_LOGGING_ENABLED.set(true);
+                                    ctx.getSource().sendSuccess(() -> Component.literal(
+                                        "§a✓ Логування WaveDefense у server.log УВІМКНЕНО"), true);
+                                    return 1;
+                                }))
+                                .then(Commands.literal("off").executes(ctx -> {
+                                    com.wavedefense.config.WaveDefenseConfig.DEBUG_LOGGING_ENABLED.set(false);
+                                    ctx.getSource().sendSuccess(() -> Component.literal(
+                                        "§7Логування WaveDefense у server.log ВИМКНЕНО"), true);
+                                    return 1;
+                                }))
+                        )
+                        .executes(ctx -> {
+                            boolean adminMsg = com.wavedefense.config.WaveDefenseConfig.DEBUG_ADMIN_MESSAGES.get();
+                            boolean logEnabled = com.wavedefense.config.WaveDefenseConfig.DEBUG_LOGGING_ENABLED.get();
+                            ctx.getSource().sendSuccess(() -> Component.literal(
+                                "§7[WaveDefense Debug]\n  §eadmin messages: §r" + (adminMsg ? "§aon" : "§coff")
+                                + "\n  §eserver log: §r" + (logEnabled ? "§aon" : "§coff")
+                            ), false);
+                            return 1;
+                        })
                 )
 
                 // /wavedefense reload
@@ -69,7 +118,7 @@ public class WaveDefenseCommand {
                 )
         );
 
-        // Короткий аліас /wdm
+        // /wdm <гравці> [admin] — короткий аліас для menu
         dispatcher.register(Commands.literal("wdm")
                 .requires(src -> src.hasPermission(2))
                 .then(Commands.argument("targets", EntityArgument.players())
@@ -81,7 +130,7 @@ public class WaveDefenseCommand {
                 )
         );
 
-        // /wdtp <локація> <гравці> — короткий аліас для телепортації
+        // /wdtp <локація> <гравці> — короткий аліас для tp
         dispatcher.register(Commands.literal("wdtp")
                 .requires(src -> src.hasPermission(2))
                 .then(Commands.argument("location", StringArgumentType.word())
@@ -94,15 +143,26 @@ public class WaveDefenseCommand {
                         )
                 )
         );
+
+        // /wdkick <гравці> — короткий аліас для kick
+        dispatcher.register(Commands.literal("wdkick")
+                .requires(src -> src.hasPermission(2))
+                .then(Commands.argument("targets", EntityArgument.players())
+                        .executes(ctx -> kickPlayersFromLocation(
+                                ctx.getSource(),
+                                EntityArgument.getPlayers(ctx, "targets")))
+                )
+        );
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
 
     private static int openMenuFor(CommandSourceStack source,
                                     Collection<ServerPlayer> players, boolean adminMode) {
         for (ServerPlayer target : players) {
             WaveDefenseMod.packetHandler.send(
                     PacketDistributor.PLAYER.with(() -> target),
-                    new OpenMenuPacket(adminMode)
-            );
+                    new OpenMenuPacket(adminMode));
             source.sendSuccess(() -> Component.literal(
                     "§a✓ Відкрито меню для §e" + target.getGameProfile().getName()), false);
         }
@@ -110,10 +170,12 @@ public class WaveDefenseCommand {
     }
 
     private static int teleportPlayersToLocation(CommandSourceStack source,
-                                                  String locationName, Collection<ServerPlayer> players) {
+                                                  String locationName,
+                                                  Collection<ServerPlayer> players) {
         Location location = WaveDefenseMod.locationManager.getLocation(locationName);
         if (location == null || location.getPlayerSpawn() == null) {
-            source.sendFailure(Component.literal("§cЛокація \"" + locationName + "\" не знайдена або не має точки спавну!"));
+            source.sendFailure(Component.literal(
+                "§cЛокація \"" + locationName + "\" не знайдена або не має точки спавну!"));
             return 0;
         }
         int count = 0;
@@ -121,7 +183,36 @@ public class WaveDefenseCommand {
             target.removeAllEffects();
             WaveDefenseMod.waveManager.addPlayerToLocation(target, location);
             source.sendSuccess(() -> Component.literal(
-                    "§a✓ §e" + target.getGameProfile().getName() + " §aвідправлений на §6" + locationName), false);
+                    "§a✓ §e" + target.getGameProfile().getName()
+                    + " §aвідправлений на §6" + locationName), false);
+            count++;
+        }
+        return count;
+    }
+
+    /**
+     * /wavedefense kick <гравці> — примусово викидає гравців з їх поточної локації.
+     * Рівноцінно surrenderPlayer, але ініційовано адміном.
+     */
+    private static int kickPlayersFromLocation(CommandSourceStack source,
+                                                Collection<ServerPlayer> players) {
+        int count = 0;
+        for (ServerPlayer target : players) {
+            com.wavedefense.wave.PlayerWaveData data =
+                WaveDefenseMod.waveManager.getPlayerData(target.getUUID());
+            if (data == null || data.getCurrentLocation() == null) {
+                source.sendFailure(Component.literal(
+                    "§e" + target.getGameProfile().getName()
+                    + " §cне знаходиться на жодній локації."));
+                continue;
+            }
+            String locName = data.getCurrentLocation().getName();
+            WaveDefenseMod.waveManager.surrenderPlayer(target);
+            target.displayClientMessage(
+                Component.literal("§c⚠ Вас примусово виведено з локації адміністратором."), false);
+            source.sendSuccess(() -> Component.literal(
+                "§a✓ §e" + target.getGameProfile().getName()
+                + " §aвиведено з локації §6" + locName), true);
             count++;
         }
         return count;

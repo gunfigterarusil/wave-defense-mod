@@ -28,6 +28,8 @@ public class LootSpawnEditorScreen extends Screen {
     private boolean editingItem = false;
     private int     editingIndex = -1;
     private boolean showTriggers = false; // режим вибору тригерів
+    private int     slotIconBaseY = 0;   // Y slot icons in edit mode
+    private int     listIconsY    = 56;  // Y перший рядок у списку (синхронізується з init)   // Y координата слотів предметів (для render())
 
     private List<ItemStack> editItems = new ArrayList<>();
     private EditBox chanceInput;
@@ -37,7 +39,8 @@ public class LootSpawnEditorScreen extends Screen {
 
     private int scrollOffset = 0;
     private static final int PER_PAGE = 5;
-    private static final int SLOT_W   = 70;
+    private static final int SLOT_W    = 70;
+    private static final int LIST_ROW_H = 44; // висота рядка у списку (достатньо для іконок + 2 рядки тексту)
     private static final int SLOT_H   = 16;
     private static final int SLOT_GAP = 6;
 
@@ -79,7 +82,8 @@ public class LootSpawnEditorScreen extends Screen {
         y += 26;
 
         List<LootSpawn> spawns = location.getLootSpawns();
-        int rowH = 36;
+        int rowH = LIST_ROW_H;
+        listIconsY = y; // синхронізуємо для render()
         for (int i = 0; i < Math.min(PER_PAGE, spawns.size()); i++) {
             int idx = i + scrollOffset;
             if (idx >= spawns.size()) break;
@@ -105,23 +109,26 @@ public class LootSpawnEditorScreen extends Screen {
                     firstName, pos.getX(), pos.getY(), pos.getZ(),
                     ls.getSpawnChance(), ls.getCount());
 
+            // yPos:    placeholder під іконки (рендеряться в render())
+            // yPos+18: назва + позиція
+            // yPos+30: тригери
             this.addRenderableWidget(Button.builder(
                     Component.literal(lbl), b -> {}
-            ).bounds(cx - btnW / 2, yPos, btnW - 48, 16).build()).active = false;
+            ).bounds(cx - btnW / 2 + 4*20 + 4, yPos, btnW - 48 - 4*20 - 4, 14).build()).active = false;
 
             // Тригери рядок
             this.addRenderableWidget(Button.builder(
                     Component.literal("§8⚡" + trigStr), b -> {}
-            ).bounds(cx - btnW / 2, yPos + 17, btnW - 48, 14).build()).active = false;
+            ).bounds(cx - btnW / 2, yPos + 18, btnW - 48, 14).build()).active = false;
 
             final int fIdx = idx;
             this.addRenderableWidget(Button.builder(
                     Component.literal("✎"), button -> startEditItem(fIdx)
-            ).bounds(cx + btnW / 2 - 45, yPos, 22, 32).build());
+            ).bounds(cx + btnW / 2 - 45, yPos, 22, 38).build());
             this.addRenderableWidget(Button.builder(
                     Component.literal("§c✕"),
                     button -> { location.removeLootSpawn(fIdx); rebuildWidgets(); }
-            ).bounds(cx + btnW / 2 - 20, yPos, 22, 32).build());
+            ).bounds(cx + btnW / 2 - 20, yPos, 22, 38).build());
         }
 
         if (spawns.size() > PER_PAGE) {
@@ -142,59 +149,37 @@ public class LootSpawnEditorScreen extends Screen {
     private void initEditMode(int cx, int y) {
         int btnW = Math.min(340, this.width - 40);
 
-        // Координати точки спавну луту
-        {
-            net.minecraft.core.BlockPos curPos;
-            if (editingIndex >= 0 && editingIndex < location.getLootSpawns().size()) {
-                curPos = location.getLootSpawns().get(editingIndex).getPos();
-            } else {
-                curPos = minecraft.player != null ? minecraft.player.blockPosition() : net.minecraft.core.BlockPos.ZERO;
-            }
-
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("§7📍 Позиція точки луту:"), b -> {}
-            ).bounds(cx - btnW / 2, y, 130, 14).build()).active = false;
-
-            // Кнопка "моя позиція"
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("📌 Моя позиція"),
-                    b -> {
-                        if (minecraft.player != null) {
-                            net.minecraft.core.BlockPos pp = minecraft.player.blockPosition();
-                            if (lootXInput != null) lootXInput.setValue(String.valueOf(pp.getX()));
-                            if (lootYInput != null) lootYInput.setValue(String.valueOf(pp.getY()));
-                            if (lootZInput != null) lootZInput.setValue(String.valueOf(pp.getZ()));
-                        }
-                    }
-            ).bounds(cx + btnW / 2 - 100, y, 100, 14).build());
-            y += 18;
-
-            int fw = 50;
-            this.addRenderableWidget(Button.builder(Component.literal("§7X:"), b -> {}).bounds(cx - btnW / 2, y, 14, 14).build()).active = false;
-            lootXInput = new EditBox(this.font, cx - btnW / 2 + 16, y, fw, 14, Component.literal("X"));
-            lootXInput.setValue(String.valueOf(curPos.getX())); lootXInput.setMaxLength(7);
-            this.addRenderableWidget(lootXInput);
-
-            this.addRenderableWidget(Button.builder(Component.literal("§7Y:"), b -> {}).bounds(cx - btnW / 2 + 70, y, 14, 14).build()).active = false;
-            lootYInput = new EditBox(this.font, cx - btnW / 2 + 84, y, fw, 14, Component.literal("Y"));
-            lootYInput.setValue(String.valueOf(curPos.getY())); lootYInput.setMaxLength(7);
-            this.addRenderableWidget(lootYInput);
-
-            this.addRenderableWidget(Button.builder(Component.literal("§7Z:"), b -> {}).bounds(cx - btnW / 2 + 138, y, 14, 14).build()).active = false;
-            lootZInput = new EditBox(this.font, cx - btnW / 2 + 152, y, fw, 14, Component.literal("Z"));
-            lootZInput.setValue(String.valueOf(curPos.getZ())); lootZInput.setMaxLength(7);
-            this.addRenderableWidget(lootZInput);
-            y += 20;
-        }
-
-        // Слоти предметів
+        // ── Слоти предметів ────────────────────────────────────────────
         this.addRenderableWidget(Button.builder(
                 Component.literal("§7Предмети луту:"), b -> {}
         ).bounds(cx - btnW / 2, y, 120, 14).build()).active = false;
+
+        // Кнопка "Додати з руки"
+        this.addRenderableWidget(Button.builder(
+                Component.literal("✋ З руки"),
+                b -> {
+                    if (minecraft.player != null) {
+                        net.minecraft.world.item.ItemStack held = minecraft.player.getMainHandItem();
+                        if (!held.isEmpty()) {
+                            for (int si = 0; si < editItems.size(); si++) {
+                                if (editItems.get(si).isEmpty()) {
+                                    editItems.set(si, held.copy());
+                                    rebuildWidgets();
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+        ).bounds(cx + btnW / 2 - 55, y, 55, 14).build());
         y += 16;
 
-        int totalSW = 4 * SLOT_W + 3 * SLOT_GAP;
+        // Динамічна ширина слотів (адаптується до розміру екрану)
+        int dynSlotW = Math.max(40, (btnW - 3 * SLOT_GAP) / 4);
+        int totalSW = 4 * dynSlotW + 3 * SLOT_GAP;
         int slotsL  = cx - totalSW / 2;
+        slotIconBaseY = y; // запам'ятовуємо Y для render() — іконки тут
+        y += 20; // відступ під іконки (18px іконка + 2px gap)
 
         for (int i = 0; i < 4; i++) {
             int xPos = slotsL + i * (SLOT_W + SLOT_GAP);
@@ -203,21 +188,60 @@ public class LootSpawnEditorScreen extends Screen {
             String slotLbl = it.isEmpty() ? "§8[Порожньо]" : "§a✓ " + it.getHoverName().getString();
             if (slotLbl.length() > 14) slotLbl = slotLbl.substring(0, 13) + "…";
 
-            // Вибрати через ItemSelectionScreen
+            // Вибрати через ItemSelectionScreen (кнопка нижче іконки)
             this.addRenderableWidget(Button.builder(
                     Component.literal(slotLbl),
                     b -> minecraft.setScreen(new ItemSelectionScreen(this, stack -> {
                         editItems.set(si, stack);
                         rebuildWidgets();
                     }, it))
-            ).bounds(xPos, y, SLOT_W, SLOT_H).build());
+            ).bounds(xPos, y, dynSlotW, SLOT_H).build());
 
             this.addRenderableWidget(Button.builder(
                     Component.literal("§cОчистити"),
                     b -> { editItems.set(si, ItemStack.EMPTY); rebuildWidgets(); }
-            ).bounds(xPos, y + SLOT_H + 2, SLOT_W, SLOT_H).build());
+            ).bounds(xPos, y + SLOT_H + 2, dynSlotW, SLOT_H).build());
         }
         y += SLOT_H * 2 + 14;
+
+        // ── Координати точки спавну луту (компактно) ─────────────────
+        {
+            net.minecraft.core.BlockPos curPos;
+            if (editingIndex >= 0 && editingIndex < location.getLootSpawns().size()) {
+                curPos = location.getLootSpawns().get(editingIndex).getPos();
+            } else {
+                curPos = minecraft.player != null ? minecraft.player.blockPosition() : net.minecraft.core.BlockPos.ZERO;
+            }
+            int fw = 45;
+            int cx2 = cx - btnW / 2;
+            this.addRenderableWidget(Button.builder(Component.literal("§7📍 X:"), b -> {}).bounds(cx2, y, 28, 14).build()).active = false;
+            lootXInput = new EditBox(this.font, cx2 + 30, y, fw, 14, Component.literal("X"));
+            lootXInput.setValue(String.valueOf(curPos.getX())); lootXInput.setMaxLength(7);
+            this.addRenderableWidget(lootXInput);
+
+            this.addRenderableWidget(Button.builder(Component.literal("§7Y:"), b -> {}).bounds(cx2 + 79, y, 14, 14).build()).active = false;
+            lootYInput = new EditBox(this.font, cx2 + 95, y, fw, 14, Component.literal("Y"));
+            lootYInput.setValue(String.valueOf(curPos.getY())); lootYInput.setMaxLength(7);
+            this.addRenderableWidget(lootYInput);
+
+            this.addRenderableWidget(Button.builder(Component.literal("§7Z:"), b -> {}).bounds(cx2 + 144, y, 14, 14).build()).active = false;
+            lootZInput = new EditBox(this.font, cx2 + 160, y, fw, 14, Component.literal("Z"));
+            lootZInput.setValue(String.valueOf(curPos.getZ())); lootZInput.setMaxLength(7);
+            this.addRenderableWidget(lootZInput);
+
+            this.addRenderableWidget(Button.builder(
+                    Component.literal("📌"),
+                    b -> {
+                        if (minecraft.player != null) {
+                            net.minecraft.core.BlockPos pp = minecraft.player.blockPosition();
+                            if (lootXInput != null) lootXInput.setValue(String.valueOf(pp.getX()));
+                            if (lootYInput != null) lootYInput.setValue(String.valueOf(pp.getY()));
+                            if (lootZInput != null) lootZInput.setValue(String.valueOf(pp.getZ()));
+                        }
+                    }
+            ).bounds(cx2 + 210, y, 18, 14).build());
+            y += 18;
+        }
 
         // Шанс
         this.addRenderableWidget(Button.builder(
@@ -260,70 +284,141 @@ public class LootSpawnEditorScreen extends Screen {
     }
 
     // ── Режим вибору тригерів ──────────────────────────────────────────
+    // Scroll offset для списку тригерів у loot-редакторі
+    private int lootTriggerScrollOffset = 0;
+    // Межі scissored зони (встановлюється в initTriggerMode, читається в render)
+    int lootTrigScrollTop = 0;
+    int lootTrigScrollBot = 0;
+
+    private static final int LOOT_BTN_H   = 20;
+    private static final int LOOT_BTN_GAP = 2;
+
     private void initTriggerMode(int cx, int y) {
-        // Заголовок та легенда
-        y += 6;
-
-        // Отримуємо поточний набір тригерів
-        Set<LootSpawn.Trigger> activeTriggers = editingIndex >= 0
-                ? new LinkedHashSet<>(location.getLootSpawns().get(editingIndex).getTriggers())
-                : new LinkedHashSet<>();
-        // Зберігаємо у тимчасовому полі, щоб кнопки могли читати стан
-        // (використовуємо editTriggers з поля)
-
+        y += 4;
         boolean isPvp = location.isPvp();
-        int btnW = Math.min(220, (this.width - 30) / 2 - 8);
-        int col1X = cx - btnW - 4;
-        int col2X = cx + 4;
-        int bH    = 18;
-        int bGap  = 2;
+        int btnW = Math.min(310, this.width - 30);
+        triggerValueInput  = null;
+        triggerValueTarget = null;
 
-        int col1Y = y, col2Y = y;
+        // Підказка
+        this.addRenderableWidget(Button.builder(
+            Component.literal("§8Клік = увімк/вимк  │  ☑ = активний  │  прокрутіть колесо миші"), b -> {}
+        ).bounds(cx - btnW / 2, y, btnW, 12).build()).active = false;
+        y += 16;
 
-        boolean useCol1 = true;
+        // ── Збираємо доступні тригери по контексту (PvE/PvP) ────────
+        java.util.List<LootSpawn.Trigger> avail = new java.util.ArrayList<>();
         for (LootSpawn.Trigger t : LootSpawn.Trigger.values()) {
-            // Показуємо тільки відповідні тригери для режиму
-            if (isPvp && !t.pvp) continue;
+            if (isPvp  && !t.pvp) continue;
             if (!isPvp && !t.pve) continue;
-
-            boolean active = activeTriggers.contains(t);
-            String lbl     = (active ? "§a§l☑ " : "§8☐ ") + t.label;
-
-            final LootSpawn.Trigger ft = t;
-            final Set<LootSpawn.Trigger> fActive = activeTriggers;
-
-            Button btn = Button.builder(
-                    Component.literal(lbl),
-                    b -> {
-                        if (editingIndex >= 0 && editingIndex < location.getLootSpawns().size()) {
-                            LootSpawn ls = location.getLootSpawns().get(editingIndex);
-                            if (ls.hasTrigger(ft)) ls.removeTrigger(ft);
-                            else                    ls.addTrigger(ft);
-                        } else {
-                            // Новий елемент — тригери в editTriggers
-                            if (editTriggers.contains(ft)) editTriggers.remove(ft);
-                            else                            editTriggers.add(ft);
-                        }
-                        rebuildWidgets();
-                    }
-            ).bounds(useCol1 ? col1X : col2X, useCol1 ? col1Y : col2Y, btnW, bH).build();
-            this.addRenderableWidget(btn);
-
-            if (useCol1) col1Y += bH + bGap;
-            else         col2Y += bH + bGap;
-            useCol1 = !useCol1;
+            avail.add(t);
         }
 
-        int bottomY = this.height - 28;
+        // ── Per-trigger налаштування займають місце під списком ──────
+        // Обчислюємо які тригери активні і потребують N-налаштування
+        Set<LootSpawn.Trigger> activeTriggers = editingIndex >= 0 && editingIndex < location.getLootSpawns().size()
+            ? location.getLootSpawns().get(editingIndex).getTriggers()
+            : editTriggers;
+        java.util.List<LootSpawn.Trigger> valueTriggers = new java.util.ArrayList<>();
+        for (LootSpawn.Trigger t : activeTriggers) {
+            if (t.needsValue) valueTriggers.add(t);
+        }
+        int perTrigH = valueTriggers.isEmpty() ? 0 : (valueTriggers.size() * 24 + 18);
+
+        lootTrigScrollTop = y;
+        lootTrigScrollBot = this.height - perTrigH - 30;
+        if (lootTrigScrollBot < lootTrigScrollTop + LOOT_BTN_H) lootTrigScrollBot = lootTrigScrollTop + LOOT_BTN_H;
+
+        int listH   = lootTrigScrollBot - lootTrigScrollTop;
+        int visible = Math.max(1, listH / (LOOT_BTN_H + LOOT_BTN_GAP));
+        int maxScr  = Math.max(0, avail.size() - visible);
+        if (lootTriggerScrollOffset > maxScr) lootTriggerScrollOffset = maxScr;
+
+        // ── Список тригерів — одна колонка зі scissor ────────────────
+        int ty = lootTrigScrollTop;
+        for (int i = lootTriggerScrollOffset; i < avail.size(); i++) {
+            if (ty + LOOT_BTN_H > lootTrigScrollBot) break;
+            LootSpawn.Trigger ft = avail.get(i);
+            boolean active = activeTriggers.contains(ft);
+            // Показуємо значення якщо є
+            String valStr = (ft.needsValue && active)
+                ? " §8[N=" + (editingIndex >= 0 && editingIndex < location.getLootSpawns().size()
+                    ? location.getLootSpawns().get(editingIndex).getTriggerValue(ft)
+                    : editTriggerValues.getOrDefault(ft, 1)) + "]"
+                : "";
+            String lbl = (active ? "§a☑ " : "§7☐ ") + ft.label + valStr;
+            Button btn = Button.builder(
+                Component.literal(lbl),
+                b -> {
+                    if (editingIndex >= 0 && editingIndex < location.getLootSpawns().size()) {
+                        LootSpawn ls = location.getLootSpawns().get(editingIndex);
+                        if (ls.hasTrigger(ft)) ls.removeTrigger(ft);
+                        else                    ls.addTrigger(ft);
+                    } else {
+                        if (editTriggers.contains(ft)) editTriggers.remove(ft);
+                        else                            editTriggers.add(ft);
+                    }
+                    rebuildWidgets();
+                }
+            ).bounds(cx - btnW / 2, ty, btnW, LOOT_BTN_H).build();
+            btn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.literal("§7" + ft.tooltip + (ft.needsValue ? "\n§8(задайте N внизу списку)" : ""))));
+            this.addRenderableWidget(btn);
+            ty += LOOT_BTN_H + LOOT_BTN_GAP;
+        }
+
+        // ── Per-trigger налаштування (під scissored зоною) ─────────
+        if (!valueTriggers.isEmpty()) {
+            int sy = lootTrigScrollBot + 4;
+            this.addRenderableWidget(Button.builder(
+                Component.literal("§e⚙ §7Налаштування значень N:"), b -> {}
+            ).bounds(cx - btnW / 2, sy, btnW, 14).build()).active = false;
+            sy += 16;
+            for (LootSpawn.Trigger vt : valueTriggers) {
+                String lbl = vt == LootSpawn.Trigger.WAVE_N      ? "§e🌊 §7Хвиля №:" :
+                             vt == LootSpawn.Trigger.MOBS_KILLED_N ? "§e⚔ §7Мінімум вбито мобів:" :
+                                                                      "§e⚙ §7N:";
+                this.addRenderableWidget(Button.builder(
+                    Component.literal(lbl), b -> {}
+                ).bounds(cx - btnW / 2, sy, 200, 18).build()).active = false;
+                final LootSpawn.Trigger fvt = vt;
+                int currentVal = editingIndex >= 0 && editingIndex < location.getLootSpawns().size()
+                    ? location.getLootSpawns().get(editingIndex).getTriggerValue(vt)
+                    : editTriggerValues.getOrDefault(vt, 1);
+                EditBox vInput = new EditBox(this.font, cx + btnW / 2 - 66, sy, 66, 18, Component.literal("1"));
+                vInput.setMaxLength(6);
+                vInput.setValue(String.valueOf(currentVal));
+                vInput.setResponder(s -> {
+                    try {
+                        int val = Integer.parseInt(s.trim());
+                        if (editingIndex >= 0 && editingIndex < location.getLootSpawns().size()) {
+                            location.getLootSpawns().get(editingIndex).setTriggerValue(fvt, val);
+                        } else {
+                            editTriggerValues.put(fvt, val);
+                        }
+                    } catch (NumberFormatException ignored) {}
+                });
+                this.addRenderableWidget(vInput);
+                if (triggerValueTarget == null) { triggerValueTarget = vt; triggerValueInput = vInput; }
+                sy += 24;
+            }
+        }
+
+        // ── Кнопка Готово ─────────────────────────────────────────────
         this.addRenderableWidget(Button.builder(
-                Component.literal("§a✓ Готово"),
-                b -> { showTriggers = false; rebuildWidgets(); }
-        ).bounds(cx - 60, bottomY, 120, 20).build());
+            Component.literal("§a✓ Готово"),
+            b -> { showTriggers = false; rebuildWidgets(); }
+        ).bounds(cx - 60, this.height - 26, 120, 20).build());
     }
 
     // Тригери для нового (ще не збереженого) loot spawn
     private Set<LootSpawn.Trigger> editTriggers = new LinkedHashSet<>(
             Collections.singleton(LootSpawn.Trigger.WAVE_START));
+    // Per-trigger values для нового loot spawn
+    private java.util.Map<LootSpawn.Trigger, Integer> editTriggerValues = new java.util.EnumMap<>(LootSpawn.Trigger.class);
+    // EditBox для per-trigger налаштувань (відображається під scissored списком)
+    private EditBox triggerValueInput = null;
+    private LootSpawn.Trigger triggerValueTarget = null;
 
     private void startAddAtPlayerPos() {
         if (minecraft.player == null) return;
@@ -403,59 +498,145 @@ public class LootSpawnEditorScreen extends Screen {
     }
 
     @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean charTyped(char ch, int modifiers) {
+        return super.charTyped(ch, modifiers);
+    }
+
+    @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(g);
         int cx = this.width / 2;
         g.drawCenteredString(this.font, this.title, cx, 10, 0xFFFFFF);
 
+        // ── Визначаємо межі scissor для поточного режиму ─────────────
+        // Список завжди між заголовком (~28) і нижньою кнопкою (height-30)
+        int listTop = 28, listBot = this.height - 30;
+
         if (editingItem && showTriggers) {
-            g.drawCenteredString(this.font, "§b⚡ Оберіть тригери спавну:", cx, 22, 0x55FFFF);
-            g.drawString(this.font, "§7(вибрати кілька одночасно)", cx - 80, 32, 0xAAAAAA);
-        } else if (editingItem) {
-            // Рендер іконок предметів поверх кнопок
-            int baseY = (editingIndex >= 0 ? 30 + 18 : 30) + 16;
+            g.drawCenteredString(this.font, "§b⚡ Оберіть тригери спавну", cx, 16, 0x55FFFF);
+            // Статичні елементи ДО scissor (заголовок вже намальований)
+            for (var r : this.renderables) {
+                if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
+                        && w.getY() < lootTrigScrollTop)
+                    w.render(g, mouseX, mouseY, partialTick);
+            }
+            // Scissored список тригерів
+            if (lootTrigScrollTop < lootTrigScrollBot) {
+                ScissorHelper.enable(0, lootTrigScrollTop, this.width,
+                        Math.max(1, lootTrigScrollBot - lootTrigScrollTop));
+                for (var r : this.renderables) {
+                    if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
+                            && w.getY() + w.getHeight() > lootTrigScrollTop
+                            && w.getY() < lootTrigScrollBot)
+                        w.render(g, mouseX, mouseY, partialTick);
+                }
+                ScissorHelper.disable();
+            }
+            // Статичні після scissor (per-trigger налаштування + Готово)
+            for (var r : this.renderables) {
+                if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
+                        && w.getY() >= lootTrigScrollBot)
+                    w.render(g, mouseX, mouseY, partialTick);
+            }
+        } else {
+            // Список точок луту або режим редагування — scissor між заголовком і футером
+            for (var r : this.renderables) {
+                if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
+                        && w.getY() < listTop)
+                    w.render(g, mouseX, mouseY, partialTick);
+            }
+            ScissorHelper.enable(0, listTop, this.width, Math.max(1, listBot - listTop));
+            for (var r : this.renderables) {
+                if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
+                        && w.getY() + w.getHeight() > listTop && w.getY() < listBot)
+                    w.render(g, mouseX, mouseY, partialTick);
+            }
+            ScissorHelper.disable();
+            for (var r : this.renderables) {
+                if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
+                        && w.getY() >= listBot)
+                    w.render(g, mouseX, mouseY, partialTick);
+            }
+        }
+        // Тепер рендеримо іконки ПОВЕРХ кнопок (після super.render)
+        if (editingItem && !showTriggers) {
+            // Іконки предметів у режимі редагування — поверх кнопок-слотів
+            // slotIconBaseY = Y кнопок вибору слотів, встановлено в initEditMode
+            int baseY = slotIconBaseY > 0 ? slotIconBaseY : 62;
             int totalSW = 4 * SLOT_W + 3 * SLOT_GAP;
             int slotsL  = cx - totalSW / 2;
 
             for (int i = 0; i < 4; i++) {
                 int xPos = slotsL + i * (SLOT_W + SLOT_GAP);
                 ItemStack item = i < editItems.size() ? editItems.get(i) : ItemStack.EMPTY;
-                int iconX = xPos + (SLOT_W - 18) / 2;
+                int iconX = xPos + (SLOT_W - 16) / 2;
+                int iconY = baseY;  // точно на Y кнопки "вибрати"
 
-                g.fill(iconX - 1, baseY - 1, iconX + 19, baseY + 17, 0xFF555555);
-                g.fill(iconX, baseY, iconX + 18, baseY + 16, 0xFF222222);
-                g.renderItem(item, iconX, baseY);
-                g.renderItemDecorations(this.font, item, iconX, baseY);
+                // Фон слоту поверх кнопки
+                g.fill(iconX - 1, iconY - 1, iconX + 17, iconY + 17, 0xFF555555);
+                g.fill(iconX, iconY, iconX + 16, iconY + 16, 0xFF1A1A1A);
+                g.renderItem(item, iconX, iconY);
+                g.renderItemDecorations(this.font, item, iconX, iconY);
 
                 if (!item.isEmpty() && mouseX >= iconX && mouseX <= iconX + 16
-                        && mouseY >= baseY && mouseY <= baseY + 16) {
+                        && mouseY >= iconY && mouseY <= iconY + 16) {
                     g.renderTooltip(this.font, item, mouseX, mouseY);
                 }
             }
-        } else {
-            // Рендер іконок у списку
-            int listY = 56;
-            int rowH  = 36;
+        } else if (!editingItem) {
+            // Іконки у списку точок луту — у scissor-зоні списку
+            int listStartY = listIconsY;  // синхронізовано з init()
+            int rowH  = LIST_ROW_H;
             int btnW  = Math.min(340, this.width - 60);
             List<LootSpawn> spawns = location.getLootSpawns();
+            ScissorHelper.enable(0, listTop, this.width, Math.max(1, listBot - listTop));
             for (int i = 0; i < Math.min(PER_PAGE, spawns.size()); i++) {
                 int idx = i + scrollOffset;
                 if (idx >= spawns.size()) break;
                 List<ItemStack> items = spawns.get(idx).getItems().stream()
                         .filter(it -> !it.isEmpty()).collect(Collectors.toList());
-                int yPos = listY + i * rowH + 16;
+                int iconY = listStartY + i * rowH;
                 for (int j = 0; j < Math.min(4, items.size()); j++) {
-                    g.renderItem(items.get(j), cx - btnW / 2 + j * 20, yPos);
-                    g.renderItemDecorations(this.font, items.get(j), cx - btnW / 2 + j * 20, yPos);
+                    int ix = cx - btnW / 2 + j * 20;
+                    g.renderItem(items.get(j), ix, iconY);
+                    g.renderItemDecorations(this.font, items.get(j), ix, iconY);
+                }
+            }
+            ScissorHelper.disable();
+            // Tooltips поза scissor
+            for (int i = 0; i < Math.min(PER_PAGE, spawns.size()); i++) {
+                int idx = i + scrollOffset;
+                if (idx >= spawns.size()) break;
+                List<ItemStack> items = spawns.get(idx).getItems().stream()
+                        .filter(it -> !it.isEmpty()).collect(Collectors.toList());
+                int iconY = listStartY + i * rowH;
+                for (int j = 0; j < Math.min(4, items.size()); j++) {
+                    int ix = cx - btnW / 2 + j * 20;
+                    if (mouseX >= ix && mouseX <= ix + 16 && mouseY >= iconY && mouseY <= iconY + 16)
+                        g.renderTooltip(this.font, items.get(j), mouseX, mouseY);
                 }
             }
         }
-
-        super.render(g, mouseX, mouseY, partialTick);
     }
 
     @Override
     public boolean mouseScrolled(double mx, double my, double delta) {
+        if (editingItem && showTriggers) {
+            // Скрол списку тригерів
+            boolean isPvp = location.isPvp();
+            int cnt = (int) java.util.Arrays.stream(LootSpawn.Trigger.values())
+                .filter(t -> isPvp ? t.pvp : t.pve).count();
+            int listH   = Math.max(1, lootTrigScrollBot - lootTrigScrollTop);
+            int visible = listH / (LOOT_BTN_H + LOOT_BTN_GAP);
+            if (delta > 0 && lootTriggerScrollOffset > 0) { lootTriggerScrollOffset--; rebuildWidgets(); }
+            else if (delta < 0 && lootTriggerScrollOffset + visible < cnt) { lootTriggerScrollOffset++; rebuildWidgets(); }
+            return true;
+        }
         if (!editingItem) {
             if (delta > 0 && scrollOffset > 0) { scrollOffset--; rebuildWidgets(); }
             else if (delta < 0 && scrollOffset + PER_PAGE < location.getLootSpawns().size()) {

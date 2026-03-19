@@ -18,9 +18,12 @@ public class AdminMenuScreen extends Screen {
 
     private List<String> locationNames;
     private EditBox locationNameInput;
+    private String pendingInputValue = ""; // зберігаємо значення між rebuildWidgets
     private String errorMessage = "";
+    private String pendingDeleteName = null; // ім'я локації очікує підтвердження видалення
     private int scrollOffset = 0;
     private int itemsPerPage = 4; // Динамічне число рядків — перераховується в init()
+    private boolean firstOpen = true;
 
     public AdminMenuScreen() {
         super(Component.translatable("wavedefense.title.admin_menu"));
@@ -29,7 +32,15 @@ public class AdminMenuScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        PacketHandler.sendToServer(new RequestLocationDataPacket());
+        // Зберігаємо поточне значення поля вводу перед очищенням (rebuildWidgets руйнує widgets)
+        if (locationNameInput != null) {
+            pendingInputValue = locationNameInput.getValue();
+        }
+        // Запит даних з сервера тільки при першому відкритті
+        if (firstOpen) {
+            PacketHandler.sendToServer(new RequestLocationDataPacket());
+            firstOpen = false;
+        }
         this.locationNames = ClientLocationManager.getAllLocationNames();
 
         // Адаптивні розміри
@@ -38,11 +49,13 @@ public class AdminMenuScreen extends Screen {
         int panelW  = Math.min(300, this.width - 60);
         int startY  = 50;
 
-        // EditBox збережений між rebuildWidgets через поле
-        locationNameInput = new EditBox(this.font, centerX - 100, startY, 200, 20, Component.literal("Location name"));
+        // Відновлюємо EditBox зі збереженим значенням (щоб не губити введений текст)
+        locationNameInput = new EditBox(this.font, centerX - 100, startY, 200, 20, Component.literal("Назва локації"));
         locationNameInput.setMaxLength(32);
+        locationNameInput.setHint(Component.literal("§8a-z 0-9 _ -"));
         // Дозволяємо лише латинські літери, цифри, підкреслення та дефіс
         locationNameInput.setFilter(s -> s.matches("[a-zA-Z0-9_\\-]*"));
+        locationNameInput.setValue(pendingInputValue); // відновлюємо текст
         this.addRenderableWidget(locationNameInput);
 
         this.addRenderableWidget(Button.builder(
@@ -70,10 +83,21 @@ public class AdminMenuScreen extends Screen {
                     button -> editLocation(finalName)
             ).bounds(centerX + panelW / 2 - 75, yPos, 35, 20).build());
 
+            boolean isPendingDel = name.equals(pendingDeleteName);
             this.addRenderableWidget(Button.builder(
-                    Component.literal("✕"),
-                    button -> deleteLocation(finalName)
-            ).bounds(centerX + panelW / 2 - 35, yPos, 35, 20).build());
+                    Component.literal(isPendingDel ? "§c§l✓ ТАК" : "§c✕"),
+                    button -> {
+                        if (isPendingDel) {
+                            deleteLocation(finalName);
+                            pendingDeleteName = null;
+                        } else {
+                            pendingDeleteName = finalName;
+                            rebuildWidgets();
+                        }
+                    }
+            ).bounds(centerX + panelW / 2 - 35, yPos, 35, 20).build()
+            ).setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.literal(isPendingDel ? "§cПідтвердити видалення §e" + name + "§c?" : "§cВидалити локацію " + name)));
         }
 
         if (locationNames.size() > itemsPerPage) {
@@ -89,9 +113,22 @@ public class AdminMenuScreen extends Screen {
         }
 
         this.addRenderableWidget(Button.builder(
+                Component.literal("📤 Імпорт/Експорт"),
+                button -> this.minecraft.setScreen(new ImportExportScreen(this))
+        ).bounds(centerX - panelW / 2, this.height - 30, panelW / 2 - 4, 20).build());
+
+        this.addRenderableWidget(Button.builder(
                 Component.literal("Закрити"),
                 button -> this.onClose()
-        ).bounds(centerX - 50, this.height - 30, 100, 20).build());
+        ).bounds(centerX + 4, this.height - 30, panelW / 2 - 4, 20).build());
+
+        // Кнопка скасування підтвердження видалення (якщо активна)
+        if (pendingDeleteName != null) {
+            this.addRenderableWidget(Button.builder(
+                    Component.literal("§7Скасувати видалення"),
+                    button -> { pendingDeleteName = null; rebuildWidgets(); }
+            ).bounds(centerX - 80, this.height - 55, 160, 18).build());
+        }
     }
 
     private void createNewLocation() {
@@ -107,6 +144,7 @@ public class AdminMenuScreen extends Screen {
         errorMessage = "";
         PacketHandler.sendToServer(new CreateLocationPacket(name));
         locationNameInput.setValue("");
+        pendingInputValue = ""; // скидаємо збережене значення
         // Запит даних і оновлення через невелику затримку
         PacketHandler.sendToServer(new RequestLocationDataPacket());
         // Оновлення локального кешу та екрану
@@ -163,6 +201,21 @@ public class AdminMenuScreen extends Screen {
     }
 
     @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        // Enter у полі вводу = швидке створення локації
+        if (keyCode == 257 && locationNameInput != null && locationNameInput.isFocused()) {
+            createNewLocation();
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean charTyped(char c, int modifiers) {
+        return super.charTyped(c, modifiers);
+    }
+
+    @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
         if (delta > 0) scrollUp();
         else scrollDown();
@@ -172,13 +225,11 @@ public class AdminMenuScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics);
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, 15, 0xFFFFFF);
-
         int centerX = this.width / 2;
-        // Підпис до поля вводу
+        graphics.drawCenteredString(this.font, this.title, centerX, 15, 0xFFFFFF);
         graphics.drawString(this.font, "§7Назва (лише латиниця/цифри/_-):", centerX - 100, 38, 0xFFFFFF);
 
-        // Повідомлення про помилку — внизу екрану щоб не накладатись на список
+        // Повідомлення про помилку
         if (!errorMessage.isEmpty()) {
             int errY = this.height - 50;
             int errW = this.font.width(errorMessage) + 14;
@@ -186,7 +237,18 @@ public class AdminMenuScreen extends Screen {
             graphics.drawCenteredString(this.font, errorMessage, centerX, errY, 0xFFFFFF);
         }
 
+        // Scissor: список локацій між header (115) та footer (height-34)
+        int listTop = 115, listBot = this.height - 34;
+        ScissorHelper.enable(0, listTop, this.width, Math.max(1, listBot - listTop));
         super.render(graphics, mouseX, mouseY, partialTick);
+        ScissorHelper.disable();
+        // Re-render статичні елементи поза scissored зоною
+        for (var r : this.renderables) {
+            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w) {
+                if (w.getY() < listTop || w.getY() >= listBot)
+                    w.render(graphics, mouseX, mouseY, partialTick);
+            }
+        }
     }
 
     @Override

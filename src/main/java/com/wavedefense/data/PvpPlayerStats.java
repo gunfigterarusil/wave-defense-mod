@@ -18,6 +18,7 @@ public class PvpPlayerStats {
 
     public String getPlayerName() { return playerName; }
     public String getTeamName()   { return teamName; }
+    public void   setTeamName(String t) { this.teamName = t; }
     public int getKills()         { return kills; }
     public int getDeaths()        { return deaths; }
     public int getAssists()       { return assists; }

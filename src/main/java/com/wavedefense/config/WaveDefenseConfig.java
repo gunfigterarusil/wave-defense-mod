@@ -26,6 +26,11 @@ public class WaveDefenseConfig {
     public static final ForgeConfigSpec.IntValue DEFAULT_WAVE_TIME;
     public static final ForgeConfigSpec.BooleanValue ENABLE_UI_TOOLTIPS;
     public static final ForgeConfigSpec.IntValue LOBBY_TIMER_SECONDS;
+    /**
+     * Режим гри що встановлюється гравцю при вході на локацію (і якщо він в Creative).
+     * Допустимі значення: "survival", "adventure"
+     */
+    public static final ForgeConfigSpec.ConfigValue<String> LOCATION_GAME_MODE;
 
     // ── Магазин ───────────────────────────────────────────────────────────
     public static final ForgeConfigSpec.BooleanValue SHOP_CATEGORIES_ENABLED;
@@ -43,6 +48,10 @@ public class WaveDefenseConfig {
     // ── Спавн мобів ───────────────────────────────────────────────────────
     public static final ForgeConfigSpec.BooleanValue MOBS_CAN_HAVE_EQUIPMENT;
     public static final ForgeConfigSpec.DoubleValue MOB_ARMOR_DROP_CHANCE;
+
+    // ── Debug / Logging ───────────────────────────────────────────────────
+    public static final ForgeConfigSpec.BooleanValue DEBUG_ADMIN_MESSAGES;
+    public static final ForgeConfigSpec.BooleanValue DEBUG_LOGGING_ENABLED;
 
     // ── Hotkeys ───────────────────────────────────────────────────────────
     public static final ForgeConfigSpec.BooleanValue SHOP_HOTKEY_ENABLED;
@@ -74,6 +83,12 @@ public class WaveDefenseConfig {
         LOBBY_TIMER_SECONDS = BUILDER
                 .comment("Таймер лоббі — перезапускається при кожному новому гравці (секунди)")
                 .defineInRange("lobbyTimerSeconds", 30, 5, 300);
+
+        LOCATION_GAME_MODE = BUILDER
+                .comment("Режим гри що примусово встановлюється гравцю при вході на локацію.\n"
+                        + "Якщо гравець в Creative — автоматично переводиться в цей режим.\n"
+                        + "Допустимі значення: \"survival\", \"adventure\"")
+                .define("locationGameMode", "survival");
 
         BUILDER.pop();
 
@@ -138,6 +153,21 @@ public class WaveDefenseConfig {
 
         BUILDER.pop();
 
+        BUILDER.push("debug");
+        BUILDER.comment("Налаштування відлагодження та логування");
+
+        DEBUG_ADMIN_MESSAGES = BUILDER
+                .comment("Показувати повідомлення про стан локацій (старт, хвилі) адміністраторам.\n" +
+                         "Повідомлення видно тільки гравцям з permission level >= 2.")
+                .define("adminDebugMessages", true);
+
+        DEBUG_LOGGING_ENABLED = BUILDER
+                .comment("Записувати події моду у server log (waves, triggers, errors).\n" +
+                         "Вимкніть щоб зменшити обсяг логів.")
+                .define("loggingEnabled", true);
+
+        BUILDER.pop();
+
         BUILDER.push("limits");
         BUILDER.comment("Максимальні ліміти для налаштувань локацій. Значення 1-9999.");
 
@@ -172,5 +202,12 @@ public class WaveDefenseConfig {
 
     public static void register() {
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, SPEC, "wavedefense-common.toml");
+    }
+
+    /** Повертає GameType налаштований для локацій (survival або adventure). */
+    public static net.minecraft.world.level.GameType getLocationGameType() {
+        String val = LOCATION_GAME_MODE.get();
+        if ("adventure".equalsIgnoreCase(val)) return net.minecraft.world.level.GameType.ADVENTURE;
+        return net.minecraft.world.level.GameType.SURVIVAL; // default
     }
 }

@@ -7,6 +7,9 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.*;
+import net.minecraft.world.item.alchemy.Potion;
+import net.minecraft.world.item.alchemy.PotionUtils;
+import net.minecraft.world.item.alchemy.Potions;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.*;
@@ -14,94 +17,195 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
- * Меню вибору предмета.
- * ✓ Підсвічення вже-вибраного предмета золотою рамкою
- * ✓ Пошук по назві і registry ID (виправлено — responder тепер коректний)
- * ✓ Адаптивна сітка під будь-яке розширення
- * ✓ Категорії + кількість відповідних предметів
+ * Меню вибору предмета — сітка всіх Items + всі варіанти зілля (по одному ItemStack на кожен тип Potion).
  */
 public class ItemSelectionScreen extends Screen {
 
     public enum Category {
-        ALL("Всі"), WEAPON("⚔ Зброя"), ARMOR("🛡 Броня"),
+        ALL("📦 Всі"), WEAPON("⚔ Зброя"), ARMOR("🛡 Броня"),
         POTION("🧪 Зілля"), FOOD("🍖 Їжа"), OTHER("📦 Інше");
         public final String label;
         Category(String l) { this.label = l; }
     }
 
-    private final Screen       parent;
+    private final Screen              parent;
     private final Consumer<ItemStack> onSelect;
-    private final ItemStack    currentItem; // вже вибраний — підсвічується
+    private       ItemStack           currentItem;
 
-    private List<Item> allItems;
-    private List<Item> filteredItems;
-    private Category   currentCategory = Category.ALL;
-    private String     searchQuery     = "";
-    private int        scrollOffset    = 0;
-
-    private ItemStack  hovered = ItemStack.EMPTY;
-    private float      previewAngle = 0f;
-
-    // Адаптивні константи (перераховуються в init)
-    private int COLS      = 8;
     private int SLOT_SIZE = 18;
-    private int PREVIEW_W = 60;
+    private int PREVIEW_W = 70;
+    private int COLS      = 10;
 
-    private EditBox searchBox;
+    private Category    currentCategory = Category.ALL;
+    private String      searchQuery     = "";
+    private EditBox     searchBox;
+    private int         scrollOffset    = 0;
+    private float       previewAngle    = 0;
 
-    /** Без поточного предмета */
-    public ItemSelectionScreen(Screen parent, Consumer<ItemStack> onSelect) {
-        this(parent, onSelect, ItemStack.EMPTY);
-    }
+    // Базові предмети (один ItemStack на Item)
+    private List<ItemStack> allStacks;
+    private List<ItemStack> filteredStacks;
 
-    /** З поточним предметом для підсвічення */
     public ItemSelectionScreen(Screen parent, Consumer<ItemStack> onSelect, ItemStack currentItem) {
         super(Component.literal("Вибір предмета"));
         this.parent      = parent;
         this.onSelect    = onSelect;
         this.currentItem = currentItem == null ? ItemStack.EMPTY : currentItem;
+        buildAllStacks();
+    }
 
-        allItems = ForgeRegistries.ITEMS.getValues().stream()
-                .filter(i -> i != Items.AIR)
-                .sorted(Comparator.comparing(i -> i.getDescription().getString()))
-                .collect(Collectors.toList());
-        filteredItems = new ArrayList<>(allItems);
+    /**
+     * Будує повний список ItemStack з УСІХ доступних предметів:
+     *
+     * <ol>
+     *   <li>Сканує {@code ForgeRegistries.ITEMS} — базовий список всіх зареєстрованих Item.</li>
+     *   <li>Сканує всі {@link net.minecraft.world.item.CreativeModeTab} — отримує варіанти
+     *       предметів з кастомних creative tabs модів (tacz, тощо). Деякі моди реєструють
+     *       один Item, але додають до creative tab кілька ItemStack з різним NBT.</li>
+     *   <li>Об'єднує і дедуплікує за {@code namespace:path + NBT-ключ}.</li>
+     *   <li>Розгортає PotionItem × всі зареєстровані Potion.</li>
+     * </ol>
+     *
+     * <p>Весь збір захищений {@code try/catch}: якщо один предмет крашить
+     * (наприклад, uninit NBT у модових item), він просто пропускається.</p>
+     */
+    private void buildAllStacks() {
+        allStacks = new ArrayList<>();
+
+        // ── 1. Зілля — всі варіанти ──────────────────────────────────────
+        List<Potion> allPotions = new ArrayList<>();
+        try {
+            allPotions = ForgeRegistries.POTIONS.getValues().stream()
+                    .filter(p -> p != Potions.EMPTY)
+                    .sorted(Comparator.comparing(p -> {
+                        ResourceLocation k = ForgeRegistries.POTIONS.getKey(p);
+                        return k != null ? k.toString() : "";
+                    }))
+                    .collect(Collectors.toList());
+        } catch (Exception ignored) {}
+
+        // ── 2. Базовий список із ForgeRegistries ──────────────────────────
+        //    Сортуємо безпечно: getDescription() може кидати NPE у деяких мобів.
+        List<Item> baseItems = new ArrayList<>();
+        try {
+            baseItems = ForgeRegistries.ITEMS.getValues().stream()
+                    .filter(i -> i != Items.AIR)
+                    .sorted(Comparator.comparing(i -> {
+                        try { return i.getDescription().getString(); }
+                        catch (Exception e) { return ""; }
+                    }))
+                    .collect(Collectors.toList());
+        } catch (Exception ignored) {}
+
+        // ── 3. Creative-tab scanning — збираємо SubItems ──────────────────
+        //    Моди як tacz реєструють один GunItem, але додають до creative tab
+        //    багато ItemStack з різним NBT (один на кожну зброю).
+        //    Ключ дедуплікації: "modid:name" + base64(NBT без display/damage)
+        Set<String> seen = new LinkedHashSet<>();
+        List<ItemStack> creativeTabStacks = new ArrayList<>();
+        try {
+            // Forge 1.20.1: tabs вже побудовані під час завантаження модів.
+            // getDisplayItems() повертає список без виклику buildContents().
+            for (net.minecraft.world.item.CreativeModeTab tab
+                    : net.minecraftforge.common.CreativeModeTabRegistry.getSortedCreativeModeTabs()) {
+                try {
+                    // getDisplayItems() у Forge 47.x (1.20.1) повертає вже заповнений список
+                    @SuppressWarnings("unchecked")
+                    Iterable<ItemStack> displayItems = (Iterable<ItemStack>) tab.getDisplayItems();
+                    for (ItemStack st : displayItems) {
+                        if (st == null || st.isEmpty() || st.getItem() == Items.AIR) continue;
+                        String dedupeKey = stableKey(st);
+                        if (seen.add(dedupeKey)) creativeTabStacks.add(st.copy());
+                    }
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
+
+        // ── 4. Збираємо кінцевий список ───────────────────────────────────
+        //    Спочатку всі стандартні items (щоб іти в алфавітному порядку),
+        //    потім creative-tab стеки яких іще немає.
+        for (Item item : baseItems) {
+            if (item instanceof PotionItem || item instanceof SplashPotionItem
+                    || item instanceof LingeringPotionItem || item instanceof TippedArrowItem) {
+                for (Potion potion : allPotions) {
+                    try {
+                        ItemStack ps = PotionUtils.setPotion(new ItemStack(item), potion);
+                        if (seen.add(stableKey(ps))) allStacks.add(ps);
+                    } catch (Exception ignored) {}
+                }
+            } else {
+                try {
+                    ItemStack st = new ItemStack(item);
+                    if (seen.add(stableKey(st))) allStacks.add(st);
+                } catch (Exception ignored) {}
+            }
+        }
+
+        // Додаємо creative-tab стеки (modded variants: tacz guns, etc.)
+        // що ще не потрапили через ForgeRegistries (унікальні NBT-варіанти)
+        allStacks.addAll(creativeTabStacks.stream()
+                .filter(st -> {
+                    try {
+                        // Якщо base item вже є — цей стек — NBT-варіант, треба його
+                        // Якщо base item НЕ вже є — все одно додаємо
+                        return true;
+                    } catch (Exception e) { return false; }
+                })
+                // Але відфільтровуємо ті що вже додані через ForgeRegistries без NBT,
+                // якщо creative-tab дає той самий ключ — вже є в seen, не додасться
+                .collect(Collectors.toList()));
+        // Примітка: seen.add() вище вже відфільтрував дублікати при побудові creativeTabStacks
+
+        filteredStacks = new ArrayList<>(allStacks);
+    }
+
+    /**
+     * Стабільний ключ дедуплікації: "modid:itempath[|nbt_без_display]".
+     * Поля display/Damage не враховуються (різні стаки одного предмету без значущого NBT
+     * вважаються однаковими).
+     */
+    private static String stableKey(ItemStack st) {
+        ResourceLocation rl = ForgeRegistries.ITEMS.getKey(st.getItem());
+        String base = rl != null ? rl.toString() : st.getItem().toString();
+        if (!st.hasTag()) return base;
+        // Клонуємо тег, прибираємо нестабільні/несуттєві поля
+        net.minecraft.nbt.CompoundTag tag = st.getTag().copy();
+        tag.remove("display");
+        tag.remove("Damage");
+        tag.remove("RepairCost");
+        String tagStr = tag.isEmpty() ? "" : "|" + tag;
+        return base + tagStr;
     }
 
     @Override
     protected void init() {
         super.init();
-        // ── Адаптивні розміри ────────────────────────────────────────
         SLOT_SIZE = this.width < 320 ? 16 : 18;
         PREVIEW_W = Math.max(50, Math.min(80, this.width / 10));
         COLS      = Math.max(4, (this.width - PREVIEW_W - 20) / SLOT_SIZE);
 
         int cx = this.width / 2;
 
-        // Пошук — зберігаємо значення між rebuildWidgets
+        // Пошук
         searchBox = new EditBox(this.font, cx - 80, 24, 200, 16, Component.literal("Пошук..."));
         searchBox.setMaxLength(64);
         searchBox.setValue(searchQuery);
-        // ВИПРАВЛЕНО: responder одразу оновлює searchQuery і фільтр
         searchBox.setResponder(s -> {
             searchQuery = s;
             scrollOffset = 0;
             applyFilter();
-            // не викликаємо rebuildWidgets тут — applyFilter вже це робить
         });
         this.addRenderableWidget(searchBox);
-        // Фокус на пошук при відкритті
         this.setInitialFocus(searchBox);
 
         // Категорії з кількістю
         Category[] cats = Category.values();
-        int catW  = Math.max(44, (this.width - PREVIEW_W - 20) / cats.length - 2);
-        int catX  = PREVIEW_W + 8;
+        int catW = Math.max(44, (this.width - PREVIEW_W - 20) / cats.length - 2);
+        int catX = PREVIEW_W + 8;
         for (Category cat : cats) {
             final Category c = cat;
             boolean active = (cat == currentCategory);
-            long cnt = (cat == Category.ALL) ? allItems.size()
-                    : allItems.stream().filter(i -> matchesCategoryStatic(i, cat)).count();
+            long cnt = allStacks.stream().filter(s -> matchesCategory(s, cat)).count();
             String lbl = (active ? "§e§l" : "§7") + cat.label + " §8(" + cnt + ")";
             this.addRenderableWidget(Button.builder(
                     Component.literal(lbl),
@@ -117,42 +221,82 @@ public class ItemSelectionScreen extends Screen {
         ).bounds(this.width - 72, 24, 68, 16).build());
     }
 
-    // applyFilter НЕ викликає rebuildWidgets щоб уникнути скидання searchBox
     private void applyFilter() {
-        filteredItems = allItems.stream()
-                .filter(i -> matchesCategoryStatic(i, currentCategory))
+        filteredStacks = allStacks.stream()
+                .filter(s -> matchesCategory(s, currentCategory))
                 .filter(this::matchesSearch)
                 .collect(Collectors.toList());
-        // Перебудовуємо лише кнопки категорій та скрол, але НЕ searchBox
         rebuildWidgets();
     }
 
-    private boolean matchesCategoryStatic(Item item, Category cat) {
+    private boolean matchesCategory(ItemStack stack, Category cat) {
+        Item item = stack.getItem();
+        ResourceLocation key = ForgeRegistries.ITEMS.getKey(item);
+        String ns   = key != null ? key.getNamespace() : "";
+        String path = key != null ? key.getPath() : "";
+
+        // Тег-перевірки для модових предметів (tacz, moreweapons тощо)
+        boolean isTagWeapon = stack.is(net.minecraft.tags.ItemTags.create(new ResourceLocation("forge", "tools/sword")));
+        boolean isModGun    = stack.is(net.minecraft.tags.ItemTags.create(new ResourceLocation("forge", "guns")))
+                           || stack.is(net.minecraft.tags.ItemTags.create(new ResourceLocation("tacz",  "guns")));
+        boolean isTagArmor  = stack.is(net.minecraft.tags.ItemTags.create(new ResourceLocation("forge", "armors")))
+                           || stack.is(net.minecraft.tags.ItemTags.create(new ResourceLocation("forge", "armor")));
+
         return switch (cat) {
             case ALL    -> true;
-            case WEAPON -> item instanceof SwordItem || item instanceof AxeItem ||
-                           item instanceof BowItem   || item instanceof CrossbowItem ||
-                           item instanceof TridentItem || item instanceof ShieldItem ||
-                           item instanceof PickaxeItem || item instanceof ShovelItem ||
-                           item instanceof HoeItem;
-            case ARMOR  -> item instanceof ArmorItem;
-            case POTION -> item instanceof PotionItem || item instanceof SplashPotionItem ||
-                           item instanceof LingeringPotionItem || item instanceof TippedArrowItem;
+            case WEAPON -> item instanceof SwordItem || item instanceof AxeItem
+                        || item instanceof BowItem   || item instanceof CrossbowItem
+                        || item instanceof TridentItem || item instanceof ShieldItem
+                        || item instanceof PickaxeItem || item instanceof ShovelItem
+                        || item instanceof HoeItem
+                        || isTagWeapon || isModGun
+                        // Fallback за назвою registry для незнайомих модів
+                        || (!ns.equals("minecraft") && containsAny(path,
+                               "gun","rifle","pistol","sword","knife","blade",
+                               "sniper","shotgun","smg","rpg","launcher","weapon","firearm"));
+            case ARMOR  -> item instanceof ArmorItem || isTagArmor
+                        || (!ns.equals("minecraft") && containsAny(path,
+                               "helmet","chestplate","leggings","boots","armor","vest","suit","plate"));
+            case POTION -> item instanceof PotionItem || item instanceof SplashPotionItem
+                        || item instanceof LingeringPotionItem || item instanceof TippedArrowItem;
             case FOOD   -> item.isEdible();
-            case OTHER  -> !(item instanceof SwordItem) && !(item instanceof AxeItem) &&
-                           !(item instanceof ArmorItem) && !item.isEdible() &&
-                           !(item instanceof PotionItem) && !(item instanceof SplashPotionItem);
+            case OTHER  -> !matchesCategory(stack, Category.WEAPON)
+                        && !matchesCategory(stack, Category.ARMOR)
+                        && !item.isEdible()
+                        && !(item instanceof PotionItem)
+                        && !(item instanceof SplashPotionItem)
+                        && !(item instanceof LingeringPotionItem)
+                        && !(item instanceof TippedArrowItem);
         };
     }
 
-    private boolean matchesSearch(Item item) {
+    /** true якщо {@code path} містить хоча б одне із ключових слів. */
+    private static boolean containsAny(String path, String... keywords) {
+        for (String kw : keywords) if (path.contains(kw)) return true;
+        return false;
+    }
+
+    private boolean matchesSearch(ItemStack stack) {
         if (searchQuery.isEmpty()) return true;
         String q = searchQuery.toLowerCase();
-        ResourceLocation key = ForgeRegistries.ITEMS.getKey(item);
-        String regId = key != null ? key.toString() : "";
-        return item.getDescription().getString().toLowerCase().contains(q)
-            || regId.toLowerCase().contains(q);
+        String name = "";
+        try { name = stack.getHoverName().getString().toLowerCase(); } catch (Exception ignored) {}
+        ResourceLocation key = ForgeRegistries.ITEMS.getKey(stack.getItem());
+        String regId = key != null ? key.toString().toLowerCase() : "";
+        return name.contains(q) || regId.contains(q);
     }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean charTyped(char ch, int modifiers) {
+        return super.charTyped(ch, modifiers);
+    }
+
+    private ItemStack hoveredStack = ItemStack.EMPTY;
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
@@ -161,74 +305,84 @@ public class ItemSelectionScreen extends Screen {
 
         g.drawCenteredString(this.font, "§6Вибір предмета", this.width / 2, 8, 0xFFFFFF);
 
-        // ── Сітка предметів ──────────────────────────────────────────
         int gridX = PREVIEW_W + 8;
         int gridY = 64;
         int gridW = this.width - gridX - 10;
         int rows  = Math.max(1, (this.height - gridY - 24) / SLOT_SIZE);
         int perPage = rows * COLS;
+        int gridBottom = gridY + rows * SLOT_SIZE;
 
-        hovered = ItemStack.EMPTY;
+        hoveredStack = ItemStack.EMPTY;
 
-        for (int i = 0; i < perPage; i++) {
-            int idx = scrollOffset + i;
-            if (idx >= filteredItems.size()) break;
-            Item item  = filteredItems.get(idx);
-            ItemStack stack = new ItemStack(item);
-
-            int col = i % COLS;
-            int row = i / COLS;
-            int sx  = gridX + col * SLOT_SIZE;
-            int sy  = gridY + row * SLOT_SIZE;
-
-            // Рамка слоту
-            g.fill(sx, sy, sx + SLOT_SIZE, sy + SLOT_SIZE, 0xFF333333);
-            g.fill(sx + 1, sy + 1, sx + SLOT_SIZE - 1, sy + SLOT_SIZE - 1, 0xFF1A1A1A);
-
-            // Підсвічення вже-вибраного предмета — ЗОЛОТА рамка
-            boolean isSelected = !currentItem.isEmpty()
-                    && currentItem.getItem() == item;
-            if (isSelected) {
-                // Зовнішня золота рамка
-                g.fill(sx - 1, sy - 1, sx + SLOT_SIZE + 1, sy + SLOT_SIZE + 1, 0xFFFFAA00);
-                g.fill(sx, sy, sx + SLOT_SIZE, sy + SLOT_SIZE, 0x60FFAA00);
-            }
-
-            // Підсвічення ховера
-            boolean isHovered = mouseX >= sx && mouseX < sx + SLOT_SIZE
-                              && mouseY >= sy && mouseY < sy + SLOT_SIZE;
-            if (isHovered) {
-                g.fill(sx, sy, sx + SLOT_SIZE, sy + SLOT_SIZE, 0x80FFFFFF);
-                hovered = stack;
-            }
-
-            g.renderItem(stack, sx + 1, sy + 1);
-        }
-
-        // ── Превʼю зліва ────────────────────────────────────────────
-        renderItemPreview(g);
-
-        // Tooltip
-        if (!hovered.isEmpty()) {
-            g.renderTooltip(this.font, hovered, mouseX, mouseY);
-        }
+        // (Grid items moved inside scissor below)
 
         // Лічильник
-        String counter = "§7" + filteredItems.size() + " предметів";
-        if (!searchQuery.isEmpty()) counter += " §8(фільтр: \"" + searchQuery + "\")";
+        String counter = "§7" + filteredStacks.size() + " предметів";
+        if (!searchQuery.isEmpty()) counter += " §8(\"" + searchQuery + "\")";
         g.drawString(this.font, counter, PREVIEW_W + 8, this.height - 12, 0xAAAAAA);
 
         // Скролбар
-        int maxScroll = Math.max(0, filteredItems.size() - perPage);
+        int maxScroll = Math.max(0, filteredStacks.size() - perPage);
         if (maxScroll > 0) {
-            int sbH   = this.height - gridY - 24;
-            int thumbH = Math.max(10, sbH * perPage / filteredItems.size());
-            int thumbY = gridY + (sbH - thumbH) * scrollOffset / maxScroll;
+            int sbH    = this.height - gridY - 24;
+            int thumbH = Math.max(10, sbH * perPage / Math.max(1, filteredStacks.size()));
+            int thumbY = gridY + (scrollOffset == 0 ? 0 : (sbH - thumbH) * scrollOffset / maxScroll);
             g.fill(this.width - 6, gridY, this.width - 4, gridY + sbH, 0xFF444444);
             g.fill(this.width - 6, thumbY, this.width - 4, thumbY + thumbH, 0xFFAAAAAA);
         }
 
-        super.render(g, mouseX, mouseY, partial);
+        // ── Scissor: сітка предметів ─────────────────────────────────
+        ScissorHelper.enable(gridX, gridY, gridW + 8, Math.max(1, gridBottom - gridY));
+        // Рендер іконок сітки (тепер у scissor-зоні)
+        // ── Рендер сітки предметів ────────────────────────────────────
+        for (int i = 0; i < perPage; i++) {
+            int idx = scrollOffset + i;
+            if (idx >= filteredStacks.size()) break;
+            ItemStack stack = filteredStacks.get(idx);
+            int col = i % COLS, row = i / COLS;
+            int sx = gridX + col * SLOT_SIZE;
+            int sy = gridY + row * SLOT_SIZE;
+
+            g.fill(sx, sy, sx + SLOT_SIZE, sy + SLOT_SIZE, 0xFF333333);
+            g.fill(sx + 1, sy + 1, sx + SLOT_SIZE - 1, sy + SLOT_SIZE - 1, 0xFF1A1A1A);
+
+            // Підсвічування вибраного (порівнюємо і item і теги)
+            boolean isSelected = !currentItem.isEmpty()
+                    && currentItem.getItem() == stack.getItem()
+                    && ItemStack.isSameItemSameTags(currentItem, stack);
+            if (isSelected) g.fill(sx, sy, sx + SLOT_SIZE, sy + SLOT_SIZE, 0x55FFD700);
+
+            int iconX = sx + (SLOT_SIZE - 16) / 2;
+            int iconY = sy + (SLOT_SIZE - 16) / 2;
+            g.renderItem(stack, iconX, iconY);
+            g.renderItemDecorations(this.font, stack, iconX, iconY);
+
+            if (mouseX >= sx && mouseX < sx + SLOT_SIZE && mouseY >= sy && mouseY < sy + SLOT_SIZE) {
+                g.fill(sx, sy, sx + SLOT_SIZE, sy + SLOT_SIZE, 0x44FFFFFF);
+                hoveredStack = stack;
+            }
+        }
+        // Widgets у межах сітки
+        for (var r : this.renderables) {
+            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
+                    && w.getX() >= gridX
+                    && w.getY() + w.getHeight() > gridY && w.getY() < gridBottom)
+                w.render(g, mouseX, mouseY, partial);
+        }
+        ScissorHelper.disable();
+
+        // Статичні: пошук (y=24), категорії (y=44), закрити (top-right)
+        for (var r : this.renderables) {
+            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
+                    && (w.getY() < gridY || w.getX() < gridX))
+                w.render(g, mouseX, mouseY, partial);
+        }
+
+        // Tooltip
+        if (!hoveredStack.isEmpty())
+            g.renderTooltip(this.font, hoveredStack, mouseX, mouseY);
+
+        renderItemPreview(g);
     }
 
     private void renderItemPreview(GuiGraphics g) {
@@ -236,31 +390,22 @@ public class ItemSelectionScreen extends Screen {
         int pw = PREVIEW_W - 4;
         int ph = Math.min(pw, this.height - py - 40);
 
-        g.fill(px, py, px + pw, py + ph, 0xFF2A2A2A);
-        g.fill(px + 1, py + 1, px + pw - 1, py + ph - 1, 0xFF111111);
-
-        ItemStack preview = !hovered.isEmpty() ? hovered
-                : (!currentItem.isEmpty() ? currentItem
-                : (filteredItems.isEmpty() ? ItemStack.EMPTY : new ItemStack(filteredItems.get(0))));
-
+        ItemStack preview = hoveredStack.isEmpty() ? currentItem : hoveredStack;
         if (preview.isEmpty()) return;
 
-        com.mojang.blaze3d.vertex.PoseStack ps = g.pose();
-        ps.pushPose();
-        int cx = px + pw / 2;
-        int cy = py + ph / 2;
-        float scale = Math.max(1.5f, Math.min(3f, pw / 12f));
-        ps.translate(cx, cy, 100);
-        ps.scale(scale, scale, 1f);
-        g.renderItem(preview, -8, -8);
-        ps.popPose();
+        g.fill(px - 1, py - 1, px + pw + 1, py + ph + 1, 0xFF444444);
+        g.fill(px, py, px + pw, py + ph, 0xFF222222);
 
-        // Назва
+        int iconX = px + (pw - 16) / 2;
+        int iconY = py + (ph - 16) / 2;
+        g.renderItem(preview, iconX, iconY);
+        g.renderItemDecorations(this.font, preview, iconX, iconY);
+
+        // Повна назва предмета (зілля мають довгу назву)
         String name = preview.getHoverName().getString();
-        if (name.length() > 10) name = name.substring(0, 9) + "…";
+        if (name.length() > 12) name = name.substring(0, 11) + "…";
         g.drawCenteredString(this.font, "§f" + name, px + pw / 2, py + ph + 2, 0xFFFFFF);
 
-        // Мод-бейдж
         ResourceLocation key = ForgeRegistries.ITEMS.getKey(preview.getItem());
         if (key != null && !key.getNamespace().equals("minecraft")) {
             g.drawCenteredString(this.font, "§7[" + key.getNamespace() + "]",
@@ -270,19 +415,19 @@ public class ItemSelectionScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        int gridX   = PREVIEW_W + 8;
-        int gridY   = 64;
-        int rows    = Math.max(1, (this.height - gridY - 24) / SLOT_SIZE);
+        int gridX  = PREVIEW_W + 8;
+        int gridY  = 64;
+        int rows   = Math.max(1, (this.height - gridY - 24) / SLOT_SIZE);
         int perPage = rows * COLS;
 
         for (int i = 0; i < perPage; i++) {
             int idx = scrollOffset + i;
-            if (idx >= filteredItems.size()) break;
+            if (idx >= filteredStacks.size()) break;
             int col = i % COLS, row = i / COLS;
             int sx = gridX + col * SLOT_SIZE;
             int sy = gridY + row * SLOT_SIZE;
             if (mx >= sx && mx < sx + SLOT_SIZE && my >= sy && my < sy + SLOT_SIZE) {
-                ItemStack selected = new ItemStack(filteredItems.get(idx));
+                ItemStack selected = filteredStacks.get(idx).copy();
                 if (onSelect != null) onSelect.accept(selected);
                 return true;
             }
@@ -295,7 +440,7 @@ public class ItemSelectionScreen extends Screen {
         int gridY   = 64;
         int rows    = Math.max(1, (this.height - gridY - 24) / SLOT_SIZE);
         int perPage = rows * COLS;
-        int maxScroll = Math.max(0, filteredItems.size() - perPage);
+        int maxScroll = Math.max(0, filteredStacks.size() - perPage);
         if (delta < 0) scrollOffset = Math.min(scrollOffset + COLS, maxScroll);
         else           scrollOffset = Math.max(scrollOffset - COLS, 0);
         return true;

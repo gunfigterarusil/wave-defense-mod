@@ -3,6 +3,8 @@ package com.wavedefense.events;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.wavedefense.WaveDefenseMod;
 import com.wavedefense.data.Location;
+import com.wavedefense.gui.ClientPlayerDataManager;
+import com.wavedefense.gui.HudLayout;
 import com.wavedefense.wave.PlayerWaveData;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -22,103 +24,144 @@ public class HudOverlay {
         Player player = mc.player;
         if (player == null) return;
 
-        PlayerWaveData playerData = WaveDefenseMod.waveManager.getPlayerData(player.getUUID());
-        // Показуємо HUD якщо гравець на PvE хвилі АБО на PvP локації
+        // ── ВИПРАВЛЕНО: використовуємо клієнтський менеджер, не серверний waveManager ──
+        PlayerWaveData playerData = ClientPlayerDataManager.getPlayerData();
         if (playerData == null || (!playerData.isInWave() && !playerData.isInPvp())) return;
 
         Location location = playerData.getCurrentLocation();
         if (location == null) return;
 
         GuiGraphics graphics = event.getGuiGraphics();
-        int screenWidth = mc.getWindow().getGuiScaledWidth();
-        int screenHeight = mc.getWindow().getGuiScaledHeight();
+        int screenW = mc.getWindow().getGuiScaledWidth();
+        int screenH = mc.getWindow().getGuiScaledHeight();
 
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
+        // ── Визначення victory-рядка ──────────────────────────────────
+        boolean hasVictory = playerData.getVictoryCountdownSec() > 0;
 
-        // --- Центральний блок (таймер або статус) ---
-        int centerTopY = 10;
-
-        // "Локація: назва" — над таймером/статусом
+        // ── Будуємо рядки HUD ─────────────────────────────────────────
         String locationLabel = "§7" + I18n.get("wavedefense.hud.location", location.getName());
-        int locLabelX = (screenWidth - mc.font.width(locationLabel)) / 2;
-        graphics.fill(locLabelX - 5, centerTopY - 2, locLabelX + mc.font.width(locationLabel) + 5, centerTopY + mc.font.lineHeight + 2, 0x80000000);
-        graphics.drawString(mc.font, locationLabel, locLabelX, centerTopY, 0xFFFFFF);
 
-        centerTopY += mc.font.lineHeight + 6;
+        // Основний рядок (таймер / хвиля активна / PvP статус)
+        String mainLine = null;
+        boolean showProgressBar = false;
+        float barProgress = 0f;
 
-        if (playerData.isShowTimer() && playerData.isTimerActive()) {
+        // Мобів
+        String mobLine = null;
+
+        if (hasVictory) {
+            mainLine = "§a§lПЕРЕМОГА! §r§7Вихід через §e" + playerData.getVictoryCountdownSec() + " §7сек";
+        } else if (playerData.isShowTimer() && playerData.isTimerActive()) {
             int timeLeft = playerData.getTimeUntilNextWave();
             if (timeLeft > 0) {
                 int minutes = timeLeft / 60;
                 int seconds = timeLeft % 60;
-                String timerText = "§a" + I18n.get("wavedefense.hud.next_wave", minutes, seconds);
-                int timerX = (screenWidth - mc.font.width(timerText)) / 2;
-                graphics.fill(timerX - 5, centerTopY - 2, timerX + mc.font.width(timerText) + 5, centerTopY + mc.font.lineHeight + 2, 0x80000000);
-                graphics.drawString(mc.font, timerText, timerX, centerTopY, 0xFFFFFF);
-
+                mainLine = "§a" + I18n.get("wavedefense.hud.next_wave", minutes, seconds);
+                // Прогрес-бар
                 if (playerData.getCurrentWave() > 0 && playerData.getCurrentWave() <= location.getWaves().size()) {
                     int totalTime = location.getWaves().get(playerData.getCurrentWave() - 1).getTimeBetweenWaves();
-                    float progress = totalTime > 0 ? 1.0f - ((float) timeLeft / totalTime) : 0f;
-                    int barWidth = 200;
-                    int barH = 4;
-                    int barX = (screenWidth - barWidth) / 2;
-                    int barY = centerTopY + mc.font.lineHeight + 4;
-                    graphics.fill(barX, barY, barX + barWidth, barY + barH, 0xFF333333);
-                    graphics.fill(barX, barY, barX + (int)(barWidth * progress), barY + barH, 0xFF00CC00);
-                    graphics.fill(barX - 1, barY - 1, barX + barWidth + 1, barY, 0xFF999999);
-                    graphics.fill(barX - 1, barY + barH, barX + barWidth + 1, barY + barH + 1, 0xFF999999);
-                    graphics.fill(barX - 1, barY, barX, barY + barH, 0xFF999999);
-                    graphics.fill(barX + barWidth, barY, barX + barWidth + 1, barY + barH, 0xFF999999);
+                    barProgress = totalTime > 0 ? 1.0f - ((float) timeLeft / totalTime) : 0f;
+                    showProgressBar = true;
                 }
             }
         } else if (!playerData.isTimerActive() && playerData.getCurrentWave() > 0) {
-            // "Хвиля в процесі" — жовтий текст на темно-синьому фоні
-
-            // PvP: використовуємо фазу з ClientPvpStateManager
-            String activeText;
             if (location.isPvp()) {
                 String pvpPhase = com.wavedefense.gui.ClientPvpStateManager.getPhase();
                 int pvpRound    = com.wavedefense.gui.ClientPvpStateManager.getCurrentRound();
                 int pvpTotal    = com.wavedefense.gui.ClientPvpStateManager.getTotalRounds();
                 int pvpTimer    = com.wavedefense.gui.ClientPvpStateManager.getTimerSeconds();
                 if ("BUY".equals(pvpPhase))
-                    activeText = String.format("§e🛒 ЧАС ПОКУПОК: %d сек | Раунд %d/%d", pvpTimer, pvpRound, pvpTotal);
+                    mainLine = String.format("§e🛒 ЧАС ПОКУПОК: %d сек | Раунд %d/%d", pvpTimer, pvpRound, pvpTotal);
                 else if ("ACTIVE".equals(pvpPhase))
-                    activeText = String.format("§c⚔ РАУНД %d/%d — БИЙТЕСЬ!", pvpRound, pvpTotal);
+                    mainLine = String.format("§c⚔ РАУНД %d/%d — БИЙТЕСЬ!", pvpRound, pvpTotal);
                 else
-                    activeText = "§7Чекаємо гравців...";
+                    mainLine = "§7Чекаємо гравців...";
             } else {
-                activeText = "§e" + I18n.get("wavedefense.hud.wave_active");
+                mainLine = "§e" + I18n.get("wavedefense.hud.wave_active");
             }
 
-            int activeX = (screenWidth - mc.font.width(activeText)) / 2;
-            int bgColor = location.isPvp() ? 0xDD440000 : 0xDD00007A;
-            graphics.fill(activeX - 8, centerTopY - 3, activeX + mc.font.width(activeText) + 8, centerTopY + mc.font.lineHeight + 3, bgColor);
-            graphics.fill(activeX - 9, centerTopY - 4, activeX + mc.font.width(activeText) + 9, centerTopY - 3, 0xFFFFAA00);
-            graphics.fill(activeX - 9, centerTopY + mc.font.lineHeight + 3, activeX + mc.font.width(activeText) + 9, centerTopY + mc.font.lineHeight + 4, 0xFFFFAA00);
-            graphics.fill(activeX - 9, centerTopY - 3, activeX - 8, centerTopY + mc.font.lineHeight + 3, 0xFFFFAA00);
-            graphics.fill(activeX + mc.font.width(activeText) + 8, centerTopY - 3, activeX + mc.font.width(activeText) + 9, centerTopY + mc.font.lineHeight + 3, 0xFFFFAA00);
-            graphics.drawString(mc.font, activeText, activeX, centerTopY, 0xFFFFFF);
-
-            // Лічильник мобів/ворогів під статусом хвилі
             int mobsLeft = playerData.getMobsRemaining();
             if (mobsLeft > 0) {
-                int mobY = centerTopY + mc.font.lineHeight + 12;
-                int mobColor = mobsLeft > 10 ? 0xFF5555 : (mobsLeft > 5 ? 0xFFAA00 : 0x55FF55);
-                String mobText = location.isPvp()
-                        ? "§cВорогів залишилось: " + mobsLeft
-                        : I18n.get("wavedefense.hud.mobs_left", mobsLeft);
-                int mobX = (screenWidth - mc.font.width(mobText)) / 2;
-                graphics.fill(mobX - 5, mobY - 2, mobX + mc.font.width(mobText) + 5, mobY + mc.font.lineHeight + 2, 0xAA000000);
-                graphics.drawString(mc.font, mobText, mobX, mobY, mobColor);
+                mobLine = location.isPvp()
+                    ? "§cВорогів залишилось: §f" + mobsLeft
+                    : I18n.get("wavedefense.hud.mobs_left", mobsLeft);
             }
+        }
+
+        // ── Оцінка ширини блоку ───────────────────────────────────────
+        int estimatedW = 240;
+        // Уточнюємо за реальними рядками
+        int w1 = mc.font.width(locationLabel) + 10;
+        int w2 = mainLine != null ? mc.font.width(mainLine) + 10 : 0;
+        int w3 = mobLine  != null ? mc.font.width(mobLine)  + 10 : 0;
+        estimatedW = Math.max(estimatedW, Math.max(w1, Math.max(w2, w3)));
+        if (showProgressBar) estimatedW = Math.max(estimatedW, 200 + 10);
+
+        // ── Позиція з HudLayout ───────────────────────────────────────
+        HudLayout hl = HudLayout.get();
+        int blockX = hl.resolveX(screenW, estimatedW);
+        int blockY = hl.resolveY(screenH, 70); // 70px макс висота блоку
+
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+
+        int lineH = mc.font.lineHeight;
+        int curY  = blockY;
+
+        // ── Локація ───────────────────────────────────────────────────
+        drawLine(graphics, mc, locationLabel, blockX, estimatedW, curY, 0x80000000, 0xFFFFFF);
+        curY += lineH + 6;
+
+        // ── Основний рядок ────────────────────────────────────────────
+        if (mainLine != null) {
+            int bgColor = hasVictory ? 0xCC007700
+                : (playerData.isTimerActive() ? 0x80000000 : (location.isPvp() ? 0xDD440000 : 0xDD00007A));
+            drawLine(graphics, mc, mainLine, blockX, estimatedW, curY, bgColor, 0xFFFFFF);
+
+            if (!playerData.isTimerActive() && !hasVictory) {
+                // Рамка для "хвиля активна"
+                int bx = blockX - 1; int by = curY - 3;
+                int bw = estimatedW + 2; int bh = lineH + 6;
+                int brdC = 0xFFFFAA00;
+                graphics.fill(bx, by - 1,  bx + bw, by,      brdC);
+                graphics.fill(bx, by + bh, bx + bw, by+bh+1, brdC);
+                graphics.fill(bx - 1, by,  bx,       by + bh, brdC);
+                graphics.fill(bx + bw, by, bx+bw+1,  by + bh, brdC);
+            }
+            curY += lineH + 4;
+
+            // Прогрес-бар
+            if (showProgressBar) {
+                int barW = estimatedW;
+                int barH = 4;
+                graphics.fill(blockX,           curY, blockX + barW,           curY + barH, 0xFF333333);
+                graphics.fill(blockX,           curY, blockX + (int)(barW * barProgress), curY + barH, 0xFF00CC00);
+                graphics.fill(blockX - 1, curY - 1, blockX + barW + 1, curY,         0xFF999999);
+                graphics.fill(blockX - 1, curY+barH, blockX+barW+1,   curY+barH+1,  0xFF999999);
+                graphics.fill(blockX - 1, curY,     blockX,           curY + barH,  0xFF999999);
+                graphics.fill(blockX+barW, curY,    blockX+barW+1,    curY + barH,  0xFF999999);
+                curY += barH + 6;
+            }
+        }
+
+        // ── Мобів залишилось ─────────────────────────────────────────
+        if (mobLine != null) {
+            int mobsLeft = playerData.getMobsRemaining();
+            int mobColor = mobsLeft > 10 ? 0xFF5555 : (mobsLeft > 5 ? 0xFFAA00 : 0x55FF55);
+            drawLine(graphics, mc, mobLine, blockX, estimatedW, curY, 0xAA000000, mobColor);
         }
 
         RenderSystem.disableBlend();
     }
 
-    // handleClick більше не потрібний — кнопки перенесено в інвентар
+    private static void drawLine(GuiGraphics g, Minecraft mc, String text,
+                                  int blockX, int blockW, int y, int bg, int color) {
+        g.fill(blockX, y - 2, blockX + blockW, y + mc.font.lineHeight + 2, bg);
+        // По центру блоку
+        int textX = blockX + (blockW - mc.font.width(text)) / 2;
+        g.drawString(mc.font, text, textX, y, color);
+    }
+
     public static boolean handleClick(double mouseX, double mouseY) {
         return false;
     }

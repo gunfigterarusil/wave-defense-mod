@@ -12,13 +12,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Редактор тригера для окремої хвилі.
- * ✓ Мультитригери (кілька умов одночасно — AND)
- * ✓ "Разово" — спрацювати лише один раз за сесію
- * ✓ "Активувати з хвилі N"
- * ✓ Налаштування предмета для PLAYER_HAS_ITEM
- * ✓ Перезарядка: Немає / Секунди / Хвилі
- * ✓ Мінімальна 5с пауза (автоматично в WaveManager)
+ * Редактор тригера хвилі — одна колонка зі scissor-прокруткою.
+ * Scissor ховає тригери за межі списку — як у ванільному Language Screen.
+ *
+ * Макет (зверху вниз, статично):
+ *   Заголовок | Вмикач | AND підказка + активні AND
+ *   ─── scissored список тригерів ───
+ *   Per-trigger налаштування (PLAYER_HAS_ITEM поле, TIMER/MOBS_N поле)
+ *   Разово | Активувати з хвилі | Перезарядка
+ *   [Зберегти] [Скасувати]
  */
 public class WaveTriggerEditorScreen extends Screen {
 
@@ -27,12 +29,23 @@ public class WaveTriggerEditorScreen extends Screen {
     private final int        waveIndex;
     private final boolean    isPvp;
 
-    private EditBox cooldownValueInput;
+    private static final int BTN_H   = 20;
+    private static final int BTN_GAP = 2;
+
+    // Межі scrollable зони — розраховуються в init()
+    private int scrollTop = 0;
+    private int scrollBot = 0;
+
+    private int triggerScrollOffset = 0;
+    private List<WaveTrigger> available = new ArrayList<>();
+
+    // Per-trigger inputs
     private EditBox customItemInput;
+    private EditBox customValueInput;
+    private EditBox cooldownValueInput;
     private EditBox activateFromWaveInput;
 
     private WaveTrigger selected;
-    private int triggerScrollOffset = 0;
 
     public WaveTriggerEditorScreen(Screen parent, WaveConfig wave, int waveIndex, boolean isPvp) {
         super(Component.literal("⚡ Тригер Хвилі " + (waveIndex + 1)));
@@ -46,247 +59,305 @@ public class WaveTriggerEditorScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        int cx = this.width / 2;
-        int y  = 28;
+        customItemInput = null; customValueInput = null;
+        cooldownValueInput = null; activateFromWaveInput = null;
 
-        // ── Вмикач ─────────────────────────────────────────────────────────
-        boolean enabled = wave.isTriggerEnabled();
-        this.addRenderableWidget(Button.builder(
-            Component.literal(enabled ? "§a☑ Тригерна хвиля УВІМКНЕНА" : "§7☐ Тригерна хвиля вимкнена"),
-            b -> { wave.setTriggerEnabled(!wave.isTriggerEnabled()); rebuildWidgets(); }
-        ).bounds(cx - 155, y, 310, 18).build());
-
-        if (!enabled) {
-            this.addRenderableWidget(Button.builder(
-                Component.literal("§8Увімкніть щоб налаштувати"),
-                b -> {}
-            ).bounds(cx - 155, y + 24, 310, 14).build()).active = false;
-            addBottomButtons(cx);
-            return;
-        }
-
-        y += 24;
-
-        // ── Список тригерів ─────────────────────────────────────────────────
-        this.addRenderableWidget(Button.builder(
-            Component.literal("§7Головний тригер (обов'язковий):"), b -> {}
-        ).bounds(cx - 155, y, 310, 13).build()).active = false;
-        y += 15;
-
-        List<WaveTrigger> available = new ArrayList<>();
+        available.clear();
         for (WaveTrigger t : WaveTrigger.values()) {
-            if (isPvp && !t.pvp) continue;
+            if (isPvp  && !t.pvp) continue;
             if (!isPvp && !t.pve) continue;
-            // Не показувати shop-тригери в тригерних хвилях
             if (t.name().startsWith("SHOP_")) continue;
             available.add(t);
         }
 
-        int total    = available.size();
-        int colW     = Math.min(200, (this.width - 36) / 2 - 4);
-        int bH       = 16;
-        int col1X    = cx - colW - 2;
-        int col2X    = cx + 2;
-        int listH    = this.height - y - 140;
-        int perCol   = Math.max(3, listH / (bH + 2));
-        int visTotal = perCol * 2;
+        int cx = this.width / 2;
+        int btnW = Math.min(310, this.width - 30);
+        int y = 26;
 
-        int maxScroll = Math.max(0, total - visTotal);
-        if (triggerScrollOffset > maxScroll) triggerScrollOffset = maxScroll;
+        // ── Вмикач ─────────────────────────────────────────────────────
+        boolean enabled = wave.isTriggerEnabled();
+        this.addRenderableWidget(Button.builder(
+            Component.literal(enabled ? "§a☑ Тригерна хвиля УВІМКНЕНА" : "§7☐ Тригерна хвиля вимкнена"),
+            b -> { wave.setTriggerEnabled(!wave.isTriggerEnabled()); rebuildWidgets(); }
+        ).bounds(cx - btnW / 2, y, btnW, 18).build());
+        y += 22;
 
-        int col1Y = y, col2Y = y;
-        boolean col1 = true;
-        int shown = 0;
-        for (int i = triggerScrollOffset; i < total && shown < visTotal; i++) {
+        if (!enabled) {
+            this.addRenderableWidget(Button.builder(
+                Component.literal("§8Увімкніть щоб налаштувати"), b -> {}
+            ).bounds(cx - btnW / 2, y, btnW, 13).build()).active = false;
+            addBottomButtons(cx, this.height - 26);
+            return;
+        }
+
+        // ── Підказка AND + активні AND ──────────────────────────────────
+        this.addRenderableWidget(Button.builder(
+            Component.literal("§8Клік=головний  │  Ctrl+Клік=§b+AND§8 умова"), b -> {}
+        ).bounds(cx - btnW / 2, y, btnW, 12).build()).active = false;
+        y += 14;
+
+        List<WaveTrigger> extras = wave.getExtraTriggers();
+        if (!extras.isEmpty()) {
+            StringBuilder sb = new StringBuilder("§b+AND: ");
+            for (WaveTrigger t : extras) sb.append("§f").append(t.label).append("§b  ");
+            String s = sb.toString().trim();
+            this.addRenderableWidget(Button.builder(
+                Component.literal(s.length() > 52 ? s.substring(0, 50) + "…" : s), b -> {}
+            ).bounds(cx - btnW / 2, y, btnW - 52, 13).build()).active = false;
+            this.addRenderableWidget(Button.builder(
+                Component.literal("§c✕ Очистити AND"),
+                b -> { wave.setExtraTriggers(new ArrayList<>()); rebuildWidgets(); }
+            ).bounds(cx + btnW / 2 - 50, y, 50, 13).build());
+            y += 16;
+        }
+
+        scrollTop = y; // ── верхня межа scissored зони ──────────────────
+
+        // Розраховуємо висоту нижньої статичної зони
+        int staticH = calcStaticHeight();
+        scrollBot = this.height - staticH - 28; // 28 = кнопки внизу + відступ
+        if (scrollBot < scrollTop + BTN_H) scrollBot = scrollTop + BTN_H;
+
+        // Скрол
+        int listH   = scrollBot - scrollTop;
+        int visible = Math.max(1, listH / (BTN_H + BTN_GAP));
+        int maxScr  = Math.max(0, available.size() - visible);
+        if (triggerScrollOffset > maxScr) triggerScrollOffset = maxScr;
+
+        // ── Список тригерів (одна колонка) ──────────────────────────────
+        int ty = scrollTop;
+        for (int i = triggerScrollOffset; i < available.size(); i++) {
+            if (ty + BTN_H > scrollBot) break;
             WaveTrigger t = available.get(i);
-            boolean isSel  = (t == selected);
+            boolean isSel   = (t == selected);
             boolean isExtra = wave.getExtraTriggers().contains(t);
-            String lbl = isSel   ? "§e§l▶ " + t.label
-                       : isExtra ? "§b§l+ " + t.label
-                       : "§7  " + t.label;
+            String lbl = (isSel ? "§e§l▶ " : isExtra ? "§b§l+ " : "§7  ") + t.label;
             final WaveTrigger ft = t;
             Button btn = Button.builder(
                 Component.literal(lbl),
                 b -> {
-                    if (ft == selected) {
-                        // вже вибраний — нічого
-                    } else if (wave.getExtraTriggers().contains(ft)) {
-                        wave.removeExtraTrigger(ft);
-                    } else {
-                        // Shift-клік або другий клік — додати як доп. умову
-                        // Одинарний клік — замінити головний тригер
-                        selected = ft;
-                        wave.setTriggerType(ft);
-                    }
+                    if (ft == selected) return;
+                    if (wave.getExtraTriggers().contains(ft)) wave.removeExtraTrigger(ft);
+                    else { selected = ft; wave.setTriggerType(ft); }
                     rebuildWidgets();
                 }
-            ).bounds(col1 ? col1X : col2X, col1 ? col1Y : col2Y, colW, bH).build();
+            ).bounds(cx - btnW / 2, ty, btnW, BTN_H).build();
             btn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
                 Component.literal("§7" + t.tooltip +
-                    (isExtra ? "\n§b[Додаткова умова AND]" : ""))));
+                    (isExtra ? "\n§b[AND: обидві умови мають спрацювати]" : ""))));
             this.addRenderableWidget(btn);
-            shown++;
-            if (col1) col1Y += bH + 2;
-            else      col2Y += bH + 2;
-            col1 = !col1;
+            ty += BTN_H + BTN_GAP;
         }
 
-        // Скрол
-        if (total > visTotal) {
-            int sbX = this.width - 20;
-            this.addRenderableWidget(Button.builder(Component.literal("▲"),
-                b -> { if (triggerScrollOffset > 0) { triggerScrollOffset -= 2; rebuildWidgets(); } }
-            ).bounds(sbX, y, 16, 16).build());
-            this.addRenderableWidget(Button.builder(Component.literal("▼"),
-                b -> { if (triggerScrollOffset + visTotal < total) { triggerScrollOffset += 2; rebuildWidgets(); } }
-            ).bounds(sbX, y + (perCol - 1) * (bH + 2), 16, 16).build());
+        // ── Статичні налаштування ────────────────────────────────────────
+        int sy = scrollBot + 6;
+        sy = addPerTriggerSettings(cx, sy, btnW);
+        addCommonSettings(cx, sy, btnW);
+        addBottomButtons(cx, this.height - 26);
+    }
+
+    // ── Розрахунок висоти статичної зони ────────────────────────────────
+    private int calcStaticHeight() {
+        int h = 0;
+        if (needsItem())  h += 38; // label 14 + input 20 + gap 4
+        if (needsValue()) h += 24; // label+input 20 + gap 4
+        h += 22; // Разово + з хвилі
+        h += 36; // Перезарядка label + радіо
+        if (wave.getCooldownMode() != WaveConfig.CooldownMode.NONE) h += 22;
+        return h;
+    }
+
+    private boolean needsItem() {
+        return selected == WaveTrigger.PLAYER_HAS_ITEM
+            || wave.getExtraTriggers().contains(WaveTrigger.PLAYER_HAS_ITEM);
+    }
+    private boolean needsValue() {
+        for (WaveTrigger t : new WaveTrigger[]{
+                WaveTrigger.TIMER_CUSTOM, WaveTrigger.MOBS_KILLED_N, WaveTrigger.WAVES_SURVIVED_N}) {
+            if (selected == t || wave.getExtraTriggers().contains(t)) return true;
         }
+        return false;
+    }
+    private WaveTrigger valueTrigger() {
+        for (WaveTrigger t : new WaveTrigger[]{
+                WaveTrigger.TIMER_CUSTOM, WaveTrigger.MOBS_KILLED_N, WaveTrigger.WAVES_SURVIVED_N}) {
+            if (selected == t) return t;
+        }
+        for (WaveTrigger t : wave.getExtraTriggers()) {
+            if (t == WaveTrigger.TIMER_CUSTOM || t == WaveTrigger.MOBS_KILLED_N || t == WaveTrigger.WAVES_SURVIVED_N) return t;
+        }
+        return null;
+    }
 
-        y = Math.max(col1Y, col2Y) + 2;
-
-        // ── Кнопка "+AND умова" ─────────────────────────────────────────────
-        // Показуємо список доп. тригерів
-        List<WaveTrigger> extras = wave.getExtraTriggers();
-        if (!extras.isEmpty()) {
-            StringBuilder sb = new StringBuilder("§b+AND: ");
-            for (WaveTrigger t : extras) sb.append(t.label).append(", ");
-            String extStr = sb.toString().replaceAll(", $", "");
+    // ── Per-trigger налаштування ──────────────────────────────────────────
+    private int addPerTriggerSettings(int cx, int y, int btnW) {
+        // PLAYER_HAS_ITEM
+        if (needsItem()) {
             this.addRenderableWidget(Button.builder(
-                Component.literal(extStr.length() > 55 ? extStr.substring(0, 53) + "…" : extStr),
-                b -> {}
-            ).bounds(cx - 155, y, 260, 13).build()).active = false;
+                Component.literal("§e🎁 §7Предмет(и) — item id через кому:"), b -> {}
+            ).bounds(cx - btnW / 2, y, btnW - 26, 14).build()).active = false;
             this.addRenderableWidget(Button.builder(
-                Component.literal("§c✕ Очистити AND"),
-                b -> { wave.setExtraTriggers(new ArrayList<>()); rebuildWidgets(); }
-            ).bounds(cx + 110, y, 90, 13).build());
+                Component.literal("✋"),
+                b -> {
+                    net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+                    if (mc.player != null && customItemInput != null) {
+                        net.minecraft.world.item.ItemStack held = mc.player.getMainHandItem();
+                        if (!held.isEmpty()) {
+                            net.minecraft.resources.ResourceLocation rl =
+                                net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(held.getItem());
+                            if (rl != null) {
+                                String cur = customItemInput.getValue().trim();
+                                customItemInput.setValue(cur.isEmpty() ? rl.toString() : cur + "," + rl);
+                            }
+                        }
+                    }
+                }
+            ).bounds(cx + btnW / 2 - 24, y, 24, 14).build()
+            ).setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.literal("§7Вставити id з основної руки")));
             y += 16;
+            customItemInput = new EditBox(this.font, cx - btnW / 2, y, btnW, 18, Component.literal("id"));
+            customItemInput.setMaxLength(256);
+            customItemInput.setValue(wave.getTriggerCustomItemId().isEmpty()
+                ? "minecraft:diamond" : wave.getTriggerCustomItemId());
+            customItemInput.setHint(Component.literal("§8minecraft:diamond,..."));
+            this.addRenderableWidget(customItemInput);
+            y += 22;
         }
-        // Підказка про AND
-        this.addRenderableWidget(Button.builder(
-            Component.literal("§8[Клікни ще раз на не-вибраний тригер щоб додати як AND умову]"), b -> {}
-        ).bounds(cx - 155, y, 310, 11).build()).active = false;
-        y += 14;
 
-        // ── Разово + Активувати з хвилі ────────────────────────────────────
+        // TIMER_CUSTOM / MOBS_KILLED_N / WAVES_SURVIVED_N
+        if (needsValue()) {
+            WaveTrigger vt = valueTrigger();
+            String emoji = vt == WaveTrigger.TIMER_CUSTOM ? "⏱" : vt == WaveTrigger.MOBS_KILLED_N ? "⚔" : "🏆";
+            String lbl   = vt == WaveTrigger.TIMER_CUSTOM    ? emoji + " §7Інтервал (сек):" :
+                           vt == WaveTrigger.MOBS_KILLED_N   ? emoji + " §7Мін. вбитих мобів:" :
+                                                                emoji + " §7Мін. хвиль пережито:";
+            this.addRenderableWidget(Button.builder(
+                Component.literal(lbl), b -> {}
+            ).bounds(cx - btnW / 2, y, 200, 18).build()).active = false;
+            customValueInput = new EditBox(this.font, cx + btnW / 2 - 72, y, 72, 18, Component.literal("60"));
+            customValueInput.setMaxLength(6);
+            customValueInput.setValue(String.valueOf(wave.getTriggerCustomValue()));
+            this.addRenderableWidget(customValueInput);
+            y += 22;
+        }
+        return y;
+    }
+
+    private void addCommonSettings(int cx, int y, int btnW) {
+        // Разово + Активувати з хвилі
         boolean oneTime = wave.isOneTimeOnly();
         this.addRenderableWidget(Button.builder(
-            Component.literal(oneTime ? "§a☑ Разово (1 раз за сесію)" : "§7☐ Разово"),
+            Component.literal(oneTime ? "§a☑ Разово (1 раз/сесія)" : "§7☐ Разово"),
             b -> { wave.setOneTimeOnly(!wave.isOneTimeOnly()); rebuildWidgets(); }
-        ).bounds(cx - 155, y, 155, 16).build());
-
+        ).bounds(cx - btnW / 2, y, 150, 18).build());
         this.addRenderableWidget(Button.builder(
             Component.literal("§7Активувати з хвилі:"), b -> {}
-        ).bounds(cx + 4, y, 110, 16).build()).active = false;
-        activateFromWaveInput = new EditBox(this.font, cx + 116, y, 40, 16, Component.literal("0"));
+        ).bounds(cx + 4, y, 110, 18).build()).active = false;
+        activateFromWaveInput = new EditBox(this.font, cx + 118, y, 40, 18, Component.literal("0"));
         activateFromWaveInput.setValue(String.valueOf(wave.getActivateFromWave()));
         activateFromWaveInput.setMaxLength(3);
         this.addRenderableWidget(activateFromWaveInput);
-        y += 20;
+        y += 22;
 
-        // ── PLAYER_HAS_ITEM — поле предмета ──────────────────────────────
-        if (selected == WaveTrigger.PLAYER_HAS_ITEM || wave.getExtraTriggers().contains(WaveTrigger.PLAYER_HAS_ITEM)) {
-            this.addRenderableWidget(Button.builder(
-                Component.literal("§7Предмет (registry id):"), b -> {}
-            ).bounds(cx - 155, y, 130, 16).build()).active = false;
-            customItemInput = new EditBox(this.font, cx - 20, y, 175, 16, Component.literal("minecraft:diamond"));
-            customItemInput.setValue(wave.getTriggerCustomItemId().isEmpty() ? "minecraft:diamond" : wave.getTriggerCustomItemId());
-            customItemInput.setMaxLength(60);
-            this.addRenderableWidget(customItemInput);
-            y += 20;
-        }
-
-        // ── Перезарядка ────────────────────────────────────────────────────
+        // Перезарядка
         this.addRenderableWidget(Button.builder(
-            Component.literal("§7Перезарядка:"), b -> {}
-        ).bounds(cx - 155, y, 100, 14).build()).active = false;
-        this.addRenderableWidget(Button.builder(
-            Component.literal("§8(мін. 5 сек завжди)"), b -> {}
-        ).bounds(cx - 50, y, 120, 14).build()).active = false;
+            Component.literal("§7Перезарядка §8(мін. 5с):"), b -> {}
+        ).bounds(cx - btnW / 2, y, 180, 14).build()).active = false;
         y += 16;
 
         WaveConfig.CooldownMode cm = wave.getCooldownMode();
-        int mW = 78;
-        String lblN = cm == WaveConfig.CooldownMode.NONE    ? "§a● Немає"   : "§7○ Немає";
-        String lblS = cm == WaveConfig.CooldownMode.SECONDS ? "§a● Секунди" : "§7○ Секунди";
-        String lblW = cm == WaveConfig.CooldownMode.WAVES   ? "§a● Хвилі"   : "§7○ Хвилі";
-        this.addRenderableWidget(Button.builder(Component.literal(lblN),
+        int mW = 76;
+        this.addRenderableWidget(Button.builder(
+            Component.literal(cm == WaveConfig.CooldownMode.NONE    ? "§a● Немає"   : "§7○ Немає"),
             b -> { wave.setCooldownMode(WaveConfig.CooldownMode.NONE); rebuildWidgets(); }
-        ).bounds(cx - 120, y, mW, 16).build());
-        this.addRenderableWidget(Button.builder(Component.literal(lblS),
+        ).bounds(cx - 116, y, mW, 18).build());
+        this.addRenderableWidget(Button.builder(
+            Component.literal(cm == WaveConfig.CooldownMode.SECONDS ? "§a● Секунди" : "§7○ Секунди"),
             b -> { wave.setCooldownMode(WaveConfig.CooldownMode.SECONDS); rebuildWidgets(); }
-        ).bounds(cx - 38, y, mW, 16).build());
-        this.addRenderableWidget(Button.builder(Component.literal(lblW),
+        ).bounds(cx - 36, y, mW, 18).build());
+        this.addRenderableWidget(Button.builder(
+            Component.literal(cm == WaveConfig.CooldownMode.WAVES   ? "§a● Хвилі"   : "§7○ Хвилі"),
             b -> { wave.setCooldownMode(WaveConfig.CooldownMode.WAVES); rebuildWidgets(); }
-        ).bounds(cx + 44, y, mW, 16).build());
-        y += 20;
+        ).bounds(cx + 44, y, mW, 18).build());
+        y += 22;
 
         if (cm != WaveConfig.CooldownMode.NONE) {
             String lbl = cm == WaveConfig.CooldownMode.SECONDS ? "§7Секунд:" : "§7Хвиль:";
-            this.addRenderableWidget(Button.builder(Component.literal(lbl), b -> {}
-            ).bounds(cx - 120, y, 80, 16).build()).active = false;
-            cooldownValueInput = new EditBox(this.font, cx - 36, y, 56, 16, Component.literal("0"));
+            this.addRenderableWidget(Button.builder(
+                Component.literal(lbl), b -> {}
+            ).bounds(cx - 116, y, 80, 18).build()).active = false;
+            cooldownValueInput = new EditBox(this.font, cx - 32, y, 60, 18, Component.literal("0"));
             cooldownValueInput.setValue(String.valueOf(wave.getCooldownValue()));
             cooldownValueInput.setMaxLength(6);
             this.addRenderableWidget(cooldownValueInput);
         }
-
-        addBottomButtons(cx);
     }
 
-    private void addBottomButtons(int cx) {
+    private void addBottomButtons(int cx, int y) {
         this.addRenderableWidget(Button.builder(
             Component.literal("§a✓ Зберегти"),
             b -> { save(); this.minecraft.setScreen(parent); }
-        ).bounds(cx - 110, this.height - 24, 100, 20).build());
+        ).bounds(cx - 110, y, 100, 20).build());
         this.addRenderableWidget(Button.builder(
             Component.literal("Скасувати"),
             b -> this.minecraft.setScreen(parent)
-        ).bounds(cx + 10, this.height - 24, 100, 20).build());
+        ).bounds(cx + 10, y, 100, 20).build());
     }
 
-    private void save() {
-        if (cooldownValueInput != null) {
-            try { wave.setCooldownValue(Integer.parseInt(cooldownValueInput.getValue().trim())); }
-            catch (NumberFormatException ignored) {}
-        }
-        if (customItemInput != null) {
-            wave.setTriggerCustomItemId(customItemInput.getValue().trim());
-        }
-        if (activateFromWaveInput != null) {
-            try { wave.setActivateFromWave(Integer.parseInt(activateFromWaveInput.getValue().trim())); }
-            catch (NumberFormatException ignored) {}
-        }
-    }
-
+    // ── RENDER ────────────────────────────────────────────────────────────
     @Override
     public void render(GuiGraphics g, int mx, int my, float pt) {
         this.renderBackground(g);
-        int cx = this.width / 2;
-        g.drawCenteredString(this.font, "§d⚡ §6Тригер Хвилі §e" + (waveIndex + 1), cx, 10, 0xFFFFFF);
-        g.drawCenteredString(this.font,
-            wave.isTriggerEnabled()
-                ? "§7Клік — головний тригер  §b§lCtrl+Клік §7або §bклік вже-вибраного §7— AND умова"
-                : "§8Хвиля по загальному порядку",
-            cx, 20, 0x888888);
-        super.render(g, mx, my, pt);
+        g.drawCenteredString(this.font, "§d⚡ §6Тригер §eХвилі " + (waveIndex + 1), this.width / 2, 8, 0xFFFFFF);
+
+        if (!wave.isTriggerEnabled() || scrollTop >= scrollBot) {
+            super.render(g, mx, my, pt);
+            return;
+        }
+
+        // 1) Рендеримо статичні елементи ДО списку (поза scissor)
+        renderWidgetsBand(g, mx, my, pt, 0, scrollTop);
+
+        // 2) Scissor: список тригерів
+        ScissorHelper.enable(0, scrollTop, this.width, scrollBot - scrollTop);
+        renderWidgetsBand(g, mx, my, pt, scrollTop, scrollBot);
+        ScissorHelper.disable();
+
+        // 3) Статичні елементи ПІСЛЯ списку
+        renderWidgetsBand(g, mx, my, pt, scrollBot, this.height);
     }
 
+    /** Рендерить тільки widgets чий getY() потрапляє в [yFrom, yTo) */
+    private void renderWidgetsBand(GuiGraphics g, int mx, int my, float pt, int yFrom, int yTo) {
+        for (var r : this.renderables) {
+            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w) {
+                if (w.getY() >= yFrom && w.getY() < yTo) {
+                    w.render(g, mx, my, pt);
+                }
+            }
+        }
+    }
+
+    // ── SCROLL + CTRL+CLICK ───────────────────────────────────────────────
     @Override
     public boolean mouseScrolled(double mx, double my, double delta) {
-        if (delta > 0 && triggerScrollOffset > 0) { triggerScrollOffset -= 2; if (triggerScrollOffset < 0) triggerScrollOffset = 0; rebuildWidgets(); }
-        else if (delta < 0) { triggerScrollOffset += 2; rebuildWidgets(); }
+        if (!wave.isTriggerEnabled()) return true;
+        if (delta > 0) {
+            if (triggerScrollOffset > 0) { triggerScrollOffset--; rebuildWidgets(); }
+        } else {
+            int visible = Math.max(1, (scrollBot - scrollTop) / (BTN_H + BTN_GAP));
+            if (triggerScrollOffset + visible < available.size()) { triggerScrollOffset++; rebuildWidgets(); }
+        }
         return true;
     }
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        // Detect Ctrl+Click to add as extra trigger (AND condition)
         if (button == 0 && hasControlDown()) {
-            // Find which trigger button was clicked and add as extra
             for (var widget : this.renderables) {
                 if (widget instanceof Button btn && btn.isMouseOver(mx, my)) {
                     String msg = btn.getMessage().getString();
-                    // Find matching trigger
                     for (WaveTrigger t : WaveTrigger.values()) {
                         if (msg.contains(t.label) && t != selected && !t.name().startsWith("SHOP_")) {
                             if (wave.getExtraTriggers().contains(t)) wave.removeExtraTrigger(t);
@@ -301,6 +372,15 @@ public class WaveTriggerEditorScreen extends Screen {
         return super.mouseClicked(mx, my, button);
     }
 
-    @Override
-    public boolean isPauseScreen() { return false; }
+    // ── SAVE ──────────────────────────────────────────────────────────────
+    private void save() {
+        if (cooldownValueInput   != null) try { wave.setCooldownValue(Integer.parseInt(cooldownValueInput.getValue().trim())); } catch (NumberFormatException ignored) {}
+        if (customItemInput      != null) wave.setTriggerCustomItemId(customItemInput.getValue().trim());
+        if (customValueInput     != null) try { wave.setTriggerCustomValue(Integer.parseInt(customValueInput.getValue().trim())); } catch (NumberFormatException ignored) {}
+        if (activateFromWaveInput!= null) try { wave.setActivateFromWave(Integer.parseInt(activateFromWaveInput.getValue().trim())); } catch (NumberFormatException ignored) {}
+    }
+
+    @Override public boolean keyPressed(int k, int s, int m) { return super.keyPressed(k, s, m); }
+    @Override public boolean charTyped(char c, int m) { return super.charTyped(c, m); }
+    @Override public boolean isPauseScreen() { return false; }
 }

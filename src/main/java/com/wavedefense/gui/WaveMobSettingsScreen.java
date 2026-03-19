@@ -117,6 +117,16 @@ public class WaveMobSettingsScreen extends Screen {
     }
 
     @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean charTyped(char ch, int modifiers) {
+        return super.charTyped(ch, modifiers);
+    }
+
+    @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics);
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);

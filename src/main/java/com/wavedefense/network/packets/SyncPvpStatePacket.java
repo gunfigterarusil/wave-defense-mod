@@ -1,22 +1,17 @@
 package com.wavedefense.network.packets;
 
-import com.wavedefense.gui.ClientPvpStateManager;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkEvent;
 
 import java.util.*;
 import java.util.function.Supplier;
 
-/**
- * Синхронізує стан PvP раунду з сервера на клієнт:
- * - фаза, раунд, таймер
- * - статистика гравців (ніки, команди, K/D/A)
- * - перемоги команд
- * - команда поточного гравця (для фільтру нікнеймів)
- */
 public class SyncPvpStatePacket {
 
     private final CompoundTag data;
@@ -24,26 +19,36 @@ public class SyncPvpStatePacket {
     public SyncPvpStatePacket(CompoundTag data) { this.data = data; }
 
     public static void encode(SyncPvpStatePacket p, FriendlyByteBuf buf) { buf.writeNbt(p.data); }
+
     public static SyncPvpStatePacket decode(FriendlyByteBuf buf) {
         return new SyncPvpStatePacket(buf.readNbt());
     }
 
     public static void handle(SyncPvpStatePacket p, Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> ClientPvpStateManager.update(p.data));
+        ctx.get().enqueueWork(() ->
+            DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientHandler.handle(p))
+        );
         ctx.get().setPacketHandled(true);
+    }
+
+    @OnlyIn(Dist.CLIENT)
+    private static class ClientHandler {
+        static void handle(SyncPvpStatePacket p) {
+            com.wavedefense.gui.ClientPvpStateManager.update(p.data);
+        }
     }
 
     // ── Builder (сервер) ──────────────────────────────────────────────────
 
     public static CompoundTag build(
             String locationName,
-            String phase,           // WAITING / BUY / ACTIVE / ENDED
+            String phase,
             int currentRound,
             int totalRounds,
             int timerSeconds,
             Map<String, Integer> teamWins,
             List<PlayerEntry> players,
-            String myTeam           // команда отримувача
+            String myTeam
     ) {
         CompoundTag tag = new CompoundTag();
         tag.putString("location", locationName);
@@ -53,12 +58,10 @@ public class SyncPvpStatePacket {
         tag.putInt("timerSeconds", timerSeconds);
         tag.putString("myTeam", myTeam != null ? myTeam : "");
 
-        // Перемоги команд
         CompoundTag wins = new CompoundTag();
         if (teamWins != null) teamWins.forEach((t, w) -> wins.putInt(t, w));
         tag.put("teamWins", wins);
 
-        // Гравці
         ListTag playerList = new ListTag();
         if (players != null) {
             for (PlayerEntry e : players) {

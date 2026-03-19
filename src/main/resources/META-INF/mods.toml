@@ -5,27 +5,66 @@ issueTrackerURL="https://github.com/yourname/wavedefense/issues"
 
 [[mods]]
 modId="wavedefense"
-version="1.0.0"
+version="0.2.27"
 displayName="Wave Defense"
 description='''
-A comprehensive wave defense mod for Minecraft that allows players to fight waves of mobs in custom locations.
-Features include customizable waves, shop system, point rewards, and more.
+Wave Defense v0.2.24 — PvE/PvP мод для Minecraft 1.20.1 Forge.
+
+=== НОВИНКИ v0.2.23 ===
+• Точковий магазин — новий режим «Точковий» в ShopEditor
+• Кілька точок магазину на локацію — кожна з власними товарами і радіусом
+• При режимі POINT — магазин недоступний поза радіусом точок
+• ShopPointEditorScreen — редагування точки (назва, координати, радіус, товари)
+• Зворотна сумісність — режим GLOBAL = попередня поведінка без змін
+
+=== ОСНОВНІ ФУНКЦІЇ ===
+
+--- PvE ---
+• Хвильовий захист з налаштовуваними мобами (броня, зброя, ефекти)
+• Магазин (клавіша B): зброя, броня, розхідники, умовні товари
+• Авто-активація зони при вході в радіус
+• Збереження та відновлення інвентаря, стартові предмети/поінти
+• Лут-спавн: до 19 тригерів, числові параметри N для WAVE_N / MOBS_KILLED_N
+
+--- PvP ---
+• Командні раунди, фаза покупок, спектатор між раундами
+• Статистика K/D/A, зелені ніки союзників, приховані ніки ворогів
+
+--- Тригери (30+) ---
+• Хвиля, таймер, вбивство, смерть, вхід, рандомні події
+• Параметризовані: TIMER_CUSTOM, MOBS_KILLED_N, WAVES_SURVIVED_N, WAVE_N
+• Мультитригери AND (Ctrl+клік); перезарядка секунди/хвилі
+• NBT-перевірка предмета при продажу з магазину
+
+--- UI/UX ---
+• Scissor-скрол у всіх великих меню (Language Screen-стиль)
+• Тригери в одній колонці з індивідуальними налаштуваннями
+• Інфо-панелі (TextDisplay): к-ть гравців, хвиля, таймер, моби, поінти
+• HUD: таймер до хвилі, поінти, таймер перемоги, повідомлення
+• Частинки зони: 7 пресетів (squid_ink, flame, end_rod, witch, portal, snowflake, happy_villager)
+• Точки виходу окремо для перемоги/здачі
+• Прихована локація (адміни бачать усі, гравці — тільки видимі)
+
+--- Загальне ---
+• Безмежна кількість локацій, адаптивний UI
+• Конфіг: config/wavedefense-common.toml
+• Команда /wavedefense або /wd для адміністрування
 '''
 logoFile="logo.png"
 authors="Rayman"
-credits="Thanks to the Minecraft Forge team"
+credits="Thanks to the Minecraft Forge team. Special thanks to tester KatkovB."
 displayURL="https://github.com/yourname/wavedefense"
 
 [[dependencies.wavedefense]]
-modId="forge"
-mandatory=true
-versionRange="[47,48)"
-ordering="NONE"
-side="BOTH"
+    modId="forge"
+    mandatory=true
+    versionRange="[47,48)"
+    ordering="NONE"
+    side="BOTH"
 
 [[dependencies.wavedefense]]
-modId="minecraft"
-mandatory=true
-versionRange="[1.20.1]"
-ordering="NONE"
-side="BOTH"
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.20.1]"
+    ordering="NONE"
+    side="BOTH"

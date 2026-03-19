@@ -29,6 +29,12 @@ public class LocationManager {
         }
     }
 
+    public void addLocation(Location loc) {
+        locations.removeIf(l -> l.getName().equals(loc.getName())); // replace if exists
+        locations.add(loc);
+        saveToFile();
+    }
+
     public void removeLocation(String name) {
         locations.removeIf(loc -> loc.getName().equals(name));
         saveToFile();
@@ -95,5 +101,10 @@ public class LocationManager {
         } catch (IOException e) {
             WaveDefenseMod.LOGGER.error("Could not load location data", e);
         }
+    }
+    /** Повертає поточну хвилю для вказаної локації (0 якщо неактивна). */
+    public int getCurrentWaveForLocation(String locationName) {
+        if (com.wavedefense.WaveDefenseMod.waveManager == null) return 0;
+        return com.wavedefense.WaveDefenseMod.waveManager.getCurrentWaveForLocation(locationName);
     }
 }

@@ -30,7 +30,10 @@ public class WaveConfig {
     // Мультитригери: всі умови мають бути виконані одночасно (AND)
     private java.util.List<WaveTrigger> extraTriggers = new java.util.ArrayList<>();
     // Предмет для тригера PLAYER_HAS_ITEM (registry id, наприклад "minecraft:diamond")
+    // Підтримує кілька предметів через кому: "minecraft:diamond,minecraft:iron_ingot"
     private String triggerCustomItemId = "";
+    // Числове значення для тригерів TIMER_CUSTOM (сек), MOBS_KILLED_N (кількість), WAVES_SURVIVED_N (кількість)
+    private int    triggerCustomValue  = 60;   // за замовчуванням 60 сек для TIMER_CUSTOM
     // Перезарядка після спрацювання:
     //   cooldownMode=NONE — немає перезарядки
     //   cooldownMode=SECONDS — cooldownValue секунд
@@ -97,6 +100,8 @@ public class WaveConfig {
 
     public String getTriggerCustomItemId() { return triggerCustomItemId == null ? "" : triggerCustomItemId; }
     public void setTriggerCustomItemId(String id) { this.triggerCustomItemId = id == null ? "" : id; }
+    public int  getTriggerCustomValue()    { return triggerCustomValue; }
+    public void setTriggerCustomValue(int v) { this.triggerCustomValue = Math.max(1, v); }
 
     public CooldownMode getCooldownMode()                { return cooldownMode; }
     public void         setCooldownMode(CooldownMode m)  { this.cooldownMode = m; }
@@ -141,6 +146,7 @@ public class WaveConfig {
             tag.putString("cooldownMode", cooldownMode.name());
             tag.putInt("cooldownValue", cooldownValue);
             if (!triggerCustomItemId.isEmpty()) tag.putString("triggerCustomItemId", triggerCustomItemId);
+            tag.putInt("triggerCustomValue", triggerCustomValue);
             if (!extraTriggers.isEmpty()) {
                 net.minecraft.nbt.ListTag etList = new net.minecraft.nbt.ListTag();
                 for (WaveTrigger t : extraTriggers) {
@@ -178,6 +184,7 @@ public class WaveConfig {
             try { config.cooldownMode = CooldownMode.valueOf(tag.getString("cooldownMode")); } catch (Exception ignored) {}
             config.cooldownValue = tag.contains("cooldownValue") ? tag.getInt("cooldownValue") : 0;
             config.triggerCustomItemId = tag.contains("triggerCustomItemId") ? tag.getString("triggerCustomItemId") : "";
+            config.triggerCustomValue  = tag.contains("triggerCustomValue")  ? tag.getInt("triggerCustomValue")  : 60;
             if (tag.contains("extraTriggers")) {
                 net.minecraft.nbt.ListTag etList = tag.getList("extraTriggers", 10);
                 for (int i = 0; i < etList.size(); i++) {

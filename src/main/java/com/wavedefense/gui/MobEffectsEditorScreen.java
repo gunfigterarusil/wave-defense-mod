@@ -262,6 +262,16 @@ public class MobEffectsEditorScreen extends Screen {
     }
 
     @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean charTyped(char ch, int modifiers) {
+        return super.charTyped(ch, modifiers);
+    }
+
+    @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
         this.renderBackground(g);
         int cx = this.width / 2;

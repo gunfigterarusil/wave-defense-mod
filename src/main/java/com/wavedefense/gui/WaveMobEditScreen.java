@@ -123,13 +123,22 @@ public class WaveMobEditScreen extends Screen {
         for (int i = 0; i < 4; i++) {
             final int si = i;
             int x = armorLeft + i * (armorW + armorGap);
+            final ItemStack curSlotItem = armorSlots[i];
 
             this.addRenderableWidget(Button.builder(
                     Component.literal("§8" + armorLabels[i]), b -> {}
             ).bounds(x, startY, armorW, 10).build()).active = false;
 
+            // Label показує назву обраного предмета якщо є — виділення
+            String slotLbl;
+            if (curSlotItem.isEmpty()) {
+                slotLbl = "§8[—]";
+            } else {
+                String nm = curSlotItem.getHoverName().getString();
+                slotLbl = "§6§l▶ §r§a" + (nm.length() > 8 ? nm.substring(0, 7) + "…" : nm);
+            }
             this.addRenderableWidget(Button.builder(
-                    Component.literal(armorSlots[i].isEmpty() ? "§8[—]" : "§a✓"),
+                    Component.literal(slotLbl),
                     b -> minecraft.setScreen(new ItemSelectionScreen(this, stack -> {
                         switch (si) {
                             case 0 -> editMob.setHelmet(stack);
@@ -138,8 +147,22 @@ public class WaveMobEditScreen extends Screen {
                             case 3 -> editMob.setBoots(stack);
                         }
                         rebuildWidgets();
-                    }))
-            ).bounds(x, startY + 12, armorW, 16).build());
+                    }, curSlotItem))
+            ).bounds(x, startY + 12, armorW - 16, 16).build());
+            // Кнопка очищення слоту броні
+            var clearArmor = this.addRenderableWidget(Button.builder(
+                    Component.literal("§c✕"),
+                    b -> {
+                        switch (si) {
+                            case 0 -> editMob.setHelmet(ItemStack.EMPTY);
+                            case 1 -> editMob.setChestplate(ItemStack.EMPTY);
+                            case 2 -> editMob.setLeggings(ItemStack.EMPTY);
+                            case 3 -> editMob.setBoots(ItemStack.EMPTY);
+                        }
+                        rebuildWidgets();
+                    }
+            ).bounds(x + armorW - 14, startY + 12, 14, 16).build());
+            clearArmor.active = !curSlotItem.isEmpty();
         }
         startY += 32;
 
@@ -149,21 +172,42 @@ public class WaveMobEditScreen extends Screen {
         ).bounds(cx - 150, startY, 300, 12).build()).active = false;
         startY += 14;
 
-        String mainLabel = editMob.getMainHand().isEmpty() ? "§8Осн. рука [—]" : "§aОсн. рука ✓";
-        this.addRenderableWidget(Button.builder(
-                Component.literal(mainLabel),
-                b -> minecraft.setScreen(new ItemSelectionScreen(this, stack -> {
-                    editMob.setMainHand(stack); rebuildWidgets();
-                }))
-        ).bounds(cx - 150, startY, 140, 20).build());
-
-        String offLabel = editMob.getOffHand().isEmpty() ? "§8Ліва рука [—]" : "§aЛіва рука ✓";
-        this.addRenderableWidget(Button.builder(
-                Component.literal(offLabel),
-                b -> minecraft.setScreen(new ItemSelectionScreen(this, stack -> {
-                    editMob.setOffHand(stack); rebuildWidgets();
-                }))
-        ).bounds(cx + 5, startY, 140, 20).build());
+        {
+            final ItemStack curMain = editMob.getMainHand();
+            String mainNm = curMain.isEmpty() ? "" : curMain.getHoverName().getString();
+            String mainLabel = curMain.isEmpty() ? "§8Осн. рука [—]"
+                : "§6§l▶ §r§aОсн: " + (mainNm.length() > 9 ? mainNm.substring(0, 8) + "…" : mainNm);
+            this.addRenderableWidget(Button.builder(
+                    Component.literal(mainLabel),
+                    b -> minecraft.setScreen(new ItemSelectionScreen(this, stack -> {
+                        editMob.setMainHand(stack); rebuildWidgets();
+                    }, curMain))
+            ).bounds(cx - 150, startY, 120, 20).build());
+            // Кнопка очищення основної руки
+            var clearMain = this.addRenderableWidget(Button.builder(
+                    Component.literal("§c✕"),
+                    b -> { editMob.setMainHand(ItemStack.EMPTY); rebuildWidgets(); }
+            ).bounds(cx - 26, startY, 20, 20).build());
+            clearMain.active = !curMain.isEmpty();
+        }
+        {
+            final ItemStack curOff = editMob.getOffHand();
+            String offNm = curOff.isEmpty() ? "" : curOff.getHoverName().getString();
+            String offLabel = curOff.isEmpty() ? "§8Ліва рука [—]"
+                : "§6§l▶ §r§aЛіва: " + (offNm.length() > 9 ? offNm.substring(0, 8) + "…" : offNm);
+            this.addRenderableWidget(Button.builder(
+                    Component.literal(offLabel),
+                    b -> minecraft.setScreen(new ItemSelectionScreen(this, stack -> {
+                        editMob.setOffHand(stack); rebuildWidgets();
+                    }, curOff))
+            ).bounds(cx + 5, startY, 120, 20).build());
+            // Кнопка очищення лівої руки
+            var clearOff = this.addRenderableWidget(Button.builder(
+                    Component.literal("§c✕"),
+                    b -> { editMob.setOffHand(ItemStack.EMPTY); rebuildWidgets(); }
+            ).bounds(cx + 129, startY, 20, 20).build());
+            clearOff.active = !curOff.isEmpty();
+        }
         startY += 26;
 
         // ── ЕФЕКТИ ────────────────────────────────────────────────────────
@@ -206,6 +250,16 @@ public class WaveMobEditScreen extends Screen {
     }
 
     @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean charTyped(char ch, int modifiers) {
+        return super.charTyped(ch, modifiers);
+    }
+
+    @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(g);
         g.drawCenteredString(this.font, this.title, this.width / 2, 12, 0xFFFFFF);
@@ -235,12 +289,18 @@ public class WaveMobEditScreen extends Screen {
             }
         }
 
-        // Зброя
+        // Зброя — іконки позиціонуються поряд з кнопками (cx-150 = початок mainHand, cx+5 = початок offHand)
         if (!editMob.getMainHand().isEmpty()) {
-            g.renderItem(editMob.getMainHand(), cx - 150, armorRowY + 48);
+            int ix = cx - 150 + 122; // після кнопки 120px + 2px відступ
+            g.renderItem(editMob.getMainHand(), ix, armorRowY + 48);
+            if (mouseX >= ix && mouseX < ix + 16 && mouseY >= armorRowY + 48 && mouseY < armorRowY + 64)
+                g.renderTooltip(this.font, editMob.getMainHand(), mouseX, mouseY);
         }
         if (!editMob.getOffHand().isEmpty()) {
-            g.renderItem(editMob.getOffHand(), cx + 5, armorRowY + 48);
+            int ix = cx + 5 + 122;
+            g.renderItem(editMob.getOffHand(), ix, armorRowY + 48);
+            if (mouseX >= ix && mouseX < ix + 16 && mouseY >= armorRowY + 48 && mouseY < armorRowY + 64)
+                g.renderTooltip(this.font, editMob.getOffHand(), mouseX, mouseY);
         }
     }
 

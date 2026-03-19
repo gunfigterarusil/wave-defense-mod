@@ -60,7 +60,7 @@ public class CompletionRewardScreen extends Screen {
         y += 28;
 
         List<ShopItem> rewards = location.getCompletionRewards();
-        int rowH = 44;
+        int rowH = 62;
         for (int i = 0; i < Math.min(ITEMS_PER_PAGE, rewards.size()); i++) {
             int idx = i + scrollOffset;
             if (idx >= rewards.size()) break;
@@ -68,11 +68,20 @@ public class CompletionRewardScreen extends Screen {
             int yPos = y + i * rowH;
 
             List<ItemStack> items = reward.getItems();
-            String firstName = items.isEmpty() ? "???" : items.get(0).getHoverName().getString();
-            if (firstName.length() > 20) firstName = firstName.substring(0, 17) + "...";
-            if (items.size() > 1) firstName += " (+" + (items.size() - 1) + ")";
+            // Збираємо назви всіх предметів
+            StringBuilder namesBuilder = new StringBuilder();
+            for (int ni = 0; ni < items.size(); ni++) {
+                if (ni > 0) namesBuilder.append("§8, §e");
+                String nm = items.get(ni).getHoverName().getString();
+                int cnt = items.get(ni).getCount();
+                if (cnt > 1) nm = nm + " §8x" + cnt + "§e";
+                if (nm.length() > 22) nm = nm.substring(0, 20) + "…";
+                namesBuilder.append(nm);
+            }
+            String allNames = items.isEmpty() ? "§c???" : ("§e" + namesBuilder);
+            if (allNames.length() > 80) allNames = allNames.substring(0, 78) + "…";
 
-            String rowLabel = String.format("§e%s §7| Мін. поінтів: §6%d", firstName, reward.getBuyPrice());
+            String rowLabel = String.format("§7Мін. поінтів: §6%d §7| §e%s", reward.getBuyPrice(), allNames);
 
             this.addRenderableWidget(Button.builder(
                     Component.literal(rowLabel), button -> {}
@@ -90,6 +99,15 @@ public class CompletionRewardScreen extends Screen {
                 this.addRenderableWidget(Button.builder(
                         Component.literal(""), button -> {}
                 ).bounds(cx - 160 + j * 22, yPos + 20, 20, 20).build()).active = false;
+            }
+            // Назва першого предмету під іконками
+            if (!items.isEmpty()) {
+                String itemName = "§7" + items.get(0).getHoverName().getString();
+                if (items.size() > 1) itemName += " §8(+" + (items.size()-1) + ")";
+                if (itemName.length() > 40) itemName = itemName.substring(0, 38) + "…";
+                this.addRenderableWidget(Button.builder(
+                        Component.literal(itemName), button -> {}
+                ).bounds(cx - 160, yPos + 42, 260, 12).build()).active = false;
             }
         }
 
@@ -210,16 +228,25 @@ public class CompletionRewardScreen extends Screen {
     }
 
     @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean charTyped(char ch, int modifiers) {
+        return super.charTyped(ch, modifiers);
+    }
+
+    @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics);
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
-
         int cx = this.width / 2;
+        graphics.drawCenteredString(this.font, this.title, cx, 10, 0xFFFFFF);
 
         if (editingItem) {
-            // Слоти у стилі ShopItemEditorScreen
-            // iconY = y(35) + підпис(16) + відступ(2) = 53
-            int iconY = 53;
+            // Режим редагування — без scissor
+            // Іконки слотів: y(35) + підпис(16) = 51
+            int iconY = 51;
             int totalSlotsW = 4 * SLOT_W + 3 * SLOT_GAP;
             int slotsLeft = cx - totalSlotsW / 2;
 
@@ -227,7 +254,6 @@ public class CompletionRewardScreen extends Screen {
                 int xPos = slotsLeft + i * (SLOT_W + SLOT_GAP);
                 ItemStack item = editItems.get(i);
 
-                // Рамка точно як у ShopItemEditorScreen
                 graphics.fill(xPos + (SLOT_W - 18) / 2 - 1, iconY - 1,
                         xPos + (SLOT_W - 18) / 2 + 19, iconY + 17, 0xFF555555);
                 graphics.fill(xPos + (SLOT_W - 18) / 2, iconY,
@@ -242,23 +268,56 @@ public class CompletionRewardScreen extends Screen {
                     graphics.renderTooltip(this.font, item, mouseX, mouseY);
                 }
             }
+            super.render(graphics, mouseX, mouseY, partialTick);
         } else {
+            // Режим списку зі scissor
+            // Header: заголовок(10) + підказка(35) + кнопка "Додати"(57) → listTop = 83
+            // Footer: кнопка "Зберегти" на height-28 → listBot = height-32
+            int listTop = 83;
+            int listBot = this.height - 32;
+
+            ScissorHelper.enable(0, listTop, this.width, Math.max(1, listBot - listTop));
+            super.render(graphics, mouseX, mouseY, partialTick);
+
+            // Іконки предметів у списку (в scissor зоні)
             int listY = 85;
-            int rowH = 44;
+            int rowH = 62;
             List<ShopItem> rewards = location.getCompletionRewards();
             for (int i = 0; i < Math.min(ITEMS_PER_PAGE, rewards.size()); i++) {
                 int idx = i + scrollOffset;
                 if (idx >= rewards.size()) break;
                 List<ItemStack> items = rewards.get(idx).getItems();
                 int yPos = listY + i * rowH;
+                ItemStack tooltipItem = null;
                 for (int j = 0; j < Math.min(4, items.size()); j++) {
-                    graphics.renderItem(items.get(j), cx - 160 + j * 22, yPos + 20);
-                    graphics.renderItemDecorations(this.font, items.get(j), cx - 160 + j * 22, yPos + 20);
+                    int ix = cx - 160 + j * 22;
+                    int iy = yPos + 20;
+                    // Рамка
+                    graphics.fill(ix - 1, iy - 1, ix + 17, iy + 17, 0xFF444444);
+                    graphics.fill(ix, iy, ix + 16, iy + 16, 0xFF222222);
+                    graphics.renderItem(items.get(j), ix, iy);
+                    graphics.renderItemDecorations(this.font, items.get(j), ix, iy);
+                    if (mouseX >= ix && mouseX < ix + 16 && mouseY >= iy && mouseY < iy + 16) {
+                        tooltipItem = items.get(j);
+                    }
+                }
+                if (tooltipItem != null) {
+                    ScissorHelper.disable();
+                    graphics.renderTooltip(this.font, tooltipItem, mouseX, mouseY);
+                    ScissorHelper.enable(0, listTop, this.width, Math.max(1, listBot - listTop));
+                }
+            }
+
+            ScissorHelper.disable();
+
+            // Re-render static header + footer поверх scissor
+            for (var r : this.renderables) {
+                if (r instanceof net.minecraft.client.gui.components.AbstractWidget w) {
+                    if (w.getY() < listTop || w.getY() >= listBot)
+                        w.render(graphics, mouseX, mouseY, partialTick);
                 }
             }
         }
-
-        super.render(graphics, mouseX, mouseY, partialTick);
     }
 
     @Override

@@ -10,6 +10,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraftforge.registries.ForgeRegistries;
 
+import com.wavedefense.gui.ScissorHelper;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -132,15 +133,24 @@ public class MobTypeSelectionScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(graphics);
-
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
-        graphics.drawString(this.font,
-                "Доступно мобів: " + availableMobs.size(),
-                10, 30, 0xAAAAAA);
-
-        super.render(graphics, mouseX, mouseY, partialTick);
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        this.renderBackground(g);
+        g.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
+        g.drawString(this.font, "Доступно мобів: " + availableMobs.size(), 10, 30, 0xAAAAAA);
+        // Scissor: список мобів між заголовком (48) та нижніми кнопками (height-34)
+        int listTop = 48, listBot = this.height - 34;
+        ScissorHelper.enable(0, listTop, this.width, Math.max(1, listBot - listTop));
+        for (var r : this.renderables) {
+            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
+                    && w.getY() + w.getHeight() > listTop && w.getY() < listBot)
+                w.render(g, mouseX, mouseY, partialTick);
+        }
+        ScissorHelper.disable();
+        for (var r : this.renderables) {
+            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
+                    && (w.getY() < listTop || w.getY() >= listBot))
+                w.render(g, mouseX, mouseY, partialTick);
+        }
     }
 
     @Override

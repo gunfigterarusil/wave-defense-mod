@@ -4,6 +4,7 @@ import com.wavedefense.WaveDefenseMod;
 import com.wavedefense.data.Location;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.SurrenderPacket;
+import com.wavedefense.network.packets.ExitPvpPacket;
 import com.wavedefense.wave.PlayerWaveData;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -41,24 +42,24 @@ public class WaveActionsScreen extends Screen {
         Player player = minecraft.player;
         if (player == null) return;
 
-        // ── Спектатор у PvP — тільки кнопка "Здатися" ────────────────
+        // ── Спектатор у PvP — кнопки "Вийти з PvP" і "Здатися" ────────────────
         if (player.isSpectator()) {
-            int startY = this.height / 2 - 30;
+            int startY = this.height / 2 - 40;
             g_spectatorLabel = ClientPvpStateManager.getPhase().equals("WAITING")
                     ? "§7Очікуємо гравців..."
-                    : "§7Ви в режимі спектатора";
+                    : "§7Ви загинули — чекаємо наступного раунду";
             this.addRenderableWidget(Button.builder(
-                    Component.literal("§c🏳 Здатися (вийти з локації)"),
+                    Component.literal("§c🏳 Здатися (з пенальті)"),
                     b -> { PacketHandler.sendToServer(new SurrenderPacket()); this.onClose(); }
             ).bounds(cx - btnW / 2, startY, btnW, btnH).build());
             this.addRenderableWidget(Button.builder(
                     Component.literal("Закрити меню"),
                     b -> this.onClose()
-            ).bounds(cx - 55, startY + btnH + gap, 110, 20).build());
+            ).bounds(cx - 55, startY + btnH + gap + 4, 110, 20).build());
             return;
         }
 
-        PlayerWaveData pd = WaveDefenseMod.waveManager.getPlayerData(player.getUUID());
+        PlayerWaveData pd = com.wavedefense.gui.ClientPlayerDataManager.getPlayerData();
         Location location  = pd != null ? pd.getCurrentLocation() : null;
         boolean isPvp      = location != null && location.isPvp();
 
@@ -91,11 +92,13 @@ public class WaveActionsScreen extends Screen {
         int startY = this.height / 2 - 70;
         int i = 0;
 
-        // Магазин
-        boolean hasShop = !location.getShopItems().isEmpty();
+        // Магазин (PvP)
+        boolean hasShop = location.isPointShopMode()
+            ? !location.getShopPoints().isEmpty()
+            : !location.getShopItems().isEmpty();
         Button shopBtn = Button.builder(
             Component.literal("§6🛒 Магазин"),
-            b -> minecraft.setScreen(new PlayerShopScreen(location))
+            b -> openShopForLocation(location)
         ).bounds(cx - btnW / 2, startY + (btnH + gap) * i++, btnW, btnH).build();
         shopBtn.active = hasShop;
         this.addRenderableWidget(shopBtn);
@@ -112,7 +115,13 @@ public class WaveActionsScreen extends Screen {
             b -> { if (pd != null) minecraft.setScreen(new PlayerSettingsScreen(pd)); }
         ).bounds(cx - btnW / 2, startY + (btnH + gap) * i++, btnW, btnH).build());
 
-        // Здатися
+        // Вийти з PvP (без штрафу)
+        this.addRenderableWidget(Button.builder(
+            Component.literal("§e🚪 Вийти з PvP"),
+            b -> { PacketHandler.sendToServer(new ExitPvpPacket()); this.onClose(); }
+        ).bounds(cx - btnW / 2, startY + (btnH + gap) * i++, btnW, btnH).build());
+
+        // Здатися (з пенальті)
         this.addRenderableWidget(Button.builder(
             Component.literal("§c🏳 Здатися"),
             b -> { PacketHandler.sendToServer(new SurrenderPacket()); this.onClose(); }
@@ -129,10 +138,12 @@ public class WaveActionsScreen extends Screen {
                                PlayerWaveData pd, Location location, Player player) {
         int startY = this.height / 2 - 60;
 
-        boolean hasShop = location != null && !location.getShopItems().isEmpty();
+        boolean hasShop = location != null && (location.isPointShopMode()
+            ? !location.getShopPoints().isEmpty()
+            : !location.getShopItems().isEmpty());
         Button shopBtn = Button.builder(
             Component.literal("§6🛒 Відкрити магазин"),
-            b -> { if (location != null) minecraft.setScreen(new PlayerShopScreen(location)); }
+            b -> { if (location != null) openShopForLocation(location); }
         ).bounds(cx - btnW / 2, startY, btnW, btnH).build();
         shopBtn.active = hasShop;
         this.addRenderableWidget(shopBtn);
@@ -166,9 +177,9 @@ public class WaveActionsScreen extends Screen {
 
         // Спектатор — простий оверлей
         if (minecraft.player != null && minecraft.player.isSpectator()) {
-            g.drawCenteredString(this.font, "§c§l⚔ Wave Defense — Меню", cx, topY + 8, 0xFF5555);
+            g.drawCenteredString(this.font, "§c§l⚔ Wave Defense — PvP Меню", cx, topY + 8, 0xFF5555);
             g.drawCenteredString(this.font, g_spectatorLabel, cx, topY + 22, 0xAAAAAA);
-            g.drawCenteredString(this.font, "§7Тільки здача доступна в режимі спектатора", cx, topY + 34, 0x888888);
+            g.drawCenteredString(this.font, "§7Вийти — повернутись без штрафу | Здатися — з пенальті", cx, topY + 34, 0x888888);
             super.render(g, mouseX, mouseY, partialTick);
             return;
         }
@@ -209,9 +220,37 @@ public class WaveActionsScreen extends Screen {
         if (label.contains("Статистик"))  return TooltipHelper.STATS;
         if (label.contains("Здатися"))    return TooltipHelper.SURRENDER;
         if (label.contains("Налаштув"))   return TooltipHelper.HUD_SETTINGS;
+        if (label.contains("Вийти з PvP")) return "§7Покинути PvP локацію без штрафних очків";
         return null;
     }
 
     @Override
     public boolean isPauseScreen() { return false; }
+
+    /**
+     * Відкриває магазин з урахуванням режиму (GLOBAL або POINT).
+     * У точковому режимі перевіряє відстань до найближчої точки.
+     */
+    private void openShopForLocation(com.wavedefense.data.Location loc) {
+        if (loc.isPointShopMode()) {
+            if (minecraft.player == null) return;
+            double px = minecraft.player.getX(), py = minecraft.player.getY(), pz = minecraft.player.getZ();
+            com.wavedefense.data.ShopPoint sp = loc.findNearestShopPoint(px, py, pz);
+            if (sp == null) {
+                minecraft.player.displayClientMessage(
+                    net.minecraft.network.chat.Component.literal("§c🛒 Підійдіть до точки магазину щоб відкрити його."), true);
+                this.onClose();
+                return;
+            }
+            if (sp.getItems().isEmpty()) {
+                minecraft.player.displayClientMessage(
+                    net.minecraft.network.chat.Component.literal("§c🛒 Магазин поруч порожній!"), true);
+                return;
+            }
+            minecraft.setScreen(new PlayerShopScreen(loc, sp));
+        } else {
+            minecraft.setScreen(new PlayerShopScreen(loc));
+        }
+    }
+
 }

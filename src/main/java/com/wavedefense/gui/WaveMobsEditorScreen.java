@@ -122,9 +122,21 @@ public class WaveMobsEditorScreen extends Screen {
         }
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("Назад"),
+                Component.literal("§a✓ Готово"),
                 button -> this.minecraft.setScreen(parent)
-        ).bounds(centerX - 50, this.height - 28, 100, 20).build());
+        ).bounds(centerX + 5, this.height - 28, 95, 20).build());
+
+        this.addRenderableWidget(Button.builder(
+                Component.literal("§c✕ Без збереження"),
+                button -> {
+                    // Відновлюємо оригінальний стан хвилі (скидаємо зміни)
+                    // Зберігаємо посилання на WaveConfigScreen і повертаємось без UpdateLocationPacket
+                    if (parent instanceof WaveConfigScreen wcs) {
+                        wcs.discardWaveChanges();
+                    }
+                    this.minecraft.setScreen(parent);
+                }
+        ).bounds(centerX - 105, this.height - 28, 105, 20).build());
     }
 
     private void applyMobCount() {
@@ -188,14 +200,47 @@ public class WaveMobsEditorScreen extends Screen {
     }
 
     @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean charTyped(char ch, int modifiers) {
+        return super.charTyped(ch, modifiers);
+    }
+
+    @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics);
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
+        int cx = this.width / 2;
+        graphics.drawCenteredString(this.font, this.title, cx, 10, 0xFFFFFF);
         if (!waveConfig.getMobs().isEmpty()) {
             graphics.drawString(this.font, "§7Налаштуйте кожного моба або видаліть непотрібних",
-                    this.width / 2 - 150, 20, 0xFFFFFF);
+                    cx - 150, 20, 0xFFFFFF);
         }
-        super.render(graphics, mouseX, mouseY, partialTick);
+        int listTop = 56, listBot = this.height - 32;
+        // Крок 1: scrolled content у scissor
+        ScissorHelper.enable(0, listTop, this.width, Math.max(1, listBot - listTop));
+        for (var r : this.renderables) {
+            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
+                    && w.getY() + w.getHeight() > listTop && w.getY() < listBot)
+                w.render(graphics, mouseX, mouseY, partialTick);
+        }
+        ScissorHelper.disable();
+        // Крок 2: header поверх
+        ScissorHelper.enable(0, 0, this.width, listTop);
+        for (var r : this.renderables) {
+            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w && w.getY() < listTop)
+                w.render(graphics, mouseX, mouseY, partialTick);
+        }
+        ScissorHelper.disable();
+        // Крок 3: footer поверх
+        ScissorHelper.enable(0, listBot, this.width, this.height - listBot);
+        for (var r : this.renderables) {
+            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w && w.getY() >= listBot)
+                w.render(graphics, mouseX, mouseY, partialTick);
+        }
+        ScissorHelper.disable();
     }
 
     @Override

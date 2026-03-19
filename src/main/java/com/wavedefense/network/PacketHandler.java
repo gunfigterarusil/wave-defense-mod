@@ -8,7 +8,7 @@ import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.network.simple.SimpleChannel;
 
 public class PacketHandler {
-    private static final String PROTOCOL_VERSION = "3";
+    private static final String PROTOCOL_VERSION = "7";
     public static final SimpleChannel INSTANCE = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(WaveDefenseMod.MODID, "main"),
             () -> PROTOCOL_VERSION,
@@ -46,16 +46,46 @@ public class PacketHandler {
                 UpdatePlayerSettingsPacket::encode, UpdatePlayerSettingsPacket::decode, UpdatePlayerSettingsPacket::handle);
         INSTANCE.registerMessage(id(), SurrenderPacket.class,
                 SurrenderPacket::encode, SurrenderPacket::decode, SurrenderPacket::handle);
-        // Новий пакет: відкрити меню на клієнті
         INSTANCE.registerMessage(id(), OpenMenuPacket.class,
                 OpenMenuPacket::encode, OpenMenuPacket::decode, OpenMenuPacket::handle);
-        // Адмін-телепорт (сервер-side тільки, ніколи не йде до клієнта)
         INSTANCE.registerMessage(id(), AdminTeleportPacket.class,
                 AdminTeleportPacket::encode, AdminTeleportPacket::decode, AdminTeleportPacket::handle);
-
-        // PvP стан (сервер → клієнт)
         INSTANCE.registerMessage(id(), SyncPvpStatePacket.class,
                 SyncPvpStatePacket::encode, SyncPvpStatePacket::decode, SyncPvpStatePacket::handle);
+        INSTANCE.registerMessage(id(), ExportLocationPacket.class,
+                ExportLocationPacket::encode, ExportLocationPacket::decode, ExportLocationPacket::handle);
+        INSTANCE.registerMessage(id(), ImportLocationPacket.class,
+                ImportLocationPacket::encode, ImportLocationPacket::decode, ImportLocationPacket::handle);
+        INSTANCE.registerMessage(id(), ExportListResponsePacket.class,
+                ExportListResponsePacket::encode, ExportListResponsePacket::decode, ExportListResponsePacket::handle);
+        INSTANCE.registerMessage(id(), SyncShopPacket.class,
+                SyncShopPacket::encode, SyncShopPacket::decode, SyncShopPacket::handle);
+        INSTANCE.registerMessage(id(), ExitPvpPacket.class,
+                ExitPvpPacket::encode, ExitPvpPacket::decode, ExitPvpPacket::handle);
+
+        // v0.2.27: нові пакети
+        INSTANCE.registerMessage(id(), SyncTeammatesPacket.class,
+                SyncTeammatesPacket::encode, SyncTeammatesPacket::decode, SyncTeammatesPacket::handle);
+        INSTANCE.registerMessage(id(), LeaveLocationPacket.class,
+                LeaveLocationPacket::encode, LeaveLocationPacket::decode, LeaveLocationPacket::handle);
+        INSTANCE.registerMessage(id(), ExportShopPacket.class,
+                ExportShopPacket::encode, ExportShopPacket::decode, ExportShopPacket::handle);
+        INSTANCE.registerMessage(id(), ImportShopPacket.class,
+                ImportShopPacket::encode, ImportShopPacket::decode, ImportShopPacket::handle);
+        INSTANCE.registerMessage(id(), ShopExportListPacket.class,
+                ShopExportListPacket::encode, ShopExportListPacket::decode, ShopExportListPacket::handle);
+        INSTANCE.registerMessage(id(), RequestShopExportListPacket.class,
+                RequestShopExportListPacket::encode, RequestShopExportListPacket::decode, RequestShopExportListPacket::handle);
+
+        // Wave export/import
+        INSTANCE.registerMessage(id(), ExportWavePacket.class,
+                ExportWavePacket::encode, ExportWavePacket::decode, ExportWavePacket::handle);
+        INSTANCE.registerMessage(id(), ImportWavePacket.class,
+                ImportWavePacket::encode, ImportWavePacket::decode, ImportWavePacket::handle);
+        INSTANCE.registerMessage(id(), WaveExportListPacket.class,
+                WaveExportListPacket::encode, WaveExportListPacket::decode, WaveExportListPacket::handle);
+        INSTANCE.registerMessage(id(), RequestWaveExportListPacket.class,
+                RequestWaveExportListPacket::encode, RequestWaveExportListPacket::decode, RequestWaveExportListPacket::handle);
 
         WaveDefenseMod.LOGGER.info("Network packets registered");
     }
@@ -66,5 +96,13 @@ public class PacketHandler {
 
     public static void sendToServer(Object packet) {
         INSTANCE.sendToServer(packet);
+    }
+
+    public static void sendToPlayer(net.minecraft.server.level.ServerPlayer player, Object packet) {
+        INSTANCE.send(PacketDistributor.PLAYER.with(() -> player), packet);
+    }
+
+    public static void sendToAll(Object packet) {
+        INSTANCE.send(PacketDistributor.ALL.noArg(), packet);
     }
 }

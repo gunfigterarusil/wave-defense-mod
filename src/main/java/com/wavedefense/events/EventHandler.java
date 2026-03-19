@@ -1,43 +1,33 @@
 package com.wavedefense.events;
 
 import com.wavedefense.WaveDefenseMod;
-import com.wavedefense.gui.AdminMenuScreen;
-import com.wavedefense.gui.PlayerHUD;
-import com.wavedefense.gui.PlayerMenuScreen;
-import com.wavedefense.gui.WaveActionsScreen;
+import com.wavedefense.data.WaveTrigger;
 import com.wavedefense.wave.PlayerWaveData;
-import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
-import net.minecraftforge.client.event.RenderGuiOverlayEvent;
+import net.minecraft.world.level.GameType;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.living.LivingAttackEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
-import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.entity.player.PlayerContainerEvent;
-import com.wavedefense.data.WaveTrigger;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.eventbus.api.Event;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
 
+/**
+ * Серверні події — без жодних клієнтських імпортів.
+ * Клієнтські події (HUD, меню) — в ClientEventHandler.
+ */
 public class EventHandler {
 
     @SubscribeEvent
     public void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase == TickEvent.Phase.END) {
             WaveDefenseMod.waveManager.tick();
-        }
-    }
-
-    @SubscribeEvent
-    @OnlyIn(Dist.CLIENT)
-    public void onRenderGuiOverlay(RenderGuiOverlayEvent.Post event) {
-        if (event.getOverlay().id().getPath().equals("player_list")) {
-            PlayerHUD.render(event.getGuiGraphics(), event.getPartialTick(),
-                    event.getWindow().getGuiScaledWidth(), event.getWindow().getGuiScaledHeight());
         }
     }
 
@@ -59,26 +49,41 @@ public class EventHandler {
 
         // PvE/PvP: гравець загинув
         if (entity instanceof ServerPlayer victim) {
-            // Тригер PLAYER_DEATH для тригерних хвиль та локаційних тригерів
+            PlayerWaveData deathData = WaveDefenseMod.waveManager.getPlayerData(victim.getUUID());
+            if (deathData != null && deathData.getCurrentLocation() != null) {
+                if (deathData.getCurrentLocation().isPvp()) {
+                    // PvP: гравець не губить предмети — прибираємо при вході, повертаємо backup при виході
+                    // Підміняємо gamerule keepInventory тимчасово
+                    net.minecraft.world.level.GameRules rules = victim.level().getGameRules();
+                    boolean wasKeep = rules.getBoolean(net.minecraft.world.level.GameRules.RULE_KEEPINVENTORY);
+                    if (!wasKeep) rules.getRule(net.minecraft.world.level.GameRules.RULE_KEEPINVENTORY)
+                        .set(true, victim.server);
+                    // PvP: передаємо кілеру якщо є, потім PvP death handler
+                    if (event.getSource().getEntity() instanceof ServerPlayer killer) {
+                        WaveDefenseMod.waveManager.onPlayerKilledPlayer(killer, victim);
+                    }
+                    WaveDefenseMod.waveManager.onPvpPlayerDeath(victim);
+                    // Відновлюємо gamerule одразу після реєстрації смерті
+                    if (!wasKeep) rules.getRule(net.minecraft.world.level.GameRules.RULE_KEEPINVENTORY)
+                        .set(false, victim.server);
+                } else {
+                    // PvE: гравець помирає → виходить з локації
+                    // Викликаємо ДО fireWaveTrigger щоб playerData був ще доступний
+                    WaveDefenseMod.waveManager.onPvePlayerDeath(victim);
+                }
+            }
+            // Тригери після обробки смерті (playerData вже може бути null — це нормально)
             WaveDefenseMod.waveManager.fireWaveTriggerForPlayer(victim, WaveTrigger.PLAYER_DEATH);
             WaveDefenseMod.waveManager.fireLocationTrigger(victim, WaveTrigger.PLAYER_DEATH);
-            // PvP-специфіка
-            if (event.getSource().getEntity() instanceof ServerPlayer killer) {
-                WaveDefenseMod.waveManager.onPlayerKilledPlayer(killer, victim);
-            }
-            WaveDefenseMod.waveManager.onPvpPlayerDeath(victim);
         }
     }
 
-    /**
-     * Блокування атак між союзниками в PvP (якщо friendly fire вимкнено).
-     */
+    /** Блокування атак між союзниками в PvP (якщо friendly fire вимкнено). */
     @SubscribeEvent
     public void onLivingAttack(LivingAttackEvent event) {
         if (event.getEntity().level().isClientSide) return;
         if (!(event.getEntity() instanceof ServerPlayer target)) return;
         if (!(event.getSource().getEntity() instanceof ServerPlayer attacker)) return;
-
         if (!WaveDefenseMod.waveManager.canPvpAttack(attacker, target)) {
             event.setCanceled(true);
         }
@@ -93,62 +98,86 @@ public class EventHandler {
         WaveDefenseMod.waveManager.onPvpHit(attacker, victim);
     }
 
-    /**
-     * Тригер PLAYER_OPEN_CHEST — гравець відкриває скриню/контейнер.
-     */
     @SubscribeEvent
     public void onPlayerOpenContainer(PlayerContainerEvent.Open event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         WaveDefenseMod.waveManager.fireWaveTriggerForPlayer(player, WaveTrigger.PLAYER_OPEN_CHEST);
     }
 
-    /**
-     * Тригер PLAYER_OPEN_DOOR — гравець натискає на двері/ворота/люк.
-     */
     @SubscribeEvent
     public void onPlayerRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
         if (event.getEntity().level().isClientSide) return;
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         net.minecraft.world.level.block.state.BlockState state =
             event.getEntity().level().getBlockState(event.getHitVec().getBlockPos());
-        if (state.getBlock() instanceof net.minecraft.world.level.block.DoorBlock
+        boolean isContainer = state.getBlock() instanceof net.minecraft.world.level.block.ChestBlock
+            || state.getBlock() instanceof net.minecraft.world.level.block.TrappedChestBlock
+            || state.getBlock() instanceof net.minecraft.world.level.block.BarrelBlock
+            || state.getBlock() instanceof net.minecraft.world.level.block.ShulkerBoxBlock
+            || state.getBlock() instanceof net.minecraft.world.level.block.AbstractFurnaceBlock
+            || state.getBlock() instanceof net.minecraft.world.level.block.DispenserBlock
+            || state.getBlock() instanceof net.minecraft.world.level.block.HopperBlock
+            || state.getBlock() instanceof net.minecraft.world.level.block.DropperBlock;
+        boolean isDoor = state.getBlock() instanceof net.minecraft.world.level.block.DoorBlock
             || state.getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock
-            || state.getBlock() instanceof net.minecraft.world.level.block.FenceGateBlock) {
+            || state.getBlock() instanceof net.minecraft.world.level.block.FenceGateBlock;
+        if (isContainer) {
+            WaveDefenseMod.waveManager.fireWaveTriggerForPlayer(player, WaveTrigger.PLAYER_OPEN_CHEST);
+        }
+        if (isDoor) {
             WaveDefenseMod.waveManager.fireWaveTriggerForPlayer(player, WaveTrigger.PLAYER_OPEN_DOOR);
         }
     }
 
-    /**
-     * Тригер PLAYER_JOIN для локаційних тригерів (запуск локації при вході гравця на сервер).
-     */
     @SubscribeEvent
     public void onPlayerLogin(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         WaveDefenseMod.waveManager.fireLocationTrigger(player, WaveTrigger.PLAYER_JOIN);
+        // Надсилаємо дані локацій новому гравцю одразу при вході
+        // (без цього ClientLocationManager порожній і жоден інтерфейс не працює)
+        WaveDefenseMod.waveManager.syncLocationDataToPlayer(player);
+        // Якщо гравець вже був на локації (наприклад, переконнект) — відновлюємо
+        WaveDefenseMod.waveManager.syncPlayerData(player);
     }
 
-    @OnlyIn(Dist.CLIENT)
-    public static void openMenu() {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null) return;
+    /**
+     * Блокує перехід в Creative mode якщо гравець знаходиться на локації.
+     * Дозволяє лише Spectator (для PvP смерті) та Survival/Adventure.
+     */
+    @SubscribeEvent
+    public void onGameModeChange(net.minecraftforge.event.entity.player.PlayerEvent.PlayerChangeGameModeEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        if (event.getNewGameMode() != GameType.CREATIVE) return;
 
-        // Спектатори (PvP між раундами) не можуть відкривати меню гри
-        if (mc.player.isSpectator()) {
-            mc.player.displayClientMessage(
-                net.minecraft.network.chat.Component.literal("§7Ви в режимі спостерігача. Зачекайте початку раунду."), true);
-            return;
-        }
+        PlayerWaveData data = WaveDefenseMod.waveManager.getPlayerData(player.getUUID());
+        if (data == null || data.getCurrentLocation() == null) return;
 
-        PlayerWaveData playerData = WaveDefenseMod.waveManager.getPlayerData(mc.player.getUUID());
-        if (playerData != null && playerData.isInWave()) {
-            mc.setScreen(new WaveActionsScreen());
-            return;
-        }
+        // Гравець на локації — блокуємо Creative
+        event.setResult(Event.Result.DENY);
+        player.displayClientMessage(
+            Component.literal("§c⚠ Режим Creative заблоковано під час перебування на локації «§e"
+                + data.getCurrentLocation().getName() + "§c»."), true);
+    }
 
-        if (mc.player.isCreative()) {
-            mc.setScreen(new AdminMenuScreen());
-        } else {
-            mc.setScreen(new PlayerMenuScreen());
-        }
+    /**
+     * Кожен тік перевіряє чи гравець на локації в Creative — якщо так, переводить у потрібний режим.
+     * Це обробляє випадок коли гравець вже був в Creative перед входом на локацію.
+     */
+    @SubscribeEvent
+    public void onPlayerTick(TickEvent.PlayerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
+        if (!(event.player instanceof ServerPlayer player)) return;
+        if (player.gameMode.getGameModeForPlayer() != GameType.CREATIVE) return;
+
+        PlayerWaveData data = WaveDefenseMod.waveManager.getPlayerData(player.getUUID());
+        if (data == null || data.getCurrentLocation() == null) return;
+
+        // Гравець в Creative на локації → примусово переводимо в налаштований режим
+        GameType target = com.wavedefense.config.WaveDefenseConfig.getLocationGameType();
+        player.setGameMode(target);
+        player.displayClientMessage(
+            Component.literal("§e⚠ Режим гри змінено на §a"
+                + target.getName() + " §eдля участі в локації «§6"
+                + data.getCurrentLocation().getName() + "§e»."), true);
     }
 }

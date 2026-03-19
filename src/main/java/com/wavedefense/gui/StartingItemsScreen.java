@@ -5,6 +5,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import com.wavedefense.gui.ScissorHelper;
 import net.minecraft.world.item.ItemStack;
 
 public class StartingItemsScreen extends Screen {
@@ -107,38 +108,48 @@ public class StartingItemsScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(graphics);
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        this.renderBackground(g);
+        g.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
 
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
-
-        int centerX = this.width / 2;
+        int cx = this.width / 2;
         int startY = 60;
+        // listTop — нижче заголовку, підказки і кнопки "Додати"
+        int listTop = 84, listBot = this.height - 34;
 
+        // Іконки предметів — у scissor-зоні
+        ScissorHelper.enable(0, listTop, this.width, Math.max(1, listBot - listTop));
         for (int i = 0; i < Math.min(ITEMS_PER_PAGE, location.getStartingItems().size()); i++) {
             int index = i + scrollOffset;
             if (index >= location.getStartingItems().size()) break;
-
             ItemStack item = location.getStartingItems().get(index);
             int yPos = startY + 30 + (i * 30);
+            g.renderItem(item, cx - 145, yPos);
+            g.renderItemDecorations(this.font, item, cx - 145, yPos);
+        }
+        // Widgets — теж у scissor
+        for (var r : this.renderables) {
+            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
+                    && w.getY() + w.getHeight() > listTop && w.getY() < listBot)
+                w.render(g, mouseX, mouseY, partialTick);
+        }
+        ScissorHelper.disable();
 
-            graphics.renderItem(item, centerX - 145, yPos);
-            graphics.renderItemDecorations(this.font, item, centerX - 145, yPos);
+        // Статичні widgets (header/footer) поза scissor
+        for (var r : this.renderables) {
+            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
+                    && (w.getY() < listTop || w.getY() >= listBot))
+                w.render(g, mouseX, mouseY, partialTick);
         }
 
-        super.render(graphics, mouseX, mouseY, partialTick);
-
+        // Tooltip (завжди поза scissor)
         for (int i = 0; i < Math.min(ITEMS_PER_PAGE, location.getStartingItems().size()); i++) {
             int index = i + scrollOffset;
             if (index >= location.getStartingItems().size()) break;
-
             ItemStack item = location.getStartingItems().get(index);
             int yPos = startY + 30 + (i * 30);
-
-            if (mouseX >= centerX - 145 && mouseX <= centerX - 145 + 16 &&
-                    mouseY >= yPos && mouseY <= yPos + 16) {
-                graphics.renderTooltip(this.font, item, mouseX, mouseY);
-            }
+            if (mouseX >= cx - 145 && mouseX <= cx - 145 + 16 && mouseY >= yPos && mouseY <= yPos + 16)
+                g.renderTooltip(this.font, item, mouseX, mouseY);
         }
     }
 

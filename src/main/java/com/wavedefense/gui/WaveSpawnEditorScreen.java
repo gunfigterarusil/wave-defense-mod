@@ -1,5 +1,6 @@
 package com.wavedefense.gui;
 
+
 import com.wavedefense.data.WaveConfig;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -104,7 +105,14 @@ public class WaveSpawnEditorScreen extends Screen {
         // Bottom buttons
         this.addRenderableWidget(Button.builder(
             Component.literal("§a✓ Зберегти"),
-            b -> { save(); this.minecraft.setScreen(parent); }
+            b -> {
+                save();
+                // Авто-збереження: надсилаємо пакет оновлення локації на сервер
+                if (parent instanceof WaveConfigScreen wcs) {
+                    wcs.autoSave();
+                }
+                this.minecraft.setScreen(parent);
+            }
         ).bounds(cx - 110, this.height - 26, 100, 20).build());
         this.addRenderableWidget(Button.builder(
             Component.literal("Скасувати"),
@@ -126,6 +134,16 @@ public class WaveSpawnEditorScreen extends Screen {
             int z = sz.isEmpty() ? 0 : Integer.parseInt(sz);
             wave.setWaveSpawnPos(new BlockPos(x, y, z));
         } catch (NumberFormatException ignored) {}
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean charTyped(char ch, int modifiers) {
+        return super.charTyped(ch, modifiers);
     }
 
     @Override

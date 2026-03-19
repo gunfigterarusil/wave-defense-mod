@@ -255,6 +255,16 @@ public class MobSelectionScreen extends Screen {
     }
 
     @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean charTyped(char ch, int modifiers) {
+        return super.charTyped(ch, modifiers);
+    }
+
+    @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(g);
         previewAngle = (previewAngle + 0.5f) % 360f;
@@ -267,7 +277,22 @@ public class MobSelectionScreen extends Screen {
         if (!searchQuery.isEmpty()) counter += " §8(\"" + searchQuery + "\")";
         g.drawString(this.font, counter, PREVIEW_W + 4, this.height - 12, 0xAAAAAA);
 
-        super.render(g, mouseX, mouseY, partialTick);
+        // Scissor: список мобів між категоріями (LIST_Y=62) і лічильником (height-20)
+        int listTop = LIST_Y, listBot = this.height - 20;
+        ScissorHelper.enable(0, listTop, this.width, Math.max(1, listBot - listTop));
+        for (var r : this.renderables) {
+            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
+                    && w.getY() + w.getHeight() > listTop && w.getY() < listBot
+                    && w.getX() >= PREVIEW_W)   // не чіпаємо preview панель
+                w.render(g, mouseX, mouseY, partialTick);
+        }
+        ScissorHelper.disable();
+        // Static widgets: пошук, "← Назад", кнопки категорій (вгорі)
+        for (var r : this.renderables) {
+            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
+                    && (w.getY() < listTop || w.getY() >= listBot))
+                w.render(g, mouseX, mouseY, partialTick);
+        }
     }
 
     private void renderMobPreview(GuiGraphics g, int mouseX, int mouseY) {
@@ -333,13 +358,19 @@ public class MobSelectionScreen extends Screen {
                             / Math.max(1f, (float) living.getBbHeight());
                     scale = Math.min(scale, 50f);
 
-                    // Rotate around Y (spin), slight downward tilt so head isn't cut off
+                    // Vanilla InventoryScreen використовує:
+                    //   mouseAngle = rotateZ(PI)           — перевертає entity правильно
+                    //   cameraAngle = rotateX(PI/4)        — нахил камери (45°)
+                    // Для spinning preview: додаємо rotateY до першого кватерніона
                     org.joml.Quaternionf rotation = new org.joml.Quaternionf()
-                            .rotateY((float) Math.toRadians(previewAngle));
-                    org.joml.Quaternionf initial  = new org.joml.Quaternionf()
-                            .rotateX((float) Math.toRadians(-15)); // negative = slight backward tilt
-                    // Move origin up so full body is visible (feet near bottom of panel)
-                    int renderY = cy + (int)(living.getBbHeight() * scale * 0.35f);
+                            .rotateZ((float) Math.PI)                     // обов'язковий flip
+                            .rotateY((float) Math.toRadians(previewAngle)); // обертання для preview
+                    // cameraAngle — точно як у vanilla InventoryScreen
+                    org.joml.Quaternionf initial = new org.joml.Quaternionf()
+                            .rotateX((float)(Math.PI / 4.0));             // нахил 45° (vanilla)
+                    // renderY = де стоять ноги entity (entity малюється ВГОРУ від цієї точки)
+                    int entityH = (int)(living.getBbHeight() * scale);
+                    int renderY = cy + (int)(entityH * 0.4f); // ноги трохи нижче центру панелі
                     net.minecraft.client.gui.screens.inventory.InventoryScreen
                             .renderEntityInInventory(g, cx, renderY, (int) scale, rotation, initial, living);
                 }

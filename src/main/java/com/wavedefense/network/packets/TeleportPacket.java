@@ -61,10 +61,24 @@ public class TeleportPacket {
             // PvP: окрема перевірка і вхід
             if (location.isPvp()) {
                 int spawnIdx = packet.pvpSpawnIndex;
-                if (spawnIdx < 0 || spawnIdx >= location.getPvpSpawnPoints().size()) {
+                if (location.getPvpSpawnPoints().isEmpty()) {
                     player.displayClientMessage(
-                        net.minecraft.network.chat.Component.literal("§cНеправильна команда для PvP локації!"), true);
+                        net.minecraft.network.chat.Component.literal("§cНемає точок спавну для PvP!"), true);
                     return;
+                }
+                // Battle Royale: завжди випадкова точка
+                if (location.isBattleRoyale()) {
+                    spawnIdx = new java.util.Random().nextInt(location.getPvpSpawnPoints().size());
+                } else if (location.isPvpTeamAutoBalance()) {
+                    // Автобаланс: ігноруємо вибір гравця, беремо найменшу команду
+                    spawnIdx = WaveDefenseMod.waveManager.getAutoBalancedSpawnIndex(location, player.getUUID());
+                } else {
+                    // Ручний вибір: перевіряємо що індекс коректний
+                    if (spawnIdx < 0 || spawnIdx >= location.getPvpSpawnPoints().size()) {
+                        player.displayClientMessage(
+                            net.minecraft.network.chat.Component.literal("§cНеправильна команда для PvP локації!"), true);
+                        return;
+                    }
                 }
                 player.removeAllEffects();
                 WaveDefenseMod.waveManager.addPlayerToPvpLocation(player, location, spawnIdx);

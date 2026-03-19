@@ -1,6 +1,7 @@
 package com.wavedefense.gui;
 
 import com.wavedefense.data.Location;
+import com.wavedefense.gui.ScissorHelper;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.RequestLocationDataPacket;
 import com.wavedefense.network.packets.TeleportPacket;
@@ -15,15 +16,25 @@ public class PlayerMenuScreen extends Screen {
 
     private List<String> locationNames;
     private int scrollOffset = 0;
+
     public PlayerMenuScreen() {
         super(Component.translatable("wavedefense.title.player_menu"));
     }
 
+
     @Override
     protected void init() {
         super.init();
+        // Завжди запитуємо свіжі дані з сервера при кожному init()
+        // (включаючи rebuildWidgets після отримання SyncLocationDataPacket)
         PacketHandler.sendToServer(new RequestLocationDataPacket());
-        this.locationNames = ClientLocationManager.getAllLocationNames();
+        // Гравці бачать тільки не-приховані локації; адміни (запущені через adminMode) — всі
+        this.locationNames = ClientLocationManager.getAllLocationNames().stream()
+            .filter(name -> {
+                com.wavedefense.data.Location loc = ClientLocationManager.getLocation(name);
+                return loc == null || !loc.isHiddenFromPlayers();
+            })
+            .collect(java.util.stream.Collectors.toList());
 
         // Адаптивні розміри
         int cx          = this.width / 2;
@@ -81,10 +92,23 @@ public class PlayerMenuScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(graphics);
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, 15, 0xFFFFFF);
-        super.render(graphics, mouseX, mouseY, partialTick);
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        this.renderBackground(g);
+        g.drawCenteredString(this.font, this.title, this.width / 2, 15, 0xFFFFFF);
+        // Scissor: список локацій між заголовком (36) і кнопкою "Закрити" (height-32)
+        int listTop = 36, listBot = this.height - 32;
+        ScissorHelper.enable(0, listTop, this.width, Math.max(1, listBot - listTop));
+        for (var r : this.renderables) {
+            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
+                    && w.getY() + w.getHeight() > listTop && w.getY() < listBot)
+                w.render(g, mouseX, mouseY, partialTick);
+        }
+        ScissorHelper.disable();
+        for (var r : this.renderables) {
+            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
+                    && (w.getY() < listTop || w.getY() >= listBot))
+                w.render(g, mouseX, mouseY, partialTick);
+        }
     }
 
     @Override

@@ -32,4 +32,16 @@ public class ClientLocationManager {
                 .findFirst()
                 .orElse(null);
     }
+
+    /** Оновлює одну локацію в кеші (для sync магазину). */
+    public static void updateSingleLocation(Location updated) {
+        for (int i = 0; i < locations.size(); i++) {
+            if (locations.get(i).getName().equals(updated.getName())) {
+                locations.set(i, updated);
+                return;
+            }
+        }
+        locations.add(updated); // якщо не знайдено — додаємо
+    }
+
 }

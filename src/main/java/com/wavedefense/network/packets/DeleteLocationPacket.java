@@ -26,6 +26,7 @@ public class DeleteLocationPacket {
             ServerPlayer player = ctx.get().getSender();
             if (player != null && player.hasPermissions(2)) { // Check for admin permissions
                 WaveDefenseMod.locationManager.removeLocation(packet.locationName);
+                WaveDefenseMod.waveManager.broadcastLocationData();
             }
         });
         ctx.get().setPacketHandled(true);

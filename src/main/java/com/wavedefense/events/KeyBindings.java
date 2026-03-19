@@ -27,6 +27,9 @@ public class KeyBindings {
     /** B — відкрити магазин напряму (без меню) */
     public static KeyMapping openShopKey;
 
+    /** L — вийти з поточної локації (працює як «Здатися» без штрафу) */
+    public static KeyMapping leaveLocationKey;
+
     @SubscribeEvent
     public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
         openMenuKey = new KeyMapping(
@@ -46,6 +49,15 @@ public class KeyBindings {
                 CATEGORY
         );
         event.register(openShopKey);
+
+        leaveLocationKey = new KeyMapping(
+                "key.wavedefense.leavelocation",
+                KeyConflictContext.IN_GAME,
+                InputConstants.Type.KEYSYM,
+                GLFW.GLFW_KEY_L,
+                CATEGORY
+        );
+        event.register(leaveLocationKey);
     }
 
     @Mod.EventBusSubscriber(modid = WaveDefenseMod.MODID, value = Dist.CLIENT)
@@ -56,12 +68,30 @@ public class KeyBindings {
             if (event.phase != TickEvent.Phase.END) return;
 
             Minecraft mc = Minecraft.getInstance();
-            if (mc.player == null || mc.screen != null) return;
+            if (mc.player == null) return;
+
+            // L — вийти з локації. Працює навіть якщо відкрито меню / екран.
+            if (leaveLocationKey != null) {
+                while (leaveLocationKey.consumeClick()) {
+                    PlayerWaveData pd = ClientPlayerDataManager.getPlayerData();
+                    if (pd != null && pd.isInWave()) {
+                        com.wavedefense.network.PacketHandler.sendToServer(
+                            new com.wavedefense.network.packets.LeaveLocationPacket());
+                        mc.player.displayClientMessage(
+                            net.minecraft.network.chat.Component.literal("§7Вихід з локації..."), true);
+                        // Закриваємо поточний екран щоб не блокував
+                        if (mc.screen != null) mc.setScreen(null);
+                    }
+                }
+            }
+
+            // Не обробляємо V/B якщо відкрито якесь меню
+            if (mc.screen != null) return;
 
             // V — відкрити меню
             if (openMenuKey != null) {
                 while (openMenuKey.consumeClick()) {
-                    EventHandler.openMenu();
+                    ClientEventHandler.openMenu();
                 }
             }
 
@@ -87,6 +117,25 @@ public class KeyBindings {
             com.wavedefense.data.Location loc = ClientLocationManager.getLocation(pd.getCurrentLocation().getName());
             if (loc == null) loc = pd.getCurrentLocation();
 
+            // Точковий режим: шукаємо найближчу точку магазину
+            if (loc.isPointShopMode()) {
+                double px = mc.player.getX(), py = mc.player.getY(), pz = mc.player.getZ();
+                com.wavedefense.data.ShopPoint sp = loc.findNearestShopPoint(px, py, pz);
+                if (sp == null) {
+                    mc.player.displayClientMessage(
+                        net.minecraft.network.chat.Component.literal("§c🛒 Магазин недоступний — підійдіть до точки магазину."), true);
+                    return;
+                }
+                if (sp.getItems().isEmpty()) {
+                    mc.player.displayClientMessage(
+                        net.minecraft.network.chat.Component.literal("§c🛒 Цей магазин порожній!"), true);
+                    return;
+                }
+                mc.setScreen(new PlayerShopScreen(loc, sp));
+                return;
+            }
+
+            // Звичайний (глобальний) режим
             if (loc.getShopItems().isEmpty()) {
                 mc.player.displayClientMessage(
                     net.minecraft.network.chat.Component.literal("§cМагазин порожній!"), true);

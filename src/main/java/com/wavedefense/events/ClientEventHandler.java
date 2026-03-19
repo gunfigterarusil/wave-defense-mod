@@ -23,6 +23,11 @@ import net.minecraftforge.fml.common.Mod;
  *     - Вороги під час ACTIVE: ніки не відображаються
  *     - FriendlyFire ON: не відображаються взагалі
  */
+import com.wavedefense.gui.AdminMenuScreen;
+import com.wavedefense.gui.PlayerHUD;
+import com.wavedefense.gui.PlayerMenuScreen;
+import com.wavedefense.gui.WaveActionsScreen;
+import net.minecraftforge.client.event.RenderGuiOverlayEvent;
 @Mod.EventBusSubscriber(modid = WaveDefenseMod.MODID, value = Dist.CLIENT)
 public class ClientEventHandler {
 
@@ -108,4 +113,39 @@ public class ClientEventHandler {
         if (data.getCurrentLocation() == null) return false;
         return data.getCurrentLocation().isPvpFriendlyFire();
     }
+
+    @SubscribeEvent
+    public static void onRenderGuiOverlay(RenderGuiOverlayEvent.Post event) {
+        // "hotbar" рендериться кожного кадру (не тільки при Tab)
+        if (!event.getOverlay().id().getPath().equals("hotbar")) return;
+        PlayerHUD.render(event.getGuiGraphics(), event.getPartialTick(),
+                event.getWindow().getGuiScaledWidth(), event.getWindow().getGuiScaledHeight());
+    }
+
+    /**
+     * Відкрити Wave Defense меню для поточного гравця (клієнтська сторона).
+     * Викликається з KeyBindings.
+     */
+    public static void openMenu() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return;
+        if (mc.player.isSpectator()) {
+            mc.player.displayClientMessage(
+                net.minecraft.network.chat.Component.literal(
+                    "§7Ви в режимі спостерігача. Зачекайте початку раунду."), true);
+            return;
+        }
+        // ── ВИПРАВЛЕНО: використовуємо клієнтський менеджер, не серверний waveManager ──
+        PlayerWaveData playerData = ClientPlayerDataManager.getPlayerData();
+        if (playerData != null && playerData.isInWave()) {
+            mc.setScreen(new WaveActionsScreen());
+            return;
+        }
+        if (mc.player.isCreative()) {
+            mc.setScreen(new AdminMenuScreen());
+        } else {
+            mc.setScreen(new PlayerMenuScreen());
+        }
+    }
+
 }

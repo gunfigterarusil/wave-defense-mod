@@ -18,6 +18,7 @@ public class WaveMob {
     private int growthPerWave;
     private int spawnChance;
     private int pointsPerKill;
+    private int spawnRadius = 0;   // радіус розкиду навколо точки спавну (0 = точно на точці)
 
     // Спорядження (можуть бути empty)
     private ItemStack helmet     = ItemStack.EMPTY;
@@ -48,6 +49,8 @@ public class WaveMob {
     public void setSpawnChance(int s)               { this.spawnChance = s; }
     public int getPointsPerKill()                   { return pointsPerKill; }
     public void setPointsPerKill(int p)             { this.pointsPerKill = p; }
+    public int  getSpawnRadius()                    { return spawnRadius; }
+    public void setSpawnRadius(int r)               { this.spawnRadius = Math.max(0, r); }
 
     public ItemStack getHelmet()      { return helmet; }
     public void setHelmet(ItemStack i) { this.helmet = i.copy(); }
@@ -78,6 +81,7 @@ public class WaveMob {
         tag.putInt("growthPerWave", growthPerWave);
         tag.putInt("spawnChance", spawnChance);
         tag.putInt("pointsPerKill", pointsPerKill);
+        if (spawnRadius > 0) tag.putInt("spawnRadius", spawnRadius);
 
         saveItem(tag, "helmet",     helmet);
         saveItem(tag, "chestplate", chestplate);
@@ -109,6 +113,7 @@ public class WaveMob {
                 tag.getInt("spawnChance"),
                 tag.getInt("pointsPerKill")
         );
+        mob.spawnRadius = tag.contains("spawnRadius") ? tag.getInt("spawnRadius") : 0;
         if (tag.contains("helmet"))     mob.helmet     = ItemStack.of(tag.getCompound("helmet"));
         if (tag.contains("chestplate")) mob.chestplate = ItemStack.of(tag.getCompound("chestplate"));
         if (tag.contains("leggings"))   mob.leggings   = ItemStack.of(tag.getCompound("leggings"));
