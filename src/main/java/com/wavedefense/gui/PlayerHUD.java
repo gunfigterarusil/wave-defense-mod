@@ -17,7 +17,7 @@ public class PlayerHUD {
         if (data == null || !data.isInWave()) return;
 
         // ── Поінти (нижній правий) ─────────────────────────────────
-        int points = data.getCurrentLocation().getPlayerPoints(mc.player.getUUID());
+        int points = data.getPlayerPoints(); // синхронізується з сервера через SyncPlayerDataPacket
         String pointsText = I18n.get("wavedefense.hud.points", points);
         int textWidth = mc.font.width(pointsText);
         g.drawString(mc.font, pointsText, width - textWidth - 10, height - 20, 0xFFFFFF);

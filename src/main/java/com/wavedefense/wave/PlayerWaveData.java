@@ -29,6 +29,8 @@ public class PlayerWaveData {
     private boolean isInPvp = false;
     // Таймер перемоги (секунди що залишились до виходу після перемоги), 0 = не активний
     private int victoryCountdownSec = 0;
+    // Поінти гравця на поточній локації (синхронізуються з сервера)
+    private int playerPoints = 0;
 
     public int getMobsRemaining() { return mobsRemaining; }
     public void setMobsRemaining(int mobsRemaining) { this.mobsRemaining = mobsRemaining; }
@@ -36,6 +38,8 @@ public class PlayerWaveData {
     public void setInPvp(boolean inPvp) { this.isInPvp = inPvp; }
     public int  getVictoryCountdownSec() { return victoryCountdownSec; }
     public void setVictoryCountdownSec(int v) { this.victoryCountdownSec = Math.max(0, v); }
+    public int  getPlayerPoints()  { return playerPoints; }
+    public void setPlayerPoints(int p) { this.playerPoints = Math.max(0, p); }
 
     public UUID getPlayerUUID() {
         return playerUUID;
@@ -135,6 +139,7 @@ public class PlayerWaveData {
         tag.putInt("mobsRemaining", mobsRemaining);
         tag.putBoolean("isInPvp", isInPvp);
         tag.putInt("victoryCountdownSec", victoryCountdownSec);
+        tag.putInt("playerPoints", playerPoints);
         return tag;
     }
 
@@ -154,5 +159,6 @@ public class PlayerWaveData {
         this.mobsRemaining = tag.contains("mobsRemaining") ? tag.getInt("mobsRemaining") : 0;
         this.isInPvp = tag.contains("isInPvp") && tag.getBoolean("isInPvp");
         this.victoryCountdownSec = tag.contains("victoryCountdownSec") ? tag.getInt("victoryCountdownSec") : 0;
+        this.playerPoints = tag.contains("playerPoints") ? tag.getInt("playerPoints") : 0;
     }
 }

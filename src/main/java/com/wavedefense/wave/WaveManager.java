@@ -589,6 +589,11 @@ public class WaveManager {
                 for (PlayerWaveData data : playerData.values()) {
                     if (data.getCurrentLocation() != null && data.getCurrentLocation().getName().equals(locationName)) {
                         location.addPoints(data.getPlayerUUID(), reward);
+                        // Синхронізуємо поінти до клієнта
+                        if (data.getPlayerUUID() != null) {
+                            ServerPlayer rp2 = WaveDefenseMod.getServer().getPlayerList().getPlayer(data.getPlayerUUID());
+                            if (rp2 != null) syncPlayerData(rp2);
+                        }
                     }
                 }
             }
@@ -1176,6 +1181,11 @@ public class WaveManager {
             for (PlayerWaveData d : playerData.values()) {
                 if (d.getCurrentLocation() != null && d.getCurrentLocation().getName().equals(locationName)) {
                     loc.addPoints(d.getPlayerUUID(), pts);
+                    // Одразу синхронізуємо поінти до клієнта
+                    if (d.getPlayerUUID() != null) {
+                        ServerPlayer rp = WaveDefenseMod.getServer().getPlayerList().getPlayer(d.getPlayerUUID());
+                        if (rp != null) syncPlayerData(rp);
+                    }
                 }
             }
         }
@@ -1783,6 +1793,10 @@ public class WaveManager {
         if (player == null) return;
         PlayerWaveData data = getPlayerData(player.getUUID());
         if (data != null) {
+            // Синхронізуємо поточні поінти гравця перед відправкою
+            if (data.getCurrentLocation() != null) {
+                data.setPlayerPoints(data.getCurrentLocation().getPlayerPoints(player.getUUID()));
+            }
             WaveDefenseMod.packetHandler.send(PacketDistributor.PLAYER.with(() -> player), new SyncPlayerDataPacket(data));
         } else {
             // Гравець вийшов з локації — надсилаємо порожні дані щоб клієнт скинув HUD

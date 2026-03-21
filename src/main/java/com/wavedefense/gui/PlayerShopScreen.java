@@ -57,11 +57,13 @@ public class PlayerShopScreen extends Screen {
     }
 
     private void updatePlayerPoints() {
-        if (Minecraft.getInstance().player != null) {
-            this.playerPoints = location.getPlayerPoints(Minecraft.getInstance().player.getUUID());
-        }
+        // Читаємо поінти з ClientPlayerDataManager (синхронізовані з сервера),
+        // а НЕ з location.getPlayerPoints() — клієнтська Location не має поінтів
         com.wavedefense.wave.PlayerWaveData cpd = ClientPlayerDataManager.getPlayerData();
-        if (cpd != null) this.currentWave = cpd.getCurrentWave();
+        if (cpd != null) {
+            this.playerPoints = cpd.getPlayerPoints();
+            this.currentWave  = cpd.getCurrentWave();
+        }
     }
 
     private boolean isItemAvailable(ShopItem s) {
