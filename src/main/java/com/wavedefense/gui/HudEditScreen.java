@@ -3,6 +3,7 @@ package com.wavedefense.gui;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 
 /**
@@ -28,7 +29,7 @@ public class HudEditScreen extends Screen {
     private int previewX, previewY;
 
     public HudEditScreen(Screen parent) {
-        super(Component.literal("§6⚙ Позиція HUD-елементів"));
+        super(Component.translatable("wavedefense.title.hud_edit"));
         this.parent = parent;
         this.layout = HudLayout.get();
     }
@@ -46,7 +47,7 @@ public class HudEditScreen extends Screen {
             final HudLayout.Preset p = presets[i];
             boolean active = layout.preset == p;
             this.addRenderableWidget(Button.builder(
-                Component.literal(active ? "§a☑ " + p.label : "§7☐ " + p.label),
+                Component.literal(active ? "§a☑ " : "§7☐ ").append(Component.translatable(p.key)),
                 b -> { layout.preset = p; layout.blockX = -1; layout.blockY = -1; recalcPreviewPos(); rebuildWidgets(); }
             ).bounds(bx + i * 120, by, 118, 16).build());
         }
@@ -54,18 +55,18 @@ public class HudEditScreen extends Screen {
         // Зберегти / скасувати
         int cx = this.width / 2;
         this.addRenderableWidget(Button.builder(
-            Component.literal("§a✓ Зберегти"),
+            Component.translatable("wavedefense.button.save"),
             b -> { layout.save(); minecraft.setScreen(parent); }
         ).bounds(cx - 110, this.height - 28, 100, 20).build());
 
         this.addRenderableWidget(Button.builder(
-            Component.literal("§cСкасувати"),
+            Component.translatable("wavedefense.button.cancel"),
             b -> { HudLayout.invalidate(); minecraft.setScreen(parent); }
         ).bounds(cx - 5, this.height - 28, 100, 20).build());
 
         // Підказка
         this.addRenderableWidget(Button.builder(
-            Component.literal("§8Перетягніть блок мишею або оберіть пресет"), b -> {}
+            Component.translatable("wavedefense.hud.drag_hint"), b -> {}
         ).bounds(cx - 150, this.height - 55, 300, 12).build()).active = false;
     }
 
@@ -133,9 +134,9 @@ public class HudEditScreen extends Screen {
 
         // Вміст прев'ю
         int ty = previewY + 6;
-        g.drawCenteredString(this.font, "§7Локація: §fНазва локації",      previewX + PREVIEW_W / 2, ty, 0xFFFFFF); ty += 12;
-        g.drawCenteredString(this.font, "§aНаступна хвиля: §f1:30",        previewX + PREVIEW_W / 2, ty, 0xFFFFFF); ty += 12;
-        g.drawCenteredString(this.font, "§cМобів залишилось: §f12",        previewX + PREVIEW_W / 2, ty, 0xFFFFFF); ty += 12;
+        g.drawCenteredString(this.font, I18n.get("wavedefense.hud.preview.location"),  previewX + PREVIEW_W / 2, ty, 0xFFFFFF); ty += 12;
+        g.drawCenteredString(this.font, I18n.get("wavedefense.hud.preview.next_wave"), previewX + PREVIEW_W / 2, ty, 0xFFFFFF); ty += 12;
+        g.drawCenteredString(this.font, I18n.get("wavedefense.hud.preview.mobs"),      previewX + PREVIEW_W / 2, ty, 0xFFFFFF); ty += 12;
         // Полоса прогресу
         int bw = PREVIEW_W - 20;
         g.fill(previewX + 10, ty, previewX + 10 + bw, ty + 4, 0xFF333333);
@@ -143,8 +144,8 @@ public class HudEditScreen extends Screen {
 
         // Підпис «перетягніть»
         if (hover) {
-            String drag = "§e✥ Перетягніть";
-            g.drawCenteredString(this.font, drag, previewX + PREVIEW_W / 2, previewY + PREVIEW_H / 2 - 4, 0xFFFFAA00);
+            g.drawCenteredString(this.font, I18n.get("wavedefense.hud.drag_label"),
+                previewX + PREVIEW_W / 2, previewY + PREVIEW_H / 2 - 4, 0xFFFFAA00);
         }
 
         super.render(g, mouseX, mouseY, partial);

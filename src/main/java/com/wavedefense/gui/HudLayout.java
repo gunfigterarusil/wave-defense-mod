@@ -24,14 +24,14 @@ import java.nio.file.*;
 public class HudLayout {
 
     public enum Preset {
-        TOP_CENTER("Зверху по центру"),
-        TOP_LEFT("Верхній лівий"),
-        TOP_RIGHT("Верхній правий"),
-        BOTTOM_LEFT("Нижній лівий"),
-        CUSTOM("Вручну (drag)");
+        TOP_CENTER("wavedefense.hud.preset.top_center"),
+        TOP_LEFT("wavedefense.hud.preset.top_left"),
+        TOP_RIGHT("wavedefense.hud.preset.top_right"),
+        BOTTOM_LEFT("wavedefense.hud.preset.bottom_left"),
+        CUSTOM("wavedefense.hud.preset.custom");
 
-        public final String label;
-        Preset(String l) { this.label = l; }
+        public final String key;
+        Preset(String k) { this.key = k; }
     }
 
     // Позиція блоку HUD — верхній лівий кут у пікселях

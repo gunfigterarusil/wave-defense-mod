@@ -37,7 +37,7 @@ public class AdminTeleportPacket {
             Location location = WaveDefenseMod.locationManager.getLocation(packet.locationName);
             if (location == null || location.getPlayerSpawn() == null) {
                 sender.displayClientMessage(
-                    net.minecraft.network.chat.Component.literal("§cЛокація не знайдена або не має точки спавну!"), true);
+                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.location_invalid"), true);
                 return;
             }
 
@@ -45,7 +45,7 @@ public class AdminTeleportPacket {
                     .getPlayerByName(packet.targetPlayerName);
             if (target == null) {
                 sender.displayClientMessage(
-                    net.minecraft.network.chat.Component.literal("§cГравця " + packet.targetPlayerName + " не знайдено!"), true);
+                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.player_not_found", packet.targetPlayerName), true);
                 return;
             }
 

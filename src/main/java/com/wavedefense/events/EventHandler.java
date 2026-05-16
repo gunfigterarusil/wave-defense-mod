@@ -14,6 +14,7 @@ import net.minecraftforge.event.entity.living.LivingAttackEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.event.entity.player.PlayerContainerEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -59,13 +60,17 @@ public class EventHandler {
                     if (!wasKeep) rules.getRule(net.minecraft.world.level.GameRules.RULE_KEEPINVENTORY)
                         .set(true, victim.server);
                     // PvP: передаємо кілеру якщо є, потім PvP death handler
-                    if (event.getSource().getEntity() instanceof ServerPlayer killer) {
-                        WaveDefenseMod.waveManager.onPlayerKilledPlayer(killer, victim);
+                    try {
+                        if (event.getSource().getEntity() instanceof ServerPlayer killer) {
+                            WaveDefenseMod.waveManager.onPlayerKilledPlayer(killer, victim);
+                        } else {
+                            WaveDefenseMod.waveManager.onPvpPlayerDeath(victim);
+                        }
+                    } finally {
+                        // Відновлюємо gamerule завжди, навіть при виключенні
+                        if (!wasKeep) rules.getRule(net.minecraft.world.level.GameRules.RULE_KEEPINVENTORY)
+                            .set(false, victim.server);
                     }
-                    WaveDefenseMod.waveManager.onPvpPlayerDeath(victim);
-                    // Відновлюємо gamerule одразу після реєстрації смерті
-                    if (!wasKeep) rules.getRule(net.minecraft.world.level.GameRules.RULE_KEEPINVENTORY)
-                        .set(false, victim.server);
                 } else {
                     // PvE: гравець помирає → виходить з локації
                     // Викликаємо ДО fireWaveTrigger щоб playerData був ще доступний
@@ -130,7 +135,18 @@ public class EventHandler {
     }
 
     @SubscribeEvent
-    public void onPlayerLogin(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
+    public void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        // If the player was in a location, surrender cleanly to restore inventory and free session slot.
+        // Without this, playerData/playerBackups/reEntryCooldowns leak forever after disconnect.
+        PlayerWaveData data = WaveDefenseMod.waveManager.getPlayerData(player.getUUID());
+        if (data != null && data.getCurrentLocation() != null) {
+            WaveDefenseMod.waveManager.surrenderPlayer(player);
+        }
+    }
+
+    @SubscribeEvent
+    public void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         WaveDefenseMod.waveManager.fireLocationTrigger(player, WaveTrigger.PLAYER_JOIN);
         // Надсилаємо дані локацій новому гравцю одразу при вході
@@ -155,8 +171,8 @@ public class EventHandler {
         // Гравець на локації — блокуємо Creative
         event.setResult(Event.Result.DENY);
         player.displayClientMessage(
-            Component.literal("§c⚠ Режим Creative заблоковано під час перебування на локації «§e"
-                + data.getCurrentLocation().getName() + "§c»."), true);
+            Component.translatable("wavedefense.msg.creative_blocked",
+                data.getCurrentLocation().getName()), true);
     }
 
     /**
@@ -176,8 +192,6 @@ public class EventHandler {
         GameType target = com.wavedefense.config.WaveDefenseConfig.getLocationGameType();
         player.setGameMode(target);
         player.displayClientMessage(
-            Component.literal("§e⚠ Режим гри змінено на §a"
-                + target.getName() + " §eдля участі в локації «§6"
-                + data.getCurrentLocation().getName() + "§e»."), true);
+            Component.translatable("wavedefense.msg.gamemode_changed", target.getName()), true);
     }
 }

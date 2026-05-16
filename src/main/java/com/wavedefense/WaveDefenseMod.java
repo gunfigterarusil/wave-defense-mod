@@ -5,11 +5,13 @@ import com.wavedefense.config.WaveDefenseConfig;
 import com.wavedefense.data.LocationManager;
 import com.wavedefense.events.EventHandler;
 import com.wavedefense.events.KeyBindings;
+import com.wavedefense.monitor.WaveDefenseMonitor;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.wave.WaveManager;
 import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
+import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -48,6 +50,13 @@ public class WaveDefenseMod {
     public void onServerStarting(ServerStartingEvent event) {
         serverInstance = event.getServer();
         locationManager = new LocationManager(serverInstance);
+    }
+
+    @SubscribeEvent
+    public void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase == TickEvent.Phase.END) {
+            WaveDefenseMonitor.getInstance().onServerTick();
+        }
     }
 
     @SubscribeEvent

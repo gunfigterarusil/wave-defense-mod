@@ -44,7 +44,7 @@ public class ClientEventHandler {
         if (erd.shouldRenderHitBoxes()) {
             erd.setRenderHitBoxes(false);
             mc.player.displayClientMessage(
-                Component.literal("§cХітбокси заборонені на PvP локаціях!"), true);
+                Component.translatable("wavedefense.msg.hitboxes_blocked"), true);
         }
     }
 
@@ -131,8 +131,7 @@ public class ClientEventHandler {
         if (mc.player == null) return;
         if (mc.player.isSpectator()) {
             mc.player.displayClientMessage(
-                net.minecraft.network.chat.Component.literal(
-                    "§7Ви в режимі спостерігача. Зачекайте початку раунду."), true);
+                net.minecraft.network.chat.Component.translatable("wavedefense.auto.ви_в_режимі_спостерігача_зачекай_24ec1d94"), true);
             return;
         }
         // ── ВИПРАВЛЕНО: використовуємо клієнтський менеджер, не серверний waveManager ──

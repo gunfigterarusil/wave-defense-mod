@@ -41,8 +41,11 @@ public class ExportLocationPacket {
                 File exportDir = getExportDir();
                 java.util.List<String> names = new java.util.ArrayList<>();
                 if (exportDir.exists()) {
-                    for (File f : exportDir.listFiles()) {
-                        if (f.getName().endsWith(".nbt")) names.add(f.getName().replace(".nbt", ""));
+                    File[] files = exportDir.listFiles();
+                    if (files != null) {
+                        for (File f : files) {
+                            if (f.getName().endsWith(".nbt")) names.add(f.getName().replace(".nbt", ""));
+                        }
                     }
                 }
                 com.wavedefense.network.PacketHandler.sendToPlayer(player,
@@ -53,7 +56,7 @@ public class ExportLocationPacket {
             Location loc = WaveDefenseMod.locationManager.getLocation(pkt.locationName);
             if (loc == null) {
                 player.displayClientMessage(
-                    net.minecraft.network.chat.Component.literal("§cЛокацію не знайдено: " + pkt.locationName), false);
+                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.location_invalid"), false);
                 return;
             }
             try {
@@ -63,11 +66,11 @@ public class ExportLocationPacket {
                 CompoundTag nbt = loc.save();
                 NbtIo.writeCompressed(nbt, file);
                 player.displayClientMessage(
-                    net.minecraft.network.chat.Component.literal("§a✓ Експортовано: §e" + file.getPath()), false);
+                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.export_ok", file.getPath()), false);
             } catch (Exception e) {
                 WaveDefenseMod.LOGGER.error("Export failed", e);
                 player.displayClientMessage(
-                    net.minecraft.network.chat.Component.literal("§cПомилка експорту: " + e.getMessage()), false);
+                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.export_error", e.getMessage()), false);
             }
         });
         ctx.get().setPacketHandled(true);

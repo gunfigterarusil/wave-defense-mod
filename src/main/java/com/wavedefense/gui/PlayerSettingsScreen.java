@@ -5,6 +5,7 @@ import com.wavedefense.network.packets.UpdatePlayerSettingsPacket;
 import com.wavedefense.wave.PlayerWaveData;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -12,7 +13,7 @@ public class PlayerSettingsScreen extends Screen {
     private final PlayerWaveData playerData;
 
     public PlayerSettingsScreen(PlayerWaveData playerData) {
-        super(Component.literal("§6Налаштування HUD"));
+        super(Component.translatable("wavedefense.title.hud_settings"));
         this.playerData = playerData;
     }
 
@@ -25,39 +26,38 @@ public class PlayerSettingsScreen extends Screen {
 
         // ── Таймер ────────────────────────────────────────────────────
         this.addRenderableWidget(Button.builder(
-            Component.literal("Показувати таймер: "
-                + (playerData.isShowTimer() ? "§aТак" : "§cНі")),
+            Component.translatable("wavedefense.settings.show_timer",
+                Component.translatable(playerData.isShowTimer() ? "wavedefense.bool.yes" : "wavedefense.bool.no")),
             b -> { playerData.setShowTimer(!playerData.isShowTimer()); sendUpdate(); rebuildWidgets(); }
         ).bounds(cx - W/2, y, W, H).build());
 
         // ── Сповіщення ────────────────────────────────────────────────
         y += H + GAP;
         this.addRenderableWidget(Button.builder(
-            Component.literal("Показувати сповіщення: "
-                + (playerData.isShowNotifications() ? "§aТак" : "§cНі")),
+            Component.translatable("wavedefense.settings.show_notifications",
+                Component.translatable(playerData.isShowNotifications() ? "wavedefense.bool.yes" : "wavedefense.bool.no")),
             b -> { playerData.setShowNotifications(!playerData.isShowNotifications()); sendUpdate(); rebuildWidgets(); }
         ).bounds(cx - W/2, y, W, H).build());
 
         // ── Панель союзників (HUD тімейти) ───────────────────────────
         y += H + GAP;
         this.addRenderableWidget(Button.builder(
-            Component.literal("Панель союзників: "
-                + (playerData.isShowTeammates() ? "§aТак" : "§cНі")),
+            Component.translatable("wavedefense.settings.show_teammates",
+                Component.translatable(playerData.isShowTeammates() ? "wavedefense.bool.yes" : "wavedefense.bool.no")),
             b -> { playerData.setShowTeammates(!playerData.isShowTeammates()); sendUpdate(); rebuildWidgets(); }
         ).bounds(cx - W/2, y, W, H).build())
-        .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-            Component.literal("§7Показувати список тімейтів з HP зліва на екрані")));
+        .setTooltip(Tooltip.create(Component.translatable("wavedefense.tooltip.show_teammates")));
 
         // ── Позиція HUD ───────────────────────────────────────────────
         y += H + GAP;
         this.addRenderableWidget(Button.builder(
-            Component.literal("§b⊹ Позиція HUD"),
+            Component.translatable("wavedefense.button.hud_position"),
             b -> this.minecraft.setScreen(new HudEditScreen(this))
         ).bounds(cx - W/2, y, W, H).build());
 
         // ── Закрити ───────────────────────────────────────────────────
         this.addRenderableWidget(Button.builder(
-            Component.literal("Закрити"),
+            Component.translatable("wavedefense.button.close"),
             b -> this.onClose()
         ).bounds(cx - 55, this.height - 30, 110, H).build());
     }

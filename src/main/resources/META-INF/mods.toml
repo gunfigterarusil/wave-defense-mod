@@ -1,70 +1,44 @@
 modLoader="javafml"
 loaderVersion="[47,)"
-license="MIT"
-issueTrackerURL="https://github.com/yourname/wavedefense/issues"
+license="${mod_license}"
+issueTrackerURL="https://github.com/gunfigterarusil/wave-defense-mod/issues"
 
 [[mods]]
-modId="wavedefense"
-version="0.2.27"
-displayName="Wave Defense"
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
 description='''
-Wave Defense v0.2.24 — PvE/PvP мод для Minecraft 1.20.1 Forge.
+Wave Defense ${mod_version} - PvE/PvP arena engine for Minecraft 1.20.1 Forge.
 
-=== НОВИНКИ v0.2.23 ===
-• Точковий магазин — новий режим «Точковий» в ShopEditor
-• Кілька точок магазину на локацію — кожна з власними товарами і радіусом
-• При режимі POINT — магазин недоступний поза радіусом точок
-• ShopPointEditorScreen — редагування точки (назва, координати, радіус, товари)
-• Зворотна сумісність — режим GLOBAL = попередня поведінка без змін
+This version is a repair and UI-improvement branch after the public 0.2.42 release.
 
-=== ОСНОВНІ ФУНКЦІЇ ===
+Main features:
+- PvE wave-defense locations with configurable mobs, equipment, effects, spawn points, rewards, shops, loot, boundaries, portals, and info panels.
+- PvP locations with team spawns, Standard rounds, Deathmatch, Battle Royale, buy phase, team auto-balance, friendly fire, points, and scoreboard/HUD sync.
+- In-game admin editors for locations, waves, mobs, shops, loot spawns, triggers, PvP rules, and HUD settings.
+- Player HUD, teammate panel, direct shop hotkey, import/export, and NBT-backed persistence.
 
---- PvE ---
-• Хвильовий захист з налаштовуваними мобами (броня, зброя, ефекти)
-• Магазин (клавіша B): зброя, броня, розхідники, умовні товари
-• Авто-активація зони при вході в радіус
-• Збереження та відновлення інвентаря, стартові предмети/поінти
-• Лут-спавн: до 19 тригерів, числові параметри N для WAVE_N / MOBS_KILLED_N
-
---- PvP ---
-• Командні раунди, фаза покупок, спектатор між раундами
-• Статистика K/D/A, зелені ніки союзників, приховані ніки ворогів
-
---- Тригери (30+) ---
-• Хвиля, таймер, вбивство, смерть, вхід, рандомні події
-• Параметризовані: TIMER_CUSTOM, MOBS_KILLED_N, WAVES_SURVIVED_N, WAVE_N
-• Мультитригери AND (Ctrl+клік); перезарядка секунди/хвилі
-• NBT-перевірка предмета при продажу з магазину
-
---- UI/UX ---
-• Scissor-скрол у всіх великих меню (Language Screen-стиль)
-• Тригери в одній колонці з індивідуальними налаштуваннями
-• Інфо-панелі (TextDisplay): к-ть гравців, хвиля, таймер, моби, поінти
-• HUD: таймер до хвилі, поінти, таймер перемоги, повідомлення
-• Частинки зони: 7 пресетів (squid_ink, flame, end_rod, witch, portal, snowflake, happy_villager)
-• Точки виходу окремо для перемоги/здачі
-• Прихована локація (адміни бачать усі, гравці — тільки видимі)
-
---- Загальне ---
-• Безмежна кількість локацій, адаптивний UI
-• Конфіг: config/wavedefense-common.toml
-• Команда /wavedefense або /wd для адміністрування
+0.2.43 focus:
+- restore broken WaveManager/PvE/PvP logic from the repair branch;
+- keep explicit PvP team selection stable when auto-balance is enabled;
+- improve large GUI scrolling and hidden-widget click behavior;
+- start the UI cleanup track for better location configuration and a future shop tile/grid mode.
 '''
 logoFile="logo.png"
-authors="Rayman"
+authors="${mod_authors}"
 credits="Thanks to the Minecraft Forge team. Special thanks to tester KatkovB."
-displayURL="https://github.com/yourname/wavedefense"
+displayURL="https://github.com/gunfigterarusil/wave-defense-mod"
 
 [[dependencies.wavedefense]]
     modId="forge"
     mandatory=true
-    versionRange="[47,48)"
+    versionRange="${forge_version_range}"
     ordering="NONE"
     side="BOTH"
 
 [[dependencies.wavedefense]]
     modId="minecraft"
     mandatory=true
-    versionRange="[1.20.1]"
+    versionRange="${minecraft_version_range}"
     ordering="NONE"
     side="BOTH"

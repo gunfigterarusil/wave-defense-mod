@@ -1,79 +1,71 @@
 package com.wavedefense.wave;
 
-import com.wavedefense.data.GameStats;
+import com.wavedefense.WaveDefenseMod;
 import com.wavedefense.data.Location;
 import com.wavedefense.data.PlayerBackup;
+import com.wavedefense.wave.PlayerWaveData;
+import com.wavedefense.data.WaveTrigger;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.Mob;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Shared state container — передається між усіма sub-managers.
- * Зберігає всі Map-поля що раніше жили в WaveManager.
- * Sub-managers читають і пишуть через цей об'єкт.
+ *
+ * <p><b>Стан локації</b> (хвилі, моби, портал, PvP, тощо) живе у
+ * {@link LocationSession} і доступний через {@link #sessions}.
+ * <br><b>Стан гравця</b> (глобальний, не прив'язаний до локації) залишається тут.
  */
 public class WaveContext {
 
-    // ── Player / session state ────────────────────────────────────────
-    public final Map<UUID, PlayerWaveData>      playerData           = new ConcurrentHashMap<>();
-    public final Map<UUID, PlayerBackup>        playerBackups        = new ConcurrentHashMap<>();
-    public final Map<UUID, PlayerBackup>        pendingDeathRestores = new ConcurrentHashMap<>();
-    public final Map<String, Set<UUID>>         spawnedMobsByLocation= new ConcurrentHashMap<>();
-    public final Map<UUID, Long>                reEntryCooldowns     = new ConcurrentHashMap<>();
+    // ── Per-player state (not location-specific) ─────────────────────
+    public final Map<UUID, PlayerWaveData>  playerData           = new ConcurrentHashMap<>();
+    public final Map<UUID, PlayerBackup>    playerBackups        = new ConcurrentHashMap<>();
+    public final Map<UUID, PlayerBackup>    pendingDeathRestores = new ConcurrentHashMap<>();
+    public final Map<UUID, Long>            reEntryCooldowns     = new ConcurrentHashMap<>();
 
-    // ── Wave timers ───────────────────────────────────────────────────
-    public final Map<String, Long>              locationStartTimers  = new ConcurrentHashMap<>();
-    public final Map<String, Integer>           locationWaveTimers   = new ConcurrentHashMap<>();
-    public final Map<String, Integer>           locationCurrentWave  = new ConcurrentHashMap<>();
-    public final Map<String, Integer>           locationTimer60      = new ConcurrentHashMap<>();
-    public final Map<String, Integer>           locationTimer120     = new ConcurrentHashMap<>();
-    public final Map<String, Integer>           locationTimer300     = new ConcurrentHashMap<>();
-    public final Map<String, Integer>           locationTimerCustom  = new ConcurrentHashMap<>();
-    public final Map<String, Integer>           victoryLingerTimers  = new ConcurrentHashMap<>();
-    public final Map<String, GameStats>         locationStats        = new ConcurrentHashMap<>();
-    public int                                  tickCounter          = 0;
+    // ── Boundary (per-player) ─────────────────────────────────────────
+    public final Map<UUID, Integer>         leaveCountdownTicks  = new ConcurrentHashMap<>();
 
-    // ── Mob tracking ──────────────────────────────────────────────────
-    public final Map<String, Integer>           waveStartMobCounts   = new ConcurrentHashMap<>();
-    public final Map<String, Integer>           locationMobsKilled   = new ConcurrentHashMap<>();
-    public final Set<String>                    halfMobsTriggered    = ConcurrentHashMap.newKeySet();
+    // ── Active location sessions ──────────────────────────────────────
+    /** locationName → all runtime state for that active location. */
+    public final Map<String, LocationSession> sessions = new ConcurrentHashMap<>();
 
-    // ── Wave triggers ─────────────────────────────────────────────────
-    public final Map<String, Long>              waveTriggerLastFired = new ConcurrentHashMap<>();
-    public final Map<String, Integer>           waveTriggerWaveCounters = new ConcurrentHashMap<>();
-    public final Map<String, Long>              recentlyFiredTriggers= new ConcurrentHashMap<>();
-    public static final long                    RECENTLY_FIRED_WINDOW_MS = 10_000L;
+    // ── Global ───────────────────────────────────────────────────────
+    public int tickCounter = 0;
 
-    // ── Boundary ──────────────────────────────────────────────────────
-    public final Map<UUID, Integer>             leaveCountdownTicks  = new ConcurrentHashMap<>();
+    // ─────────────────────────────────────────────────────────────────
+    //  Session lifecycle helpers
+    // ─────────────────────────────────────────────────────────────────
 
-    // ── Zone activation ───────────────────────────────────────────────
-    public final Map<String, Integer>           zoneCountdownTickers = new ConcurrentHashMap<>();
-    public final Map<String, Set<UUID>>         zonePlayersInRange   = new ConcurrentHashMap<>();
-    public final Map<String, Long>              zoneCountdownStartMs = new ConcurrentHashMap<>();
-    public final Map<String, Integer>           zoneLateJoinTimers   = new ConcurrentHashMap<>();
-    public final Map<String, Long>              zoneOpenUntilMs      = new ConcurrentHashMap<>();
+    /**
+     * Повертає активну сесію або null якщо локація не запущена.
+     */
+    public LocationSession getSession(String locationName) {
+        return sessions.get(locationName);
+    }
 
-    // ── Portal ────────────────────────────────────────────────────────
-    public final Map<String, net.minecraft.core.BlockPos> portalPositions      = new ConcurrentHashMap<>();
-    public final Map<String, Integer>           portalPenaltyTimers  = new ConcurrentHashMap<>();
-    public final Map<String, Integer>           portalRespawnTimers  = new ConcurrentHashMap<>();
-    public final Map<String, Integer>           portalPenaltyWaveIndex = new ConcurrentHashMap<>();
-    public final Map<String, Set<UUID>>         portalPenaltyMobs    = new ConcurrentHashMap<>();
-    public final Map<String, net.minecraft.core.BlockPos> portalEntryPositions = new ConcurrentHashMap<>();
-    public final Set<String>                    portalFirstPlayerEntered = ConcurrentHashMap.newKeySet();
-    public final Map<String, Set<UUID>>         portalEnteredPlayers = new ConcurrentHashMap<>();
-    public final Map<String, Long>              portalOpenUntilMs    = new ConcurrentHashMap<>();
+    /**
+     * Повертає активну сесію, або створює нову (якщо локація щойно стартує).
+     */
+    public LocationSession getOrCreateSession(String locationName, Location config) {
+        return sessions.computeIfAbsent(locationName, k -> new LocationSession(locationName, config));
+    }
 
-    // ── PvP ───────────────────────────────────────────────────────────
-    public final Map<String, com.wavedefense.data.PvpRoundState> pvpStates = new ConcurrentHashMap<>();
+    /**
+     * Завершує сесію: видаляє зі мапи і викликає {@link LocationSession#dispose()}.
+     */
+    public void removeSession(String locationName) {
+        LocationSession s = sessions.remove(locationName);
+        if (s != null) s.dispose();
+    }
 
-    // ── InfoPanel ─────────────────────────────────────────────────────
-    public final Map<String, UUID>              infoPanelEntityIds   = new ConcurrentHashMap<>();
-
-    // ── Helpers ───────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────
+    //  Query helpers
+    // ─────────────────────────────────────────────────────────────────
 
     /** Повертає Set активних назв локацій (де є гравці). */
     public Set<String> getActiveLocationNames() {
@@ -85,13 +77,13 @@ public class WaveContext {
         return names;
     }
 
-    /** Повертає список гравців у конкретній локації. */
+    /** Повертає список серверних гравців у конкретній локації. */
     public List<ServerPlayer> getPlayersInLocation(String locationName) {
         List<ServerPlayer> list = new ArrayList<>();
         for (Map.Entry<UUID, PlayerWaveData> e : playerData.entrySet()) {
             if (e.getValue().getCurrentLocation() != null &&
                     e.getValue().getCurrentLocation().getName().equals(locationName)) {
-                ServerPlayer sp = com.wavedefense.WaveDefenseMod.getServer()
+                ServerPlayer sp = WaveDefenseMod.getServer()
                         .getPlayerList().getPlayer(e.getKey());
                 if (sp != null) list.add(sp);
             }
@@ -105,47 +97,67 @@ public class WaveContext {
             p.displayClientMessage(net.minecraft.network.chat.Component.literal(message), false);
     }
 
-    /** Записує нещодавно спрацьований event-triggered тригер. */
-    public void markRecentlyFired(String locationName, com.wavedefense.data.WaveTrigger trigger) {
-        recentlyFiredTriggers.put(locationName + "_" + trigger.name(), System.currentTimeMillis());
+    /** Записує нещодавно спрацьований event-triggered тригер у сесію. */
+    public void markRecentlyFired(String locationName, WaveTrigger trigger) {
+        LocationSession s = getSession(locationName);
+        if (s != null) s.markRecentlyFired(trigger);
     }
 
-    /** Перевіряє чи event-triggered тригер спрацьовував в останні RECENTLY_FIRED_WINDOW_MS мс. */
-    public boolean wasRecentlyFired(String locationName, com.wavedefense.data.WaveTrigger trigger) {
-        Long t = recentlyFiredTriggers.get(locationName + "_" + trigger.name());
-        return t != null && (System.currentTimeMillis() - t) < RECENTLY_FIRED_WINDOW_MS;
+    /** Перевіряє чи event-triggered тригер спрацьовував нещодавно. */
+    public boolean wasRecentlyFired(String locationName, WaveTrigger trigger) {
+        LocationSession s = getSession(locationName);
+        return s != null && s.wasRecentlyFired(trigger, LocationSession.RECENTLY_FIRED_WINDOW_MS);
     }
 
-    /** Очищає стан локації після завершення сесії. */
+    /**
+     * @deprecated Використовуйте {@link #removeSession(String)} — він очищає всі поля сесії.
+     *             Залишений тимчасово для сумісності зі старим кодом.
+     */
+    @Deprecated
     public void clearLocationState(String locationName) {
-        spawnedMobsByLocation.remove(locationName);
-        locationWaveTimers.remove(locationName);
-        locationStartTimers.remove(locationName);
-        locationCurrentWave.remove(locationName);
-        pvpStates.remove(locationName);
-        victoryLingerTimers.remove(locationName);
-        locationTimer60.remove(locationName);
-        locationTimer120.remove(locationName);
-        locationTimer300.remove(locationName);
-        locationTimerCustom.remove(locationName);
-        waveStartMobCounts.remove(locationName);
-        locationMobsKilled.remove(locationName);
-        waveTriggerLastFired.remove(locationName);
-        waveTriggerWaveCounters.remove(locationName);
-        halfMobsTriggered.removeIf(s -> s.startsWith(locationName));
-        zoneCountdownTickers.remove(locationName);
-        zonePlayersInRange.remove(locationName);
-        zoneCountdownStartMs.remove(locationName);
-        zoneLateJoinTimers.remove(locationName);
-        zoneOpenUntilMs.remove(locationName);
-        portalPositions.remove(locationName);
-        portalPenaltyTimers.remove(locationName);
-        portalRespawnTimers.remove(locationName);
-        portalPenaltyWaveIndex.remove(locationName);
-        portalPenaltyMobs.remove(locationName);
-        portalEntryPositions.remove(locationName);
-        portalFirstPlayerEntered.remove(locationName);
-        portalEnteredPlayers.remove(locationName);
-        portalOpenUntilMs.remove(locationName);
+        removeSession(locationName);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  Save/Load for backup system
+    // ─────────────────────────────────────────────────────────────────
+
+    /** Очищає всі дані контексту. Використовується при повному відновленні. */
+    public void clear() {
+        playerData.clear();
+        playerBackups.clear();
+        pendingDeathRestores.clear();
+        reEntryCooldowns.clear();
+        leaveCountdownTicks.clear();
+        sessions.clear();
+        tickCounter = 0;
+    }
+
+    /** Зберігає всі активні сесії. */
+    public ListTag saveSessions() {
+        ListTag list = new ListTag();
+        for (LocationSession sess : sessions.values()) {
+            list.add(sess.save());
+        }
+        return list;
+    }
+
+    /** Відновлює сесії зі списку. */
+    public void loadSessions(ListTag list) {
+        sessions.clear();
+        for (int i = 0; i < list.size(); i++) {
+            LocationSession sess = LocationSession.load(list.getCompound(i));
+            if (sess != null) {
+                sessions.put(sess.locationName, sess);
+            }
+        }
+    }
+
+    /** Відновлює одну сесію. */
+    public void loadSession(String locationName, CompoundTag tag) {
+        LocationSession sess = LocationSession.load(tag);
+        if (sess != null) {
+            sessions.put(locationName, sess);
+        }
     }
 }

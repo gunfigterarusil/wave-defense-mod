@@ -41,8 +41,7 @@ public class ExportShopPacket {
             if (player == null || !player.hasPermissions(2)) return;
             Location loc = WaveDefenseMod.locationManager.getLocation(pkt.locationName);
             if (loc == null) {
-                player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                    "§cЛокацію не знайдено: " + pkt.locationName), false);
+                player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.auto.локацію_не_знайдено_value_a5c2c216", pkt.locationName), false);
                 return;
             }
             try {
@@ -64,8 +63,7 @@ public class ExportShopPacket {
                     ShopPoint sp = loc.getShopPoints().stream()
                         .filter(p -> p.getName().equals(pointName)).findFirst().orElse(null);
                     if (sp == null) {
-                        player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                            "§cТочку магазину не знайдено: " + pointName), false);
+                        player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.auto.точку_магазину_не_знайдено_value_6a6709d5", pointName), false);
                         return;
                     }
                     tag.put("point", sp.save());
@@ -73,7 +71,7 @@ public class ExportShopPacket {
                     tag.putString("location", pkt.locationName);
                     fileName = pkt.locationName + "_shop_" + pointName.replaceAll("[^a-zA-Z0-9_-]", "_");
                 } else {
-                    player.displayClientMessage(net.minecraft.network.chat.Component.literal("§cНевідомий режим: " + pkt.mode), false);
+                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.auto.невідомий_режим_value_c998740d", pkt.mode), false);
                     return;
                 }
 

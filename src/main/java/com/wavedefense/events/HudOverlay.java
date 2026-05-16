@@ -71,11 +71,11 @@ public class HudOverlay {
                 int pvpTotal    = com.wavedefense.gui.ClientPvpStateManager.getTotalRounds();
                 int pvpTimer    = com.wavedefense.gui.ClientPvpStateManager.getTimerSeconds();
                 if ("BUY".equals(pvpPhase))
-                    mainLine = String.format("§e🛒 ЧАС ПОКУПОК: %d сек | Раунд %d/%d", pvpTimer, pvpRound, pvpTotal);
+                    mainLine = I18n.get("wavedefense.pvp.buy_phase", pvpTimer, pvpRound, pvpTotal);
                 else if ("ACTIVE".equals(pvpPhase))
-                    mainLine = String.format("§c⚔ РАУНД %d/%d — БИЙТЕСЬ!", pvpRound, pvpTotal);
+                    mainLine = I18n.get("wavedefense.pvp.round_active", pvpRound, pvpTotal);
                 else
-                    mainLine = "§7Чекаємо гравців...";
+                    mainLine = I18n.get("wavedefense.pvp.waiting");
             } else {
                 mainLine = "§e" + I18n.get("wavedefense.hud.wave_active");
             }
@@ -83,19 +83,17 @@ public class HudOverlay {
             int mobsLeft = playerData.getMobsRemaining();
             if (mobsLeft > 0) {
                 mobLine = location.isPvp()
-                    ? "§cВорогів залишилось: §f" + mobsLeft
+                    ? I18n.get("wavedefense.hud.mobs_left", mobsLeft)
                     : I18n.get("wavedefense.hud.mobs_left", mobsLeft);
             }
         }
 
-        // ── Оцінка ширини блоку ───────────────────────────────────────
+        // ── Ширина блоку — один прохід по всіх рядках ───────────────
         int estimatedW = 240;
-        // Уточнюємо за реальними рядками
-        int w1 = mc.font.width(locationLabel) + 10;
-        int w2 = mainLine != null ? mc.font.width(mainLine) + 10 : 0;
-        int w3 = mobLine  != null ? mc.font.width(mobLine)  + 10 : 0;
-        estimatedW = Math.max(estimatedW, Math.max(w1, Math.max(w2, w3)));
-        if (showProgressBar) estimatedW = Math.max(estimatedW, 200 + 10);
+        estimatedW = Math.max(estimatedW, mc.font.width(locationLabel) + 10);
+        if (mainLine != null) estimatedW = Math.max(estimatedW, mc.font.width(mainLine) + 10);
+        if (mobLine  != null) estimatedW = Math.max(estimatedW, mc.font.width(mobLine)  + 10);
+        if (showProgressBar)  estimatedW = Math.max(estimatedW, 210);
 
         // ── Позиція з HudLayout ───────────────────────────────────────
         HudLayout hl = HudLayout.get();

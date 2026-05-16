@@ -39,10 +39,10 @@ public class RewardsConfigScreen extends Screen {
 
         // --- Поінти за завершення хвилі ---
         this.addRenderableWidget(Button.builder(
-                Component.literal("§7Поінти за завершення хвилі (всім гравцям):"), button -> {}
+                Component.translatable("wavedefense.auto.поінти_за_завершення_хвилі_всім_96a12997"), button -> {}
         ).bounds(cx - 180, y, 280, 16).build()).active = false;
 
-        pointsRewardInput = new EditBox(this.font, cx + 105, y, 75, 20, Component.literal("Поінти"));
+        pointsRewardInput = new EditBox(this.font, cx + 105, y, 75, 20, Component.translatable("wavedefense.auto.поінти_66d72273"));
         pointsRewardInput.setValue(String.valueOf(waveConfig.getPointsReward()));
         pointsRewardInput.setMaxLength(7);
         this.addRenderableWidget(pointsRewardInput);
@@ -50,7 +50,7 @@ public class RewardsConfigScreen extends Screen {
 
         // --- Ефект на гравців усю хвилю ---
         this.addRenderableWidget(Button.builder(
-                Component.literal("§7Ефект на гравців (весь час хвилі):"), button -> {}
+                Component.translatable("wavedefense.auto.ефект_на_гравців_весь_час_хвилі_ab514b9d"), button -> {}
         ).bounds(cx - 180, y, 230, 16).build()).active = false;
         y += 18;
 
@@ -79,13 +79,13 @@ public class RewardsConfigScreen extends Screen {
         ).bounds(cx + 88, y, 18, 20).build());
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("§7←→ підбір"), button -> {}
+                Component.translatable("wavedefense.auto.підбір_43b3ce78"), button -> {}
         ).bounds(cx + 108, y, 70, 20).build()).active = false;
         y += 24;
 
         // Рівень ефекту
         this.addRenderableWidget(Button.builder(
-                Component.literal("§7Рівень ефекту (0=I, 1=II, 2=III...):"), button -> {}
+                Component.translatable("wavedefense.auto.рівень_ефекту_0_i_1_ii_2_iii_2a574a95"), button -> {}
         ).bounds(cx - 180, y, 230, 16).build()).active = false;
         amplifierInput = new EditBox(this.font, cx + 55, y, 45, 20, Component.literal("0"));
         amplifierInput.setValue(String.valueOf(waveConfig.getWaveEffectAmplifier()));
@@ -96,11 +96,11 @@ public class RewardsConfigScreen extends Screen {
 
         // --- Команда при завершенні хвилі ---
         this.addRenderableWidget(Button.builder(
-                Component.literal("§7Команда при завершенні хвилі:"), button -> {}
+                Component.translatable("wavedefense.auto.команда_при_завершенні_хвилі_19a42be6"), button -> {}
         ).bounds(cx - 180, y, 230, 16).build()).active = false;
         y += 18;
 
-        commandInput = new EditBox(this.font, cx - 180, y, 360, 20, Component.literal("say Wave done!"));
+        commandInput = new EditBox(this.font, cx - 180, y, 360, 20, Component.translatable("wavedefense.auto.say_wave_done_489b73c2"));
         commandInput.setValue(waveConfig.getCompletionCommand());
         commandInput.setMaxLength(256);
         this.addRenderableWidget(commandInput);
@@ -108,24 +108,24 @@ public class RewardsConfigScreen extends Screen {
 
         // Підказки щодо змінних
         this.addRenderableWidget(Button.builder(
-                Component.literal("§8Змінні: §7%location% %wave% %players%"), button -> {}
+                Component.translatable("wavedefense.auto.змінні_location_wave_players_0f06cf7b"), button -> {}
         ).bounds(cx - 180, y, 360, 14).build()).active = false;
         y += 6;
 
         // Приклади
         this.addRenderableWidget(Button.builder(
-                Component.literal("§8Приклад: say %players% пройшли хвилю %wave% у %location%!"),
+                Component.translatable("wavedefense.auto.приклад_say_players_пройшли_хвил_aa4f88d1"),
                 button -> {}
         ).bounds(cx - 180, y, 360, 14).build()).active = false;
 
         // Кнопки
         this.addRenderableWidget(Button.builder(
-                Component.literal("§a✓ Зберегти"),
+                Component.translatable("wavedefense.auto.зберегти_617e5dc0"),
                 button -> { save(); this.minecraft.setScreen(parentScreen); }
         ).bounds(cx - 110, this.height - 28, 100, 20).build());
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("Скасувати"),
+                Component.translatable("wavedefense.auto.скасувати_8b4c2025"),
                 button -> this.minecraft.setScreen(parentScreen)
         ).bounds(cx + 10, this.height - 28, 100, 20).build());
     }

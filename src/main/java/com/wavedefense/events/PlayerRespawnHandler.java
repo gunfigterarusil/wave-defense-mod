@@ -47,6 +47,8 @@ public class PlayerRespawnHandler {
 
         // Перевіряємо чи гравець щойно помер у ACTIVE раунді
         boolean wasPvpDeath = WaveDefenseMod.waveManager.getPvpPendingRespawn()
+            .contains(player.getUUID());
+        WaveDefenseMod.waveManager.getPvpPendingRespawn()
             .remove(player.getUUID());
 
         com.wavedefense.data.PvpRoundState pvpState =
@@ -94,14 +96,14 @@ public class PlayerRespawnHandler {
                 player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
                     net.minecraft.world.effect.MobEffects.REGENERATION, 60, 1, false, false));
                 player.displayClientMessage(
-                    net.minecraft.network.chat.Component.literal("§c☠ §7Ви загинули — §aпродовжуєте бій!"), true);
+                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.respawn_continue"), true);
             } else if (location.isBattleRoyale()) {
                 // BR: теж миттєве відродження, але тільки якщо раунд ще не завершено (один гравець живий)
                 if (player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR) {
                     player.setGameMode(GameType.SURVIVAL);
                 }
                 if (teamSpawn != null) {
-                    WaveDefenseMod.waveManager.teleportToSafeSpawn(player, teamSpawn.getPos());
+                    WaveDefenseMod.waveManager.teleportToSafeSpawn(player, teamSpawn.getPos(), 0);
                 }
                 // У BR гравець вибуває назавжди після смерті (respawn = виліт з гри)
                 // recordDeath вже це обробив — тут просто переміщуємо spectator
@@ -110,7 +112,7 @@ public class PlayerRespawnHandler {
                 // Standard: spectator на точці спавну
                 player.setGameMode(GameType.SPECTATOR);
                 if (teamSpawn != null) {
-                    WaveDefenseMod.waveManager.teleportToSafeSpawn(player, teamSpawn.getPos());
+                    WaveDefenseMod.waveManager.teleportToSafeSpawn(player, teamSpawn.getPos(), 0);
                 }
             }
         } else if (isWaiting) {
@@ -126,13 +128,13 @@ public class PlayerRespawnHandler {
                 player.setGameMode(GameType.SPECTATOR);
             }
             if (teamSpawn != null) {
-                WaveDefenseMod.waveManager.teleportToSafeSpawn(player, teamSpawn.getPos());
+                WaveDefenseMod.waveManager.teleportToSafeSpawn(player, teamSpawn.getPos(), 0);
             }
         } else {
             // Fallback: spectator на точці спавну
             player.setGameMode(GameType.SPECTATOR);
             if (teamSpawn != null) {
-                WaveDefenseMod.waveManager.teleportToSafeSpawn(player, teamSpawn.getPos());
+                WaveDefenseMod.waveManager.teleportToSafeSpawn(player, teamSpawn.getPos(), 0);
             }
         }
     }

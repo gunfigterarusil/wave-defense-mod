@@ -46,15 +46,13 @@ public class ImportShopPacket {
             if (player == null || !player.hasPermissions(2)) return;
             Location loc = WaveDefenseMod.locationManager.getLocation(pkt.locationName);
             if (loc == null) {
-                player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                    "§cЛокацію не знайдено: " + pkt.locationName), false);
+                player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.auto.локацію_не_знайдено_value_a5c2c216", pkt.locationName), false);
                 return;
             }
             try {
                 File file = new File(ExportShopPacket.getShopExportDir(), pkt.fileName + ".nbt");
                 if (!file.exists()) {
-                    player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                        "§cФайл не знайдено: " + pkt.fileName + ".nbt"), false);
+                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.auto.файл_не_знайдено_value_e8d8c6cc", pkt.fileName + ".nbt"), false);
                     return;
                 }
                 CompoundTag tag = NbtIo.readCompressed(file);
@@ -74,7 +72,7 @@ public class ImportShopPacket {
 
                 } else if ("point".equals(mode)) {
                     ShopPoint sp = ShopPoint.load(tag.getCompound("point"));
-                    if (sp == null) { player.displayClientMessage(net.minecraft.network.chat.Component.literal("§cПомилка читання точки"), false); return; }
+                    if (sp == null) { player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.auto.помилка_читання_точки_62a2ffb4"), false); return; }
                     if (pkt.targetMode.startsWith("point:")) {
                         String targetPointName = pkt.targetMode.substring(6);
                         // Якщо існує точка з такою назвою — замінюємо товари, інакше додаємо нову
@@ -96,8 +94,7 @@ public class ImportShopPacket {
                             "§a✓ Точку магазину §e" + sp.getName() + " §aдодано до §e" + pkt.locationName), false);
                     }
                 } else {
-                    player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                        "§cФайл несумісний з цільовим режимом (файл: " + mode + ", ціль: " + pkt.targetMode + ")"), false);
+                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.auto.файл_несумісний_з_цільовим_режимом_файл_1219b59d", mode + ", ціль: " + pkt.targetMode + ")"), false);
                     return;
                 }
 

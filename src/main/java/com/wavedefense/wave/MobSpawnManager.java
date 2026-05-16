@@ -3,6 +3,7 @@ package com.wavedefense.wave;
 import com.wavedefense.WaveDefenseMod;
 import com.wavedefense.data.*;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
@@ -38,19 +39,25 @@ public class MobSpawnManager {
         if (players.isEmpty()) return false;
 
         ServerLevel world = players.get(0).serverLevel();
-        Set<UUID> spawnedMobs = ctx.spawnedMobsByLocation
-                .computeIfAbsent(locationName, k -> new HashSet<>());
+        LocationSession sess = ctx.getOrCreateSession(locationName, location);
+        Set<UUID> spawnedMobs = sess.spawnedMobs;
 
         int playerCount = Math.max(1, players.size());
         boolean anySpawned = false;
         Random rng = new Random();
+
+        // Snapshot size before spawning so portal/trigger mobs already in the set
+        // don't inflate waveStartMobCount (which drives HALF_MOBS_DEAD trigger).
+        int preSpawnSize = spawnedMobs.size();
 
         for (WaveMob waveMob : waveConfig.getMobs()) {
             EntityType<?> entityType = ForgeRegistries.ENTITY_TYPES.getValue(waveMob.getMobType());
             if (entityType == null) continue;
 
             int baseCount = waveMob.getCount() + (waveMob.getGrowthPerWave() * (waveNumber - 1));
-            int mobCount  = baseCount * playerCount;
+            double difficulty = wm.getAutoScaler().getCurrentDifficulty();
+            int mobCount = (int) (baseCount * playerCount * difficulty);
+            if (mobCount < 1) mobCount = 1; // ensure at least 1 mob
 
             for (int i = 0; i < mobCount; i++) {
                 if (rng.nextInt(100) >= waveMob.getSpawnChance()) continue;
@@ -80,9 +87,11 @@ public class MobSpawnManager {
                 }
             }
         }
-        // Track mob count for HALF_MOBS_DEAD trigger
-        ctx.waveStartMobCounts.put(locationName, spawnedMobs.size());
-        ctx.locationMobsKilled.put(locationName, 0);
+        // Track only NEWLY spawned mobs for the HALF_MOBS_DEAD trigger.
+        // Subtracting preSpawnSize excludes portal/trigger mobs that were already
+        // in spawnedMobs before this wave started.
+        sess.waveStartMobCount = Math.max(0, spawnedMobs.size() - preSpawnSize);
+        sess.mobsKilled = 0;
         return anySpawned;
     }
 
@@ -90,8 +99,8 @@ public class MobSpawnManager {
     public void spawnAroundPos(WaveConfig waveConfig, Location loc,
                                 ServerLevel world, BlockPos center,
                                 String locationName, int waveNumber) {
-        Set<UUID> spawnedMobs = ctx.spawnedMobsByLocation
-                .computeIfAbsent(locationName, k -> new HashSet<>());
+        LocationSession sess = ctx.getOrCreateSession(locationName, loc);
+        Set<UUID> spawnedMobs = sess.spawnedMobs;
         Random rng = new Random();
         // Вибираємо точки спавну: якщо є конкретні MobSpawnPoints — розподіляємо моби по них
         var spawnPoints = loc.getMobSpawns();
@@ -143,6 +152,8 @@ public class MobSpawnManager {
             world.addFreshEntity(mob);
             return mob;
         } catch (Exception e) {
+            WaveDefenseMod.LOGGER.warn("[WaveDefense] trySpawn failed for '{}' at {} in '{}': {}",
+                entityType.getDescriptionId(), pos, locationName, e.getMessage());
             return null;
         }
     }
@@ -219,5 +230,22 @@ public class MobSpawnManager {
             tag.put("HandDropChances",  hd);
             mob.load(tag);
         } catch (Exception ignored) {}
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  Save/Load for backup system
+    // ─────────────────────────────────────────────────────────────────
+
+    /** Серіалізація стану MobSpawnManager. */
+    public CompoundTag save() {
+        CompoundTag tag = new CompoundTag();
+        // MobSpawnManager не має власних полів, які потребують збереження
+        // Усі дані вже збережені через WaveContext/LocationSession
+        return tag;
+    }
+
+    /** Відновлення стану MobSpawnManager. */
+    public void load(CompoundTag tag) {
+        // Немає стану для відновлення
     }
 }

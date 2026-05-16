@@ -1,5 +1,7 @@
 package com.wavedefense.data;
 
+import net.minecraft.nbt.CompoundTag;
+
 /**
  * Статистика гравця для PvP сесії: кіли, смерті, асисти.
  * Зберігається в PvpRoundState на час сесії.
@@ -10,6 +12,10 @@ public class PvpPlayerStats {
     private int kills         = 0;
     private int deaths        = 0;
     private int assists       = 0;
+
+    public PvpPlayerStats() {
+        // For loading from NBT
+    }
 
     public PvpPlayerStats(String playerName, String teamName) {
         this.playerName = playerName;
@@ -30,5 +36,27 @@ public class PvpPlayerStats {
     /** K/D ratio */
     public float getKD() {
         return deaths == 0 ? kills : (float) kills / deaths;
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    //  Save/Load for backup system
+    // ──────────────────────────────────────────────────────────────────────
+
+    public CompoundTag save() {
+        CompoundTag tag = new CompoundTag();
+        tag.putString("playerName", playerName);
+        tag.putString("teamName", teamName);
+        tag.putInt("kills", kills);
+        tag.putInt("deaths", deaths);
+        tag.putInt("assists", assists);
+        return tag;
+    }
+
+    public void load(CompoundTag tag) {
+        playerName = tag.getString("playerName");
+        teamName = tag.getString("teamName");
+        kills = tag.getInt("kills");
+        deaths = tag.getInt("deaths");
+        assists = tag.getInt("assists");
     }
 }

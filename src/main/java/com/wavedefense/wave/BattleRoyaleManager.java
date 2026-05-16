@@ -8,6 +8,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -85,7 +86,7 @@ public class BattleRoyaleManager {
                 // Повідомлення кожні 10 блоків зменшення
                 if (newRadius % 10 == 0 || newRadius <= 20) {
                     wm.broadcastToLocation(locName,
-                        "§c⚠ §eКордон звузився! §cРадіус: §e" + newRadius + " §cблоків");
+                        Component.translatable("wavedefense.auto.border_narrowed_radius_value_7b82d92e", newRadius + " §cblocks"));
                 }
                 radius = newRadius;
             } else {
@@ -96,13 +97,13 @@ public class BattleRoyaleManager {
             spawnBorderParticles(world, center, radius, loc);
 
             // ── Шкода поза кордоном ────────────────────────────────────────
-            if (loc.isBrBorderDamage()) {
+            if (loc.isBrBorderDamage() && loc.getBrBorderDamageAmt() > 0) {
                 for (ServerPlayer p : players) {
                     double dist = Math.sqrt(p.blockPosition().distSqr(center));
                     if (dist > radius) {
                         p.hurt(p.damageSources().magic(), loc.getBrBorderDamageAmt());
                         p.displayClientMessage(
-                            Component.literal("§c☠ Ви поза зоною безпеки! (-" + loc.getBrBorderDamageAmt() + " HP/сек)"), true);
+                            Component.translatable("wavedefense.msg.outside_zone", loc.getBrBorderDamageAmt()), true);
                     }
                 }
             }
@@ -151,5 +152,45 @@ public class BattleRoyaleManager {
             case "minecraft:dripping_lava" -> ParticleTypes.DRIPPING_LAVA;
             default                        -> ParticleTypes.FLAME;
         };
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  Save/Load for backup system
+    // ─────────────────────────────────────────────────────────────────
+
+    /** Серіалізація стану BattleRoyaleManager. */
+    public CompoundTag save() {
+        CompoundTag tag = new CompoundTag();
+        // currentRadius
+        CompoundTag radiusTag = new CompoundTag();
+        for (Map.Entry<String, Integer> entry : currentRadius.entrySet()) {
+            radiusTag.putInt(entry.getKey(), entry.getValue());
+        }
+        tag.put("currentRadius", radiusTag);
+        // shrinkTicker
+        CompoundTag shrinkTag = new CompoundTag();
+        for (Map.Entry<String, Integer> entry : shrinkTicker.entrySet()) {
+            shrinkTag.putInt(entry.getKey(), entry.getValue());
+        }
+        tag.put("shrinkTicker", shrinkTag);
+        return tag;
+    }
+
+    /** Відновлення стану BattleRoyaleManager. */
+    public void load(CompoundTag tag) {
+        currentRadius.clear();
+        shrinkTicker.clear();
+        if (tag.contains("currentRadius")) {
+            CompoundTag radiusTag = tag.getCompound("currentRadius");
+            for (String key : radiusTag.getAllKeys()) {
+                currentRadius.put(key, radiusTag.getInt(key));
+            }
+        }
+        if (tag.contains("shrinkTicker")) {
+            CompoundTag shrinkTag = tag.getCompound("shrinkTicker");
+            for (String key : shrinkTag.getAllKeys()) {
+                shrinkTicker.put(key, shrinkTag.getInt(key));
+            }
+        }
     }
 }

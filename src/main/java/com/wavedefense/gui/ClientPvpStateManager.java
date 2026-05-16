@@ -63,4 +63,16 @@ public class ClientPvpStateManager {
     public static List<PlayerRow> getPlayers() { return players; }
     public static String getLocation()    { return location; }
     public static boolean isActive()      { return !phase.equals("WAITING") && !location.isEmpty(); }
+
+    /** Скидає PvP-стан при виході гравця з локації. */
+    public static void reset() {
+        location     = "";
+        phase        = "WAITING";
+        currentRound = 0;
+        totalRounds  = 0;
+        timerSeconds = 0;
+        myTeam       = "";
+        teamWins.clear();
+        players.clear();
+    }
 }

@@ -51,22 +51,28 @@ public class PurchaseItemPacket {
             Location location = WaveDefenseMod.locationManager.getLocation(packet.locationName);
             if (location == null) return;
 
-            // Отримуємо список товарів (глобальний або з точки)
+            // Отримуємо список товарів (глобальний або з точки).
+            // Захоплюємо посилання на список і елемент одразу, щоб уникнути TOCTOU
+            // якщо адмін редагує магазин одночасно з купівлею.
             List<ShopItem> sourceList;
             if (packet.shopPointIndex >= 0) {
                 List<ShopPoint> points = location.getShopPoints();
                 if (packet.shopPointIndex >= points.size()) return;
-                sourceList = points.get(packet.shopPointIndex).getItems();
+                ShopPoint sp = points.get(packet.shopPointIndex);
+                if (sp == null) return;
+                sourceList = sp.getItems();
             } else {
                 sourceList = location.getShopItems();
             }
+            if (sourceList == null) return;
 
             if (packet.itemIndex < 0 || packet.itemIndex >= sourceList.size()) {
                 player.displayClientMessage(
-                    net.minecraft.network.chat.Component.literal("§cПомилка: товар не знайдено (idx=" + packet.itemIndex + ", size=" + sourceList.size() + ")"), true);
+                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.item_not_available"), true);
                 return;
             }
             ShopItem shopItem = sourceList.get(packet.itemIndex);
+            if (shopItem == null) return;
             int price = shopItem.getBuyPrice();
 
             // Server-side перевірка тригеру доступності
@@ -91,13 +97,15 @@ public class PurchaseItemPacket {
                 }
                 if (!available) {
                     player.displayClientMessage(
-                        net.minecraft.network.chat.Component.literal("§cТовар ще недоступний!"), true);
+                        net.minecraft.network.chat.Component.translatable("wavedefense.msg.item_not_available"), true);
                     return;
                 }
             }
 
             if (location.getPlayerPoints(player.getUUID()) >= price) {
                 location.addPoints(player.getUUID(), -price);
+                // Зберігаємо зміну поінтів на диск, щоб не загубились при рестарті
+                WaveDefenseMod.locationManager.updateLocation(location);
                 for (ItemStack item : shopItem.getItems()) {
                     player.getInventory().add(item.copy());
                 }
@@ -105,12 +113,12 @@ public class PurchaseItemPacket {
                 String itemName = shopItem.getItems().isEmpty() ? "товар"
                     : shopItem.getItems().get(0).getHoverName().getString();
                 player.displayClientMessage(
-                    net.minecraft.network.chat.Component.literal("§a✓ Куплено: §e" + itemName), true);
+                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.purchased", itemName), true);
                 // Синхронізуємо очки
                 WaveDefenseMod.waveManager.syncPlayerData(player);
             } else {
                 player.displayClientMessage(
-                    net.minecraft.network.chat.Component.literal("§cНедостатньо очок!"), true);
+                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.not_enough_points"), true);
             }
         });
         ctx.get().setPacketHandled(true);

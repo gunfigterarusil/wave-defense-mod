@@ -46,7 +46,7 @@ public class WaveExportScreen extends Screen {
                 PacketHandler.sendToServer(new ExportWavePacket(location.getName(), "all"));
                 if (minecraft.player != null)
                     minecraft.player.displayClientMessage(
-                        Component.literal("§a⬆ Надіслано запит на збереження всіх хвиль..."), true);
+                        Component.translatable("wavedefense.auto.надіслано_запит_на_збереження_вс_67d5986a"), true);
                 minecraft.setScreen(parent);
             }
         ).bounds(cx - 130, y, 260, BTN_H).build());
@@ -95,7 +95,7 @@ public class WaveExportScreen extends Screen {
 
         // ── Скасувати ─────────────────────────────────────────────────
         this.addRenderableWidget(Button.builder(
-            Component.literal("Скасувати"),
+            Component.translatable("wavedefense.auto.скасувати_8b4c2025"),
             b -> minecraft.setScreen(parent)
         ).bounds(cx - 55, this.height - 28, 110, BTN_H).build());
     }
@@ -124,7 +124,7 @@ public class WaveExportScreen extends Screen {
 
         // Роздільна лінія між "всі" і окремими
         g.fill(this.width / 2 - 130, 50 + BTN_H + 6, this.width / 2 + 130, 50 + BTN_H + 7, 0x55FFFFFF);
-        g.drawCenteredString(this.font, "§7── або окремо ──",
+        g.drawCenteredString(this.font, Component.translatable("wavedefense.wave.export_or_single"),
             this.width / 2, 50 + BTN_H + 8, 0x666666);
 
         super.render(g, mouseX, mouseY, partialTick);

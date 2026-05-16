@@ -50,8 +50,7 @@ public class ImportWavePacket {
 
             Location loc = WaveDefenseMod.locationManager.getLocation(p.locationName);
             if (loc == null) {
-                player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                    "§cЛокація «" + p.locationName + "» не знайдена"), false);
+                player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.auto.локація_value_6b16877a", p.locationName + "» не знайдена"), false);
                 return;
             }
 
@@ -60,8 +59,7 @@ public class ImportWavePacket {
                 "wavedefense/wave_export");
             File file = new File(dir, p.fileName + ".nbt");
             if (!file.exists()) {
-                player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                    "§cФайл не знайдено: " + p.fileName + ".nbt"), false);
+                player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.auto.файл_не_знайдено_value_e8d8c6cc", p.fileName + ".nbt"), false);
                 return;
             }
 
@@ -79,14 +77,12 @@ public class ImportWavePacket {
                     // Файл з однією хвилею
                     imported.add(WaveConfig.load(root.getCompound("wave")));
                 } else {
-                    player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                        "§cНеправильний формат файлу"), false);
+                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.auto.неправильний_формат_файлу_69c73738"), false);
                     return;
                 }
 
                 if (imported.isEmpty()) {
-                    player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                        "§cФайл не містить хвиль"), false);
+                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.auto.файл_не_містить_хвиль_ed0312f7"), false);
                     return;
                 }
 

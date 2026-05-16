@@ -44,7 +44,7 @@ public class WaveMobEditScreen extends Screen {
     }
 
     public WaveMobEditScreen(Screen parentScreen, WaveConfig waveConfig, int mobIndex) {
-        super(Component.literal("Редагування моба"));
+        super(Component.translatable("wavedefense.auto.редагування_моба_a6d30768"));
         this.parentScreen = parentScreen;
         this.waveConfig = waveConfig;
         this.mobIndex = mobIndex;
@@ -77,40 +77,40 @@ public class WaveMobEditScreen extends Screen {
 
         // Назва моба
         this.addRenderableWidget(Button.builder(
-                Component.literal("§6Моб: §e" + mobName), button -> {}
+                Component.translatable("wavedefense.auto.моб_value_07edda18", mobName), button -> {}
         ).bounds(cx - 150, startY - 20, 300, 18).build()).active = false;
 
         // Кількість мобів
         addLabeledField(cx, startY, "§7Кількість мобів у хвилі:", "count");
-        countInput = new EditBox(this.font, cx + 45, startY, 80, 20, Component.literal("Кількість"));
+        countInput = new EditBox(this.font, cx + 45, startY, 80, 20, Component.translatable("wavedefense.auto.кількість_df256936"));
         countInput.setValue(String.valueOf(editMob.getCount()));
         this.addRenderableWidget(countInput);
         startY += 26;
 
         // Приріст
         addLabeledField(cx, startY, "§7Приріст кількості за хвилю:", "growth");
-        growthPerWaveInput = new EditBox(this.font, cx + 45, startY, 80, 20, Component.literal("Приріст"));
+        growthPerWaveInput = new EditBox(this.font, cx + 45, startY, 80, 20, Component.translatable("wavedefense.auto.приріст_5779238f"));
         growthPerWaveInput.setValue(String.valueOf(editMob.getGrowthPerWave()));
         this.addRenderableWidget(growthPerWaveInput);
         startY += 26;
 
         // Шанс появи
         addLabeledField(cx, startY, "§7Шанс появи (1-100%):", "chance");
-        spawnChanceInput = new EditBox(this.font, cx + 45, startY, 80, 20, Component.literal("Шанс"));
+        spawnChanceInput = new EditBox(this.font, cx + 45, startY, 80, 20, Component.translatable("wavedefense.auto.шанс_7ce3c7bb"));
         spawnChanceInput.setValue(String.valueOf(editMob.getSpawnChance()));
         this.addRenderableWidget(spawnChanceInput);
         startY += 26;
 
         // Поінти за вбивство
         addLabeledField(cx, startY, "§7Поінтів за вбивство:", "points");
-        pointsPerKillInput = new EditBox(this.font, cx + 45, startY, 80, 20, Component.literal("Поінти"));
+        pointsPerKillInput = new EditBox(this.font, cx + 45, startY, 80, 20, Component.translatable("wavedefense.auto.поінти_66d72273"));
         pointsPerKillInput.setValue(String.valueOf(editMob.getPointsPerKill()));
         this.addRenderableWidget(pointsPerKillInput);
         startY += 30;
 
         // ── БРОНЯ ──────────────────────────────────────────────────────────
         this.addRenderableWidget(Button.builder(
-                Component.literal("§9🛡 Броня мобів"), b -> {}
+                Component.translatable("wavedefense.auto.броня_мобів_0998c14b"), b -> {}
         ).bounds(cx - 150, startY, 300, 12).build()).active = false;
         startY += 14;
 
@@ -168,7 +168,7 @@ public class WaveMobEditScreen extends Screen {
 
         // ── ЗБРОЯ ─────────────────────────────────────────────────────────
         this.addRenderableWidget(Button.builder(
-                Component.literal("§c⚔ Зброя мобів"), b -> {}
+                Component.translatable("wavedefense.auto.зброя_мобів_06ba2742"), b -> {}
         ).bounds(cx - 150, startY, 300, 12).build()).active = false;
         startY += 14;
 
@@ -213,16 +213,16 @@ public class WaveMobEditScreen extends Screen {
         // ── ЕФЕКТИ ────────────────────────────────────────────────────────
         int effectCount = editMob.getEffects().size();
         this.addRenderableWidget(Button.builder(
-                Component.literal("§5✨ Ефекти (" + effectCount + ")"),
+                Component.translatable("wavedefense.auto.ефекти_value_2868f0cb", effectCount + ")"),
                 b -> minecraft.setScreen(new MobEffectsEditorScreen(this, editMob))
         ).bounds(cx - 150, startY, 300, 20).build());
 
         // Кнопки збереження
         this.addRenderableWidget(Button.builder(
-                Component.literal("§aЗберегти"), b -> save()
+                Component.translatable("wavedefense.auto.зберегти_b7c070cf"), b -> save()
         ).bounds(cx - 105, this.height - 32, 100, 20).build());
         this.addRenderableWidget(Button.builder(
-                Component.literal("Скасувати"), b -> this.minecraft.setScreen(parentScreen)
+                Component.translatable("wavedefense.auto.скасувати_8b4c2025"), b -> this.minecraft.setScreen(parentScreen)
         ).bounds(cx + 5, this.height - 32, 100, 20).build());
     }
 

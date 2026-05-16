@@ -87,17 +87,23 @@ public class LocationManager {
 
     public void loadLocations() { load(); }
 
+    /** Load locations from a CompoundTag (used by backup restore). */
+    public void loadFromTag(CompoundTag tag) {
+        locations.clear();
+        ListTag locationsList = tag.getList("locations", 10);
+        for (int i = 0; i < locationsList.size(); i++) {
+            locations.add(Location.load(locationsList.getCompound(i)));
+        }
+        saveToFile();
+    }
+
     private void load() {
         if (!dataFile.exists()) {
             return;
         }
         try {
             CompoundTag data = NbtIo.readCompressed(dataFile);
-            locations.clear(); // Очищаємо перед завантаженням щоб уникнути дублікатів при reload
-            ListTag locationsList = data.getList("locations", 10);
-            for (int i = 0; i < locationsList.size(); i++) {
-                locations.add(Location.load(locationsList.getCompound(i)));
-            }
+            loadFromTag(data);
         } catch (IOException e) {
             WaveDefenseMod.LOGGER.error("Could not load location data", e);
         }

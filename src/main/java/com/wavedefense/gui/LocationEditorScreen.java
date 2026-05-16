@@ -4,6 +4,7 @@ import com.wavedefense.data.Location;
 import com.wavedefense.data.InfoPanelSettings;
 import com.wavedefense.data.LocationMode;
 import com.wavedefense.data.ShopPoint;
+import com.wavedefense.gui.AdminMenuScreen;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.UpdateLocationPacket;
 import net.minecraft.client.gui.GuiGraphics;
@@ -24,7 +25,7 @@ public class LocationEditorScreen extends Screen {
     private static final int MOB_SPAWN_PER_PAGE = 5;
 
     // Поля вводу координат точки спавну гравця
-    private EditBox spawnXInput, spawnYInput, spawnZInput;
+    private CoordinateInputField spawnCoordField;
     // Поле стартових поінтів
     private EditBox startingPointsInput;
     // Boundary inputs
@@ -80,29 +81,38 @@ public class LocationEditorScreen extends Screen {
         int cx = this.width / 2;
 
         // ── Вибір режиму PvE / PvP ──────────────────────────────────────────
-        boolean isPve = !location.isPvp();
+        boolean isPve = location.getMode() == LocationMode.PVE;
 
         addStatic(Button.builder(
-                Component.literal(isPve ? "§2§l⬤ PvE §7(Мобів хвилі)" : "§7○ PvE"),
+                ((isPve) ? Component.translatable("wavedefense.auto.pve_мобів_хвилі_8b812f4e") : Component.translatable("wavedefense.auto.pve_084743fc")),
                 button -> { location.setMode(LocationMode.PVE); rebuildWidgets(); }
         ).bounds(cx - 105, 25, 100, 20).build());
 
         addStatic(Button.builder(
-                Component.literal(!isPve ? "§c§l⬤ PvP §7(Гравці vs Гравці)" : "§7○ PvP"),
+                ((!isPve) ? Component.translatable("wavedefense.auto.pvp_гравці_vs_гравці_610d2647") : Component.translatable("wavedefense.auto.pvp_f44347cd")),
                 button -> { location.setMode(LocationMode.PVP); rebuildWidgets(); }
         ).bounds(cx + 5, 25, 100, 20).build());
+
+        // ── Кнопка адмін-меню ───────────────────────────────────────────────
+        addStatic(Button.builder(
+                Component.translatable("wavedefense.auto.адмін_меню_ce02b449"),
+                button -> this.minecraft.setScreen(new AdminMenuScreen())
+        ).bounds(cx + 110, 25, 110, 20).build());
 
         // ── PvP — одразу переходимо до редактора PvP (без проміжного екрану) ──
         if (!isPve) {
             // Відкладаємо перехід на наступний тік щоб уникнути рекурсії в init()
-            net.minecraft.client.Minecraft.getInstance().tell(() ->
-                this.minecraft.setScreen(new PvpLocationEditorScreen(location, this)));
+            net.minecraft.client.Minecraft.getInstance().tell(() -> {
+                if (location.getMode() == LocationMode.PVP) {
+                    this.minecraft.setScreen(new PvpLocationEditorScreen(location, parent));
+                }
+            });
             // Показуємо порожній екран поки не відбудеться перехід
             this.addRenderableWidget(Button.builder(
-                    Component.literal("§7Завантаження PvP редактора..."), b -> {}
+                    Component.translatable("wavedefense.auto.завантаження_pvp_редактора_7dd3fa23"), b -> {}
             ).bounds(cx - 120, 60, 240, 20).build()).active = false;
             this.addRenderableWidget(Button.builder(
-                    Component.literal("§a✓ Зберегти"), button -> saveChanges()
+                    Component.translatable("wavedefense.button.save"), button -> saveChanges()
             ).bounds(cx - 60, this.height - 28, 120, 20).build());
             return;
         }
@@ -112,11 +122,11 @@ public class LocationEditorScreen extends Screen {
         int totalTabW = 5 * tabW + 4 * tabGap;
         int tabStartX = cx - totalTabW / 2;
 
-        String[] tabNames = {"Основні","Хвилі","Магазин","Лут","⚙ Спец"};
+        String[] tabNames = {"wavedefense.editor.tab.basic", "wavedefense.editor.tab.waves", "wavedefense.editor.tab.shop", "wavedefense.editor.tab.loot", "wavedefense.editor.tab.special"};
         for (int ti = 0; ti < tabNames.length; ti++) {
             final int fti = ti;
             addStatic(Button.builder(
-                Component.literal(currentTab == ti ? "§a§l⬤ " + tabNames[ti] : "§7○ " + tabNames[ti]),
+                Component.literal(currentTab == ti ? "?a?l? " : "?7? ").append(Component.translatable(tabNames[ti])),
                 b -> switchTab(fti)
             ).bounds(tabStartX + (tabW + tabGap) * ti, 52, tabW, 20).build());
         }
@@ -129,13 +139,13 @@ public class LocationEditorScreen extends Screen {
         else                      initSpecialTab(cx, startY);
 
         addStatic(Button.builder(
-                Component.literal("§a✓ Зберегти зміни"), button -> saveChanges()
+                Component.translatable("wavedefense.button.save_changes"), button -> saveChanges()
         ).bounds(cx - 160, this.height - 30, 130, 20).build());
         addStatic(Button.builder(
-                Component.literal("Назад до списку"), button -> this.minecraft.setScreen(parent)
+                Component.translatable("wavedefense.button.back_to_list"), button -> this.minecraft.setScreen(parent)
         ).bounds(cx - 20, this.height - 30, 130, 20).build());
         addStatic(Button.builder(
-                Component.literal("Закрити"), button -> this.onClose()
+                Component.translatable("wavedefense.button.close"), button -> this.onClose()
         ).bounds(cx + 120, this.height - 30, 40, 20).build());
     }
 
@@ -143,49 +153,33 @@ public class LocationEditorScreen extends Screen {
         startY -= basicScrollOffset; // apply scroll
         // ── Точка спавну гравця — поля вводу координат ──────────────────
         this.addRenderableWidget(Button.builder(
-                Component.literal("§7📍 Точка спавну гравця:"), button -> {}
+                Component.translatable("wavedefense.auto.точка_спавну_гравця_17495206"), button -> {}
         ).bounds(cx - 150, startY, 180, 16).build()).active = false;
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("📌 Моя позиція"),
+                Component.translatable("wavedefense.button.my_position"),
                 button -> setPlayerSpawn()
         ).bounds(cx + 35, startY, 115, 16).build());
 
-        BlockPos sp = location.getPlayerSpawn();
-        String spawnX = sp != null ? String.valueOf(sp.getX()) : "";
-        String spawnY = sp != null ? String.valueOf(sp.getY()) : "";
-        String spawnZ = sp != null ? String.valueOf(sp.getZ()) : "";
-
         int coordY = startY + 18;
-        int fieldW = 55;
 
-        this.addRenderableWidget(Button.builder(Component.literal("§7X:"), b -> {}).bounds(cx - 150, coordY, 16, 16).build()).active = false;
-        spawnXInput = new EditBox(this.font, cx - 132, coordY, fieldW, 16, Component.literal("X"));
-        spawnXInput.setValue(spawnX); spawnXInput.setMaxLength(7);
-        this.addRenderableWidget(spawnXInput);
-
-        this.addRenderableWidget(Button.builder(Component.literal("§7Y:"), b -> {}).bounds(cx - 72, coordY, 16, 16).build()).active = false;
-        spawnYInput = new EditBox(this.font, cx - 54, coordY, fieldW, 16, Component.literal("Y"));
-        spawnYInput.setValue(spawnY); spawnYInput.setMaxLength(7);
-        this.addRenderableWidget(spawnYInput);
-
-        this.addRenderableWidget(Button.builder(Component.literal("§7Z:"), b -> {}).bounds(cx + 6, coordY, 16, 16).build()).active = false;
-        spawnZInput = new EditBox(this.font, cx + 24, coordY, fieldW, 16, Component.literal("Z"));
-        spawnZInput.setValue(spawnZ); spawnZInput.setMaxLength(7);
-        this.addRenderableWidget(spawnZInput);
+        // startX=cx-150, labelW=16, fieldW=55, height=16, stride=78
+        spawnCoordField = new CoordinateInputField(this.font, cx - 150, coordY, 16, 55, 16, 78);
+        spawnCoordField.setValue(location.getPlayerSpawn());
+        spawnCoordField.addToScreen(this::addRenderableWidget);
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("§a✓ Застосувати"),
+                Component.translatable("wavedefense.button.apply"),
                 button -> applySpawnCoords()
-        ).bounds(cx + 84, coordY, 66, 16).build());
+        ).bounds(spawnCoordField.getEndX() + 7, coordY, 66, 16).build());
 
         int mobSpawnY = startY + 50;
         this.addRenderableWidget(Button.builder(
-                Component.literal("➕ Додати точку спавну мобів"),
+                Component.translatable("wavedefense.button.add_mob_spawn"),
                 button -> addMobSpawn()
         ).bounds(cx - 150, mobSpawnY, 200, 20).build());
         this.addRenderableWidget(Button.builder(
-                Component.literal(String.format("§7Налаштовано: %d/%d", location.getMobSpawns().size(), com.wavedefense.config.WaveDefenseConfig.MAX_MOB_SPAWNS.get())),
+                Component.translatable("wavedefense.auto.налаштовано_d_d_7b7a4447", location.getMobSpawns().size(), com.wavedefense.config.WaveDefenseConfig.MAX_MOB_SPAWNS.get()),
                 button -> {}
         ).bounds(cx - 150, mobSpawnY + 22, 200, 18).build()).active = false;
 
@@ -199,8 +193,8 @@ public class LocationEditorScreen extends Screen {
             final int index = realIndex;
             String radLabel = msp.getRadius() > 0 ? " §8(r:" + msp.getRadius() + ")" : "";
             this.addRenderableWidget(Button.builder(
-                    Component.literal(String.format("§7#%d: §fX:%d Y:%d Z:%d", realIndex + 1,
-                        pos.getX(), pos.getY(), pos.getZ()) + radLabel),
+                    Component.translatable("wavedefense.auto.d_x_d_y_d_z_d_86ea3712", realIndex + 1,
+                        pos.getX(), pos.getY(), pos.getZ() + radLabel),
                     button -> {}
             ).bounds(cx - 150, listY + (i * 22), 190, 20).build()).active = false;
             // Кнопка радіусу
@@ -209,17 +203,17 @@ public class LocationEditorScreen extends Screen {
                     button -> cycleMobSpawnRadius(index)
             ).bounds(cx + 44, listY + (i * 22), 28, 20).build())
             .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                Component.literal("§7Радіус розкиду мобів\n§8(0/3/5/10/15/20)")));
+                Component.translatable("wavedefense.auto.радіус_розкиду_мобів_0_3_5_10_15_2c6fe91e")));
             this.addRenderableWidget(Button.builder(
                     Component.literal("✕"), button -> removeMobSpawn(index)
             ).bounds(cx + 75, listY + (i * 22), 25, 20).build());
         }
 
         if (location.getMobSpawns().size() > MOB_SPAWN_PER_PAGE) {
-            this.addRenderableWidget(Button.builder(Component.literal("▲"),
+            addStatic(Button.builder(Component.literal("▲"),
                     button -> { if (mobSpawnScrollOffset > 0) { mobSpawnScrollOffset--; rebuildWidgets(); } }
             ).bounds(cx + 105, listY, 20, 20).build());
-            this.addRenderableWidget(Button.builder(Component.literal("▼"),
+            addStatic(Button.builder(Component.literal("▼"),
                     button -> { if (mobSpawnScrollOffset + MOB_SPAWN_PER_PAGE < location.getMobSpawns().size()) { mobSpawnScrollOffset++; rebuildWidgets(); } }
             ).bounds(cx + 105, listY + (MOB_SPAWN_PER_PAGE - 1) * 22, 20, 20).build());
         }
@@ -229,26 +223,26 @@ public class LocationEditorScreen extends Screen {
         // Видимість в меню гравців (перенесено з Спец вкладки)
         boolean hiddenBasic = location.isHiddenFromPlayers();
         this.addRenderableWidget(Button.builder(
-            Component.literal(hiddenBasic ? "§c☒ Прихована від гравців (адміни бачать)" : "§a☑ Видима в меню гравців"),
+            ((hiddenBasic) ? Component.translatable("wavedefense.auto.прихована_від_гравців_адміни_бачать_5177abbf") : Component.translatable("wavedefense.auto.видима_в_меню_гравців_45ca6b3b")),
             b -> { location.setHiddenFromPlayers(!location.isHiddenFromPlayers()); saveChanges(); rebuildWidgets(); }
         ).bounds(cx - 150, invY, 300, 18).build());
         invY += 22;
 
         // Збереження / очищення інвентаря
         this.addRenderableWidget(Button.builder(
-                Component.literal(location.isKeepInventory() ? "§a☑ Зберігати речі гравця" : "§c☐ Очищати речі при вході"),
+                ((location.isKeepInventory()) ? Component.translatable("wavedefense.auto.зберігати_речі_гравця_28c03f14") : Component.translatable("wavedefense.auto.очищати_речі_при_вході_65174234")),
                 button -> toggleKeepInventory()
         ).bounds(cx - 150, invY, 200, 18).build());
 
         if (!location.isKeepInventory()) {
             this.addRenderableWidget(Button.builder(
-                    Component.literal("⚙ Стартове спорядження"),
+                    Component.translatable("wavedefense.auto.стартове_спорядження_6adb70f2"),
                     button -> this.minecraft.setScreen(new StartingItemsScreen(this, location))
             ).bounds(cx - 150, invY + 22, 200, 18).build());
 
             // Стартові поінти
             this.addRenderableWidget(Button.builder(
-                    Component.literal("§7Стартові поінти:"), b -> {}
+                    Component.translatable("wavedefense.auto.стартові_поінти_0ddb7986"), b -> {}
             ).bounds(cx + 55, invY + 22, 105, 18).build()).active = false;
             startingPointsInput = new EditBox(this.font, cx + 162, invY + 22, 50, 18, Component.literal("0"));
             startingPointsInput.setValue(String.valueOf(location.getStartingPoints()));
@@ -261,62 +255,100 @@ public class LocationEditorScreen extends Screen {
     }
 
     private void initWavesTab(int cx, int startY) {
-        this.addRenderableWidget(Button.builder(
-                Component.literal("§7Налаштування хвиль (моби, час, нагороди):"), button -> {}
-        ).bounds(cx - 150, startY, 300, 18).build()).active = false;
-        this.addRenderableWidget(Button.builder(
-                Component.literal("⚙ Налаштувати моби та хвилі"),
-                button -> this.minecraft.setScreen(new WaveConfigScreen(location, this))
-        ).bounds(cx - 130, startY + 26, 260, 24).build());
-
+        int left = cx - 170;
+        int w = 340;
         int waveCount = location.getWaves().size();
-        String waveInfo = waveCount > 0
-                ? String.format("§7Хвиль: §e%d §7| Час: §e%d сек", waveCount,
-                    location.getWaves().isEmpty() ? 0 : location.getWaves().get(0).getTimeBetweenWaves())
-                : "§cХвилі не налаштовані";
-        this.addRenderableWidget(Button.builder(
-                Component.literal(waveInfo), button -> {}
-        ).bounds(cx - 150, startY + 58, 300, 18).build()).active = false;
+        int configuredMobs = location.getWaves().stream().mapToInt(wv -> wv.getMobs().size()).sum();
+        int triggerWaves = (int) location.getWaves().stream().filter(wv -> wv.isTriggerEnabled()).count();
 
-        this.addRenderableWidget(Button.builder(
-                Component.literal("§6🏆 Нагороди за проходження локації"),
+        this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.wave_setup_59384912"), b -> {})
+                .bounds(left, startY, w, 14).build()).active = false;
+        startY += 20;
+        this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.waves_value_a63ed38b", waveCount), b -> {})
+                .bounds(left, startY, 160, 18).build()).active = false;
+        this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.mob_entries_value_6fb910f1", configuredMobs), b -> {})
+                .bounds(left + 180, startY, 160, 18).build()).active = false;
+        startY += 22;
+        this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.trigger_waves_value_f6d52565", triggerWaves), b -> {})
+                .bounds(left, startY, 160, 18).build()).active = false;
+        this.addRenderableWidget(Button.builder(Component.literal("Completion pts: " + location.getCompletionPointsReward()), b -> {})
+                .bounds(left + 180, startY, 160, 18).build()).active = false;
+        startY += 30;
+        this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.edit_waves_and_mobs_1d2d0b4e"),
+                button -> this.minecraft.setScreen(new WaveConfigScreen(location, this))
+        ).bounds(left, startY, 160, 22).build());
+        this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.completion_rewards_8be9b7b4"),
                 button -> this.minecraft.setScreen(new CompletionRewardScreen(location, this))
-        ).bounds(cx - 130, startY + 84, 260, 24).build());
+        ).bounds(left + 180, startY, 160, 22).build());
+        startY += 30;
+        this.addRenderableWidget(Button.builder(((waveCount > 0) ? Component.translatable("wavedefense.auto.first_wave_and_inter_wave_timing_are_77fcea5b") : Component.translatable("wavedefense.auto.no_waves_configured_yet_53763308")), b -> {})
+                .bounds(left, startY, w, 16).build()).active = false;
     }
 
     private void initShopTab(int cx, int startY) {
-        // Лічильник — залежить від режиму магазину
-        int totalItems;
-        if (location.isPointShopMode()) {
-            totalItems = location.getShopPoints().stream()
-                .mapToInt(p -> p.getItems().size()).sum();
-        } else {
-            totalItems = location.getShopItems().size();
-        }
-        String modeLabel = location.isPointShopMode()
-            ? String.format("§6Точок: §e%d §6| Товарів (всього): §e%d",
-                location.getShopPoints().size(), totalItems)
-            : String.format("§6Товарів у магазині: §e%d", totalItems);
+        int left = cx - 170;
+        int w = 340;
+        int globalItems = location.getShopItems().size();
+        int pointItems = location.getShopPoints().stream().mapToInt(p -> p.getItems().size()).sum();
+        String mode = location.isPointShopMode() ? "POINT shops" : "GLOBAL shop";
 
-        this.addRenderableWidget(Button.builder(
-                Component.literal(modeLabel),
-                button -> {}
-        ).bounds(cx - 150, startY, 300, 20).build()).active = false;
-        this.addRenderableWidget(Button.builder(
-                Component.literal("🛒 Редагувати магазин"),
+        this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.shop_setup_c569a20b"), b -> {})
+                .bounds(left, startY, w, 14).build()).active = false;
+        startY += 20;
+        this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.mode_value_c1d0d163", mode), b -> {})
+                .bounds(left, startY, w, 18).build()).active = false;
+        startY += 24;
+        this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.global_items_value_1fefbc32", globalItems), b -> {})
+                .bounds(left, startY, 160, 18).build()).active = false;
+        this.addRenderableWidget(Button.builder(Component.literal("Shop points: " + location.getShopPoints().size()), b -> {})
+                .bounds(left + 180, startY, 160, 18).build()).active = false;
+        startY += 22;
+        this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.point_items_value_1adaa723", pointItems), b -> {})
+                .bounds(left, startY, 160, 18).build()).active = false;
+        this.addRenderableWidget(Button.builder(((location.isPointShopMode()) ? Component.translatable("wavedefense.auto.use_global_shop_e7e61137") : Component.translatable("wavedefense.auto.use_point_shops_0603e880")),
+                b -> { location.setShopMode(location.isPointShopMode() ? Location.ShopMode.GLOBAL : Location.ShopMode.POINT); rebuildWidgets(); }
+        ).bounds(left + 180, startY, 160, 18).build());
+        startY += 30;
+        this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.edit_shop_setup_e7f332da"),
                 button -> this.minecraft.setScreen(new ShopEditorScreen(location, this))
-        ).bounds(cx - 100, startY + 30, 200, 25).build());
+        ).bounds(left, startY, 160, 22).build());
+        this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.preview_player_shop_2937ead0"),
+                button -> this.minecraft.setScreen(new PlayerShopScreen(location))
+        ).bounds(left + 180, startY, 160, 22).build());
+        startY += 30;
+        this.addRenderableWidget(Button.builder(((location.isPointShopMode()) ? Component.translatable("wavedefense.auto.players_must_stand_near_configured_s_cbc7c8ad") : Component.translatable("wavedefense.auto.players_use_one_shared_shop_list_df446195")), b -> {})
+                .bounds(left, startY, w, 16).build()).active = false;
     }
 
     private void initLootTab(int cx, int startY) {
-        this.addRenderableWidget(Button.builder(
-                Component.literal(String.format("§7Точок луту: §e%d", location.getLootSpawns().size())),
-                button -> {}
-        ).bounds(cx - 150, startY, 300, 20).build()).active = false;
-        this.addRenderableWidget(Button.builder(
-                Component.literal("📦 Редагувати точки луту"),
+        int left = cx - 170;
+        int w = 340;
+        int itemStacks = location.getLootSpawns().stream().mapToInt(l -> l.getItems().size()).sum();
+        int triggerLinks = location.getLootSpawns().stream().mapToInt(l -> l.getTriggers().size()).sum();
+        int pveLinks = location.getLootSpawns().stream().mapToInt(l -> (int) l.getTriggers().stream().filter(t -> t.pve).count()).sum();
+
+        this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.loot_setup_4fdf07f1"), b -> {})
+                .bounds(left, startY, w, 14).build()).active = false;
+        startY += 20;
+        this.addRenderableWidget(Button.builder(Component.literal("Loot points: " + location.getLootSpawns().size()), b -> {})
+                .bounds(left, startY, 160, 18).build()).active = false;
+        this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.item_stacks_value_140ad990", itemStacks), b -> {})
+                .bounds(left + 180, startY, 160, 18).build()).active = false;
+        startY += 22;
+        this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.trigger_links_value_de433c3c", triggerLinks), b -> {})
+                .bounds(left, startY, 160, 18).build()).active = false;
+        this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.pve_triggers_value_37060374", pveLinks), b -> {})
+                .bounds(left + 180, startY, 160, 18).build()).active = false;
+        startY += 30;
+        this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.edit_loot_points_401d74d4"),
                 button -> this.minecraft.setScreen(new LootSpawnEditorScreen(location, this))
-        ).bounds(cx - 100, startY + 30, 200, 25).build());
+        ).bounds(left, startY, 160, 22).build());
+        this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.configure_triggers_f2c9e85a"),
+                button -> this.minecraft.setScreen(new LootSpawnEditorScreen(location, this))
+        ).bounds(left + 180, startY, 160, 22).build());
+        startY += 30;
+        this.addRenderableWidget(Button.builder(((triggerLinks > 0) ? Component.translatable("wavedefense.auto.loot_is_connected_to_wave_player_loc_48bd6878") : Component.translatable("wavedefense.auto.no_loot_triggers_configured_yet_bafe0803")), b -> {})
+                .bounds(left, startY, w, 16).build()).active = false;
     }
 
     private void switchTab(int tab) {
@@ -329,8 +361,19 @@ public class LocationEditorScreen extends Screen {
 
     /** Записує поточні значення всіх EditBox у об'єкт location (щоб не губити при перебудові) */
     private void flushCurrentTabInputs() {
-        if (spawnXInput != null && spawnYInput != null && spawnZInput != null) {
-            applySpawnCoords();
+        parseAllInputsToLocation();
+    }
+
+    /**
+     * Читає всі активні EditBox-поля і записує їх значення в об'єкт location.
+     * Безпечно викликати будь-коли — перевіряє null для кожного поля.
+     * НЕ викликає rebuildWidgets().
+     */
+    private void parseAllInputsToLocation() {
+        // Координати спавну — без rebuildWidgets (applySpawnCoords() дзвонить rebuild)
+        if (spawnCoordField != null && !spawnCoordField.isEmpty()) {
+            BlockPos pos = spawnCoordField.getValue();
+            if (pos != null) location.setPlayerSpawn(pos);
         }
         if (startingPointsInput != null) {
             try { location.setStartingPoints(Integer.parseInt(startingPointsInput.getValue().trim())); }
@@ -376,6 +419,30 @@ public class LocationEditorScreen extends Screen {
             try { location.setVictoryLingerTimeSec(Integer.parseInt(victoryLingerInput.getValue().trim())); }
             catch (NumberFormatException ignored) {}
         }
+        if (particleCountInput != null) {
+            try { location.setZoneParticleCount(Integer.parseInt(particleCountInput.getValue().trim())); }
+            catch (NumberFormatException ignored) {}
+        }
+        if (particleSpeedInput != null) {
+            try { location.setZoneParticleSpeed(Float.parseFloat(particleSpeedInput.getValue().replace(',', '.').trim())); }
+            catch (NumberFormatException ignored) {}
+        }
+        if (particleIntervalInput != null) {
+            try { location.setZoneParticleInterval(Integer.parseInt(particleIntervalInput.getValue().trim())); }
+            catch (NumberFormatException ignored) {}
+        }
+        if (infoPanelOffsetYInput != null) {
+            try { location.getInfoPanel().setSpawnPanelOffsetY(Float.parseFloat(infoPanelOffsetYInput.getValue().trim())); }
+            catch (NumberFormatException ignored) {}
+        }
+        if (mobPanelOffsetYInput != null) {
+            try { location.getInfoPanel().setMobSpawnOffsetY(Float.parseFloat(mobPanelOffsetYInput.getValue().trim())); }
+            catch (NumberFormatException ignored) {}
+        }
+        if (infoPanelTextScaleInput != null) {
+            try { location.getInfoPanel().setTextScale(Float.parseFloat(infoPanelTextScaleInput.getValue().trim())); }
+            catch (NumberFormatException ignored) {}
+        }
     }
     private void setPlayerSpawn() {
         if (minecraft.player != null) {
@@ -386,27 +453,18 @@ public class LocationEditorScreen extends Screen {
     }
 
     private void applySpawnCoords() {
-        try {
-            // Якщо поля порожні — беремо позицію гравця
-            String sx = spawnXInput != null ? spawnXInput.getValue().trim() : "";
-            String sy = spawnYInput != null ? spawnYInput.getValue().trim() : "";
-            String sz = spawnZInput != null ? spawnZInput.getValue().trim() : "";
-            if (sx.isEmpty() && sy.isEmpty() && sz.isEmpty()) {
-                setPlayerSpawn();
-                return;
-            }
-            if (minecraft.player == null) return;
-            net.minecraft.core.BlockPos cur = location.getPlayerSpawn() != null
-                    ? location.getPlayerSpawn() : minecraft.player.blockPosition();
-            int x = sx.isEmpty() ? cur.getX() : Integer.parseInt(sx);
-            int y = sy.isEmpty() ? cur.getY() : Integer.parseInt(sy);
-            int z = sz.isEmpty() ? cur.getZ() : Integer.parseInt(sz);
-            location.setPlayerSpawn(new net.minecraft.core.BlockPos(x, y, z));
+        if (spawnCoordField == null) return;
+        if (spawnCoordField.isEmpty()) {
+            setPlayerSpawn();
+            return;
+        }
+        BlockPos pos = spawnCoordField.getValue();
+        if (pos != null) {
+            location.setPlayerSpawn(pos);
             rebuildWidgets();
-        } catch (NumberFormatException e) {
-            if (minecraft.player != null)
-                minecraft.player.displayClientMessage(
-                    net.minecraft.network.chat.Component.literal("§cНевірний формат координат!"), true);
+        } else if (minecraft.player != null) {
+            minecraft.player.displayClientMessage(
+                Component.translatable("wavedefense.auto.невірний_формат_координат_607bcb51"), true);
         }
     }
     private void addMobSpawn() { if (minecraft.player != null && location.getMobSpawns().size() < com.wavedefense.config.WaveDefenseConfig.MAX_MOB_SPAWNS.get()) { location.addMobSpawn(minecraft.player.blockPosition()); rebuildWidgets(); } }
@@ -432,91 +490,28 @@ public class LocationEditorScreen extends Screen {
     private void toggleKeepInventory() { location.setKeepInventory(!location.isKeepInventory()); rebuildWidgets(); }
 
     private void saveChanges() {
-        if (startingPointsInput != null) {
-            try { location.setStartingPoints(Integer.parseInt(startingPointsInput.getValue().trim())); }
-            catch (NumberFormatException ignored) {}
-        }
-        applySpawnCoords();
-        // Boundary inputs
-        if (boundaryRadiusInput != null) {
-            try { location.setLocationBoundaryRadius(Integer.parseInt(boundaryRadiusInput.getValue().trim())); }
-            catch (NumberFormatException ignored) {}
-        }
-        if (leaveTimerInput != null) {
-            try { location.setLocationLeaveTimerSec(Integer.parseInt(leaveTimerInput.getValue().trim())); }
-            catch (NumberFormatException ignored) {}
-        }
-        // Portal inputs
-        if (portalPenaltyTimerInput != null) {
-            try { location.setPortalPenaltyTimerSec(Integer.parseInt(portalPenaltyTimerInput.getValue().trim())); }
-            catch (NumberFormatException ignored) {}
-        }
-        if (portalRespawnTimerInput != null) {
-            try { location.setPortalRespawnTimerSec(Integer.parseInt(portalRespawnTimerInput.getValue().trim())); }
-            catch (NumberFormatException ignored) {}
-        }
-        if (reEntryCooldownInput != null) {
-            try { location.setReEntryCooldownSec(Integer.parseInt(reEntryCooldownInput.getValue().trim())); }
-            catch (NumberFormatException ignored) {}
-        }
-        // Zone / auto-activate inputs (були відсутні — причина баги)
-        if (zoneRadiusInput != null) {
-            try { location.setAutoActivateRadius(Integer.parseInt(zoneRadiusInput.getValue().trim())); }
-            catch (NumberFormatException ignored) {}
-        }
-        if (zoneActivationTimerInput != null) {
-            try { location.setZoneActivationTimeSec(Integer.parseInt(zoneActivationTimerInput.getValue().trim())); }
-            catch (NumberFormatException ignored) {}
-        }
-        if (zoneOpenAfterStartInput != null) {
-            try { location.setZoneOpenAfterStartSec(Integer.parseInt(zoneOpenAfterStartInput.getValue().trim())); }
-            catch (NumberFormatException ignored) {}
-        }
-        // Particle inputs (були відсутні — причина баги з particleSpeed)
-        if (particleCountInput != null) {
-            try { location.setZoneParticleCount(Integer.parseInt(particleCountInput.getValue().trim())); }
-            catch (NumberFormatException ignored) {}
-        }
-        if (particleSpeedInput != null) {
-            try { location.setZoneParticleSpeed(Float.parseFloat(particleSpeedInput.getValue().trim())); }
-            catch (NumberFormatException ignored) {}
-        }
-        if (particleIntervalInput != null) {
-            try { location.setZoneParticleInterval(Integer.parseInt(particleIntervalInput.getValue().trim())); }
-            catch (NumberFormatException ignored) {}
-        }
-        // Portal open-after-start
-        if (portalOpenAfterStartInput != null) {
-            try { location.setPortalOpenAfterStartSec(Integer.parseInt(portalOpenAfterStartInput.getValue().trim())); }
-            catch (NumberFormatException ignored) {}
-        }
-        if (victoryLingerInput != null) {
-            try { location.setVictoryLingerTimeSec(Integer.parseInt(victoryLingerInput.getValue().trim())); }
-            catch (NumberFormatException ignored) {}
-        }
+        parseAllInputsToLocation();
         PacketHandler.sendToServer(new UpdateLocationPacket(location));
         if (minecraft.player != null)
-            minecraft.player.displayClientMessage(Component.literal("§a✓ Зміни збережено!"), true);
+            minecraft.player.displayClientMessage(Component.translatable("wavedefense.auto.зміни_збережено_60feafc0"), true);
         // Примітка: навмисно НЕ надсилаємо RequestLocationDataPacket після збереження,
         // щоб уникнути race-condition де відповідь з OLD даними перезаписує свіжі зміни.
     }
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        // Блокуємо кліки на widgets що вийшли за межі scissor-зони (для не-PvP режиму)
+        // Блокуємо кліки на scrolled widgets що вийшли за межі scissor-зони (PvE режим)
         if (!location.isPvp()) {
             final int CLIP_TOP = 76;
             final int CLIP_BOT = this.height - 30;
-            // Блокуємо кліки на прокручені widgets що вийшли за межі scissor-зони
-            if (my >= CLIP_TOP && my < CLIP_BOT) {
-                for (var r : this.renderables) {
-                    if (r instanceof net.minecraft.client.gui.components.AbstractWidget w) {
-                        if (staticWidgets.contains(w)) continue; // статичні — не блокуємо
-                        int wy = w.getY(), wh = w.getHeight();
-                        // Widget повністю поза scissor — блокуємо клік
-                        if ((wy + wh <= CLIP_TOP || wy >= CLIP_BOT) && w.isMouseOver(mx, my)) {
-                            return false;
-                        }
+            for (var r : this.renderables) {
+                if (r instanceof net.minecraft.client.gui.components.AbstractWidget w) {
+                    if (staticWidgets.contains(w)) continue; // статичні — не блокуємо
+                    int wy = w.getY(), wh = w.getHeight();
+                    // Widget повністю поза scissor (вгорі або внизу) — блокуємо клік
+                    // незалежно від того де знаходиться миша, щоб scrolled-in-header баг не спрацьовував
+                    if ((wy + wh <= CLIP_TOP || wy >= CLIP_BOT) && w.isMouseOver(mx, my)) {
+                        return false;
                     }
                 }
             }
@@ -626,81 +621,71 @@ public class LocationEditorScreen extends Screen {
     // ══════════════════════════════════════════════════════════════════
     //  СПЕЦІАЛЬНА ВКЛАДКА — Boundary + Location Trigger + Portal
     // ══════════════════════════════════════════════════════════════════
-    private void initSpecialTab(int cx, int y) {
-        // Flush current editbox values before rebuilding (prevents value loss on scroll/rebuild)
-        if (boundaryRadiusInput != null) {
-            try { location.setLocationBoundaryRadius(Integer.parseInt(boundaryRadiusInput.getValue().trim())); }
-            catch (NumberFormatException ignored) {}
-        }
-        if (leaveTimerInput != null) {
-            try { location.setLocationLeaveTimerSec(Integer.parseInt(leaveTimerInput.getValue().trim())); }
-            catch (NumberFormatException ignored) {}
-        }
-        if (portalPenaltyTimerInput != null) {
-            try { location.setPortalPenaltyTimerSec(Integer.parseInt(portalPenaltyTimerInput.getValue().trim())); }
-            catch (NumberFormatException ignored) {}
-        }
-        if (portalRespawnTimerInput != null) {
-            try { location.setPortalRespawnTimerSec(Integer.parseInt(portalRespawnTimerInput.getValue().trim())); }
-            catch (NumberFormatException ignored) {}
-        }
-        if (reEntryCooldownInput != null) {
-            try { location.setReEntryCooldownSec(Integer.parseInt(reEntryCooldownInput.getValue().trim())); }
-            catch (NumberFormatException ignored) {}
-        }
-        // Reset input references
-        boundaryRadiusInput = null;
-        leaveTimerInput = null;
-        portalPenaltyTimerInput = null;
-        portalRespawnTimerInput = null;
-        reEntryCooldownInput = null;
-        infoPanelOffsetYInput = null;
-        mobPanelOffsetYInput = null;
-        infoPanelTextScaleInput = null;
-        victoryLingerInput = null;
-        particleCountInput = null;
-        particleSpeedInput = null;
-        particleIntervalInput = null;
+    private void initSpecialTab(int cx, int startY) {
+        // Flush all inputs before rebuilding, then reset field references
+        parseAllInputsToLocation();
+        boundaryRadiusInput      = null;
+        leaveTimerInput          = null;
+        portalPenaltyTimerInput  = null;
+        portalRespawnTimerInput  = null;
+        reEntryCooldownInput     = null;
+        infoPanelOffsetYInput    = null;
+        mobPanelOffsetYInput     = null;
+        infoPanelTextScaleInput  = null;
+        victoryLingerInput       = null;
+        particleCountInput       = null;
+        particleSpeedInput       = null;
+        particleIntervalInput    = null;
 
         int panelW = Math.min(330, this.width - 40);
         int lx = cx - panelW / 2;
-        y -= specialScrollOffset; // apply scroll
+        int y = startY - specialScrollOffset;
 
-        // ─── -1. РЕЖИМ ГРИ ─────────────────────────────────────────────
+        y = initGameModeSection(lx, panelW, y);
+        y = initVictorySection(lx, panelW, y);
+        y = initExitPointsSection(lx, panelW, y);
+        y = initParticlesSection(lx, panelW, y);
+        y = initBoundarySection(lx, panelW, y);
+        y = initZoneSection(lx, panelW, y);
+        y = initPortalSection(lx, panelW, y);
+        y = initInfoPanelsSection(lx, panelW, y);
+
+        specialContentHeight = (y + specialScrollOffset) - startY + 20;
+    }
+
+    // ── Секція: Режим гри ─────────────────────────────────────────────────
+    private int initGameModeSection(int lx, int panelW, int y) {
         this.addRenderableWidget(Button.builder(
-            Component.literal("§6§l── Режим гри ──"), b -> {}
+            Component.translatable("wavedefense.auto.режим_гри_cd24dd4a"), b -> {}
         ).bounds(lx, y, panelW, 14).build()).active = false;
         y += 18;
         boolean egm = location.isEnforceGameMode();
         this.addRenderableWidget(Button.builder(
-            Component.literal(egm
-                ? "§a☑ Примусовий режим гри (survival/adventure)"
-                : "§7☐ Не примусувати режим гри"),
+            ((egm) ? Component.translatable("wavedefense.auto.примусовий_режим_гри_survival_advent_1ffc85b7") : Component.translatable("wavedefense.auto.не_примусувати_режим_гри_8df3c880")),
             b -> { location.setEnforceGameMode(!location.isEnforceGameMode()); rebuildWidgets(); }
         ).bounds(lx, y, panelW, 16).build())
         .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-            net.minecraft.network.chat.Component.literal(
-                "§7Якщо увімкнено — Creative автоматично змінюється на Survival/Adventure при вході та щосекунди протягом гри")));
+            net.minecraft.network.chat.Component.translatable("wavedefense.auto.якщо_увімкнено_creative_автомати_d277a6a9")));
         y += 20;
+        return y;
+    }
 
-        // ─── 0. ПЕРЕМОГА — екран та затримка ──────────────────────────────
+    // ── Секція: Перемога ──────────────────────────────────────────────────
+    private int initVictorySection(int lx, int panelW, int y) {
         this.addRenderableWidget(Button.builder(
-            Component.literal("§6§l── Перемога ──"), b -> {}
+            Component.translatable("wavedefense.auto.перемога_22c21fa7"), b -> {}
         ).bounds(lx, y, panelW, 14).build()).active = false;
         y += 18;
-
         boolean vs = location.isVictoryScreenEnabled();
         this.addRenderableWidget(Button.builder(
-            Component.literal(vs ? "§a☑ Показувати екран ПЕРЕМОГИ" : "§7☐ Без екрану перемоги (одразу виходити)"),
+            ((vs) ? Component.translatable("wavedefense.auto.показувати_екран_перемоги_23a65e43") : Component.translatable("wavedefense.auto.без_екрану_перемоги_одразу_виходити_753ec2e8")),
             b -> { location.setVictoryScreenEnabled(!location.isVictoryScreenEnabled()); rebuildWidgets(); }
         ).bounds(lx, y, panelW, 16).build());
         y += 20;
-
         if (vs) {
             this.addRenderableWidget(Button.builder(
-                Component.literal("§7Час на локації після перемоги (сек):"), b -> {}
+                Component.translatable("wavedefense.auto.час_на_локації_після_перемоги_се_fb069255"), b -> {}
             ).bounds(lx, y, 226, 16).build()).active = false;
-            // Завжди створюємо нову EditBox з поточним y (scroll-safe)
             victoryLingerInput = new EditBox(this.font, lx + 230, y, 60, 16, Component.literal("30"));
             victoryLingerInput.setMaxLength(4);
             victoryLingerInput.setValue(String.valueOf(location.getVictoryLingerTimeSec()));
@@ -708,26 +693,27 @@ public class LocationEditorScreen extends Screen {
             this.addRenderableWidget(victoryLingerInput);
             y += 22;
             this.addRenderableWidget(Button.builder(
-                Component.literal("§8ℹ Після перемоги — title «ПЕРЕМОГА» і гравці залишаються N сек"), b -> {}
+                Component.translatable("wavedefense.auto.ℹ_після_перемоги_title_перемога_c6807e66"), b -> {}
             ).bounds(lx, y, panelW, 12).build()).active = false;
             y += 16;
         }
+        return y;
+    }
 
+    // ── Секція: Точки виходу ──────────────────────────────────────────────
+    private int initExitPointsSection(int lx, int panelW, int y) {
         y += 4;
-        // ─── 0b. ТОЧКИ ВИХОДУ ─────────────────────────────────────────────
         this.addRenderableWidget(Button.builder(
-            Component.literal("§6§l── Точки виходу ──"), b -> {}
+            Component.translatable("wavedefense.auto.точки_виходу_94b4bb33"), b -> {}
         ).bounds(lx, y, panelW, 14).build()).active = false;
         y += 18;
-
-        // Точка виходу після перемоги
         net.minecraft.core.BlockPos vep = location.getVictoryExitPos();
         String vepLbl = vep != null
             ? String.format("§a✓ Перемога: X%d Y%d Z%d", vep.getX(), vep.getY(), vep.getZ())
             : "§7Перемога: повернути на попереднє місце";
         this.addRenderableWidget(Button.builder(Component.literal(vepLbl), b -> {}).bounds(lx, y, panelW - 88, 14).build()).active = false;
         this.addRenderableWidget(Button.builder(
-            Component.literal("📌 Задати"),
+            Component.translatable("wavedefense.auto.задати_311c5f00"),
             b -> { if (minecraft.player != null) { location.setVictoryExitPos(minecraft.player.blockPosition()); saveChanges(); rebuildWidgets(); } }
         ).bounds(lx + panelW - 84, y, 42, 14).build());
         if (vep != null) {
@@ -737,15 +723,13 @@ public class LocationEditorScreen extends Screen {
             ).bounds(lx + panelW - 40, y, 40, 14).build());
         }
         y += 18;
-
-        // Точка виходу після здачі
         net.minecraft.core.BlockPos sep = location.getSurrenderExitPos();
         String sepLbl = sep != null
             ? String.format("§a✓ Здача: X%d Y%d Z%d", sep.getX(), sep.getY(), sep.getZ())
             : "§7Здача: повернути на попереднє місце";
         this.addRenderableWidget(Button.builder(Component.literal(sepLbl), b -> {}).bounds(lx, y, panelW - 88, 14).build()).active = false;
         this.addRenderableWidget(Button.builder(
-            Component.literal("📌 Задати"),
+            Component.translatable("wavedefense.auto.задати_311c5f00"),
             b -> { if (minecraft.player != null) { location.setSurrenderExitPos(minecraft.player.blockPosition()); saveChanges(); rebuildWidgets(); } }
         ).bounds(lx + panelW - 84, y, 42, 14).build());
         if (sep != null) {
@@ -756,26 +740,26 @@ public class LocationEditorScreen extends Screen {
         }
         y += 18;
         this.addRenderableWidget(Button.builder(
-            Component.literal("§8ℹ null = гравець повертається на місце звідки прийшов на локацію"), b -> {}
+            Component.translatable("wavedefense.auto.ℹ_null_гравець_повертається_на_м_e0cde428"), b -> {}
         ).bounds(lx, y, panelW, 11).build()).active = false;
         y += 14;
+        return y;
+    }
 
-        // (Затримка першої хвилі перенесена до Хвилі 1 → Таймер у WaveConfigScreen)
-
-        // ─── 0e. ЧАСТИНКИ ЗОНИ АКТИВАЦІЇ ─────────────────────────────────
+    // ── Секція: Частинки зони входу ───────────────────────────────────────
+    private int initParticlesSection(int lx, int panelW, int y) {
         y += 4;
         this.addRenderableWidget(Button.builder(
-            Component.literal("§6§l── Частинки зони входу ──"), b -> {}
+            Component.translatable("wavedefense.auto.частинки_зони_входу_344e5bd1"), b -> {}
         ).bounds(lx, y, panelW, 14).build()).active = false;
         y += 18;
         String curPart = location.getZoneParticleType();
         String partDisplay = (curPart == null || curPart.isEmpty()) ? "§7minecraft:squid_ink (за замовчуванням)" : "§a" + curPart;
         this.addRenderableWidget(Button.builder(Component.literal(partDisplay), b -> {}).bounds(lx, y, panelW, 14).build()).active = false;
         y += 16;
-        // Швидкий вибір популярних частинок — 7 кнопок у рядок (44px кожна)
         String[] particlePresets = {"minecraft:squid_ink","minecraft:flame","minecraft:end_rod","minecraft:witch","minecraft:portal","minecraft:snowflake","minecraft:happy_villager"};
         String[] particleLabels  = {"squid","flame","star","witch","portal","snow","✿ villager"};
-        int ppBtnW = (panelW - 6) / 7; // рівномірна ширина кнопок
+        int ppBtnW = (panelW - 6) / 7;
         for (int pi = 0; pi < particlePresets.length; pi++) {
             final String pp = particlePresets[pi];
             final int fpi = pi;
@@ -788,12 +772,11 @@ public class LocationEditorScreen extends Screen {
         }
         y += 18;
         this.addRenderableWidget(Button.builder(
-            Component.literal("§8ℹ Тип частинок у колі навколо точки входу на локацію"), b -> {}
+            Component.translatable("wavedefense.auto.ℹ_тип_частинок_у_колі_навколо_то_2317049d"), b -> {}
         ).bounds(lx, y, panelW, 11).build()).active = false;
         y += 16;
-        // Кількість точок у кільці (0 = авто)
         this.addRenderableWidget(Button.builder(
-            Component.literal("§7Точок у кільці (0=авто):"), b -> {}
+            Component.translatable("wavedefense.auto.точок_у_кільці_0_авто_4c831a7f"), b -> {}
         ).bounds(lx, y, 170, 14).build()).active = false;
         particleCountInput = new EditBox(this.font, lx + 174, y, 60, 14, Component.literal("0"));
         particleCountInput.setMaxLength(3);
@@ -804,30 +787,27 @@ public class LocationEditorScreen extends Screen {
         });
         this.addRenderableWidget(particleCountInput);
         y += 18;
-        // Швидкість (інтенсивність) частинок
         this.addRenderableWidget(Button.builder(
-            Component.literal("§7Швидкість частинок (0=тихо, 0.5=помірно):"), b -> {}
+            Component.translatable("wavedefense.auto.швидкість_частинок_0_тихо_0_5_по_c839e80c"), b -> {}
         ).bounds(lx, y, 236, 14).build()).active = false;
         {
-            // Локальний прапор - блокує responder під час setValue (Forge викликає responder в setValue)
             boolean[] suppressParticleSpeed = {true};
             particleSpeedInput = new EditBox(this.font, lx + 240, y, 56, 14, Component.literal("0.02"));
             particleSpeedInput.setMaxLength(6);
             particleSpeedInput.setResponder(s -> {
-                if (suppressParticleSpeed[0]) return; // ігноруємо під час ініціалізації
+                if (suppressParticleSpeed[0]) return;
                 try {
                     float v = Float.parseFloat(s.replace(',', '.').trim());
                     if (v >= 0f && v <= 10f) location.setZoneParticleSpeed(v);
                 } catch (NumberFormatException ignored) {}
             });
             particleSpeedInput.setValue(String.format("%.3f", location.getZoneParticleSpeed()));
-            suppressParticleSpeed[0] = false; // тепер responder активний
+            suppressParticleSpeed[0] = false;
             this.addRenderableWidget(particleSpeedInput);
         }
         y += 18;
-        // Кулдаун частинок (інтервал між появою)
         this.addRenderableWidget(Button.builder(
-            Component.literal("§7Інтервал частинок (тіків, 1=кожен тік, 20=раз/сек):"), b -> {}
+            Component.translatable("wavedefense.auto.інтервал_частинок_тіків_1_кожен_6c362ed0"), b -> {}
         ).bounds(lx, y, 270, 14).build()).active = false;
         {
             boolean[] suppressInterval = {true};
@@ -845,39 +825,35 @@ public class LocationEditorScreen extends Screen {
             this.addRenderableWidget(particleIntervalInput);
         }
         y += 18;
+        return y;
+    }
 
+    // ── Секція: Кордон локації ────────────────────────────────────────────
+    private int initBoundarySection(int lx, int panelW, int y) {
         y += 4;
-        // ─── 1. КОРДОН ЛОКАЦІЇ ─────────────────────────────────────────────
         this.addRenderableWidget(Button.builder(
-            Component.literal("§6§l── Кордон локації ──"), b -> {}
+            Component.translatable("wavedefense.auto.кордон_локації_a8d00d3b"), b -> {}
         ).bounds(lx, y, panelW, 14).build()).active = false;
         y += 18;
-
         boolean boundaryOn = location.isLocationBoundaryEnabled();
         this.addRenderableWidget(Button.builder(
-            Component.literal(boundaryOn ? "§a☑ Відстеження кордону УВІМКНЕНО" : "§7☐ Відстеження кордону вимкнено"),
+            ((boundaryOn) ? Component.translatable("wavedefense.auto.відстеження_кордону_увімкнено_4e64ccbf") : Component.translatable("wavedefense.auto.відстеження_кордону_вимкнено_fee949db")),
             b -> { location.setLocationBoundaryEnabled(!location.isLocationBoundaryEnabled()); rebuildWidgets(); }
         ).bounds(lx, y, panelW, 18).build());
-
         if (boundaryOn) {
             y += 20;
-
-            // ── Радіус ──────────────────────────────────────────────────
             this.addRenderableWidget(Button.builder(
-                Component.literal("§7Радіус кордону (блоків):"), b -> {}
+                Component.translatable("wavedefense.auto.радіус_кордону_блоків_9d7152e5"), b -> {}
             ).bounds(lx, y, 190, 16).build()).active = false;
             boundaryRadiusInput = new EditBox(this.font, lx + 194, y, 60, 16, Component.literal("50"));
             boundaryRadiusInput.setValue(String.valueOf(location.getLocationBoundaryRadius()));
             boundaryRadiusInput.setMaxLength(5);
             this.addRenderableWidget(boundaryRadiusInput);
             y += 22;
-
-            // ── Наслідок виходу ─────────────────────────────────────────
             this.addRenderableWidget(Button.builder(
-                Component.literal("§7Наслідок виходу за кордон:"), b -> {}
+                Component.translatable("wavedefense.auto.наслідок_виходу_за_кордон_70311161"), b -> {}
             ).bounds(lx, y, panelW, 14).build()).active = false;
             y += 16;
-
             com.wavedefense.data.Location.BoundaryConsequence[] conseqs = {
                 com.wavedefense.data.Location.BoundaryConsequence.TIMER_SURRENDER,
                 com.wavedefense.data.Location.BoundaryConsequence.DAMAGE,
@@ -894,12 +870,10 @@ public class LocationEditorScreen extends Screen {
                 ).bounds(lx + (ci % 2) * (panelW / 2), y + (ci / 2) * 20, panelW / 2 - 2, 18).build());
             }
             y += 44;
-
-            // ── Параметри залежно від наслідку ────────────────────────────
             com.wavedefense.data.Location.BoundaryConsequence bc = location.getBoundaryConsequence();
             if (bc == com.wavedefense.data.Location.BoundaryConsequence.TIMER_SURRENDER) {
                 this.addRenderableWidget(Button.builder(
-                    Component.literal("§7Час на повернення (сек):"), b -> {}
+                    Component.translatable("wavedefense.auto.час_на_повернення_сек_abeae7e4"), b -> {}
                 ).bounds(lx, y, 190, 16).build()).active = false;
                 leaveTimerInput = new EditBox(this.font, lx + 194, y, 60, 16, Component.literal("30"));
                 leaveTimerInput.setValue(String.valueOf(location.getLocationLeaveTimerSec()));
@@ -908,7 +882,7 @@ public class LocationEditorScreen extends Screen {
                 y += 22;
             } else if (bc == com.wavedefense.data.Location.BoundaryConsequence.DAMAGE) {
                 this.addRenderableWidget(Button.builder(
-                    Component.literal("§7Шкода (HP/сек):"), b -> {}
+                    Component.translatable("wavedefense.auto.шкода_hp_сек_70beedeb"), b -> {}
                 ).bounds(lx, y, 190, 16).build()).active = false;
                 EditBox dmgInput = new EditBox(this.font, lx + 194, y, 60, 16, Component.literal("2.0"));
                 dmgInput.setValue(String.format("%.1f", location.getBoundaryDamagePerSec()));
@@ -917,19 +891,15 @@ public class LocationEditorScreen extends Screen {
                 this.addRenderableWidget(dmgInput);
                 y += 22;
             }
-
-            // ── Частинки кордону ────────────────────────────────────────
             boolean partOn = location.isBoundaryParticlesEnabled();
             this.addRenderableWidget(Button.builder(
-                Component.literal(partOn ? "§a☑ Частинки кордону (УВІМКНЕНО)" : "§7☐ Частинки кордону (вимкнено)"),
+                ((partOn) ? Component.translatable("wavedefense.auto.частинки_кордону_увімкнено_fe3e3d59") : Component.translatable("wavedefense.auto.частинки_кордону_вимкнено_fc06f33c")),
                 b -> { location.setBoundaryParticlesEnabled(!location.isBoundaryParticlesEnabled()); rebuildWidgets(); }
             ).bounds(lx, y, panelW, 16).build());
             y += 20;
-
             if (partOn) {
-                // Тип частинок
                 this.addRenderableWidget(Button.builder(
-                    Component.literal("§7Тип частинок (registry id):"), b -> {}
+                    Component.translatable("wavedefense.auto.тип_частинок_registry_id_279de6c4"), b -> {}
                 ).bounds(lx, y, panelW, 12).build()).active = false;
                 y += 14;
                 EditBox ptypeBox = new EditBox(this.font, lx, y, 190, 16, Component.literal("minecraft:smoke"));
@@ -938,19 +908,16 @@ public class LocationEditorScreen extends Screen {
                 ptypeBox.setResponder(s -> { if (!s.isBlank()) location.setBoundaryParticleType(s.trim()); });
                 this.addRenderableWidget(ptypeBox);
                 y += 20;
-
-                // К-сть частинок і висота кільця
                 this.addRenderableWidget(Button.builder(
-                    Component.literal("§7К-сть:"), b -> {}
+                    Component.translatable("wavedefense.auto.к_сть_93fe635b"), b -> {}
                 ).bounds(lx, y, 44, 16).build()).active = false;
                 EditBox pcntBox = new EditBox(this.font, lx + 46, y, 40, 16, Component.literal("4"));
                 pcntBox.setValue(String.valueOf(location.getBoundaryParticleCount()));
                 pcntBox.setMaxLength(3);
                 pcntBox.setResponder(s -> { try { location.setBoundaryParticleCount(Integer.parseInt(s)); } catch(Exception ig){} });
                 this.addRenderableWidget(pcntBox);
-
                 this.addRenderableWidget(Button.builder(
-                    Component.literal("§7Висота:"), b -> {}
+                    Component.translatable("wavedefense.auto.висота_8dfaebb3"), b -> {}
                 ).bounds(lx + 96, y, 50, 16).build()).active = false;
                 EditBox phtBox = new EditBox(this.font, lx + 148, y, 40, 16, Component.literal("3"));
                 phtBox.setValue(String.valueOf(location.getBoundaryParticleHeight()));
@@ -958,10 +925,8 @@ public class LocationEditorScreen extends Screen {
                 phtBox.setResponder(s -> { try { location.setBoundaryParticleHeight(Integer.parseInt(s)); } catch(Exception ig){} });
                 this.addRenderableWidget(phtBox);
                 y += 22;
-
-                // Швидкі пресети
                 this.addRenderableWidget(Button.builder(
-                    Component.literal("§8Пресет:"), b -> {}
+                    Component.translatable("wavedefense.auto.пресет_a7847c4d"), b -> {}
                 ).bounds(lx, y, 48, 14).build()).active = false;
                 String[] presets = {"§7smoke","§cflame","§6portal","§bsnow","§denchant"};
                 String[] pids    = {"minecraft:smoke","minecraft:flame","minecraft:portal",
@@ -976,129 +941,111 @@ public class LocationEditorScreen extends Screen {
                 y += 18;
             }
         }
-
         y += boundaryOn ? 6 : 22;
+        return y;
+    }
 
-        // ─── 2. АВТО-АКТИВАЦІЯ ЗОНИ ───────────────────────────────────────
-        {
-            boolean locTrigOn = true; // Зона авто-активації завжди доступна
-            y += 4;
-            // ── Авто-активація зони (вбудована у тригер запуску) ─────────
-            boolean aa = location.isAutoActivate();
-            this.addRenderableWidget(Button.builder(
-                Component.literal(aa ? "§a☑ Авто-активація зони (УВІМКНЕНО)" : "§7☐ Авто-активація зони (вимкнено)"),
-                b -> { location.setAutoActivate(!location.isAutoActivate()); rebuildWidgets(); }
-            ).bounds(lx, y, panelW, 16).build());
-            y += 20;
-
-            if (aa) {
-                // Центр зони
-                boolean useCustomCenter = location.isZoneUsesCustomCenter();
-                this.addRenderableWidget(Button.builder(
-                    Component.literal("§7Центр зони: " + (useCustomCenter ? "§a✓ Вказана точка" : "§e→ Точка спавну гравця")),
-                    b -> { location.setZoneUsesCustomCenter(!location.isZoneUsesCustomCenter()); rebuildWidgets(); }
-                ).bounds(lx, y, panelW, 16).build());
-                y += 18;
-
-                if (useCustomCenter) {
-                    net.minecraft.core.BlockPos zc = location.getZoneCenter();
-                    String zcLabel = zc != null
-                        ? String.format("§a✓ X%d Y%d Z%d", zc.getX(), zc.getY(), zc.getZ())
-                        : "§c⚠ Не встановлено";
-                    this.addRenderableWidget(Button.builder(
-                        Component.literal(zcLabel), b -> {}
-                    ).bounds(lx, y, panelW - 90, 14).build()).active = false;
-                    this.addRenderableWidget(Button.builder(
-                        Component.literal("📌 Встановити тут"),
-                        b -> { if (minecraft.player != null) { location.setZoneCenter(minecraft.player.blockPosition()); saveChanges(); rebuildWidgets(); } }
-                    ).bounds(lx + panelW - 86, y, 86, 14).build());
-                    y += 18;
-                }
-
-                // Точка входу (куди телепортувати)
-                net.minecraft.core.BlockPos ep = location.getAutoActivateEntryPos();
-                String epLabel = ep != null
-                    ? String.format("§a✓ Вхід: X%d Y%d Z%d", ep.getX(), ep.getY(), ep.getZ())
-                    : "§7Вхід: = точка спавну гравця";
-                this.addRenderableWidget(Button.builder(Component.literal(epLabel), b -> {}).bounds(lx, y, panelW - 86, 14).build()).active = false;
-                this.addRenderableWidget(Button.builder(
-                    Component.literal("📌 Задати вхід"),
-                    b -> { if (minecraft.player != null) { location.setAutoActivateEntryPos(minecraft.player.blockPosition()); saveChanges(); rebuildWidgets(); } }
-                ).bounds(lx + panelW - 86, y, 86, 14).build());
-                if (ep != null) {
-                    y += 14;
-                    this.addRenderableWidget(Button.builder(
-                        Component.literal("§c✕ Скинути точку входу"),
-                        b -> { location.setAutoActivateEntryPos(null); saveChanges(); rebuildWidgets(); }
-                    ).bounds(lx, y, panelW, 12).build());
-                }
-                y += 18;
-
-                // Радіус зони
-                this.addRenderableWidget(Button.builder(
-                    Component.literal("§7Радіус зони (бл):"), b -> {}
-                ).bounds(lx, y, 140, 16).build()).active = false;
-                zoneRadiusInput = new EditBox(this.font, lx + 144, y, 50, 16, Component.literal("5"));
-                zoneRadiusInput.setValue(String.valueOf(location.getAutoActivateRadius()));
-                zoneRadiusInput.setMaxLength(4);
-                zoneRadiusInput.setResponder(s -> { try { location.setAutoActivateRadius(Integer.parseInt(s.trim())); } catch (NumberFormatException ignored) {} });
-                this.addRenderableWidget(zoneRadiusInput);
-                y += 20;
-
-                // Таймер до активації (0 = миттєво)
-                this.addRenderableWidget(Button.builder(
-                    Component.literal("§7Затримка активації (сек, 0=миттєво):"), b -> {}
-                ).bounds(lx, y, 220, 16).build()).active = false;
-                zoneActivationTimerInput = new EditBox(this.font, lx + 224, y, 50, 16, Component.literal("0"));
-                zoneActivationTimerInput.setValue(String.valueOf(location.getZoneActivationTimeSec()));
-                zoneActivationTimerInput.setMaxLength(4);
-                zoneActivationTimerInput.setResponder(s -> { try { location.setZoneActivationTimeSec(Integer.parseInt(s.trim())); } catch (NumberFormatException ignored) {} });
-                this.addRenderableWidget(zoneActivationTimerInput);
-                y += 20;
-
-                // Час відкритості після старту (0 = закрити одразу)
-                this.addRenderableWidget(Button.builder(
-                    Component.literal("§7Зона відкрита після старту (сек, 0=закрити):"), b -> {}
-                ).bounds(lx, y, 262, 16).build()).active = false;
-                zoneOpenAfterStartInput = new EditBox(this.font, lx + 266, y, 50, 16, Component.literal("0"));
-                zoneOpenAfterStartInput.setValue(String.valueOf(location.getZoneOpenAfterStartSec()));
-                zoneOpenAfterStartInput.setMaxLength(4);
-                zoneOpenAfterStartInput.setResponder(s -> { try { location.setZoneOpenAfterStartSec(Integer.parseInt(s.trim())); } catch (NumberFormatException ignored) {} });
-                this.addRenderableWidget(zoneOpenAfterStartInput);
-                y += 20;
-
-                this.addRenderableWidget(Button.builder(
-                    Component.literal("§8ℹ 0 = зона вимикається після запуску | >0 = запізнілі можуть зайти"), b -> {}
-                ).bounds(lx, y, panelW, 12).build()).active = false;
-                y += 14;
-            }
-        }
-
-        y += 8;
-
-        // ─── 3. ПОРТАЛ ────────────────────────────────────────────────────
+    // ── Секція: Авто-активація зони ───────────────────────────────────────
+    private int initZoneSection(int lx, int panelW, int y) {
+        y += 4;
+        boolean aa = location.isAutoActivate();
         this.addRenderableWidget(Button.builder(
-            Component.literal("§6§l── Портал ──"), b -> {}
+            ((aa) ? Component.translatable("wavedefense.auto.авто_активація_зони_увімкнено_af93bd2a") : Component.translatable("wavedefense.auto.авто_активація_зони_вимкнено_2c63e91a")),
+            b -> { location.setAutoActivate(!location.isAutoActivate()); rebuildWidgets(); }
+        ).bounds(lx, y, panelW, 16).build());
+        y += 20;
+        if (aa) {
+            boolean useCustomCenter = location.isZoneUsesCustomCenter();
+            this.addRenderableWidget(Button.builder(
+                Component.translatable("wavedefense.location.zone_center", useCustomCenter ? net.minecraft.client.resources.language.I18n.get("wavedefense.location.zone_center.custom") : net.minecraft.client.resources.language.I18n.get("wavedefense.location.zone_center.player_spawn")), 
+                b -> { location.setZoneUsesCustomCenter(!location.isZoneUsesCustomCenter()); rebuildWidgets(); }
+            ).bounds(lx, y, panelW, 16).build());
+            y += 18;
+            if (useCustomCenter) {
+                net.minecraft.core.BlockPos zc = location.getZoneCenter();
+                String zcLabel = zc != null
+                    ? String.format("§a✓ X%d Y%d Z%d", zc.getX(), zc.getY(), zc.getZ())
+                    : "§c⚠ Не встановлено";
+                this.addRenderableWidget(Button.builder(
+                    Component.literal(zcLabel), b -> {}
+                ).bounds(lx, y, panelW - 90, 14).build()).active = false;
+                this.addRenderableWidget(Button.builder(
+                    Component.translatable("wavedefense.auto.встановити_тут_bc78c4b4"),
+                    b -> { if (minecraft.player != null) { location.setZoneCenter(minecraft.player.blockPosition()); saveChanges(); rebuildWidgets(); } }
+                ).bounds(lx + panelW - 86, y, 86, 14).build());
+                y += 18;
+            }
+            net.minecraft.core.BlockPos ep = location.getAutoActivateEntryPos();
+            String epLabel = ep != null
+                ? String.format("§a✓ Вхід: X%d Y%d Z%d", ep.getX(), ep.getY(), ep.getZ())
+                : "§7Вхід: = точка спавну гравця";
+            this.addRenderableWidget(Button.builder(Component.literal(epLabel), b -> {}).bounds(lx, y, panelW - 86, 14).build()).active = false;
+            this.addRenderableWidget(Button.builder(
+                Component.translatable("wavedefense.auto.задати_вхід_cc0fd093"),
+                b -> { if (minecraft.player != null) { location.setAutoActivateEntryPos(minecraft.player.blockPosition()); saveChanges(); rebuildWidgets(); } }
+            ).bounds(lx + panelW - 86, y, 86, 14).build());
+            if (ep != null) {
+                y += 14;
+                this.addRenderableWidget(Button.builder(
+                    Component.translatable("wavedefense.auto.скинути_точку_входу_5ae06e05"),
+                    b -> { location.setAutoActivateEntryPos(null); saveChanges(); rebuildWidgets(); }
+                ).bounds(lx, y, panelW, 12).build());
+            }
+            y += 18;
+            this.addRenderableWidget(Button.builder(
+                Component.translatable("wavedefense.auto.радіус_зони_бл_9e546ee1"), b -> {}
+            ).bounds(lx, y, 140, 16).build()).active = false;
+            zoneRadiusInput = new EditBox(this.font, lx + 144, y, 50, 16, Component.literal("5"));
+            zoneRadiusInput.setValue(String.valueOf(location.getAutoActivateRadius()));
+            zoneRadiusInput.setMaxLength(4);
+            zoneRadiusInput.setResponder(s -> { try { location.setAutoActivateRadius(Integer.parseInt(s.trim())); } catch (NumberFormatException ignored) {} });
+            this.addRenderableWidget(zoneRadiusInput);
+            y += 20;
+            this.addRenderableWidget(Button.builder(
+                Component.translatable("wavedefense.auto.затримка_активації_сек_0_миттєво_9bd4fffe"), b -> {}
+            ).bounds(lx, y, 220, 16).build()).active = false;
+            zoneActivationTimerInput = new EditBox(this.font, lx + 224, y, 50, 16, Component.literal("0"));
+            zoneActivationTimerInput.setValue(String.valueOf(location.getZoneActivationTimeSec()));
+            zoneActivationTimerInput.setMaxLength(4);
+            zoneActivationTimerInput.setResponder(s -> { try { location.setZoneActivationTimeSec(Integer.parseInt(s.trim())); } catch (NumberFormatException ignored) {} });
+            this.addRenderableWidget(zoneActivationTimerInput);
+            y += 20;
+            this.addRenderableWidget(Button.builder(
+                Component.translatable("wavedefense.auto.зона_відкрита_після_старту_сек_0_e16dd239"), b -> {}
+            ).bounds(lx, y, 262, 16).build()).active = false;
+            zoneOpenAfterStartInput = new EditBox(this.font, lx + 266, y, 50, 16, Component.literal("0"));
+            zoneOpenAfterStartInput.setValue(String.valueOf(location.getZoneOpenAfterStartSec()));
+            zoneOpenAfterStartInput.setMaxLength(4);
+            zoneOpenAfterStartInput.setResponder(s -> { try { location.setZoneOpenAfterStartSec(Integer.parseInt(s.trim())); } catch (NumberFormatException ignored) {} });
+            this.addRenderableWidget(zoneOpenAfterStartInput);
+            y += 20;
+            this.addRenderableWidget(Button.builder(
+                Component.translatable("wavedefense.auto.ℹ_0_зона_вимикається_після_запус_630eddd4"), b -> {}
+            ).bounds(lx, y, panelW, 12).build()).active = false;
+            y += 14;
+        }
+        return y;
+    }
+
+    // ── Секція: Портал ────────────────────────────────────────────────────
+    private int initPortalSection(int lx, int panelW, int y) {
+        y += 8;
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.auto.портал_3a6b2e9f"), b -> {}
         ).bounds(lx, y, panelW, 14).build()).active = false;
         y += 18;
-
         boolean portalOn = location.isPortalEnabled();
         this.addRenderableWidget(Button.builder(
-            Component.literal(portalOn ? "§a☑ Рандомний портал УВІМКНЕНО" : "§7☐ Рандомний портал вимкнено"),
+            ((portalOn) ? Component.translatable("wavedefense.auto.рандомний_портал_увімкнено_10cf9544") : Component.translatable("wavedefense.auto.рандомний_портал_вимкнено_05bf94ae")),
             b -> { location.setPortalEnabled(!location.isPortalEnabled()); rebuildWidgets(); }
         ).bounds(lx, y, panelW, 18).build());
-
         if (portalOn) {
             y += 22;
-            // Штрафна хвиля
-            int numWaves  = location.getWaves().size();
-            int penaltyW  = location.getPortalPenaltyWave(); // -1 = всі
+            int penaltyW  = location.getPortalPenaltyWave();
             String penStr = (penaltyW == -1) ? "§eВсі хвилі по порядку" : ("§eХвиля " + (penaltyW + 1));
             this.addRenderableWidget(Button.builder(
-                Component.literal("§7Штрафна хвиля: " + penStr), b -> {}
+                Component.translatable("wavedefense.auto.штрафна_хвиля_value_6ff1fd17", penStr), b -> {}
             ).bounds(lx, y, panelW - 80, 16).build()).active = false;
-
-            // Кнопки переключення штрафної хвилі
             this.addRenderableWidget(Button.builder(
                 Component.literal("◀"),
                 b -> {
@@ -1116,21 +1063,17 @@ public class LocationEditorScreen extends Screen {
                 }
             ).bounds(lx + panelW - 50, y, 22, 16).build());
             y += 20;
-
-            // Таймер до штрафної хвилі
             this.addRenderableWidget(Button.builder(
-                Component.literal("§7Таймер штрафної хвилі (сек):"), b -> {}
+                Component.translatable("wavedefense.auto.таймер_штрафної_хвилі_сек_dbf1e775"), b -> {}
             ).bounds(lx, y, 200, 16).build()).active = false;
             portalPenaltyTimerInput = new EditBox(this.font, lx + 204, y, 60, 16, Component.literal("60"));
             portalPenaltyTimerInput.setValue(String.valueOf(location.getPortalPenaltyTimerSec()));
             portalPenaltyTimerInput.setMaxLength(5);
             this.addRenderableWidget(portalPenaltyTimerInput);
             y += 20;
-
-            // Час відкритості порталу після запуску локації
             y += 4;
             this.addRenderableWidget(Button.builder(
-                Component.literal("§7Портал відкритий після старту (сек):"), b -> {}
+                Component.translatable("wavedefense.auto.портал_відкритий_після_старту_се_fb5b2465"), b -> {}
             ).bounds(lx, y, 232, 16).build()).active = false;
             portalOpenAfterStartInput = new EditBox(this.font, lx + 236, y, 60, 16, Component.literal("-1"));
             portalOpenAfterStartInput.setValue(String.valueOf(location.getPortalOpenAfterStartSec()));
@@ -1139,23 +1082,18 @@ public class LocationEditorScreen extends Screen {
             this.addRenderableWidget(portalOpenAfterStartInput);
             y += 18;
             this.addRenderableWidget(Button.builder(
-                Component.literal("§8ℹ -1=grace 30сек | 0=закрити одразу | >0=відкритий N сек після старту"), b -> {}
+                Component.translatable("wavedefense.auto.ℹ_1_grace_30сек_0_закрити_одразу_7733239c"), b -> {}
             ).bounds(lx, y, panelW, 12).build()).active = false;
             y += 16;
-
-            // Зникнення після проходження
             boolean disappears = location.isPortalDisappearsOnComplete();
             this.addRenderableWidget(Button.builder(
-                Component.literal(disappears
-                    ? "§a☑ Зникає після проходження локації"
-                    : "§7☐ Не зникає (штрафний таймер скидається)"),
+                ((disappears) ? Component.translatable("wavedefense.auto.зникає_після_проходження_локації_c618248e") : Component.translatable("wavedefense.auto.не_зникає_штрафний_таймер_скидається_c420e6b9")),
                 b -> { location.setPortalDisappearsOnComplete(!location.isPortalDisappearsOnComplete()); rebuildWidgets(); }
             ).bounds(lx, y, panelW, 18).build());
-
             if (disappears) {
                 y += 22;
                 this.addRenderableWidget(Button.builder(
-                    Component.literal("§7Час до відродження порталу (сек):"), b -> {}
+                    Component.translatable("wavedefense.auto.час_до_відродження_порталу_сек_1d853c38"), b -> {}
                 ).bounds(lx, y, 220, 16).build()).active = false;
                 portalRespawnTimerInput = new EditBox(this.font, lx + 224, y, 60, 16, Component.literal("300"));
                 portalRespawnTimerInput.setValue(String.valueOf(location.getPortalRespawnTimerSec()));
@@ -1163,112 +1101,97 @@ public class LocationEditorScreen extends Screen {
                 this.addRenderableWidget(portalRespawnTimerInput);
                 y += 18;
                 this.addRenderableWidget(Button.builder(
-                    Component.literal("§8ℹ Після проходження портал зʼявиться у новому місці через цей час"),
+                    Component.translatable("wavedefense.auto.ℹ_після_проходження_портал_зʼяви_417790bf"),
                     b -> {}
                 ).bounds(lx, y, panelW, 12).build()).active = false;
             } else {
                 y += 22;
                 this.addRenderableWidget(Button.builder(
-                    Component.literal("§8ℹ Портал залишається, штрафний таймер скидається після кожної хвилі"),
+                    Component.translatable("wavedefense.auto.ℹ_портал_залишається_штрафний_та_4ab3ed5c"),
                     b -> {}
                 ).bounds(lx, y, panelW, 12).build()).active = false;
             }
         }
+        return y;
+    }
 
+    // ── Секція: Інфо-панелі (TextDisplay) ────────────────────────────────
+    private int initInfoPanelsSection(int lx, int panelW, int y) {
         y += 8;
-        // ─── INFO PANEL — TextDisplay над точкою спавну гравців ───────────────
         this.addRenderableWidget(Button.builder(
-            Component.literal("§6§l── ℹ Інфо-панель (TextDisplay) ──"), b -> {}
+            Component.translatable("wavedefense.auto.ℹ_інфо_панель_textdisplay_29d73807"), b -> {}
         ).bounds(lx, y, panelW, 14).build()).active = false;
         y += 18;
-
-        // Загальна інформація що таке InfoPanel
         this.addRenderableWidget(Button.builder(
-            Component.literal("§8TextDisplay entity — плаваючий текст у грі над спавном"),
+            Component.translatable("wavedefense.auto.textdisplay_entity_плаваючий_тек_370a3888"),
             b -> {}
         ).bounds(lx, y, panelW, 11).build()).active = false;
         y += 14;
-
-        // ── Spawn panel ────────────────────────────────────────────────────
         com.wavedefense.data.InfoPanelSettings ips = location.getInfoPanel();
         boolean spawnPanel = ips.isSpawnPanelEnabled();
         this.addRenderableWidget(Button.builder(
-            Component.literal(spawnPanel ? "§a☑ Панель на точці спавну ГРАВЦІВ" : "§7☐ Панель на точці спавну гравців"),
+            ((spawnPanel) ? Component.translatable("wavedefense.auto.панель_на_точці_спавну_гравців_5b432a6c") : Component.translatable("wavedefense.auto.панель_на_точці_спавну_гравців_f194768e")),
             b -> { location.getInfoPanel().setSpawnPanelEnabled(!location.getInfoPanel().isSpawnPanelEnabled()); rebuildWidgets(); }
         ).bounds(lx, y, panelW, 18).build());
         y += 22;
-
         if (spawnPanel) {
-            // Що показувати
             this.addRenderableWidget(Button.builder(
-                Component.literal("§7Відображати:"), b -> {}
+                Component.translatable("wavedefense.auto.відображати_8516d51a"), b -> {}
             ).bounds(lx, y, 90, 12).build()).active = false;
             y += 14;
-
             int bW = (panelW - 4) / 2;
-            // Row 1
             boolean showPlayers = ips.isShowPlayerCount();
             this.addRenderableWidget(Button.builder(
-                Component.literal(showPlayers ? "§a☑ Гравців у локації" : "§7☐ Гравців у локації"),
+                ((showPlayers) ? Component.translatable("wavedefense.auto.гравців_у_локації_aa087ff4") : Component.translatable("wavedefense.auto.гравців_у_локації_7e4c8270")),
                 b -> { location.getInfoPanel().setShowPlayerCount(!location.getInfoPanel().isShowPlayerCount()); rebuildWidgets(); }
             ).bounds(lx, y, bW, 16).build());
             boolean showWave = ips.isShowWaveNumber();
             this.addRenderableWidget(Button.builder(
-                Component.literal(showWave ? "§a☑ Номер хвилі" : "§7☐ Номер хвилі"),
+                ((showWave) ? Component.translatable("wavedefense.auto.номер_хвилі_1ad4a3ff") : Component.translatable("wavedefense.auto.номер_хвилі_8a901b48")),
                 b -> { location.getInfoPanel().setShowWaveNumber(!location.getInfoPanel().isShowWaveNumber()); rebuildWidgets(); }
             ).bounds(lx + bW + 4, y, bW, 16).build());
             y += 20;
-
-            // Row 2
             boolean showTimer = ips.isShowWaveTimer();
             this.addRenderableWidget(Button.builder(
-                Component.literal(showTimer ? "§a☑ Таймер до хвилі" : "§7☐ Таймер до хвилі"),
+                ((showTimer) ? Component.translatable("wavedefense.auto.таймер_до_хвилі_1217f3f4") : Component.translatable("wavedefense.auto.таймер_до_хвилі_8c2dba5a")),
                 b -> { location.getInfoPanel().setShowWaveTimer(!location.getInfoPanel().isShowWaveTimer()); rebuildWidgets(); }
             ).bounds(lx, y, bW, 16).build());
             boolean showMobs = ips.isShowMobsRemaining();
             this.addRenderableWidget(Button.builder(
-                Component.literal(showMobs ? "§a☑ Мобів залишилось" : "§7☐ Мобів залишилось"),
+                ((showMobs) ? Component.translatable("wavedefense.auto.мобів_залишилось_9af0b6f5") : Component.translatable("wavedefense.auto.мобів_залишилось_d181b6ae")),
                 b -> { location.getInfoPanel().setShowMobsRemaining(!location.getInfoPanel().isShowMobsRemaining()); rebuildWidgets(); }
             ).bounds(lx + bW + 4, y, bW, 16).build());
             y += 20;
-
-            // Row 3
             boolean showSecrets = ips.isShowSecretCount();
             this.addRenderableWidget(Button.builder(
-                Component.literal(showSecrets ? "§a☑ Секретних хвиль" : "§7☐ Секретних хвиль"),
+                ((showSecrets) ? Component.translatable("wavedefense.auto.секретних_хвиль_333873b8") : Component.translatable("wavedefense.auto.секретних_хвиль_289b154b")),
                 b -> { location.getInfoPanel().setShowSecretCount(!location.getInfoPanel().isShowSecretCount()); rebuildWidgets(); }
             ).bounds(lx, y, bW, 16).build());
             boolean showShop = ips.isShowShopSecrets();
             this.addRenderableWidget(Button.builder(
-                Component.literal(showShop ? "§a☑ Умовних товарів" : "§7☐ Умовних товарів"),
+                ((showShop) ? Component.translatable("wavedefense.auto.умовних_товарів_339a8618") : Component.translatable("wavedefense.auto.умовних_товарів_04defc96")),
                 b -> { location.getInfoPanel().setShowShopSecrets(!location.getInfoPanel().isShowShopSecrets()); rebuildWidgets(); }
             ).bounds(lx + bW + 4, y, bW, 16).build());
             y += 20;
-
-            // Row 4
             boolean showPoints = ips.isShowPoints();
             this.addRenderableWidget(Button.builder(
-                Component.literal(showPoints ? "§a☑ Поінти гравця" : "§7☐ Поінти гравця"),
+                ((showPoints) ? Component.translatable("wavedefense.auto.поінти_гравця_69c456e4") : Component.translatable("wavedefense.auto.поінти_гравця_a902bb96")),
                 b -> { location.getInfoPanel().setShowPoints(!location.getInfoPanel().isShowPoints()); rebuildWidgets(); }
             ).bounds(lx, y, bW, 16).build());
-            // Row 4b
             boolean showFwt = ips.isShowFirstWaveTimer();
             this.addRenderableWidget(Button.builder(
-                Component.literal(showFwt ? "§a☑ Таймер першої хвилі" : "§7☐ Таймер першої хвилі"),
+                ((showFwt) ? Component.translatable("wavedefense.auto.таймер_першої_хвилі_4e93f6f1") : Component.translatable("wavedefense.auto.таймер_першої_хвилі_fbeb613d")),
                 b -> { location.getInfoPanel().setShowFirstWaveTimer(!location.getInfoPanel().isShowFirstWaveTimer()); rebuildWidgets(); }
             ).bounds(lx + bW + 4, y, bW, 16).build());
             y += 20;
-            // Row 5 — лобі таймер (над точкою входу)
             boolean showLbt = ips.isShowLobbyTimer();
             this.addRenderableWidget(Button.builder(
-                Component.literal(showLbt ? "§a☑ Таймер лоббі (над входом)" : "§7☐ Таймер лоббі (над входом)"),
+                ((showLbt) ? Component.translatable("wavedefense.auto.таймер_лоббі_над_входом_f25befbc") : Component.translatable("wavedefense.auto.таймер_лоббі_над_входом_7943344b")),
                 b -> { location.getInfoPanel().setShowLobbyTimer(!location.getInfoPanel().isShowLobbyTimer()); rebuildWidgets(); }
             ).bounds(lx, y, panelW, 16).build());
             y += 20;
-
-            // Висота панелі
             this.addRenderableWidget(Button.builder(
-                Component.literal("§7Висота над спавном (блоків):"), b -> {}
+                Component.translatable("wavedefense.auto.висота_над_спавном_блоків_7ffddea4"), b -> {}
             ).bounds(lx, y, 186, 16).build()).active = false;
             infoPanelOffsetYInput = new EditBox(this.font, lx + 190, y, 60, 16, Component.literal("2.5"));
             infoPanelOffsetYInput.setValue(String.valueOf(ips.getSpawnPanelOffsetY()));
@@ -1277,38 +1200,34 @@ public class LocationEditorScreen extends Screen {
             this.addRenderableWidget(infoPanelOffsetYInput);
             y += 22;
         }
-
         y += 4;
-        // ── Mob spawn panel ────────────────────────────────────────────────
         boolean mobPanel = ips.isMobSpawnPanelEnabled();
         this.addRenderableWidget(Button.builder(
-            Component.literal(mobPanel ? "§a☑ Панель над точками спавну МОБІВ" : "§7☐ Панель над точками спавну мобів"),
+            ((mobPanel) ? Component.translatable("wavedefense.auto.панель_над_точками_спавну_мобів_c0275577") : Component.translatable("wavedefense.auto.панель_над_точками_спавну_мобів_0058db55")),
             b -> { location.getInfoPanel().setMobSpawnPanelEnabled(!location.getInfoPanel().isMobSpawnPanelEnabled()); rebuildWidgets(); }
         ).bounds(lx, y, panelW, 18).build());
         y += 22;
-
         if (mobPanel) {
             int bW = (panelW - 4) / 2;
             boolean mTimer = ips.isMobShowWaveTimer();
             this.addRenderableWidget(Button.builder(
-                Component.literal(mTimer ? "§a☑ Таймер до хвилі" : "§7☐ Таймер до хвилі"),
+                ((mTimer) ? Component.translatable("wavedefense.auto.таймер_до_хвилі_1217f3f4") : Component.translatable("wavedefense.auto.таймер_до_хвилі_8c2dba5a")),
                 b -> { location.getInfoPanel().setMobShowWaveTimer(!location.getInfoPanel().isMobShowWaveTimer()); rebuildWidgets(); }
             ).bounds(lx, y, bW, 16).build());
             boolean mWave = ips.isMobShowWaveNumber();
             this.addRenderableWidget(Button.builder(
-                Component.literal(mWave ? "§a☑ Номер хвилі" : "§7☐ Номер хвилі"),
+                ((mWave) ? Component.translatable("wavedefense.auto.номер_хвилі_1ad4a3ff") : Component.translatable("wavedefense.auto.номер_хвилі_8a901b48")),
                 b -> { location.getInfoPanel().setMobShowWaveNumber(!location.getInfoPanel().isMobShowWaveNumber()); rebuildWidgets(); }
             ).bounds(lx + bW + 4, y, bW, 16).build());
             y += 20;
             boolean mMob = ips.isMobShowMobCount();
             this.addRenderableWidget(Button.builder(
-                Component.literal(mMob ? "§a☑ К-ть мобів в хвилі" : "§7☐ К-ть мобів в хвилі"),
+                ((mMob) ? Component.translatable("wavedefense.auto.к_ть_мобів_в_хвилі_7043e0be") : Component.translatable("wavedefense.auto.к_ть_мобів_в_хвилі_84413751")),
                 b -> { location.getInfoPanel().setMobShowMobCount(!location.getInfoPanel().isMobShowMobCount()); rebuildWidgets(); }
             ).bounds(lx, y, bW, 16).build());
             y += 20;
-            // Висота
             this.addRenderableWidget(Button.builder(
-                Component.literal("§7Висота над спавном мобів (блоків):"), b -> {}
+                Component.translatable("wavedefense.auto.висота_над_спавном_мобів_блоків_07872bd5"), b -> {}
             ).bounds(lx, y, 210, 16).build()).active = false;
             mobPanelOffsetYInput = new EditBox(this.font, lx + 214, y, 60, 16, Component.literal("2.5"));
             mobPanelOffsetYInput.setValue(String.valueOf(ips.getMobSpawnOffsetY()));
@@ -1317,12 +1236,10 @@ public class LocationEditorScreen extends Screen {
             this.addRenderableWidget(mobPanelOffsetYInput);
             y += 22;
         }
-
-        // Загальний стиль (якщо хоч одна панель увімкнена)
         if (spawnPanel || mobPanel) {
             y += 4;
             this.addRenderableWidget(Button.builder(
-                Component.literal("§7Масштаб тексту (0.1-2.0):"), b -> {}
+                Component.translatable("wavedefense.auto.масштаб_тексту_0_1_2_0_951e20d9"), b -> {}
             ).bounds(lx, y, 172, 16).build()).active = false;
             infoPanelTextScaleInput = new EditBox(this.font, lx + 176, y, 50, 16, Component.literal("0.5"));
             infoPanelTextScaleInput.setValue(String.valueOf(ips.getTextScale()));
@@ -1330,22 +1247,19 @@ public class LocationEditorScreen extends Screen {
             infoPanelTextScaleInput.setResponder(s -> { try { location.getInfoPanel().setTextScale(Float.parseFloat(s.trim())); } catch (NumberFormatException ignored) {} });
             this.addRenderableWidget(infoPanelTextScaleInput);
             y += 20;
-
             boolean shadow = ips.isHasShadow();
             this.addRenderableWidget(Button.builder(
-                Component.literal(shadow ? "§a☑ Тінь тексту" : "§7☐ Без тіні"),
+                ((shadow) ? Component.translatable("wavedefense.auto.тінь_тексту_0216d6a1") : Component.translatable("wavedefense.auto.без_тіні_058581fc")),
                 b -> { location.getInfoPanel().setHasShadow(!location.getInfoPanel().isHasShadow()); rebuildWidgets(); }
             ).bounds(lx, y, 140, 16).build());
             y += 18;
-
             this.addRenderableWidget(Button.builder(
-                Component.literal("§8ℹ Панель видима з будь-якого боку. З'являється після запуску, зникає після проходження."),
+                Component.translatable("wavedefense.auto.ℹ_панель_видима_з_будь_якого_бок_a7b9b4ab"),
                 b -> {}
             ).bounds(lx, y, panelW, 11).build()).active = false;
             y += 14;
         }
-        // Розраховуємо реальну висоту вмісту Спец вкладки (відносно startY=80)
-        specialContentHeight = (y + specialScrollOffset) - 80 + 20;
+        return y;
     }
 
     private String getLocTip(String label) {
@@ -1371,3 +1285,5 @@ public class LocationEditorScreen extends Screen {
         return null;
     }
 }
+
+

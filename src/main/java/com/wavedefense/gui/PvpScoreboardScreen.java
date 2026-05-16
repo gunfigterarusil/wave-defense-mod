@@ -3,7 +3,10 @@ package com.wavedefense.gui;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
+
+import com.wavedefense.gui.ScissorHelper;
 
 import java.util.*;
 
@@ -24,7 +27,7 @@ public class PvpScoreboardScreen extends Screen {
     private static final int COL_ALIVE =  -20;
 
     public PvpScoreboardScreen() {
-        super(Component.literal("§c⚔ PvP Статистика"));
+        super(Component.translatable("wavedefense.pvp.scoreboard_title"));
     }
 
     @Override
@@ -32,7 +35,7 @@ public class PvpScoreboardScreen extends Screen {
         super.init();
         int cx = this.width / 2;
         this.addRenderableWidget(Button.builder(
-                Component.literal("✕ Закрити"), button -> this.onClose()
+                Component.translatable("wavedefense.button.close"), button -> this.onClose()
         ).bounds(cx - 40, this.height - 28, 80, 20).build());
     }
 
@@ -51,16 +54,16 @@ public class PvpScoreboardScreen extends Screen {
 
         // Заголовок
         String title;
-        if (isBuy) title = String.format("§e⏱ ЧАС ПОКУПОК: %d сек | Раунд %d/%d", timerSec, currentRound, totalRounds);
-        else if (isActive) title = String.format("§c⚔ РАУНД %d/%d", currentRound, totalRounds);
-        else title = "§7Очікування гравців...";
+        if (isBuy) title = String.format(I18n.get("wavedefense.pvp.buy_phase"), timerSec, currentRound, totalRounds);
+        else if (isActive) title = String.format(I18n.get("wavedefense.pvp.round_active"), currentRound, totalRounds);
+        else title = I18n.get("wavedefense.pvp.waiting");
         g.drawCenteredString(this.font, title, cx, 12, 0xFFFFFF);
 
         // Перемоги команд
         Map<String, Integer> wins = ClientPvpStateManager.getTeamWins();
         int wy = 24;
         for (Map.Entry<String, Integer> e : wins.entrySet()) {
-            String winsText = "§e" + e.getKey() + " §7Перемоги: §a" + e.getValue();
+            String winsText = String.format(I18n.get("wavedefense.pvp.team_wins"), e.getKey(), e.getValue());
             g.drawCenteredString(this.font, winsText, cx, wy, 0xFFFFFF);
             wy += 10;
         }
@@ -81,6 +84,10 @@ public class PvpScoreboardScreen extends Screen {
         // Заголовок колонок
         drawHeader(g, cx, y);
         y += 12;
+
+        // Scissor: обрізаємо список гравців щоб не накладався на кнопку закриття
+        int clipBot = this.height - 32;
+        ScissorHelper.enable(0, y, this.width, Math.max(1, clipBot - y));
 
         for (String team : teamOrder) {
             List<ClientPvpStateManager.PlayerRow> teamRows = byTeam.get(team);
@@ -117,12 +124,14 @@ public class PvpScoreboardScreen extends Screen {
             y += 4;
         }
 
+        ScissorHelper.disable();
+
         super.render(g, mouseX, mouseY, partialTick);
     }
 
     private void drawHeader(GuiGraphics g, int cx, int y) {
         g.fill(cx - 182, y - 1, cx + 182, y + this.font.lineHeight + 1, 0xAA222244);
-        g.drawString(this.font, "§7Гравець", cx + COL_NAME, y, 0xAAAAAA);
+        g.drawString(this.font, I18n.get("wavedefense.pvp.col_player"), cx + COL_NAME, y, 0xAAAAAA);
         g.drawString(this.font, "§7K",  cx + COL_K,  y, 0xAAAAAA);
         g.drawString(this.font, "§7D",  cx + COL_D,  y, 0xAAAAAA);
         g.drawString(this.font, "§7A",  cx + COL_A,  y, 0xAAAAAA);

@@ -8,61 +8,71 @@ import com.wavedefense.network.packets.SellItemPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-/**
- * Магазин гравця — виправлений layout без перекриття іконок і кнопок.
- * Іконки зліва, кнопки справа. Тригери доступності фільтрують товари.
- */
-public class PlayerShopScreen extends Screen {
+public class PlayerShopScreen extends ScrollableScreen {
     private final Location location;
-    // Якщо не null — відображаємо товари конкретної точки магазину
     private final com.wavedefense.data.ShopPoint shopPoint;
-    private int scrollOffset = 0;
-    private int itemsPerPage = 5;
+
     private static final int ROW_H = 52;
+    private static final int TILE_W = 112;
+    private static final int TILE_H = 76;
+    private static final int TILE_GAP = 8;
+
     private int playerPoints;
     private int currentWave = 0;
+    private boolean tileMode = true;
 
     private ShopItem.ShopCategory activeCategory = ShopItem.ShopCategory.ALL;
-    private List<Integer> filteredIndices = new ArrayList<>();
+    private final List<Integer> filteredIndices = new ArrayList<>();
 
-    // Звичайний глобальний магазин
     public PlayerShopScreen(Location location) {
         this(location, null);
     }
 
-    // Точковий магазин — товари з конкретної точки
     public PlayerShopScreen(Location location, com.wavedefense.data.ShopPoint shopPoint) {
-        super(Component.literal(shopPoint != null
-            ? "Магазин: " + shopPoint.getName()
-            : "Магазин: " + location.getName()));
-        this.location  = location;
+        super(Component.translatable("wavedefense.label.shop_title",
+                shopPoint != null ? shopPoint.getName() : location.getName()));
+        this.location = location;
         this.shopPoint = shopPoint;
         updatePlayerPoints();
         rebuildFilter();
     }
 
-    /** Повертає поточну точку магазину (або null для глобального режиму). */
+    @Override protected int getClipTop() { return 64; }
+    @Override protected int getClipBot() { return this.height - 30; }
+    @Override protected int getListSize() { return filteredIndices.size(); }
+
+    @Override
+    protected int getItemsPerPage() {
+        if (!tileMode) return Math.max(3, (this.height - 90) / ROW_H);
+        int rows = Math.max(1, (getClipBot() - getClipTop()) / TILE_H);
+        return Math.max(1, getTileCols() * rows);
+    }
+
     public com.wavedefense.data.ShopPoint getShopPoint() { return shopPoint; }
     public String getLocationName() { return location.getName(); }
-    /** Повертає список товарів — з точки або з глобального списку локації. */
+
     private List<ShopItem> getShopItemList() {
         return shopPoint != null ? shopPoint.getItems() : location.getShopItems();
     }
 
+    private int getTileCols() {
+        int usableW = Math.max(TILE_W, this.width - 34);
+        return Math.max(1, Math.min(5, (usableW + TILE_GAP) / (TILE_W + TILE_GAP)));
+    }
+
     private void updatePlayerPoints() {
-        // Читаємо поінти з ClientPlayerDataManager (синхронізовані з сервера),
-        // а НЕ з location.getPlayerPoints() — клієнтська Location не має поінтів
         com.wavedefense.wave.PlayerWaveData cpd = ClientPlayerDataManager.getPlayerData();
         if (cpd != null) {
             this.playerPoints = cpd.getPlayerPoints();
-            this.currentWave  = cpd.getCurrentWave();
+            this.currentWave = cpd.getCurrentWave();
         }
     }
 
@@ -70,23 +80,28 @@ public class PlayerShopScreen extends Screen {
         if (!s.hasAvailabilityTrigger()) return true;
         com.wavedefense.data.WaveTrigger at = s.getAvailabilityTrigger();
         switch (at) {
-            case SHOP_LOCATION_START: return currentWave >= 1;
-            case SHOP_WAVE_START:     return currentWave >= 1;
-            case SHOP_WAVE_N:         return currentWave == s.getAvailabilityWave();
+            case SHOP_LOCATION_START:
+            case SHOP_WAVE_START:
+                return currentWave >= 1;
+            case SHOP_WAVE_N:
+                return currentWave == s.getAvailabilityWave();
             case SHOP_PLAYER_HAS_ITEM:
-                // Перевіряємо інвентар клієнта
                 if (s.getAvailabilityItemId() != null && !s.getAvailabilityItemId().isEmpty()
                         && Minecraft.getInstance().player != null) {
-                    net.minecraft.resources.ResourceLocation rl =
-                        new net.minecraft.resources.ResourceLocation(s.getAvailabilityItemId());
-                    net.minecraft.world.item.Item reqItem = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(rl);
-                    if (reqItem != null) {
-                        return Minecraft.getInstance().player.getInventory().hasAnyMatching(
-                            st -> st.getItem() == reqItem);
-                    }
+                    try {
+                        net.minecraft.resources.ResourceLocation rl =
+                                new net.minecraft.resources.ResourceLocation(s.getAvailabilityItemId());
+                        net.minecraft.world.item.Item reqItem =
+                                net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(rl);
+                        if (reqItem != null) {
+                            return Minecraft.getInstance().player.getInventory().hasAnyMatching(
+                                    st -> st.getItem() == reqItem);
+                        }
+                    } catch (Exception ignored) {}
                 }
-                return false; // якщо не можемо перевірити — ховаємо
-            default: return true;
+                return false;
+            default:
+                return true;
         }
     }
 
@@ -96,107 +111,10 @@ public class PlayerShopScreen extends Screen {
         for (int i = 0; i < all.size(); i++) {
             ShopItem s = all.get(i);
             if (activeCategory != ShopItem.ShopCategory.ALL && s.getCategory() != activeCategory) continue;
-            if (!isItemAvailable(s)) continue; // ховаємо недоступні товари
+            if (!isItemAvailable(s)) continue;
             filteredIndices.add(i);
         }
         scrollOffset = 0;
-    }
-
-    @Override
-    protected void init() {
-        super.init();
-        updatePlayerPoints();
-        itemsPerPage = Math.max(3, (this.height - 90) / ROW_H);
-        int cx = this.width / 2;
-        int TOP = 42;
-
-        // ── Кнопки категорій (адаптивна ширина під розмір екрану) ──────────
-        ShopItem.ShopCategory[] cats = ShopItem.ShopCategory.values();
-        int gap = 2;
-        // Виміряємо доступну ширину (від лівого краю до правого мінус поля)
-        int availW = Math.min(440, this.width - 16);
-        int catW = (availW - gap * (cats.length - 1)) / cats.length;
-        int startCatX = cx - (catW * cats.length + gap * (cats.length - 1)) / 2;
-        for (int i = 0; i < cats.length; i++) {
-            final ShopItem.ShopCategory cat = cats[i];
-            int bx = startCatX + i * (catW + gap);
-            String label = (cat == activeCategory ? "§e§l" : "§7") + cat.label;
-            this.addRenderableWidget(Button.builder(
-                    Component.literal(label),
-                    b -> { activeCategory = cat; rebuildFilter(); clearWidgets(); init(); }
-            ).bounds(bx, TOP, catW, 16).build());
-        }
-
-        // ── Товари — Layout:
-        //   [yPos]    назва + категорія (текст — не кнопка, в render)
-        //   [yPos+18] [ІКОНКИ 4шт × 18px лівіше]  [Купити кнопка]  [Продати кнопка]
-        int startY = TOP + 22;
-        for (int i = 0; i < Math.min(itemsPerPage, filteredIndices.size()); i++) {
-            int idx = i + scrollOffset;
-            if (idx >= filteredIndices.size()) break;
-            int realIndex = filteredIndices.get(idx);
-            ShopItem shopItem = getShopItemList().get(realIndex);
-            int yPos = startY + i * ROW_H;
-            final int fi = realIndex;
-
-            // Іконки — рядок кнопок-слотів (ліва частина рядка)
-            // Рендеримо як статичні кнопки-заглушки щоб іконки над ними
-            // (самі іконки рендеримо в render())
-
-            // Купити кнопка (права частина)
-            Button buyBtn = Button.builder(
-                    Component.literal("§6✦ §e" + shopItem.getBuyPrice() + " pts"),
-                    b -> {
-                        int spIdx = -1;
-                        if (shopPoint != null) {
-                            java.util.List<com.wavedefense.data.ShopPoint> pts = location.getShopPoints();
-                            for (int si = 0; si < pts.size(); si++) {
-                                if (pts.get(si) == shopPoint) { spIdx = si; break; }
-                            }
-                        }
-                        PacketHandler.sendToServer(new PurchaseItemPacket(location.getName(), spIdx, fi));
-                        updatePlayerPoints();
-                        rebuildFilter();
-                        clearWidgets();
-                        init();
-                    }
-            ).bounds(cx + 60, yPos + 6, 80, 16).build();
-            buyBtn.active = playerPoints >= shopItem.getBuyPrice();
-            this.addRenderableWidget(buyBtn);
-
-            // Продати кнопка
-            if (shopItem.canSell()) {
-                Button sellBtn = Button.builder(
-                        Component.literal("§2↩ §a" + shopItem.getSellPrice()),
-                        b -> {
-                            PacketHandler.sendToServer(new SellItemPacket(location.getName(), fi));
-                            updatePlayerPoints();
-                            rebuildFilter();
-                            clearWidgets();
-                            init();
-                        }
-                ).bounds(cx + 145, yPos + 6, 72, 16).build();
-                sellBtn.active = canPlayerSell(shopItem);
-                this.addRenderableWidget(sellBtn);
-            }
-        }
-
-        // Прокрутка
-        int listRight = cx + 225;
-        if (scrollOffset > 0) {
-            this.addRenderableWidget(Button.builder(Component.literal("▲"),
-                    b -> { scrollOffset = Math.max(0, scrollOffset-1); clearWidgets(); init(); }
-            ).bounds(listRight, startY, 18, 18).build());
-        }
-        if (filteredIndices.size() > scrollOffset + itemsPerPage) {
-            this.addRenderableWidget(Button.builder(Component.literal("▼"),
-                    b -> { scrollOffset = Math.min(filteredIndices.size()-itemsPerPage, scrollOffset+1); clearWidgets(); init(); }
-            ).bounds(listRight, startY + (itemsPerPage-1)*ROW_H, 18, 18).build());
-        }
-
-        this.addRenderableWidget(Button.builder(Component.literal("✕ Закрити"),
-                b -> this.onClose()
-        ).bounds(cx - 40, this.height - 26, 80, 18).build());
     }
 
     private boolean canPlayerSell(ShopItem shopItem) {
@@ -210,21 +128,147 @@ public class PlayerShopScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(g);
+    protected void init() {
+        super.init();
+        updatePlayerPoints();
+
         int cx = this.width / 2;
+        int top = 42;
+        int itemsPerPage = getItemsPerPage();
 
-        // Заголовок
-        g.drawCenteredString(this.font, "§6§lМагазин§r §7" + location.getName(), cx, 8, 0xFFFFFF);
-        g.drawCenteredString(this.font, "§eОчки: §6" + playerPoints
-            + "  §7Товарів: §f" + getShopItemList().size()
-            + (currentWave > 0 ? "  §7Хвиля: §f" + currentWave : ""), cx, 20, 0xFFFFFF);
+        addStatic(Button.builder(
+                Component.translatable(tileMode ? "wavedefense.shop.view_tiles" : "wavedefense.shop.view_list"),
+                b -> { tileMode = !tileMode; scrollOffset = 0; rebuildWidgets(); }
+        ).bounds(Math.max(8, this.width - 86), 18, 76, 16).build());
 
-        // Scissor: список товарів між header (64) та footer (height-30)
-        int listTop = 64, listBot = this.height - 30;
-        ScissorHelper.enable(0, listTop, this.width, Math.max(1, listBot - listTop));
+        ShopItem.ShopCategory[] cats = ShopItem.ShopCategory.values();
+        int gap = 2;
+        int availW = Math.min(440, this.width - 16);
+        int catW = Math.max(46, (availW - gap * (cats.length - 1)) / cats.length);
+        int startCatX = cx - (catW * cats.length + gap * (cats.length - 1)) / 2;
+        for (int i = 0; i < cats.length; i++) {
+            final ShopItem.ShopCategory cat = cats[i];
+            int bx = startCatX + i * (catW + gap);
+            Component label = ((cat == activeCategory) ? Component.translatable("wavedefense.auto.u00a7e_u00a7l_99162931") : Component.translatable("wavedefense.auto.u00a77_d0a4b613"))
+                    .append(Component.translatable(categoryKey(cat)));
+            addStatic(Button.builder(
+                    label,
+                    b -> { activeCategory = cat; rebuildFilter(); rebuildWidgets(); }
+            ).bounds(bx, top, catW, 16).build());
+        }
 
-        int startY = 42 + 22;
+        int startY = top + 22;
+        if (tileMode) buildTileButtons(startY, itemsPerPage);
+        else buildListButtons(cx, startY, itemsPerPage);
+
+        int scrollRight = tileMode ? this.width - 24 : cx + 225;
+        if (scrollOffset > 0) {
+            addStatic(Button.builder(Component.literal("▲"),
+                    b -> { scrollOffset = Math.max(0, scrollOffset - 1); rebuildWidgets(); }
+            ).bounds(scrollRight, startY, 18, 18).build());
+        }
+        if (filteredIndices.size() > scrollOffset + itemsPerPage) {
+            int stepH = tileMode ? TILE_H : ROW_H;
+            int visibleRows = tileMode
+                    ? Math.max(1, (itemsPerPage + getTileCols() - 1) / getTileCols())
+                    : itemsPerPage;
+            addStatic(Button.builder(Component.literal("▼"),
+                    b -> { scrollOffset = Math.min(filteredIndices.size() - itemsPerPage, scrollOffset + 1); rebuildWidgets(); }
+            ).bounds(scrollRight, startY + (visibleRows - 1) * stepH, 18, 18).build());
+        }
+
+        addStatic(Button.builder(Component.translatable("wavedefense.button.close"),
+                b -> this.onClose()
+        ).bounds(cx - 40, this.height - 26, 80, 18).build());
+    }
+
+    private void buildListButtons(int cx, int startY, int itemsPerPage) {
+        for (int i = 0; i < Math.min(itemsPerPage, filteredIndices.size()); i++) {
+            int idx = i + scrollOffset;
+            if (idx >= filteredIndices.size()) break;
+            int realIndex = filteredIndices.get(idx);
+            ShopItem shopItem = getShopItemList().get(realIndex);
+            int yPos = startY + i * ROW_H;
+            addBuyButton(shopItem, realIndex, cx + 60, yPos + 6, 80, 16);
+            if (shopItem.canSell()) addSellButton(shopItem, realIndex, cx + 145, yPos + 6, 72, 16);
+        }
+    }
+
+    private void buildTileButtons(int startY, int itemsPerPage) {
+        int cols = getTileCols();
+        int gridW = cols * TILE_W + (cols - 1) * TILE_GAP;
+        int gridX = this.width / 2 - gridW / 2;
+        for (int i = 0; i < Math.min(itemsPerPage, filteredIndices.size()); i++) {
+            int idx = i + scrollOffset;
+            if (idx >= filteredIndices.size()) break;
+            int realIndex = filteredIndices.get(idx);
+            ShopItem shopItem = getShopItemList().get(realIndex);
+            int col = i % cols;
+            int row = i / cols;
+            int x = gridX + col * (TILE_W + TILE_GAP);
+            int y = startY + row * TILE_H;
+            addBuyButton(shopItem, realIndex, x + 6, y + TILE_H - 22, shopItem.canSell() ? 62 : TILE_W - 12, 16);
+            if (shopItem.canSell()) addSellButton(shopItem, realIndex, x + 72, y + TILE_H - 22, 34, 16);
+        }
+    }
+
+    private void addBuyButton(ShopItem shopItem, int realIndex, int x, int y, int w, int h) {
+        Button buyBtn = Button.builder(
+                Component.translatable("wavedefense.shop.buy_price", shopItem.getBuyPrice()),
+                b -> {
+                    int spIdx = -1;
+                    if (shopPoint != null) {
+                        List<com.wavedefense.data.ShopPoint> pts = location.getShopPoints();
+                        for (int si = 0; si < pts.size(); si++) {
+                            if (pts.get(si) == shopPoint) { spIdx = si; break; }
+                        }
+                    }
+                    PacketHandler.sendToServer(new PurchaseItemPacket(location.getName(), spIdx, realIndex));
+                    updatePlayerPoints();
+                    rebuildFilter();
+                    rebuildWidgets();
+                }
+        ).bounds(x, y, w, h).build();
+        buyBtn.active = playerPoints >= shopItem.getBuyPrice();
+        this.addRenderableWidget(buyBtn);
+    }
+
+    private void addSellButton(ShopItem shopItem, int realIndex, int x, int y, int w, int h) {
+        Button sellBtn = Button.builder(
+                Component.translatable("wavedefense.shop.sell_price", shopItem.getSellPrice()),
+                b -> {
+                    PacketHandler.sendToServer(new SellItemPacket(location.getName(), realIndex));
+                    updatePlayerPoints();
+                    rebuildFilter();
+                    rebuildWidgets();
+                }
+        ).bounds(x, y, w, h).build();
+        sellBtn.active = canPlayerSell(shopItem);
+        this.addRenderableWidget(sellBtn);
+    }
+
+    @Override
+    protected void renderHeader(GuiGraphics g, int mx, int my, float pt) {
+        int cx = this.width / 2;
+        g.drawCenteredString(this.font,
+                Component.translatable("wavedefense.auto.u00a76_u00a7l_008813a3").append(Component.translatable("wavedefense.shop.header", location.getName())),
+                cx, 8, 0xFFFFFF);
+        Component summary = currentWave > 0
+                ? Component.translatable("wavedefense.shop.summary_wave", playerPoints, filteredIndices.size(), currentWave)
+                : Component.translatable("wavedefense.shop.summary", playerPoints, filteredIndices.size());
+        g.drawCenteredString(this.font, Component.translatable("wavedefense.auto.u00a7e_60ffae0a").append(summary), cx, 20, 0xFFFFFF);
+    }
+
+    @Override
+    protected void renderContentExtra(GuiGraphics g, int mx, int my, float pt) {
+        if (tileMode) renderTiles(g, mx, my);
+        else renderList(g, mx, my);
+    }
+
+    private void renderList(GuiGraphics g, int mx, int my) {
+        int cx = this.width / 2;
+        int startY = 64;
+        int itemsPerPage = getItemsPerPage();
 
         for (int i = 0; i < Math.min(itemsPerPage, filteredIndices.size()); i++) {
             int idx = i + scrollOffset;
@@ -233,73 +277,106 @@ public class PlayerShopScreen extends Screen {
             ShopItem shopItem = getShopItemList().get(realIndex);
             int yPos = startY + i * ROW_H;
 
-            // Фон рядка
-            boolean alt = (i % 2 == 0);
-            g.fill(cx - 230, yPos, cx + 228, yPos + ROW_H - 2, alt ? 0x22FFFFFF : 0x11FFFFFF);
+            g.fill(cx - 230, yPos, cx + 228, yPos + ROW_H - 2, i % 2 == 0 ? 0x22FFFFFF : 0x11FFFFFF);
 
-            // ── Ліва частина: іконки предметів (4 слоти × 18px) ─────────
             List<ItemStack> items = shopItem.getItems();
             int iconBaseX = cx - 225;
-            int iconBaseY = yPos + 6;  // вертикально центровано в рядку
+            int iconBaseY = yPos + 6;
+            ItemStack tooltipItem = null;
             for (int j = 0; j < Math.min(4, items.size()); j++) {
                 ItemStack stack = items.get(j);
                 int ix = iconBaseX + j * 20;
                 int iy = iconBaseY;
-                g.fill(ix - 1, iy - 1, ix + 17, iy + 17, 0xFF555555);
-                g.fill(ix, iy, ix + 16, iy + 16, 0xFF2A2A2A);
-                g.renderItem(stack, ix, iy);
-                g.renderItemDecorations(this.font, stack, ix, iy);
-                if (mouseX >= ix && mouseX <= ix + 16 && mouseY >= iy && mouseY <= iy + 16) {
-                    g.renderTooltip(this.font, stack, mouseX, mouseY);
-                }
+                renderSlot(g, stack, ix, iy);
+                if (mx >= ix && mx <= ix + 16 && my >= iy && my <= iy + 16) tooltipItem = stack;
             }
 
-            // ── Середина: назва та категорія (праворуч від іконок) ───────
-            int textX = iconBaseX + 4 * 20 + 6; // правіше 4 іконок
-            String name = shopItem.getItems().isEmpty() ? "?"
-                    : shopItem.getItems().get(0).getHoverName().getString();
-            if (name.length() > 16) name = name.substring(0, 13) + "…";
-            if (shopItem.getItems().size() > 1) name += " §7(×" + shopItem.getItems().size() + ")";
+            int textX = iconBaseX + 86;
+            String name = getDisplayName(shopItem, 16);
             g.drawString(this.font, "§f§l" + name, textX, yPos + 4, 0xFFFFFF);
-            String catLbl = shopItem.getCategory().label;
-            g.drawString(this.font, "§8[" + catLbl + "§8]", textX, yPos + 14, 0xAAAAAA);
-
-            // Тригер доступності
+            g.drawString(this.font,
+                    Component.translatable("wavedefense.auto.u00a78_415f64f9").append(Component.translatable(categoryKey(shopItem.getCategory()))).append("\u00A78]"),
+                    textX, yPos + 14, 0xAAAAAA);
             if (shopItem.hasAvailabilityTrigger()) {
                 g.drawString(this.font, "§8" + shopItem.getAvailabilityTrigger().label, textX, yPos + 24, 0xAAAAAA);
             }
+            renderTooltipIfNeeded(g, tooltipItem, mx, my);
         }
+    }
 
-        ScissorHelper.disable();
-        super.render(g, mouseX, mouseY, partialTick);
-        // Re-render header/footer widgets outside scissor
-        for (var r : this.renderables) {
-            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w) {
-                if (w.getY() < listTop || w.getY() >= listBot)
-                    w.render(g, mouseX, mouseY, partialTick);
+    private void renderTiles(GuiGraphics g, int mx, int my) {
+        int startY = 64;
+        int itemsPerPage = getItemsPerPage();
+        int cols = getTileCols();
+        int gridW = cols * TILE_W + (cols - 1) * TILE_GAP;
+        int gridX = this.width / 2 - gridW / 2;
+        ItemStack tooltipItem = null;
+
+        for (int i = 0; i < Math.min(itemsPerPage, filteredIndices.size()); i++) {
+            int idx = i + scrollOffset;
+            if (idx >= filteredIndices.size()) break;
+            int realIndex = filteredIndices.get(idx);
+            ShopItem shopItem = getShopItemList().get(realIndex);
+            int col = i % cols;
+            int row = i / cols;
+            int x = gridX + col * (TILE_W + TILE_GAP);
+            int y = startY + row * TILE_H;
+
+            boolean affordable = playerPoints >= shopItem.getBuyPrice();
+            g.fill(x, y, x + TILE_W, y + TILE_H - 2, affordable ? 0x22335533 : 0x22222222);
+            g.fill(x, y, x + TILE_W, y + 1, affordable ? 0x8855AA55 : 0x88666666);
+
+            List<ItemStack> stacks = shopItem.getItems();
+            ItemStack first = stacks.isEmpty() ? ItemStack.EMPTY : stacks.get(0);
+            int iconX = x + TILE_W / 2 - 8;
+            int iconY = y + 7;
+            renderSlot(g, first, iconX, iconY);
+            if (!first.isEmpty() && mx >= iconX && mx <= iconX + 16 && my >= iconY && my <= iconY + 16) {
+                tooltipItem = first;
             }
+
+            g.drawString(this.font, getDisplayName(shopItem, 15), x + 6, y + 28, 0xFFFFFF);
+            g.drawString(this.font, Component.translatable(categoryKey(shopItem.getCategory())), x + 6, y + 38, 0xAAAAAA);
+            if (stacks.size() > 1) g.drawString(this.font, "x" + stacks.size(), x + TILE_W - 18, y + 8, 0xFFE680);
         }
+
+        renderTooltipIfNeeded(g, tooltipItem, mx, my);
     }
 
-    @Override
-    public boolean mouseScrolled(double mx, double my, double delta) {
-        if (delta > 0 && scrollOffset > 0) { scrollOffset--; clearWidgets(); init(); }
-        else if (delta < 0 && scrollOffset + itemsPerPage < filteredIndices.size()) {
-            scrollOffset++; clearWidgets(); init();
-        }
-        return true;
+    private String getDisplayName(ShopItem shopItem, int maxLen) {
+        List<ItemStack> stacks = shopItem.getItems();
+        String name = stacks.isEmpty()
+                ? Component.translatable("wavedefense.shop.default_item").getString()
+                : stacks.get(0).getHoverName().getString();
+        if (name.length() > maxLen) name = name.substring(0, Math.max(1, maxLen - 3)) + "...";
+        if (stacks.size() > 1) name += " x" + stacks.size();
+        return name;
     }
 
-    @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        return super.keyPressed(keyCode, scanCode, modifiers);
+    private void renderSlot(GuiGraphics g, ItemStack stack, int x, int y) {
+        g.fill(x - 1, y - 1, x + 17, y + 17, 0xFF555555);
+        g.fill(x, y, x + 16, y + 16, 0xFF2A2A2A);
+        g.renderItem(stack, x, y);
+        g.renderItemDecorations(this.font, stack, x, y);
     }
 
-    @Override
-    public boolean charTyped(char ch, int modifiers) {
-        return super.charTyped(ch, modifiers);
+    private void renderTooltipIfNeeded(GuiGraphics g, ItemStack stack, int mx, int my) {
+        if (stack == null || stack.isEmpty()) return;
+        ScissorHelper.disable();
+        g.renderTooltip(this.font, stack, mx, my);
+        ScissorHelper.enable(0, getClipTop(), this.width, Math.max(1, getClipBot() - getClipTop()));
     }
 
-    @Override
-    public boolean isPauseScreen() { return false; }
+    private String categoryKey(ShopItem.ShopCategory category) {
+        return switch (category) {
+            case ALL -> "wavedefense.shop.category.all";
+            case WEAPON -> "wavedefense.shop.category.weapon";
+            case ARMOR -> "wavedefense.shop.category.armor";
+            case CONSUMABLE -> "wavedefense.shop.category.consumable";
+            case OTHER -> "wavedefense.shop.category.other";
+        };
+    }
+
+    @Override public boolean keyPressed(int keyCode, int scanCode, int modifiers) { return super.keyPressed(keyCode, scanCode, modifiers); }
+    @Override public boolean charTyped(char ch, int modifiers) { return super.charTyped(ch, modifiers); }
 }

@@ -79,6 +79,8 @@ public class SellItemPacket {
 
             // Нараховуємо поінти
             location.addPoints(player.getUUID(), shopItem.getSellPrice());
+            // Зберігаємо зміну поінтів на диск, щоб не загубились при рестарті
+            WaveDefenseMod.locationManager.updateLocation(location);
 
             // Синхронізуємо гравця
             WaveDefenseMod.waveManager.syncPlayerData(player);

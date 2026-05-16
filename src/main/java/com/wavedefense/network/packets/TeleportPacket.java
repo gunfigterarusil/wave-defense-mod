@@ -52,7 +52,7 @@ public class TeleportPacket {
             // Перевіряємо ігрове правило заборони входу
             if (!com.wavedefense.config.WaveGameRules.isLocationEntryAllowed(player)) {
                 player.displayClientMessage(
-                    net.minecraft.network.chat.Component.literal("§cВхід на локацію зараз заблокований адміністратором."),
+                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.entry_blocked"),
                     true
                 );
                 return;
@@ -63,22 +63,19 @@ public class TeleportPacket {
                 int spawnIdx = packet.pvpSpawnIndex;
                 if (location.getPvpSpawnPoints().isEmpty()) {
                     player.displayClientMessage(
-                        net.minecraft.network.chat.Component.literal("§cНемає точок спавну для PvP!"), true);
+                        net.minecraft.network.chat.Component.translatable("wavedefense.msg.no_pvp_spawns"), true);
                     return;
                 }
                 // Battle Royale: завжди випадкова точка
                 if (location.isBattleRoyale()) {
                     spawnIdx = new java.util.Random().nextInt(location.getPvpSpawnPoints().size());
-                } else if (location.isPvpTeamAutoBalance()) {
-                    // Автобаланс: ігноруємо вибір гравця, беремо найменшу команду
+                } else if (spawnIdx < 0 && location.isPvpTeamAutoBalance()) {
                     spawnIdx = WaveDefenseMod.waveManager.getAutoBalancedSpawnIndex(location, player.getUUID());
-                } else {
-                    // Ручний вибір: перевіряємо що індекс коректний
-                    if (spawnIdx < 0 || spawnIdx >= location.getPvpSpawnPoints().size()) {
-                        player.displayClientMessage(
-                            net.minecraft.network.chat.Component.literal("§cНеправильна команда для PvP локації!"), true);
-                        return;
-                    }
+                }
+                if (spawnIdx < 0 || spawnIdx >= location.getPvpSpawnPoints().size()) {
+                    player.displayClientMessage(
+                        net.minecraft.network.chat.Component.translatable("wavedefense.msg.no_pvp_spawns"), true);
+                    return;
                 }
                 player.removeAllEffects();
                 WaveDefenseMod.waveManager.addPlayerToPvpLocation(player, location, spawnIdx);
@@ -97,3 +94,4 @@ public class TeleportPacket {
         ctx.get().setPacketHandled(true);
     }
 }
+

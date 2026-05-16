@@ -4,150 +4,178 @@ import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.CreateLocationPacket;
 import com.wavedefense.network.packets.DeleteLocationPacket;
 import com.wavedefense.network.packets.RequestLocationDataPacket;
-import com.wavedefense.network.packets.TeleportPacket;
 import com.wavedefense.data.Location;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
 
-public class AdminMenuScreen extends Screen {
+public class AdminMenuScreen extends ListEditorScreen<String> {
 
     private List<String> locationNames;
     private EditBox locationNameInput;
-    private String pendingInputValue = ""; // зберігаємо значення між rebuildWidgets
+    private String pendingInputValue = "";
     private String errorMessage = "";
-    private String pendingDeleteName = null; // ім'я локації очікує підтвердження видалення
-    private int scrollOffset = 0;
-    private int itemsPerPage = 4; // Динамічне число рядків — перераховується в init()
+    private String pendingDeleteName = null;
     private boolean firstOpen = true;
+
+    // Layout constants
+    private static final int LIST_START_Y = 115; // = getClipTop()
+    private static final int ROW_H        = 25;
+
+    // panelW depends on screen width; computed in init()
+    private int panelW;
 
     public AdminMenuScreen() {
         super(Component.translatable("wavedefense.title.admin_menu"));
     }
 
+    // ─── ListEditorScreen / ScrollableScreen API ───────────────────────────
+
+    @Override protected List<String> getItems()    { return locationNames != null ? locationNames : List.of(); }
+    @Override protected int getRowHeight()         { return ROW_H; }
+    @Override protected int getStartY()            { return LIST_START_Y; }
+    @Override protected int getClipTop()           { return LIST_START_Y; }
+    @Override protected int getClipBot()           { return this.height - 34; }
+    @Override protected int getItemsPerPage()      { return Math.max(4, (this.height - 130) / ROW_H); }
+
+    // ─── init() ────────────────────────────────────────────────────────────
+
     @Override
     protected void init() {
-        super.init();
-        // Зберігаємо поточне значення поля вводу перед очищенням (rebuildWidgets руйнує widgets)
+        // Preserve text-field value across rebuilds
         if (locationNameInput != null) {
             pendingInputValue = locationNameInput.getValue();
         }
-        // Запит даних з сервера тільки при першому відкритті
         if (firstOpen) {
             PacketHandler.sendToServer(new RequestLocationDataPacket());
             firstOpen = false;
         }
         this.locationNames = ClientLocationManager.getAllLocationNames();
 
-        // Адаптивні розміри
-        itemsPerPage = Math.max(4, (this.height - 130) / 25);
-        int centerX = this.width / 2;
-        int panelW  = Math.min(300, this.width - 60);
-        int startY  = 50;
+        super.init(); // clears staticWidgets, clamps scroll
 
-        // Відновлюємо EditBox зі збереженим значенням (щоб не губити введений текст)
-        locationNameInput = new EditBox(this.font, centerX - 100, startY, 200, 20, Component.literal("Назва локації"));
+        int cx   = this.width / 2;
+        panelW   = Math.min(300, this.width - 60);
+        int startY = 50;
+
+        // ── Header (static) ──────────────────────────────────────────
+        locationNameInput = new EditBox(this.font, cx - 100, startY, 200, 20,
+            Component.translatable("wavedefense.label.location_name"));
         locationNameInput.setMaxLength(32);
-        locationNameInput.setHint(Component.literal("§8a-z 0-9 _ -"));
-        // Дозволяємо лише латинські літери, цифри, підкреслення та дефіс
+        locationNameInput.setHint(Component.translatable("wavedefense.auto.a_z_0_9_aa25a6d8"));
         locationNameInput.setFilter(s -> s.matches("[a-zA-Z0-9_\\-]*"));
-        locationNameInput.setValue(pendingInputValue); // відновлюємо текст
-        this.addRenderableWidget(locationNameInput);
+        locationNameInput.setValue(pendingInputValue);
+        addStatic(locationNameInput);
 
-        this.addRenderableWidget(Button.builder(
-                Component.literal("Створити нову локацію"),
+        addStatic(Button.builder(
+                Component.translatable("wavedefense.label.new_location"),
                 button -> createNewLocation()
-        ).bounds(centerX - panelW / 2, startY + 28, panelW, 20).build());
+        ).bounds(cx - panelW / 2, startY + 28, panelW, 20).build());
 
-        int listStartY = startY + 65;
-        for (int i = 0; i < Math.min(itemsPerPage, locationNames.size()); i++) {
-            int index = i + scrollOffset;
-            if (index >= locationNames.size()) break;
+        // ── Content (scrollable) ──────────────────────────────────────
+        buildVisibleRows();
 
-            String name = locationNames.get(index);
-            int yPos = listStartY + (i * 25);
+        int scrollX = cx + 105;
+        addScrollButtons(scrollX, LIST_START_Y, LIST_START_Y + (Math.max(1, getItemsPerPage()) - 1) * ROW_H, 20, 20);
 
-            final String finalName = name;
-            final int finalIdx = index;
-            this.addRenderableWidget(Button.builder(
-                    Component.literal(name),
-                    button -> selectLocation(finalName)
-            ).bounds(centerX - panelW / 2, yPos, panelW - 80, 20).build());
-
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("✎"),
-                    button -> editLocation(finalName)
-            ).bounds(centerX + panelW / 2 - 75, yPos, 35, 20).build());
-
-            boolean isPendingDel = name.equals(pendingDeleteName);
-            this.addRenderableWidget(Button.builder(
-                    Component.literal(isPendingDel ? "§c§l✓ ТАК" : "§c✕"),
-                    button -> {
-                        if (isPendingDel) {
-                            deleteLocation(finalName);
-                            pendingDeleteName = null;
-                        } else {
-                            pendingDeleteName = finalName;
-                            rebuildWidgets();
-                        }
-                    }
-            ).bounds(centerX + panelW / 2 - 35, yPos, 35, 20).build()
-            ).setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                Component.literal(isPendingDel ? "§cПідтвердити видалення §e" + name + "§c?" : "§cВидалити локацію " + name)));
-        }
-
-        if (locationNames.size() > itemsPerPage) {
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("▲"),
-                    button -> scrollUp()
-            ).bounds(centerX + 105, listStartY, 20, 20).build());
-
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("▼"),
-                    button -> scrollDown()
-            ).bounds(centerX + 105, listStartY + (itemsPerPage - 1) * 25, 20, 20).build());
-        }
-
-        this.addRenderableWidget(Button.builder(
-                Component.literal("📤 Імпорт/Експорт"),
-                button -> this.minecraft.setScreen(new ImportExportScreen(this))
-        ).bounds(centerX - panelW / 2, this.height - 30, panelW / 2 - 4, 20).build());
-
-        this.addRenderableWidget(Button.builder(
-                Component.literal("Закрити"),
-                button -> this.onClose()
-        ).bounds(centerX + 4, this.height - 30, panelW / 2 - 4, 20).build());
-
-        // Кнопка скасування підтвердження видалення (якщо активна)
+        // Cancel-delete button (in scrollable zone)
         if (pendingDeleteName != null) {
             this.addRenderableWidget(Button.builder(
-                    Component.literal("§7Скасувати видалення"),
+                    Component.translatable("wavedefense.button.cancel_delete"),
                     button -> { pendingDeleteName = null; rebuildWidgets(); }
-            ).bounds(centerX - 80, this.height - 55, 160, 18).build());
+            ).bounds(cx - 80, this.height - 55, 160, 18).build());
+        }
+
+        // ── Footer (static) ───────────────────────────────────────────
+        addStatic(Button.builder(
+                Component.translatable("wavedefense.button.import_export"),
+                button -> this.minecraft.setScreen(new ImportExportScreen(this))
+        ).bounds(cx - panelW / 2, this.height - 30, panelW / 2 - 4, 20).build());
+
+        addStatic(Button.builder(
+                Component.translatable("wavedefense.button.close"),
+                button -> this.onClose()
+        ).bounds(cx + 4, this.height - 30, panelW / 2 - 4, 20).build());
+    }
+
+    // ─── Row builder ───────────────────────────────────────────────────────
+
+    @Override
+    protected void buildRowWidgets(int cx, int y, String name, int index) {
+        final String finalName = name;
+
+        this.addRenderableWidget(Button.builder(
+                Component.literal(name),
+                button -> selectLocation(finalName)
+        ).bounds(cx - panelW / 2, y, panelW - 80, 20).build());
+
+        this.addRenderableWidget(Button.builder(
+                Component.literal("✎"),
+                button -> editLocation(finalName)
+        ).bounds(cx + panelW / 2 - 75, y, 35, 20).build());
+
+        boolean isPendingDel = name.equals(pendingDeleteName);
+        this.addRenderableWidget(Button.builder(
+                isPendingDel
+                    ? Component.translatable("wavedefense.button.confirm_delete")
+                    : Component.literal("§c✕"),
+                button -> {
+                    if (isPendingDel) {
+                        deleteLocation(finalName);
+                        pendingDeleteName = null;
+                    } else {
+                        pendingDeleteName = finalName;
+                        rebuildWidgets();
+                    }
+                }
+        ).bounds(cx + panelW / 2 - 35, y, 35, 20).build()
+        ).setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+            Component.literal(isPendingDel
+                ? I18n.get("wavedefense.tooltip.confirm_delete", name)
+                : I18n.get("wavedefense.tooltip.delete_location", name))));
+    }
+
+    // ─── Render hooks ──────────────────────────────────────────────────────
+
+    @Override
+    protected void renderHeader(GuiGraphics g, int mx, int my, float pt) {
+        int cx = this.width / 2;
+        g.drawCenteredString(this.font, this.title, cx, 15, 0xFFFFFF);
+        g.drawString(this.font, I18n.get("wavedefense.label.name_hint"), cx - 100, 38, 0xFFFFFF);
+    }
+
+    @Override
+    protected void renderOverlay(GuiGraphics g, int mx, int my, float pt) {
+        if (!errorMessage.isEmpty()) {
+            int cx  = this.width / 2;
+            int errY = this.height - 50;
+            int errW = this.font.width(errorMessage) + 14;
+            g.fill(cx - errW / 2, errY - 3, cx + errW / 2, errY + this.font.lineHeight + 3, 0xDD000000);
+            g.drawCenteredString(this.font, errorMessage, cx, errY, 0xFFFFFF);
         }
     }
+
+    // ─── Actions ───────────────────────────────────────────────────────────
 
     private void createNewLocation() {
         String name = locationNameInput.getValue().trim();
         if (name.isEmpty()) {
-            errorMessage = "§cНазва не може бути порожньою!";
+            errorMessage = I18n.get("wavedefense.msg.name_empty");
             return;
         }
         if (ClientLocationManager.getLocation(name) != null) {
-            errorMessage = "§cЛокація з такою назвою вже існує!";
+            errorMessage = I18n.get("wavedefense.msg.name_exists");
             return;
         }
         errorMessage = "";
         PacketHandler.sendToServer(new CreateLocationPacket(name));
         locationNameInput.setValue("");
-        pendingInputValue = ""; // скидаємо збережене значення
-        // Запит даних і оновлення через невелику затримку
+        pendingInputValue = "";
         PacketHandler.sendToServer(new RequestLocationDataPacket());
-        // Оновлення локального кешу та екрану
         net.minecraft.client.Minecraft.getInstance().tell(() -> {
             this.locationNames = ClientLocationManager.getAllLocationNames();
             this.rebuildWidgets();
@@ -169,9 +197,9 @@ public class AdminMenuScreen extends Screen {
     }
 
     private void deleteLocation(String name) {
+        pendingDeleteName = null;
         PacketHandler.sendToServer(new DeleteLocationPacket(name));
         PacketHandler.sendToServer(new RequestLocationDataPacket());
-        // Оновлення після видалення
         if (scrollOffset > 0 && scrollOffset >= locationNames.size() - 1) {
             scrollOffset = Math.max(0, locationNames.size() - 2);
         }
@@ -181,28 +209,8 @@ public class AdminMenuScreen extends Screen {
         });
     }
 
-    private void enterLocation(String name) {
-        PacketHandler.sendToServer(new TeleportPacket(name));
-        this.onClose();
-    }
-
-    private void scrollUp() {
-        if (scrollOffset > 0) {
-            scrollOffset--;
-            this.rebuildWidgets();
-        }
-    }
-
-    private void scrollDown() {
-        if (scrollOffset + itemsPerPage < locationNames.size()) {
-            scrollOffset++;
-            this.rebuildWidgets();
-        }
-    }
-
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        // Enter у полі вводу = швидке створення локації
         if (keyCode == 257 && locationNameInput != null && locationNameInput.isFocused()) {
             createNewLocation();
             return true;
@@ -213,46 +221,5 @@ public class AdminMenuScreen extends Screen {
     @Override
     public boolean charTyped(char c, int modifiers) {
         return super.charTyped(c, modifiers);
-    }
-
-    @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        if (delta > 0) scrollUp();
-        else scrollDown();
-        return true;
-    }
-
-    @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(graphics);
-        int centerX = this.width / 2;
-        graphics.drawCenteredString(this.font, this.title, centerX, 15, 0xFFFFFF);
-        graphics.drawString(this.font, "§7Назва (лише латиниця/цифри/_-):", centerX - 100, 38, 0xFFFFFF);
-
-        // Повідомлення про помилку
-        if (!errorMessage.isEmpty()) {
-            int errY = this.height - 50;
-            int errW = this.font.width(errorMessage) + 14;
-            graphics.fill(centerX - errW / 2, errY - 3, centerX + errW / 2, errY + this.font.lineHeight + 3, 0xDD000000);
-            graphics.drawCenteredString(this.font, errorMessage, centerX, errY, 0xFFFFFF);
-        }
-
-        // Scissor: список локацій між header (115) та footer (height-34)
-        int listTop = 115, listBot = this.height - 34;
-        ScissorHelper.enable(0, listTop, this.width, Math.max(1, listBot - listTop));
-        super.render(graphics, mouseX, mouseY, partialTick);
-        ScissorHelper.disable();
-        // Re-render статичні елементи поза scissored зоною
-        for (var r : this.renderables) {
-            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w) {
-                if (w.getY() < listTop || w.getY() >= listBot)
-                    w.render(graphics, mouseX, mouseY, partialTick);
-            }
-        }
-    }
-
-    @Override
-    public boolean isPauseScreen() {
-        return false;
     }
 }

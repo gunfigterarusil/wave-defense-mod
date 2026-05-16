@@ -28,6 +28,8 @@ public class ShopItemEditorScreen extends Screen {
     private EditBox buyPriceInput;
     private EditBox sellPriceInput;
     private ShopItem.ShopCategory selectedCategory = ShopItem.ShopCategory.OTHER;
+    private int scrollOffset = 0;
+    private int contentHeight = 0;
     private int iconRowY = 44; // Y-координата рядку іконок (встановлюється в init)
 
     // Якщо не null — редагуємо товари точки магазину (не глобального списку)
@@ -36,6 +38,7 @@ public class ShopItemEditorScreen extends Screen {
     private static final int SLOT_W = 70;
     private static final int SLOT_H = 16;
     private static final int SLOT_GAP = 6;
+    private static final int CLIP_TOP = 26;
 
     // ── Конструктор для глобального магазину локації ─────────────────
     public ShopItemEditorScreen(Location location, int itemIndex, Screen parent) {
@@ -44,7 +47,7 @@ public class ShopItemEditorScreen extends Screen {
 
     // ── Конструктор для точки магазину ───────────────────────────────
     public ShopItemEditorScreen(Location location, com.wavedefense.data.ShopPoint shopPoint, int itemIndex, Screen parent) {
-        super(Component.literal(itemIndex >= 0 ? "Редагування товару" : "Новий товар"));
+        super(itemIndex >= 0 ? Component.translatable("wavedefense.title.edit_item") : Component.translatable("wavedefense.title.new_item"));
         this.location  = location;
         this.shopPoint = shopPoint;
         this.itemIndex = itemIndex;
@@ -69,10 +72,10 @@ public class ShopItemEditorScreen extends Screen {
     protected void init() {
         super.init();
         int cx = this.width / 2;
-        int startY = 30;
+        int startY = 30 - scrollOffset;
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("§7Предмети товару (до 4 слотів):"),
+                Component.translatable("wavedefense.auto.предмети_товару_до_4_слотів_16b40145"),
                 button -> {}
         ).bounds(cx - 155, startY, 220, 14).build()).active = false;
 
@@ -89,7 +92,7 @@ public class ShopItemEditorScreen extends Screen {
         int slotsLeft = cx - totalSlotsW / 2;
 
         for (int i = 0; i < 4; i++) {
-            int xPos = slotsLeft + i * (SLOT_W + SLOT_GAP);
+            int xPos = slotsLeft + i * (dynSlotW + SLOT_GAP);
             final int si = i;
 
             // Вибрати предмет через меню
@@ -117,11 +120,11 @@ public class ShopItemEditorScreen extends Screen {
                     }
             ).bounds(xPos, startY + SLOT_H + 2, dynSlotW, SLOT_H).build()
             ).setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                net.minecraft.network.chat.Component.literal("§7Взяти предмет з основної руки")));
+                net.minecraft.network.chat.Component.translatable("wavedefense.auto.взяти_предмет_з_основної_руки_c2a7a392")));
 
             // Очистити
             this.addRenderableWidget(Button.builder(
-                    Component.literal("§cОчистити"),
+                    Component.translatable("wavedefense.button.clear_item"),
                     button -> { items.set(si, ItemStack.EMPTY); rebuildWidgets(); }
             ).bounds(xPos, startY + (SLOT_H + 2) * 2, dynSlotW, SLOT_H).build());
         }
@@ -133,31 +136,31 @@ public class ShopItemEditorScreen extends Screen {
         int fieldX = cx + 10;
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("§7Ціна купівлі (поінти):"),
+                Component.translatable("wavedefense.auto.ціна_купівлі_поінти_c0c2e7a9"),
                 button -> {}
         ).bounds(cx - 155, startY, labelW, 18).build()).active = false;
 
-        buyPriceInput = new EditBox(this.font, fieldX, startY, fieldW, 20, Component.literal("Ціна купівлі"));
+        buyPriceInput = new EditBox(this.font, fieldX, startY, fieldW, 20, Component.translatable("wavedefense.auto.ціна_купівлі_31506e84"));
         buyPriceInput.setValue(itemIndex >= 0 && itemIndex < getSourceList().size() ? String.valueOf(getSourceList().get(itemIndex).getBuyPrice()) : "0");
         this.addRenderableWidget(buyPriceInput);
 
         startY += 26;
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("§7Ціна продажу (0 = без продажу):"),
+                Component.translatable("wavedefense.auto.ціна_продажу_0_без_продажу_b229a3b3"),
                 button -> {}
         ).bounds(cx - 155, startY, 280, 18).build()).active = false;
 
         startY += 20;
 
-        sellPriceInput = new EditBox(this.font, cx - 155, startY, fieldW, 20, Component.literal("Ціна продажу"));
+        sellPriceInput = new EditBox(this.font, cx - 155, startY, fieldW, 20, Component.translatable("wavedefense.auto.ціна_продажу_27f60154"));
         sellPriceInput.setValue(itemIndex >= 0 && itemIndex < getSourceList().size() ? String.valueOf(getSourceList().get(itemIndex).getSellPrice()) : "0");
         this.addRenderableWidget(sellPriceInput);
 
         // Категорія
         startY += 26;
         this.addRenderableWidget(Button.builder(
-                Component.literal("§7Категорія товару:"), button -> {}
+                Component.translatable("wavedefense.auto.категорія_товару_0d0ab0fe"), button -> {}
         ).bounds(cx - 155, startY, 140, 18).build()).active = false;
         ShopItem.ShopCategory[] cats = ShopItem.ShopCategory.values();
         int catX = cx - 155;
@@ -177,7 +180,7 @@ public class ShopItemEditorScreen extends Screen {
         boolean requireNbt = (itemIndex >= 0 && itemIndex < getSourceList().size())
             ? getSourceList().get(itemIndex).isRequireNbtMatch() : false;
         this.addRenderableWidget(Button.builder(
-            Component.literal(requireNbt ? "§a☑ Перевіряти NBT при продажу" : "§7☐ Перевіряти NBT при продажу"),
+            ((requireNbt) ? Component.translatable("wavedefense.auto.перевіряти_nbt_при_продажу_7fcb81ad") : Component.translatable("wavedefense.auto.перевіряти_nbt_при_продажу_58fb4deb")),
             b -> {
                 if (itemIndex >= 0 && itemIndex < getSourceList().size()) {
                     getSourceList().get(itemIndex).setRequireNbtMatch(!getSourceList().get(itemIndex).isRequireNbtMatch());
@@ -186,17 +189,17 @@ public class ShopItemEditorScreen extends Screen {
             }
         ).bounds(cx - 155, startY, 200, 16).build())
         .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-            net.minecraft.network.chat.Component.literal("§7Продаж можливий лише якщо предмет у гравця\n§7має NBT теги що збігаються з вказаними нижче")));
+            net.minecraft.network.chat.Component.translatable("wavedefense.auto.продаж_можливий_лише_якщо_предме_d795cdea")));
 
         if (requireNbt) {
             startY += 20;
             this.addRenderableWidget(Button.builder(
-                Component.literal("§7SNBT-рядок (наприклад: {display:{Name:\"...\"}}):"), b -> {}
+                Component.translatable("wavedefense.auto.snbt_рядок_наприклад_display_nam_b6d8c691"), b -> {}
             ).bounds(cx - 155, startY, 310, 14).build()).active = false;
             startY += 16;
             String curNbt = (itemIndex >= 0 && itemIndex < getSourceList().size())
                 ? getSourceList().get(itemIndex).getNbtRequiredTag() : "";
-            EditBox nbtInput = new EditBox(this.font, cx - 155, startY, 310, 16, Component.literal("NBT"));
+            EditBox nbtInput = new EditBox(this.font, cx - 155, startY, 310, 16, Component.translatable("wavedefense.auto.nbt_ab2a3c11"));
             nbtInput.setMaxLength(512);
             nbtInput.setValue(curNbt);
             final int fi = itemIndex;
@@ -207,7 +210,7 @@ public class ShopItemEditorScreen extends Screen {
             this.addRenderableWidget(nbtInput);
             startY += 18;
             this.addRenderableWidget(Button.builder(
-                Component.literal("§8ℹ Часткова відповідність: всі вказані ключі повинні збігатись"), b -> {}
+                Component.translatable("wavedefense.auto.ℹ_часткова_відповідність_всі_вка_acbfc949"), b -> {}
             ).bounds(cx - 155, startY, 310, 11).build()).active = false;
             startY += 14;
         } else {
@@ -226,13 +229,21 @@ public class ShopItemEditorScreen extends Screen {
         ).bounds(cx - 155, startY, 310, 16).build());
         startY += 22;
 
+        contentHeight = startY + scrollOffset + 4;
+        int maxScroll = getMaxScroll();
+        if (scrollOffset > maxScroll) {
+            scrollOffset = maxScroll;
+            rebuildWidgets();
+            return;
+        }
+
         // Зберегти / Скасувати — завжди видимі внизу (поза scissor)
         this.addRenderableWidget(Button.builder(
-                Component.literal("§aЗберегти"), button -> save()
+                Component.translatable("wavedefense.button.save"), button -> save()
         ).bounds(cx - 110, this.height - 28, 100, 20).build());
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("Скасувати"), button -> this.minecraft.setScreen(parent)
+                Component.translatable("wavedefense.button.cancel"), button -> this.minecraft.setScreen(parent)
         ).bounds(cx + 10, this.height - 28, 100, 20).build());
     }
 
@@ -273,15 +284,64 @@ public class ShopItemEditorScreen extends Screen {
         return super.charTyped(ch, modifiers);
     }
 
+    private int getClipBottom() {
+        return this.height - 28;
+    }
+
+    private int getMaxScroll() {
+        return Math.max(0, contentHeight - Math.max(1, getClipBottom() - CLIP_TOP));
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        int clipBot = getClipBottom();
+        if (mouseY < CLIP_TOP || mouseY > clipBot) return super.mouseScrolled(mouseX, mouseY, delta);
+        int oldOffset = scrollOffset;
+        int step = 18;
+        if (delta > 0) scrollOffset = Math.max(0, scrollOffset - step);
+        else scrollOffset = Math.min(getMaxScroll(), scrollOffset + step);
+        if (oldOffset != scrollOffset) {
+            rebuildWidgets();
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, delta);
+    }
+
+    @Override
+    public boolean mouseClicked(double mx, double my, int button) {
+        int clipBot = getClipBottom();
+        for (var child : this.children()) {
+            if (child instanceof net.minecraft.client.gui.components.AbstractWidget w && w.getY() >= clipBot) {
+                if (child.mouseClicked(mx, my, button)) {
+                    this.setFocused(child);
+                    if (button == 0) this.setDragging(true);
+                    return true;
+                }
+            }
+        }
+        if (my < CLIP_TOP || my > clipBot) return false;
+        for (var child : this.children()) {
+            if (child instanceof net.minecraft.client.gui.components.AbstractWidget w) {
+                if (w.getY() >= clipBot) continue;
+                if (w.getY() + w.getHeight() <= CLIP_TOP || w.getY() >= clipBot) continue;
+            }
+            if (child.mouseClicked(mx, my, button)) {
+                this.setFocused(child);
+                if (button == 0) this.setDragging(true);
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(g);
         g.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
 
         // Scissor: вміст між заголовком (26) і нижніми кнопками (height-28)
-        int clipTop = 26;
         int clipBot = this.height - 28;
-        ScissorHelper.enable(0, clipTop, this.width, Math.max(1, clipBot - clipTop));
+        ScissorHelper.enable(0, CLIP_TOP, this.width, Math.max(1, clipBot - CLIP_TOP));
         super.render(g, mouseX, mouseY, partialTick);
         ScissorHelper.disable();
 
@@ -300,18 +360,21 @@ public class ShopItemEditorScreen extends Screen {
         int slotsLeft = cx2 - totalSlotsW / 2;
         int iconY = iconRowY; // встановлено в init() // startY(30) + label(14) = 44, саме тут розміщено іконки
         ItemStack tooltipItem = null;
+        ScissorHelper.enable(0, CLIP_TOP, this.width, Math.max(1, clipBot - CLIP_TOP));
         for (int i = 0; i < 4; i++) {
-            int xPos = slotsLeft + i * (SLOT_W + SLOT_GAP);
+            int xPos = slotsLeft + i * (dynSlotW2 + SLOT_GAP);
             ItemStack item = items.get(i);
             int iconX = xPos + (dynSlotW2 - 16) / 2;
             g.fill(iconX - 1, iconY - 1, iconX + 17, iconY + 17, 0xFF555555);
             g.fill(iconX,     iconY,     iconX + 16, iconY + 16, 0xFF222222);
             g.renderItem(item, iconX, iconY);
             g.renderItemDecorations(this.font, item, iconX, iconY);
-            if (!item.isEmpty() && mouseX >= iconX && mouseX <= iconX + 16 && mouseY >= iconY && mouseY <= iconY + 16) {
+            if (!item.isEmpty() && mouseY >= CLIP_TOP && mouseY <= clipBot
+                    && mouseX >= iconX && mouseX <= iconX + 16 && mouseY >= iconY && mouseY <= iconY + 16) {
                 tooltipItem = item;
             }
         }
+        ScissorHelper.disable();
         if (tooltipItem != null) g.renderTooltip(this.font, tooltipItem, mouseX, mouseY);
     }
 

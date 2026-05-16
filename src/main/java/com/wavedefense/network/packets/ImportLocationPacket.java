@@ -28,7 +28,7 @@ public class ImportLocationPacket {
                 File file = new File(ExportLocationPacket.getExportDir(), pkt.fileName + ".nbt");
                 if (!file.exists()) {
                     player.displayClientMessage(
-                        net.minecraft.network.chat.Component.literal("§cФайл не знайдено: " + pkt.fileName + ".nbt"), false);
+                        net.minecraft.network.chat.Component.translatable("wavedefense.msg.import_not_found", pkt.fileName), false);
                     return;
                 }
                 CompoundTag nbt = NbtIo.readCompressed(file);
@@ -42,11 +42,11 @@ public class ImportLocationPacket {
                 com.wavedefense.network.PacketHandler.sendToAll(
                     new SyncLocationDataPacket(WaveDefenseMod.locationManager.save()));
                 player.displayClientMessage(
-                    net.minecraft.network.chat.Component.literal("§a✓ Імпортовано: §e" + loc.getName()), false);
+                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.import_ok", loc.getName()), false);
             } catch (Exception e) {
                 WaveDefenseMod.LOGGER.error("Import failed", e);
                 player.displayClientMessage(
-                    net.minecraft.network.chat.Component.literal("§cПомилка імпорту: " + e.getMessage()), false);
+                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.import_error", e.getMessage()), false);
             }
         });
         ctx.get().setPacketHandled(true);

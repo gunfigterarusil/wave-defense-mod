@@ -78,7 +78,7 @@ public class KeyBindings {
                         com.wavedefense.network.PacketHandler.sendToServer(
                             new com.wavedefense.network.packets.LeaveLocationPacket());
                         mc.player.displayClientMessage(
-                            net.minecraft.network.chat.Component.literal("§7Вихід з локації..."), true);
+                            net.minecraft.network.chat.Component.translatable("wavedefense.msg.leaving_location"), true);
                         // Закриваємо поточний екран щоб не блокував
                         if (mc.screen != null) mc.setScreen(null);
                     }
@@ -107,7 +107,7 @@ public class KeyBindings {
             // Спектатори не можуть відкривати магазин
             if (mc.player.isSpectator()) {
                 mc.player.displayClientMessage(
-                    net.minecraft.network.chat.Component.literal("§7Магазин недоступний у режимі спостерігача."), true);
+                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.shop_spectator"), true);
                 return;
             }
 
@@ -123,12 +123,12 @@ public class KeyBindings {
                 com.wavedefense.data.ShopPoint sp = loc.findNearestShopPoint(px, py, pz);
                 if (sp == null) {
                     mc.player.displayClientMessage(
-                        net.minecraft.network.chat.Component.literal("§c🛒 Магазин недоступний — підійдіть до точки магазину."), true);
+                        net.minecraft.network.chat.Component.translatable("wavedefense.msg.shop_unavailable"), true);
                     return;
                 }
                 if (sp.getItems().isEmpty()) {
                     mc.player.displayClientMessage(
-                        net.minecraft.network.chat.Component.literal("§c🛒 Цей магазин порожній!"), true);
+                        net.minecraft.network.chat.Component.translatable("wavedefense.msg.shop_empty"), true);
                     return;
                 }
                 mc.setScreen(new PlayerShopScreen(loc, sp));
@@ -138,7 +138,7 @@ public class KeyBindings {
             // Звичайний (глобальний) режим
             if (loc.getShopItems().isEmpty()) {
                 mc.player.displayClientMessage(
-                    net.minecraft.network.chat.Component.literal("§cМагазин порожній!"), true);
+                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.shop_empty"), true);
                 return;
             }
             mc.setScreen(new PlayerShopScreen(loc));

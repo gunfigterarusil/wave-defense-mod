@@ -12,140 +12,148 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraftforge.registries.ForgeRegistries;
 
-public class WaveMobsEditorScreen extends Screen {
+import java.util.List;
+
+public class WaveMobsEditorScreen extends ListEditorScreen<WaveMob> {
     private final Location location;
     private final int waveIndex;
-    private final Screen parent;
     private final WaveConfig waveConfig;
-    private int scrollOffset = 0;
     private EditBox mobCountInput;
 
-    // Динамічна кількість рядків
-    private int getItemsPerPage() {
-        return Math.max(2, (this.height - 120) / 48);
-    }
+    private static final int HEADER_Y  = 30;
+    private static final int START_Y   = HEADER_Y + 26; // = 56 = getClipTop()
+    private static final int ROW_H     = 46;
 
     public WaveMobsEditorScreen(Location location, int waveIndex, Screen parent) {
-        super(Component.literal("Моби хвилі " + (waveIndex + 1)));
-        this.location = location;
+        super(Component.translatable("wavedefense.title.wave_mobs", waveIndex + 1), parent);
+        this.location  = location;
         this.waveIndex = waveIndex;
-        this.parent = parent;
         this.waveConfig = location.getWaves().get(waveIndex);
     }
+
+    // ─── ListEditorScreen / ScrollableScreen API ───────────────────────────
+
+    @Override protected List<WaveMob> getItems()     { return waveConfig.getMobs(); }
+    @Override protected int getRowHeight()           { return ROW_H; }
+    @Override protected int getStartY()              { return START_Y; }
+    @Override protected int getClipTop()             { return START_Y; }
+    @Override protected int getClipBot()             { return this.height - 32; }
+    @Override protected int getItemsPerPage()        { return Math.max(2, (this.height - 120) / 48); }
+
+    // ─── init() ────────────────────────────────────────────────────────────
 
     @Override
     protected void init() {
         super.init();
 
-        int centerX = this.width / 2;
-        int headerY = 30;
+        int cx = this.width / 2;
 
-        // Підпис і поле кількості
-        this.addRenderableWidget(Button.builder(
-                Component.literal("§7Кількість типів мобів:"), button -> {}
-        ).bounds(centerX - 150, headerY, 140, 18).build()).active = false;
+        // ── Header (static) ──────────────────────────────────────────
+        addStatic(Button.builder(
+                Component.translatable("wavedefense.auto.кількість_типів_мобів_f1909330"), button -> {}
+        ).bounds(cx - 150, HEADER_Y, 140, 18).build()).active = false;
 
-        mobCountInput = new EditBox(this.font, centerX - 5, headerY, 50, 20, Component.literal("К-сть"));
+        mobCountInput = new EditBox(this.font, cx - 5, HEADER_Y, 50, 20, Component.translatable("wavedefense.auto.к_сть_7beea1a7"));
         mobCountInput.setValue(String.valueOf(waveConfig.getMobs().size()));
         mobCountInput.setMaxLength(2);
-        this.addRenderableWidget(mobCountInput);
+        addStatic(mobCountInput);
 
-        this.addRenderableWidget(Button.builder(
-                Component.literal("Застосувати"),
+        addStatic(Button.builder(
+                Component.translatable("wavedefense.button.apply"),
                 button -> applyMobCount()
-        ).bounds(centerX + 50, headerY, 90, 20).build());
+        ).bounds(cx + 50, HEADER_Y, 90, 20).build());
 
-        int startY = headerY + 26;
-        int itemsPerPage = getItemsPerPage();
-        int rowH = 46;
-
+        // ── Content (scrollable) ──────────────────────────────────────
         if (waveConfig.getMobs().isEmpty()) {
             this.addRenderableWidget(Button.builder(
-                    Component.literal("§7Моби не додані. Встановіть кількість вище."),
+                    Component.translatable("wavedefense.auto.моби_не_додані_встановіть_кількі_550ea3f3"),
                     button -> {}
-            ).bounds(centerX - 150, startY, 300, 20).build()).active = false;
+            ).bounds(cx - 150, START_Y, 300, 20).build()).active = false;
         } else {
-            for (int i = 0; i < Math.min(itemsPerPage, waveConfig.getMobs().size()); i++) {
-                int mobIndex = i + scrollOffset;
-                if (mobIndex >= waveConfig.getMobs().size()) break;
+            buildVisibleRows();
 
-                WaveMob mob = waveConfig.getMobs().get(mobIndex);
-                int yPos = startY + (i * rowH);
-
-                EntityType<?> entityType = ForgeRegistries.ENTITY_TYPES.getValue(mob.getMobType());
-                String mobName = entityType != null ? entityType.getDescription().getString() : "???";
-
-                // Рядок 1: назва + кнопки
-                int nameWidth = Math.min(110, centerX - 30);
-                this.addRenderableWidget(Button.builder(
-                        Component.literal("§e#" + (mobIndex + 1) + " " + mobName),
-                        button -> {}
-                ).bounds(centerX - 150, yPos, nameWidth, 20).build()).active = false;
-
-                final int finalMobIndex = mobIndex;
-                this.addRenderableWidget(Button.builder(
-                        Component.literal("Змінити"),
-                        button -> selectMob(finalMobIndex)
-                ).bounds(centerX - 150 + nameWidth + 4, yPos, 65, 20).build());
-
-                this.addRenderableWidget(Button.builder(
-                        Component.literal("⚙ Налашт."),
-                        button -> editMob(finalMobIndex)
-                ).bounds(centerX - 150 + nameWidth + 73, yPos, 75, 20).build());
-
-                this.addRenderableWidget(Button.builder(
-                        Component.literal("§c✕"),
-                        button -> deleteMob(finalMobIndex)
-                ).bounds(centerX - 150 + nameWidth + 152, yPos, 30, 20).build());
-
-                // Рядок 2: статистика
-                String info = String.format("§7К-сть: §f%d §7| Приріст: §f%d §7| Шанс: §f%d%% §7| Поінти: §f%d",
-                        mob.getCount(), mob.getGrowthPerWave(), mob.getSpawnChance(), mob.getPointsPerKill());
-                this.addRenderableWidget(Button.builder(
-                        Component.literal(info), button -> {}
-                ).bounds(centerX - 150, yPos + 22, 320, 18).build()).active = false;
-            }
-
-            // Скрол
-            if (waveConfig.getMobs().size() > itemsPerPage) {
-                int scrollX = centerX + 175;
-                this.addRenderableWidget(Button.builder(
-                        Component.literal("▲"),
-                        button -> scrollUp()
-                ).bounds(scrollX, startY, 22, 22).build());
-
-                this.addRenderableWidget(Button.builder(
-                        Component.literal("▼"),
-                        button -> scrollDown()
-                ).bounds(scrollX, startY + (itemsPerPage - 1) * rowH, 22, 22).build());
-            }
+            int scrollX = cx + 175;
+            addScrollButtons(scrollX, START_Y, START_Y + (Math.max(1, getItemsPerPage()) - 1) * ROW_H, 22, 22);
         }
 
-        this.addRenderableWidget(Button.builder(
-                Component.literal("§a✓ Готово"),
+        // ── Footer (static) ───────────────────────────────────────────
+        addStatic(Button.builder(
+                Component.translatable("wavedefense.button.done"),
                 button -> this.minecraft.setScreen(parent)
-        ).bounds(centerX + 5, this.height - 28, 95, 20).build());
+        ).bounds(cx + 5, this.height - 28, 95, 20).build());
 
-        this.addRenderableWidget(Button.builder(
-                Component.literal("§c✕ Без збереження"),
+        addStatic(Button.builder(
+                Component.translatable("wavedefense.button.discard"),
                 button -> {
-                    // Відновлюємо оригінальний стан хвилі (скидаємо зміни)
-                    // Зберігаємо посилання на WaveConfigScreen і повертаємось без UpdateLocationPacket
                     if (parent instanceof WaveConfigScreen wcs) {
                         wcs.discardWaveChanges();
                     }
                     this.minecraft.setScreen(parent);
                 }
-        ).bounds(centerX - 105, this.height - 28, 105, 20).build());
+        ).bounds(cx - 105, this.height - 28, 105, 20).build());
     }
+
+    // ─── Row builder ───────────────────────────────────────────────────────
+
+    @Override
+    protected void buildRowWidgets(int cx, int y, WaveMob mob, int index) {
+        EntityType<?> entityType = ForgeRegistries.ENTITY_TYPES.getValue(mob.getMobType());
+        String mobName = entityType != null ? entityType.getDescription().getString() : "???";
+
+        int nameWidth = Math.min(110, cx - 30);
+        this.addRenderableWidget(Button.builder(
+                Component.literal("§e#" + (index + 1) + " " + mobName),
+                button -> {}
+        ).bounds(cx - 150, y, nameWidth, 20).build()).active = false;
+
+        this.addRenderableWidget(Button.builder(
+                Component.translatable("wavedefense.button.change"),
+                button -> selectMob(index)
+        ).bounds(cx - 150 + nameWidth + 4, y, 65, 20).build());
+
+        this.addRenderableWidget(Button.builder(
+                Component.translatable("wavedefense.auto.налашт_b4f0a8a2"),
+                button -> editMob(index)
+        ).bounds(cx - 150 + nameWidth + 73, y, 75, 20).build());
+
+        this.addRenderableWidget(Button.builder(
+                Component.literal("§c✕"),
+                button -> deleteMob(index)
+        ).bounds(cx - 150 + nameWidth + 152, y, 30, 20).build());
+
+        String info = String.format("§7К-сть: §f%d §7| Приріст: §f%d §7| Шанс: §f%d%% §7| Поінти: §f%d",
+                mob.getCount(), mob.getGrowthPerWave(), mob.getSpawnChance(), mob.getPointsPerKill());
+        this.addRenderableWidget(Button.builder(
+                Component.literal(info), button -> {}
+        ).bounds(cx - 150, y + 22, 320, 18).build()).active = false;
+    }
+
+    // ─── Render hooks ──────────────────────────────────────────────────────
+
+    @Override
+    protected void renderHeader(GuiGraphics g, int mx, int my, float pt) {
+        int cx = this.width / 2;
+        g.drawCenteredString(this.font, this.title, cx, 10, 0xFFFFFF);
+        if (!waveConfig.getMobs().isEmpty()) {
+            g.drawString(this.font, Component.translatable("wavedefense.wave.mobs_hint"),
+                    cx - 150, 20, 0xFFFFFF);
+        }
+    }
+
+    // ─── Actions ───────────────────────────────────────────────────────────
 
     private void applyMobCount() {
         try {
             int targetCount = Integer.parseInt(mobCountInput.getValue());
-            if (targetCount < 0 || targetCount > 10) return;
+            // maxLength(2) allows 0-99; cap at 50 mob types per wave (sufficient for any design)
+            if (targetCount < 0 || targetCount > 50) {
+                if (minecraft.player != null)
+                    minecraft.player.displayClientMessage(
+                        net.minecraft.network.chat.Component.translatable("wavedefense.msg.value_out_of_range", 0, 50), true);
+                return;
+            }
 
             int currentCount = waveConfig.getMobs().size();
-
             if (targetCount > currentCount) {
                 ResourceLocation zombieId = ResourceLocation.tryParse("minecraft:zombie");
                 for (int i = currentCount; i < targetCount; i++) {
@@ -156,10 +164,7 @@ public class WaveMobsEditorScreen extends Screen {
                     waveConfig.getMobs().remove(waveConfig.getMobs().size() - 1);
                 }
             }
-
-            if (scrollOffset > 0 && scrollOffset >= waveConfig.getMobs().size()) {
-                scrollOffset = Math.max(0, waveConfig.getMobs().size() - getItemsPerPage());
-            }
+            clampScroll();
             this.rebuildWidgets();
         } catch (NumberFormatException ignored) {}
     }
@@ -178,25 +183,9 @@ public class WaveMobsEditorScreen extends Screen {
         if (mobIndex >= 0 && mobIndex < waveConfig.getMobs().size()) {
             waveConfig.removeMob(mobIndex);
             mobCountInput.setValue(String.valueOf(waveConfig.getMobs().size()));
-            if (scrollOffset > 0 && scrollOffset >= waveConfig.getMobs().size()) {
-                scrollOffset = Math.max(0, waveConfig.getMobs().size() - getItemsPerPage());
-            }
+            clampScroll();
             this.rebuildWidgets();
         }
-    }
-
-    private void scrollUp() {
-        if (scrollOffset > 0) { scrollOffset--; this.rebuildWidgets(); }
-    }
-
-    private void scrollDown() {
-        if (scrollOffset + getItemsPerPage() < waveConfig.getMobs().size()) { scrollOffset++; this.rebuildWidgets(); }
-    }
-
-    @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        if (delta > 0) scrollUp(); else scrollDown();
-        return true;
     }
 
     @Override
@@ -208,41 +197,4 @@ public class WaveMobsEditorScreen extends Screen {
     public boolean charTyped(char ch, int modifiers) {
         return super.charTyped(ch, modifiers);
     }
-
-    @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(graphics);
-        int cx = this.width / 2;
-        graphics.drawCenteredString(this.font, this.title, cx, 10, 0xFFFFFF);
-        if (!waveConfig.getMobs().isEmpty()) {
-            graphics.drawString(this.font, "§7Налаштуйте кожного моба або видаліть непотрібних",
-                    cx - 150, 20, 0xFFFFFF);
-        }
-        int listTop = 56, listBot = this.height - 32;
-        // Крок 1: scrolled content у scissor
-        ScissorHelper.enable(0, listTop, this.width, Math.max(1, listBot - listTop));
-        for (var r : this.renderables) {
-            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
-                    && w.getY() + w.getHeight() > listTop && w.getY() < listBot)
-                w.render(graphics, mouseX, mouseY, partialTick);
-        }
-        ScissorHelper.disable();
-        // Крок 2: header поверх
-        ScissorHelper.enable(0, 0, this.width, listTop);
-        for (var r : this.renderables) {
-            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w && w.getY() < listTop)
-                w.render(graphics, mouseX, mouseY, partialTick);
-        }
-        ScissorHelper.disable();
-        // Крок 3: footer поверх
-        ScissorHelper.enable(0, listBot, this.width, this.height - listBot);
-        for (var r : this.renderables) {
-            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w && w.getY() >= listBot)
-                w.render(graphics, mouseX, mouseY, partialTick);
-        }
-        ScissorHelper.disable();
-    }
-
-    @Override
-    public boolean isPauseScreen() { return false; }
 }

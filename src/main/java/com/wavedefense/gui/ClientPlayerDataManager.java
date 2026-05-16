@@ -11,6 +11,10 @@ public class ClientPlayerDataManager {
             playerData = new PlayerWaveData();
         }
         playerData.loadClientData(data);
+        // Якщо гравець більше не на локації — скидаємо PvP-стан щоб HUD/меню не показували застарілий матч
+        if (playerData.getCurrentLocation() == null) {
+            ClientPvpStateManager.reset();
+        }
     }
 
     public static PlayerWaveData getPlayerData() {

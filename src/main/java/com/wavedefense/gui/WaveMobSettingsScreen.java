@@ -22,7 +22,7 @@ public class WaveMobSettingsScreen extends Screen {
     private EditBox pointsInput;
 
     public WaveMobSettingsScreen(Screen parentScreen, WaveConfig waveConfig, int mobIndex) {
-        super(Component.literal("Налаштування моба"));
+        super(Component.translatable("wavedefense.auto.налаштування_моба_67f0a0ef"));
         this.parentScreen = parentScreen;
         this.waveConfig = waveConfig;
         this.mobIndex = mobIndex;
@@ -40,61 +40,61 @@ public class WaveMobSettingsScreen extends Screen {
         String mobName = entityType != null ? entityType.getDescription().getString() : "???";
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("§6Моб: §e" + mobName),
+                Component.translatable("wavedefense.auto.моб_value_07edda18", mobName),
                 button -> {}
         ).bounds(centerX - 150, 30, 300, 20).build()).active = false;
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("Кількість мобів:"),
+                Component.translatable("wavedefense.auto.кількість_мобів_f530588e"),
                 button -> {}
         ).bounds(centerX - 150, startY, 120, 20).build()).active = false;
 
         countInput = new EditBox(this.font, centerX - 25, startY, 80, 20,
-                Component.literal("Кількість"));
+                Component.translatable("wavedefense.auto.кількість_df256936"));
         countInput.setValue(String.valueOf(mob.getCount()));
         countInput.setMaxLength(3);
         this.addRenderableWidget(countInput);
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("Приріст за хвилю:"),
+                Component.translatable("wavedefense.auto.приріст_за_хвилю_9514cfe7"),
                 button -> {}
         ).bounds(centerX - 150, startY + 35, 120, 20).build()).active = false;
 
         growthInput = new EditBox(this.font, centerX - 25, startY + 35, 80, 20,
-                Component.literal("Приріст"));
+                Component.translatable("wavedefense.auto.приріст_5779238f"));
         growthInput.setValue(String.valueOf(mob.getGrowthPerWave()));
         growthInput.setMaxLength(3);
         this.addRenderableWidget(growthInput);
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("Шанс появи (1-100%):"),
+                Component.translatable("wavedefense.auto.шанс_появи_1_100_8c7961cd"),
                 button -> {}
         ).bounds(centerX - 150, startY + 70, 140, 20).build()).active = false;
 
         chanceInput = new EditBox(this.font, centerX - 5, startY + 70, 80, 20,
-                Component.literal("Шанс"));
+                Component.translatable("wavedefense.auto.шанс_7ce3c7bb"));
         chanceInput.setValue(String.valueOf(mob.getSpawnChance()));
         chanceInput.setMaxLength(3);
         this.addRenderableWidget(chanceInput);
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("Поінтів за вбивство:"),
+                Component.translatable("wavedefense.auto.поінтів_за_вбивство_04cc709e"),
                 button -> {}
         ).bounds(centerX - 150, startY + 105, 140, 20).build()).active = false;
 
         pointsInput = new EditBox(this.font, centerX - 5, startY + 105, 80, 20,
-                Component.literal("Поінти"));
+                Component.translatable("wavedefense.auto.поінти_66d72273"));
         pointsInput.setValue(String.valueOf(mob.getPointsPerKill()));
         pointsInput.setMaxLength(4);
         this.addRenderableWidget(pointsInput);
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("Зберегти"),
+                Component.translatable("wavedefense.auto.зберегти_bf610d49"),
                 button -> save()
         ).bounds(centerX - 110, this.height - 30, 100, 20).build());
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("Скасувати"),
+                Component.translatable("wavedefense.auto.скасувати_8b4c2025"),
                 button -> this.minecraft.setScreen(parentScreen)
         ).bounds(centerX + 10, this.height - 30, 100, 20).build());
     }

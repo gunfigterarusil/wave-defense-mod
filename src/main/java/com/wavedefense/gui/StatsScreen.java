@@ -15,7 +15,7 @@ public class StatsScreen extends Screen {
     private final GameStats stats;
 
     public StatsScreen() {
-        super(Component.literal("Статистика"));
+        super(Component.translatable("wavedefense.title.stats"));
         this.stats = ClientStatsManager.getStats();
     }
 
@@ -23,7 +23,7 @@ public class StatsScreen extends Screen {
     protected void init() {
         super.init();
         this.addRenderableWidget(Button.builder(
-                Component.literal("Закрити"),
+                Component.translatable("wavedefense.button.close"),
                 button -> this.onClose()
         ).bounds(this.width / 2 - 50, this.height - 30, 100, 20).build());
     }
@@ -34,24 +34,24 @@ public class StatsScreen extends Screen {
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 20, 0xFFFFFF);
 
         if (stats == null) {
-            graphics.drawCenteredString(this.font, "Немає даних", this.width / 2, 50, 0xFFFFFF);
+            graphics.drawCenteredString(this.font, Component.translatable("wavedefense.stats.no_data"), this.width / 2, 50, 0xFFFFFF);
             return;
         }
 
         int y = 50;
-        graphics.drawString(this.font, "Хвиль пройдено: " + stats.getWavesCompleted(), this.width / 2 - 50, y, 0xFFFFFF);
+        graphics.drawString(this.font, Component.translatable("wavedefense.stats.waves_completed", stats.getWavesCompleted()), this.width / 2 - 50, y, 0xFFFFFF);
         y += 10;
-        graphics.drawString(this.font, "Мобів вбито: " + stats.getMobsKilled(), this.width / 2 - 50, y, 0xFFFFFF);
+        graphics.drawString(this.font, Component.translatable("wavedefense.stats.mobs_killed", stats.getMobsKilled()), this.width / 2 - 50, y, 0xFFFFFF);
         y += 20;
 
         for (Map.Entry<UUID, PlayerStats> entry : stats.getPlayerStats().entrySet()) {
             String playerName = entry.getKey().toString().substring(0, 8);
             PlayerStats playerStats = entry.getValue();
-            graphics.drawString(this.font, "Гравець: " + playerName, this.width / 2 - 50, y, 0xFFFFFF);
+            graphics.drawString(this.font, Component.translatable("wavedefense.stats.player", playerName), this.width / 2 - 50, y, 0xFFFFFF);
             y += 10;
-            graphics.drawString(this.font, "  Мобів вбито: " + playerStats.getMobsKilled(), this.width / 2 - 40, y, 0xFFFFFF);
+            graphics.drawString(this.font, Component.translatable("wavedefense.stats.player_mobs", playerStats.getMobsKilled()), this.width / 2 - 40, y, 0xFFFFFF);
             y += 10;
-            graphics.drawString(this.font, "  Очок зароблено: " + playerStats.getPointsEarned(), this.width / 2 - 40, y, 0xFFFFFF);
+            graphics.drawString(this.font, Component.translatable("wavedefense.stats.player_points", playerStats.getPointsEarned()), this.width / 2 - 40, y, 0xFFFFFF);
             y += 20;
         }
 

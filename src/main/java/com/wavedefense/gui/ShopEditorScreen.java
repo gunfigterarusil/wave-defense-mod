@@ -46,16 +46,18 @@ public class ShopEditorScreen extends Screen {
         // ── Рядок вибору режиму (y=24) ───────────────────────────────
         boolean isPoint = location.isPointShopMode();
         this.addRenderableWidget(Button.builder(
-            Component.literal("§7Режим:"), b -> {}
+            Component.translatable("wavedefense.label.shop_mode"), b -> {}
         ).bounds(cx - 160, 24, 50, 14).build()).active = false;
 
         this.addRenderableWidget(Button.builder(
-            Component.literal(isPoint ? "§7☐ Звичайний" : "§a☑ Звичайний"),
+            isPoint ? Component.translatable("wavedefense.button.shop_mode_global_off")
+                    : Component.translatable("wavedefense.button.shop_mode_global_on"),
             b -> { location.setShopMode(Location.ShopMode.GLOBAL); rebuildWidgets(); }
         ).bounds(cx - 106, 24, 100, 14).build());
 
         this.addRenderableWidget(Button.builder(
-            Component.literal(isPoint ? "§a☑ Точковий" : "§7☐ Точковий"),
+            isPoint ? Component.translatable("wavedefense.button.shop_mode_point_on")
+                    : Component.translatable("wavedefense.button.shop_mode_point_off"),
             b -> { location.setShopMode(Location.ShopMode.POINT); rebuildWidgets(); }
         ).bounds(cx - 2, 24, 100, 14).build());
 
@@ -67,24 +69,24 @@ public class ShopEditorScreen extends Screen {
         }
 
         this.addRenderableWidget(Button.builder(
-            Component.literal("§a✓ Зберегти і повернутися"),
+            Component.translatable("wavedefense.button.save_back"),
             b -> saveChanges()
         ).bounds(cx - 120, this.height - 28, 180, 20).build());
 
         // Кнопки імпорту/експорту магазину
         this.addRenderableWidget(Button.builder(
-            Component.literal("§e⬆ Exp"),
+            Component.translatable("wavedefense.auto.exp_648cf132"),
             b -> exportShop(isPoint)
         ).bounds(cx + 64, this.height - 28, 42, 20).build())
         .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-            Component.literal("Зберегти магазин у файл (server/wavedefense/shop_export/)")));
+            Component.translatable("wavedefense.auto.зберегти_магазин_у_файл_server_w_7b502093")));
 
         this.addRenderableWidget(Button.builder(
-            Component.literal("§b⬇ Imp"),
+            Component.translatable("wavedefense.auto.imp_3d6db024"),
             b -> minecraft.setScreen(new ShopImportScreen(location, isPoint, this))
         ).bounds(cx + 110, this.height - 28, 42, 20).build())
         .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-            Component.literal("Завантажити магазин з файлу")));
+            Component.translatable("wavedefense.auto.завантажити_магазин_з_файлу_075366bf")));
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -92,7 +94,7 @@ public class ShopEditorScreen extends Screen {
     // ─────────────────────────────────────────────────────────────────
     private void buildGlobalView(int cx, int startY) {
         this.addRenderableWidget(Button.builder(
-            Component.literal("§e➕ Додати товар"),
+            Component.translatable("wavedefense.button.add_shop_item"),
             b -> minecraft.setScreen(new ShopItemEditorScreen(location, -1, this))
         ).bounds(cx - 100, startY, 200, 18).build());
         startY += 22;
@@ -112,15 +114,15 @@ public class ShopEditorScreen extends Screen {
             ).bounds(cx - 140, yPos + 4, 150, 18).build()).active = false;
             final int fi = idx;
             this.addRenderableWidget(Button.builder(
-                Component.literal("✎ Ред."),
+                Component.translatable("wavedefense.button.edit"),
                 b -> minecraft.setScreen(new ShopItemEditorScreen(location, fi, this))
             ).bounds(cx + 14, yPos, 70, 18).build());
             this.addRenderableWidget(Button.builder(
-                Component.literal("§c✕ Вид."),
+                Component.translatable("wavedefense.button.delete"),
                 b -> { location.removeShopItem(fi); scrollOffsetGlobal = Math.max(0, Math.min(scrollOffsetGlobal, location.getShopItems().size()-1)); rebuildWidgets(); }
             ).bounds(cx + 88, yPos, 70, 18).build());
             this.addRenderableWidget(Button.builder(
-                Component.literal(String.format("§6Купити: %d  §aПродати: %d", si.getBuyPrice(), si.getSellPrice())),
+                Component.translatable("wavedefense.auto.купити_d_продати_d_05ac8a91", si.getBuyPrice(), si.getSellPrice()),
                 b -> {}
             ).bounds(cx - 140, yPos + 48, 280, 12).build()).active = false;
             for (int j = 0; j < Math.min(4, si.getItems().size()); j++)
@@ -143,13 +145,13 @@ public class ShopEditorScreen extends Screen {
     // ─────────────────────────────────────────────────────────────────
     private void buildPointView(int cx, int startY) {
         this.addRenderableWidget(Button.builder(
-            Component.literal("§8ℹ Магазин доступний лише поряд з точкою. Кожна точка — окремий магазин."),
+            Component.translatable("wavedefense.label.shop_point_hint"),
             b -> {}
         ).bounds(cx - 160, startY, 320, 12).build()).active = false;
         startY += 14;
 
         this.addRenderableWidget(Button.builder(
-            Component.literal("§e➕ Нова точка магазину"),
+            Component.translatable("wavedefense.button.add_shop_point"),
             b -> minecraft.setScreen(new ShopPointEditorScreen(location, -1, this))
         ).bounds(cx - 120, startY, 240, 18).build());
         startY += 22;
@@ -158,7 +160,7 @@ public class ShopEditorScreen extends Screen {
 
         if (points.isEmpty()) {
             this.addRenderableWidget(Button.builder(
-                Component.literal("§cНемає точок. Натисніть «Нова точка магазину» щоб додати."), b -> {}
+                Component.translatable("wavedefense.auto.немає_точок_натисніть_нова_точка_6f5d4a78"), b -> {}
             ).bounds(cx - 160, startY, 320, 18).build()).active = false;
         }
 
@@ -180,16 +182,16 @@ public class ShopEditorScreen extends Screen {
 
             // Рядок 2: кількість товарів
             this.addRenderableWidget(Button.builder(
-                Component.literal(String.format("§7Товарів: §e%d", sp.getItems().size())), b -> {}
+                Component.translatable("wavedefense.auto.товарів_d_0ca6f904", sp.getItems().size()), b -> {}
             ).bounds(cx - 160, yPos + 16, 120, 12).build()).active = false;
 
             final int fi = idx;
             this.addRenderableWidget(Button.builder(
-                Component.literal("✎ Ред."),
+                Component.translatable("wavedefense.button.edit"),
                 b -> minecraft.setScreen(new ShopPointEditorScreen(location, fi, this))
             ).bounds(cx + 40, yPos + 2, 60, 20).build());
             this.addRenderableWidget(Button.builder(
-                Component.literal("§c✕ Вид."),
+                Component.translatable("wavedefense.button.delete"),
                 b -> { location.removeShopPoint(fi); scrollOffsetPoints=Math.max(0,Math.min(scrollOffsetPoints,location.getShopPoints().size()-1)); rebuildWidgets(); }
             ).bounds(cx + 104, yPos + 2, 60, 20).build());
 
@@ -215,7 +217,7 @@ public class ShopEditorScreen extends Screen {
     private void saveChanges() {
         PacketHandler.sendToServer(new UpdateLocationPacket(location));
         if (minecraft.player != null)
-            minecraft.player.displayClientMessage(Component.literal("§a✓ Магазин збережено!"), true);
+            minecraft.player.displayClientMessage(Component.translatable("wavedefense.auto.магазин_збережено_2ae52f5a"), true);
         minecraft.setScreen(parent);
     }
 
@@ -229,7 +231,7 @@ public class ShopEditorScreen extends Screen {
                 location.getName(), "global"));
             if (minecraft.player != null)
                 minecraft.player.displayClientMessage(
-                    Component.literal("§a⬆ Відправлено запит на збереження глобального магазину."), true);
+                    Component.translatable("wavedefense.auto.відправлено_запит_на_збереження_9fd133ca"), true);
         }
     }
 

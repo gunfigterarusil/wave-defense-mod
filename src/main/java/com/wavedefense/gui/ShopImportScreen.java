@@ -27,7 +27,7 @@ public class ShopImportScreen extends Screen {
     private static final int FILES_PER_PAGE = 6;
 
     public ShopImportScreen(Location location, boolean isPointMode, Screen parent) {
-        super(Component.literal("Імпорт магазину"));
+        super(Component.translatable("wavedefense.auto.імпорт_магазину_bb2c4eb5"));
         this.location = location;
         this.isPointMode = isPointMode;
         this.parent = parent;
@@ -49,7 +49,7 @@ public class ShopImportScreen extends Screen {
 
         if (files.isEmpty()) {
             this.addRenderableWidget(Button.builder(
-                Component.literal("§7(Немає збережених файлів — спочатку зробіть Export)"), b -> {}
+                Component.translatable("wavedefense.auto.немає_збережених_файлів_спочатку_30f8d2d1"), b -> {}
             ).bounds(cx - 160, 50, 320, 14).build()).active = false;
         } else {
             int y = 44;
@@ -74,12 +74,12 @@ public class ShopImportScreen extends Screen {
         }
 
         this.addRenderableWidget(Button.builder(
-            Component.literal("§7🔄 Оновити список"),
+            Component.translatable("wavedefense.auto.оновити_список_07c054ef"),
             b -> { PacketHandler.sendToServer(new RequestShopExportListPacket()); }
         ).bounds(cx - 80, this.height - 50, 160, 18).build());
 
         this.addRenderableWidget(Button.builder(
-            Component.literal("Назад"), b -> minecraft.setScreen(parent)
+            Component.translatable("wavedefense.auto.назад_f6dab074"), b -> minecraft.setScreen(parent)
         ).bounds(cx - 55, this.height - 28, 110, 20).build());
     }
 
@@ -89,7 +89,7 @@ public class ShopImportScreen extends Screen {
             PacketHandler.sendToServer(new ImportShopPacket(location.getName(), fileName, "global"));
             if (minecraft.player != null)
                 minecraft.player.displayClientMessage(
-                    Component.literal("§b⬇ Імпортовано глобальний магазин з «" + fileName + "»"), true);
+                    Component.translatable("wavedefense.auto.імпортовано_глобальний_магазин_з_value_7439861b", fileName + "»"), true);
             minecraft.setScreen(parent);
             return;
         }
@@ -106,7 +106,7 @@ public class ShopImportScreen extends Screen {
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(g);
         g.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
-        g.drawCenteredString(this.font, "§7Виберіть файл для імпорту:", this.width / 2, 22, 0xAAAAAA);
+        g.drawCenteredString(this.font, Component.translatable("wavedefense.shop.import_pick_file"), this.width / 2, 22, 0xAAAAAA);
         String modeLabel = isPointMode ? "§7Режим: §eточковий" : "§7Режим: §eглобальний";
         g.drawCenteredString(this.font, modeLabel, this.width / 2, 32, 0xFFFFFF);
         super.render(g, mouseX, mouseY, partialTick);

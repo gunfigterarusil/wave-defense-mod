@@ -7,6 +7,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.*;
 import net.minecraft.resources.ResourceLocation;
@@ -72,17 +73,22 @@ public class BoundaryManager {
                 if (ticks <= 0) {
                     int secs = loc.getLocationLeaveTimerSec();
                     ctx.leaveCountdownTicks.put(uid, secs * 20);
-                    sendBoundaryTitle(player, "§c⚠ Повертайтесь!", "§eЗалишилось: §c" + secs + " сек");
+                    sendBoundaryTitle(player,
+                        Component.translatable("wavedefense.msg.boundary_return").getString(),
+                        Component.translatable("wavedefense.msg.boundary_timer", secs).getString());
                 } else {
                     int remaining = ticks - 1;
                     ctx.leaveCountdownTicks.put(uid, remaining);
-                    if (remaining % 20 == 0) {
-                        sendBoundaryTitle(player, "§c⚠ Ви поза зоною!", "§eПоверніться: §c" + (remaining / 20) + " сек");
-                        wm.syncPlayerData(player);
-                    }
                     if (remaining <= 0) {
+                        // Час вийшов — здача (перевіряємо першою, щоб не показувати «0 сек»)
                         ctx.leaveCountdownTicks.remove(uid);
                         wm.surrenderPlayer(player);
+                    } else if (remaining % 20 == 0) {
+                        // Показуємо тільки якщо remaining > 0 — не буде «0 сек»
+                        sendBoundaryTitle(player,
+                            Component.translatable("wavedefense.msg.boundary_out_of_zone").getString(),
+                            Component.translatable("wavedefense.msg.boundary_timer", remaining / 20).getString());
+                        wm.syncPlayerData(player);
                     }
                 }
             }
@@ -92,7 +98,9 @@ public class BoundaryManager {
                 if (doSecond) {
                     float dmg = loc.getBoundaryDamagePerSec();
                     if (dmg > 0) player.hurt(player.damageSources().magic(), dmg);
-                    sendBoundaryTitle(player, "§c☠ Поза зоною безпеки!", "§c-" + dmg + " HP/сек");
+                    sendBoundaryTitle(player,
+                        Component.translatable("wavedefense.msg.boundary_unsafe").getString(),
+                        Component.translatable("wavedefense.msg.boundary_damage", dmg).getString());
                 }
             }
 
@@ -101,7 +109,7 @@ public class BoundaryManager {
                 wm.teleportToSafeSpawn(player, loc.getPlayerSpawn(),
                     loc.getPlayerSpawnRadius());
                 player.displayClientMessage(
-                    Component.literal("§e↩ Вас телепортовано назад у зону гри!"), true);
+                    Component.translatable("wavedefense.msg.teleported_back"), true);
                 ctx.leaveCountdownTicks.remove(uid);
             }
 
@@ -196,5 +204,42 @@ public class BoundaryManager {
             case "minecraft:dust"           -> new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(1f, 0f, 0f), 1.0f);
             default                         -> ParticleTypes.SMOKE;
         };
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  Save/Load for backup system
+    // ─────────────────────────────────────────────────────────────────
+
+    /** Серіалізація стану BoundaryManager. */
+    public CompoundTag save() {
+        CompoundTag tag = new CompoundTag();
+        tag.putInt("tickCounter", tickCounter);
+        return tag;
+    }
+
+    /** Відновлення стану BoundaryManager. */
+    public void load(CompoundTag tag) {
+        tickCounter = tag.getInt("tickCounter");
+    }
+
+    /**
+     * Активація зони для заданих гравців (для тригерів).
+     * Телепортує гравців до точки спавну локації.
+     */
+    public void activateZoneForPlayers(WaveManager wm, Location loc, java.util.Set<UUID> playerUuids) {
+        BlockPos spawnPos = loc.getPlayerSpawn();
+        if (spawnPos == null) return;
+        
+        for (UUID uuid : playerUuids) {
+            ServerPlayer player = WaveDefenseMod.getServer().getPlayerList().getPlayer(uuid);
+            if (player != null) {
+                // Перевіряємо чи гравець вже на цій локації
+                PlayerWaveData data = wm.getPlayerData(uuid);
+                if (data == null || data.getCurrentLocation() == null 
+                        || !data.getCurrentLocation().getName().equals(loc.getName())) {
+                    wm.addPlayerToLocation(player, loc);
+                }
+            }
+        }
     }
 }

@@ -1,148 +1,152 @@
 package com.wavedefense.data;
 
 import net.minecraft.core.BlockPos;
-import com.wavedefense.data.MobSpawnPoint;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.*;
 
 public class Location {
-    private String name;
-    private LocationMode mode;
-    private BlockPos playerSpawn;
+    // Fields are package-private so LocationSerializer (same package) can access them
+    // directly — avoids needing setters for every deserialized value.
+    String name;
+    LocationMode mode;
+    BlockPos playerSpawn;
     /** Радіус розкиду PvE гравців навколо playerSpawn (0 = точно на блоці) */
-    private int playerSpawnRadius = 0;
-    private List<MobSpawnPoint> mobSpawns;
+    int playerSpawnRadius = 0;
+    List<MobSpawnPoint> mobSpawns;
     /** Радіус розкиду мобів навколо точки спавну (0 = за замовчуванням 5 блоків) */
-    private int mobSpawnRadius = 5;
-    private List<WaveConfig> waves;
-    private int totalWaves;
-    private int timeBetweenWaves;
-    private Map<UUID, Integer> playerPoints;
-    private boolean keepInventory;
+    int mobSpawnRadius = 5;
+    List<WaveConfig> waves;
+    int totalWaves;
+    int timeBetweenWaves;
+    Map<UUID, Integer> playerPoints;
+    boolean keepInventory;
     // Авто-активація зони (тільки PvE)
-    private boolean autoActivate = false;
-    private int autoActivateRadius = 5; // блоків
-    private List<ItemStack> startingItems;
-    private List<ShopItem> shopItems;
-    private List<ShopItem> completionRewards;
+    boolean autoActivate = false;
+    int autoActivateRadius = 5; // блоків
+    List<ItemStack> startingItems;
+    List<ShopItem> shopItems;
+    List<ShopItem> completionRewards;
     // ── Режим магазину ────────────────────────────────────────────────
     public enum ShopMode { GLOBAL, POINT }
-    private ShopMode        shopMode   = ShopMode.GLOBAL;   // GLOBAL = звичайний, POINT = точковий
-    private List<ShopPoint> shopPoints = new ArrayList<>();  // точки точкового магазину
-    private int completionPointsReward;
-    private List<LootSpawn> lootSpawns;
+    ShopMode        shopMode   = ShopMode.GLOBAL;   // GLOBAL = звичайний, POINT = точковий
+    List<ShopPoint> shopPoints = new ArrayList<>();  // точки точкового магазину
+    int completionPointsReward;
+    List<LootSpawn> lootSpawns;
 
     // PvP поля
-    private List<PvpSpawnPoint> pvpSpawnPoints;
-    private int pvpMinPlayers;
-    private boolean pvpFriendlyFire;
-    private int pvpKillPoints;
-    private int pvpDeathPenalty;
-    private int pvpTotalRounds;   // кількість раундів (0 = нескінченно)
-    private int pvpBuyTime;        // час на покупки між раундами (секунди)
-    private int pvpRoundStartDelay = 5;   // секунд від BUY→ACTIVE (підрахунок)
-    private int pvpRoundStartPoints = 0;  // поінти кожному гравцю на початку раунду
-    private int pvpWinPoints    = 0;      // поінти переможній команді за раунд
-    private int pvpLosePoints   = 0;      // поінти команді що програла за раунд
+    List<PvpSpawnPoint> pvpSpawnPoints;
+    int pvpMinPlayers;
+    boolean pvpFriendlyFire;
+    int pvpKillPoints;
+    int pvpDeathPenalty;
+    int pvpTotalRounds;   // кількість раундів (0 = нескінченно)
+    int pvpBuyTime;        // час на покупки між раундами (секунди)
+    int pvpRoundStartDelay = 5;   // секунд від BUY→ACTIVE (підрахунок)
+    int pvpRoundStartPoints = 0;  // поінти кожному гравцю на початку раунду
+    int pvpWinPoints    = 0;      // поінти переможній команді за раунд
+    int pvpLosePoints   = 0;      // поінти команді що програла за раунд
     // ── PvP підрежим ─────────────────────────────────────────────────────
     public enum PvpMode { STANDARD, DEATHMATCH, BATTLE_ROYALE }
-    private PvpMode pvpMode = PvpMode.STANDARD;
+    PvpMode pvpMode = PvpMode.STANDARD;
 
     // ── Battle Royale налаштування ────────────────────────────────────
-    private int     brBorderRadius        = 100;  // початковий радіус кордону (блоків)
-    private int     brShrinkIntervalSec   = 30;   // кожні N сек кордон зменшується на 1 блок
-    private String  brBorderParticle      = "minecraft:flame";
-    private int     brBorderParticleCount = 8;
-    private boolean brBorderDamage        = true;
-    private float   brBorderDamageAmt     = 1.0f;
+    int     brBorderRadius        = 100;  // початковий радіус кордону (блоків)
+    int     brShrinkIntervalSec   = 30;   // кожні N сек кордон зменшується на 1 блок
+    String  brBorderParticle      = "minecraft:flame";
+    int     brBorderParticleCount = 8;
+    boolean brBorderDamage        = true;
+    float   brBorderDamageAmt     = 1.0f;
 
-    private int     dmKillsToWin  = 10;          // Deathmatch: вбивств для перемоги у раунді
-    private boolean pvpWaitEffect = true;       // ефекти slowness+blindness на очікування (замість spectator)
-    private boolean pvpTeamAutoBalance = true;  // автобаланс команд при вході/виході
-    private boolean enforceGameMode = true;     // примусовий gamemode в локації
-    private int startingPoints = 0; // стартові поінти при вході на локацію
-    private Map<UUID, String> playerTeamMap;
+    int     dmKillsToWin  = 10;          // Deathmatch: вбивств для перемоги у раунді
+    boolean pvpWaitEffect = true;       // ефекти slowness+blindness на очікування (замість spectator)
+    boolean pvpTeamAutoBalance = true;  // автобаланс команд при вході/виході
+    boolean enforceGameMode = true;     // примусовий gamemode в локації
+    int startingPoints = 0; // стартові поінти при вході на локацію
+    Map<UUID, String> playerTeamMap;
 
     // ── Радіус локації та таймер виходу ─────────────────────────────
     // Якщо locationBoundaryEnabled=true — гравець що вийшов за radius отримує наслідки
-    private boolean locationBoundaryEnabled = false;
-    private int     locationBoundaryRadius  = 50;   // блоків, 1-9999
-    private int     locationLeaveTimerSec   = 30;   // секунд на повернення (для TIMER режиму)
+    boolean locationBoundaryEnabled = false;
+    int     locationBoundaryRadius  = 50;   // блоків, 1-9999
+    int     locationLeaveTimerSec   = 30;   // секунд на повернення (для TIMER режиму)
     // ── Наслідки перетину кордону ─────────────────────────────────────
     public enum BoundaryConsequence { TIMER_SURRENDER, DAMAGE, TELEPORT_BACK, INSTANT_SURRENDER }
-    private BoundaryConsequence boundaryConsequence = BoundaryConsequence.TIMER_SURRENDER;
-    private float   boundaryDamagePerSec  = 2.0f;  // шкода за секунду (для DAMAGE режиму)
+    BoundaryConsequence boundaryConsequence = BoundaryConsequence.TIMER_SURRENDER;
+    float   boundaryDamagePerSec  = 2.0f;  // шкода за секунду (для DAMAGE режиму)
     // ── Візуал кордону ───────────────────────────────────────────────
-    private boolean boundaryParticlesEnabled = false;
-    private String  boundaryParticleType  = "minecraft:smoke"; // тип частинок
-    private int     boundaryParticleCount = 4;    // частинок на точку
-    private int     boundaryParticleHeight = 3;   // висота кільця (блоків)
+    boolean boundaryParticlesEnabled = false;
+    String  boundaryParticleType  = "minecraft:smoke"; // тип частинок
+    int     boundaryParticleCount = 4;    // частинок на точку
+    int     boundaryParticleHeight = 3;   // висота кільця (блоків)
 
     // ── Тригер запуску локації ────────────────────────────────────────
-    private boolean locationTriggerEnabled  = false;
-    private com.wavedefense.data.WaveTrigger locationTriggerType = com.wavedefense.data.WaveTrigger.PLAYER_ENTER_ZONE;
+    boolean locationTriggerEnabled  = false;
+    com.wavedefense.data.WaveTrigger locationTriggerType = com.wavedefense.data.WaveTrigger.PLAYER_ENTER_ZONE;
 
     // ── Портал ────────────────────────────────────────────────────────
-    private boolean portalEnabled       = false;
+    boolean portalEnabled       = false;
     // Штрафна хвиля: -1 = всі хвилі по порядку, 0+ = індекс конкретної хвилі
-    private int     portalPenaltyWave   = -1;
+    int     portalPenaltyWave   = -1;
     // Час очікування до штрафної хвилі (тіки, 0 = відразу)
-    private int     portalPenaltyTimerSec = 60;
+    int     portalPenaltyTimerSec = 60;
     // Чи зникає портал після проходження локації?
-    private boolean portalDisappearsOnComplete = true;
+    boolean portalDisappearsOnComplete = true;
     // Якщо зникає — через скільки секунд зʼявляється знову в іншому місці
-    private int     portalRespawnTimerSec = 300;
+    int     portalRespawnTimerSec = 300;
 
     // Зберігати лут підібраний в локації після виходу
-    private boolean keepLootOnExit = false;
+    boolean keepLootOnExit = false;
 
     // ── Перемога — екран та затримка виходу ───────────────────────────
-    private boolean victoryScreenEnabled = true;     // показувати екран "Перемога"
-    private int     victoryLingerTimeSec  = 30;       // скільки секунд гравці залишаються після перемоги
+    boolean victoryScreenEnabled = true;     // показувати екран "Перемога"
+    int     victoryLingerTimeSec  = 30;       // скільки секунд гравці залишаються після перемоги
 
     // ── Авто-активація зони (розширена) ───────────────────────────────
     // Центр зони: якщо null — використовується playerSpawn
-    private net.minecraft.core.BlockPos zoneCenter   = null;
-    private int  zoneActivationTimeSec  = 0;    // 0 = миттєво; >0 = таймер після першого гравця в зоні
+    net.minecraft.core.BlockPos zoneCenter   = null;
+    int  zoneActivationTimeSec  = 0;    // 0 = миттєво; >0 = таймер після першого гравця в зоні
     // Час (сек) скільки зона залишається відкритою ПІСЛЯ запуску локації (0 = закрити одразу)
-    private int  zoneOpenAfterStartSec  = 0;    // 0 = закрити одразу після телепорту
+    int  zoneOpenAfterStartSec  = 0;    // 0 = закрити одразу після телепорту
     // useZoneCenter: false = використовуємо playerSpawn як центр, true = використовуємо zoneCenter
-    private boolean zoneUsesCustomCenter = false;
+    boolean zoneUsesCustomCenter = false;
 
     // ── Портал: час відкритості після старту локації ──────────────────
     // 0 = закрити портал одразу після запуску локації
     // >0 = портал залишається відкритим ще N секунд після старту (для запізнілих гравців)
     // -1 = не закривати автоматично (стара поведінка grace period 30 сек)
-    private int portalOpenAfterStartSec = -1;
+    int portalOpenAfterStartSec = -1;
 
     // КД повторного входу після завершення/здачі
-    private int     reEntryCooldownSec = 0;  // 0 = вимкнено
+    int     reEntryCooldownSec = 0;  // 0 = вимкнено
 
     // Загальна статистика (зберігається між сесіями)
-    private long    totalMobsKilledAllTime = 0L;
-    private int     totalSessionsCompleted  = 0;
+    long    totalMobsKilledAllTime = 0L;
+    int     totalSessionsCompleted  = 0;
 
     // ── Інфо-панелі (TextDisplay entities у грі) ──────────────────────
-    private InfoPanelSettings infoPanel = new InfoPanelSettings();
+    InfoPanelSettings infoPanel = new InfoPanelSettings();
 
     // Точка входу в портал (server-side, не serialized — зберігається у WaveManager.portalEntryPositions)
     // Авто-активація: окрема точка входу (якщо null — використовується playerSpawn)
-    private net.minecraft.core.BlockPos autoActivateEntryPos = null;
+    net.minecraft.core.BlockPos autoActivateEntryPos = null;
     // Точки виходу після проходження та здачі (null = повернутись на попереднє місце)
-    private net.minecraft.core.BlockPos victoryExitPos  = null;  // після перемоги
-    private net.minecraft.core.BlockPos surrenderExitPos = null; // після здачі
+    net.minecraft.core.BlockPos victoryExitPos  = null;  // після перемоги
+    net.minecraft.core.BlockPos surrenderExitPos = null; // після здачі
     // Прихована від гравців (адміни завжди бачать)
-    private boolean hiddenFromPlayers = false;
+    boolean hiddenFromPlayers = false;
     // Час до початку першої хвилі після запуску (секунди)
-    private int firstWaveDelaySec = 0;
+    int firstWaveDelaySec = 0;
     // Частинки навколо зони входу (null = SQUID_INK за замовчуванням)
-    private String zoneParticleType  = null; // registry id, напр. "minecraft:flame"
-    private int    zoneParticleCount = 0;   // 0 = авто (radius*2, min 6, max 12)
-    private float  zoneParticleSpeed = 0.02f; // швидкість частинок (delta movement)
-    private int    zoneParticleInterval = 1;  // кожні N тіків спавнити частинки (1=кожен тік, 20=раз/сек)
+    String zoneParticleType  = null; // registry id, напр. "minecraft:flame"
+    int    zoneParticleCount = 0;   // 0 = авто (radius*2, min 6, max 12)
+    float  zoneParticleSpeed = 0.02f; // швидкість частинок (delta movement)
+    int    zoneParticleInterval = 1;  // кожні N тіків спавнити частинки (1=кожен тік, 20=раз/сек)
+
+    // ── Lock state ──────────────────────────────────────────────────────
+    boolean locked = false;  // persistent: prevents new players from entering when true
+
     // Таймер до запуску локації (для інфо-панелі над зоною входу, відображається в InfoPanel)
     // — це вже є як zoneActivationTimeSec, використовуємо його для відображення
 
@@ -444,267 +448,58 @@ public class Location {
     public boolean isEnforceGameMode()           { return enforceGameMode; }
     public void    setEnforceGameMode(boolean v) { this.enforceGameMode = v; }
 
+    /** Serializes this location to NBT. Delegated to {@link LocationSerializer}. */
     public CompoundTag save() {
-        CompoundTag tag = new CompoundTag();
-        tag.putString("name", name);
-        tag.putString("mode", mode.name());
-        tag.putInt("totalWaves", totalWaves);
-        tag.putInt("timeBetweenWaves", timeBetweenWaves);
-        tag.putInt("completionPointsReward", completionPointsReward);
-        tag.putBoolean("keepInventory", keepInventory);
-        tag.putBoolean("autoActivate", autoActivate);
-        tag.putInt("autoActivateRadius", autoActivateRadius);
-        tag.putInt("pvpMinPlayers", pvpMinPlayers);
-        tag.putBoolean("pvpFriendlyFire", pvpFriendlyFire);
-        tag.putInt("pvpKillPoints", pvpKillPoints);
-        tag.putInt("pvpDeathPenalty", pvpDeathPenalty);
-        tag.putInt("pvpTotalRounds", pvpTotalRounds);
-        tag.putInt("pvpBuyTime", pvpBuyTime);
-        tag.putInt("startingPoints", startingPoints);
-
-        if (playerSpawn != null) tag.putLong("playerSpawn", playerSpawn.asLong());
-        if (playerSpawnRadius > 0) tag.putInt("playerSpawnRadius", playerSpawnRadius);
-        if (mobSpawnRadius != 5)   tag.putInt("mobSpawnRadius", mobSpawnRadius);
-
-        ListTag mobSpawnsList = new ListTag();
-        for (MobSpawnPoint sp : mobSpawns) {
-            mobSpawnsList.add(sp.save());
-        }
-        tag.put("mobSpawns", mobSpawnsList);
-
-        ListTag pvpSpawnsList = new ListTag();
-        for (PvpSpawnPoint sp : pvpSpawnPoints) pvpSpawnsList.add(sp.save());
-        tag.put("pvpSpawnPoints", pvpSpawnsList);
-
-        ListTag wavesList = new ListTag();
-        for (WaveConfig wave : waves) wavesList.add(wave.save());
-        tag.put("waves", wavesList);
-
-        ListTag startingItemsList = new ListTag();
-        for (ItemStack item : startingItems) startingItemsList.add(item.save(new CompoundTag()));
-        tag.put("startingItems", startingItemsList);
-
-        ListTag shopItemsList = new ListTag();
-        for (ShopItem item : shopItems) shopItemsList.add(item.save());
-        tag.put("shopItems", shopItemsList);
-
-        // Режим магазину + точки
-        tag.putString("shopMode", getShopMode().name());
-        ListTag shopPointsList = new ListTag();
-        for (ShopPoint sp : shopPoints) shopPointsList.add(sp.save());
-        tag.put("shopPoints", shopPointsList);
-
-        ListTag completionRewardsList = new ListTag();
-        for (ShopItem item : completionRewards) completionRewardsList.add(item.save());
-        tag.put("completionRewards", completionRewardsList);
-
-        ListTag lootSpawnsList = new ListTag();
-        for (LootSpawn ls : lootSpawns) lootSpawnsList.add(ls.save());
-        tag.put("lootSpawns", lootSpawnsList);
-
-        // Boundary
-        tag.putBoolean("locationBoundaryEnabled", locationBoundaryEnabled);
-        tag.putInt("locationBoundaryRadius", locationBoundaryRadius);
-        tag.putString("boundaryConsequence", getBoundaryConsequence().name());
-        tag.putFloat("boundaryDamagePerSec", boundaryDamagePerSec);
-        tag.putBoolean("boundaryParticlesEnabled", boundaryParticlesEnabled);
-        tag.putString("boundaryParticleType", getBoundaryParticleType());
-        tag.putInt("boundaryParticleCount", boundaryParticleCount);
-        tag.putInt("boundaryParticleHeight", boundaryParticleHeight);
-        tag.putInt("locationLeaveTimerSec", locationLeaveTimerSec);
-        // Location trigger
-        tag.putBoolean("locationTriggerEnabled", locationTriggerEnabled);
-        tag.putString("locationTriggerType", locationTriggerType.name());
-        // Portal
-        tag.putBoolean("portalEnabled", portalEnabled);
-        tag.putInt("portalPenaltyWave", portalPenaltyWave);
-        tag.putInt("portalPenaltyTimerSec", portalPenaltyTimerSec);
-        tag.putBoolean("portalDisappearsOnComplete", portalDisappearsOnComplete);
-        tag.putBoolean("keepLootOnExit", keepLootOnExit);
-        if (autoActivateEntryPos != null) tag.putLong("autoActivateEntryPos", autoActivateEntryPos.asLong());
-        tag.putInt("portalRespawnTimerSec", portalRespawnTimerSec);
-        tag.putInt("reEntryCooldownSec", reEntryCooldownSec);
-        tag.putLong("totalMobsKilledAllTime", totalMobsKilledAllTime);
-        tag.putInt("totalSessionsCompleted", totalSessionsCompleted);
-        // Victory
-        tag.putBoolean("victoryScreenEnabled", victoryScreenEnabled);
-        tag.putInt("victoryLingerTimeSec", victoryLingerTimeSec);
-        // Zone activation extended
-        if (zoneCenter != null) tag.putLong("zoneCenter", zoneCenter.asLong());
-        tag.putBoolean("zoneUsesCustomCenter", zoneUsesCustomCenter);
-        tag.putInt("zoneActivationTimeSec", zoneActivationTimeSec);
-        tag.putInt("zoneOpenAfterStartSec", zoneOpenAfterStartSec);
-        // Portal open-after-start
-        tag.putInt("portalOpenAfterStartSec", portalOpenAfterStartSec);
-        // ── New fields v0.2.18 ────────────────────────────────────────
-        if (victoryExitPos  != null) tag.putLong("victoryExitPos",  victoryExitPos.asLong());
-        if (surrenderExitPos != null) tag.putLong("surrenderExitPos", surrenderExitPos.asLong());
-        tag.putBoolean("hiddenFromPlayers", hiddenFromPlayers);
-        tag.putInt("firstWaveDelaySec", firstWaveDelaySec);
-        if (zoneParticleType != null) tag.putString("zoneParticleType", zoneParticleType);
-        if (zoneParticleCount > 0) tag.putInt("zoneParticleCount", zoneParticleCount);
-        tag.putFloat("zoneParticleSpeed", zoneParticleSpeed);  // завжди зберігаємо
-        if (zoneParticleInterval != 1) tag.putInt("zoneParticleInterval", zoneParticleInterval);
-        if (infoPanel != null) tag.put("infoPanel", infoPanel.save());
-        // ── PvP extended ──────────────────────────────────────────────
-        tag.putInt("pvpRoundStartDelay",  pvpRoundStartDelay);
-        tag.putInt("pvpRoundStartPoints", pvpRoundStartPoints);
-        tag.putInt("pvpWinPoints",        pvpWinPoints);
-        tag.putInt("pvpLosePoints",       pvpLosePoints);
-        tag.putInt("dmKillsToWin",            dmKillsToWin);
-        tag.putBoolean("pvpWaitEffect",       pvpWaitEffect);
-        tag.putString("pvpMode",              getPvpMode().name());
-        tag.putInt("brBorderRadius",          brBorderRadius);
-        tag.putInt("brShrinkIntervalSec",     brShrinkIntervalSec);
-        if (brBorderParticle != null) tag.putString("brBorderParticle", brBorderParticle);
-        tag.putInt("brBorderParticleCount",   brBorderParticleCount);
-        tag.putBoolean("brBorderDamage",      brBorderDamage);
-        tag.putFloat("brBorderDamageAmt",     brBorderDamageAmt);
-        tag.putBoolean("pvpTeamAutoBalance",  pvpTeamAutoBalance);
-        tag.putBoolean("enforceGameMode",     enforceGameMode);
-        return tag;
+        return LocationSerializer.save(this);
     }
 
+    /** Deserializes a location from NBT. Delegated to {@link LocationSerializer}. */
     public static Location load(CompoundTag tag) {
-        Location location = new Location(tag.getString("name"));
-        location.mode = LocationMode.fromString(tag.getString("mode"));
-        location.totalWaves = tag.getInt("totalWaves");
-        location.timeBetweenWaves = tag.getInt("timeBetweenWaves");
-        location.completionPointsReward = tag.contains("completionPointsReward") ? tag.getInt("completionPointsReward") : 0;
-        location.keepInventory = !tag.contains("keepInventory") || tag.getBoolean("keepInventory");
-        location.autoActivate = tag.contains("autoActivate") && tag.getBoolean("autoActivate");
-        location.autoActivateRadius = tag.contains("autoActivateRadius") ? tag.getInt("autoActivateRadius") : 5;
-        location.pvpMinPlayers = tag.contains("pvpMinPlayers") ? tag.getInt("pvpMinPlayers") : 2;
-        location.pvpFriendlyFire = tag.contains("pvpFriendlyFire") && tag.getBoolean("pvpFriendlyFire");
-        location.pvpKillPoints = tag.contains("pvpKillPoints") ? tag.getInt("pvpKillPoints") : 100;
-        location.pvpDeathPenalty = tag.contains("pvpDeathPenalty") ? tag.getInt("pvpDeathPenalty") : 50;
-        location.pvpTotalRounds = tag.contains("pvpTotalRounds") ? tag.getInt("pvpTotalRounds") : 10;
-        location.pvpBuyTime = tag.contains("pvpBuyTime") ? tag.getInt("pvpBuyTime") : 20;
-        location.startingPoints = tag.contains("startingPoints") ? tag.getInt("startingPoints") : 0;
+        return LocationSerializer.load(tag);
+    }
 
-        if (tag.contains("playerSpawn")) location.playerSpawn = BlockPos.of(tag.getLong("playerSpawn"));
-        location.playerSpawnRadius = tag.contains("playerSpawnRadius") ? tag.getInt("playerSpawnRadius") : 0;
-        location.mobSpawnRadius    = tag.contains("mobSpawnRadius")    ? tag.getInt("mobSpawnRadius")    : 5;
-
-        ListTag mobSpawnsList = tag.getList("mobSpawns", 10);
-        for (int i = 0; i < mobSpawnsList.size(); i++) {
-            CompoundTag spTag = mobSpawnsList.getCompound(i);
-            // backward compat: old format saved "pos" as asLong in nested tag, new saves full MobSpawnPoint
-            if (spTag.contains("radius") || (spTag.contains("pos") && !spTag.contains("x"))) {
-                if (spTag.contains("pos") && spTag.get("pos").getId() == 4) {
-                    // new format: pos stored as long
-                    location.mobSpawns.add(MobSpawnPoint.load(spTag));
-                } else {
-                    location.mobSpawns.add(MobSpawnPoint.fromBlockPos(BlockPos.of(spTag.getLong("pos"))));
-                }
-            } else {
-                location.mobSpawns.add(MobSpawnPoint.fromBlockPos(BlockPos.of(spTag.getLong("pos"))));
-            }
+    /**
+     * Resets all player progress in this location.
+     * Clears player points and team mappings, but keeps configuration intact.
+     */
+    public void resetProgress() {
+        if (playerPoints != null) {
+            playerPoints.clear();
         }
-
-        if (tag.contains("pvpSpawnPoints")) {
-            ListTag pvpSp = tag.getList("pvpSpawnPoints", 10);
-            for (int i = 0; i < pvpSp.size(); i++) location.pvpSpawnPoints.add(PvpSpawnPoint.load(pvpSp.getCompound(i)));
+        if (playerTeamMap != null) {
+            playerTeamMap.clear();
         }
+    }
 
-        ListTag wavesList = tag.getList("waves", 10);
-        for (int i = 0; i < wavesList.size(); i++) location.waves.add(WaveConfig.load(wavesList.getCompound(i)));
+    /**
+     * Checks if this location is currently locked.
+     * A locked location prevents new players from entering.
+     */
+    public boolean isLocked() { return locked; }
 
-        ListTag sil = tag.getList("startingItems", 10);
-        for (int i = 0; i < sil.size(); i++) location.startingItems.add(ItemStack.of(sil.getCompound(i)));
+    /**
+     * Sets the locked state of this location.
+     * Persisted via LocationSerializer — survives server restarts.
+     * @param locked true to lock, false to unlock
+     */
+    public void setLocked(boolean locked) { this.locked = locked; }
 
-        ListTag shopList = tag.getList("shopItems", 10);
-        for (int i = 0; i < shopList.size(); i++) location.shopItems.add(ShopItem.load(shopList.getCompound(i)));
-
-        // Режим магазину + точки
-        if (tag.contains("shopMode")) {
-            try { location.shopMode = ShopMode.valueOf(tag.getString("shopMode")); }
-            catch (Exception e) { location.shopMode = ShopMode.GLOBAL; }
+    /**
+     * Gets the wave configuration for this location.
+     * Returns the first wave config if multiple exist, or null if none.
+     */
+    public WaveConfig getWaveConfig() {
+        if (waves != null && !waves.isEmpty()) {
+            return waves.get(0);
         }
-        if (tag.contains("shopPoints")) {
-            ListTag spList = tag.getList("shopPoints", 10);
-            for (int i = 0; i < spList.size(); i++) location.shopPoints.add(ShopPoint.load(spList.getCompound(i)));
-        }
+        return null;
+    }
 
-        ListTag crList = tag.getList("completionRewards", 10);
-        for (int i = 0; i < crList.size(); i++) location.completionRewards.add(ShopItem.load(crList.getCompound(i)));
-
-        // Boundary
-        location.locationBoundaryEnabled = tag.contains("locationBoundaryEnabled") && tag.getBoolean("locationBoundaryEnabled");
-        if (tag.contains("boundaryConsequence")) {
-            try { location.boundaryConsequence = BoundaryConsequence.valueOf(tag.getString("boundaryConsequence")); }
-            catch (Exception ignored) {}
-        }
-        location.boundaryDamagePerSec    = tag.contains("boundaryDamagePerSec")    ? tag.getFloat("boundaryDamagePerSec")    : 2.0f;
-        location.boundaryParticlesEnabled= tag.contains("boundaryParticlesEnabled") && tag.getBoolean("boundaryParticlesEnabled");
-        location.boundaryParticleType    = tag.contains("boundaryParticleType")    ? tag.getString("boundaryParticleType")   : "minecraft:smoke";
-        location.boundaryParticleCount   = tag.contains("boundaryParticleCount")   ? tag.getInt("boundaryParticleCount")     : 4;
-        location.boundaryParticleHeight  = tag.contains("boundaryParticleHeight")  ? tag.getInt("boundaryParticleHeight")    : 3;
-        location.locationBoundaryRadius  = tag.contains("locationBoundaryRadius")  ? tag.getInt("locationBoundaryRadius")  : 50;
-        location.locationLeaveTimerSec   = tag.contains("locationLeaveTimerSec")   ? tag.getInt("locationLeaveTimerSec")   : 30;
-        // Location trigger
-        location.locationTriggerEnabled  = tag.contains("locationTriggerEnabled") && tag.getBoolean("locationTriggerEnabled");
-        if (tag.contains("locationTriggerType")) {
-            try { location.locationTriggerType = com.wavedefense.data.WaveTrigger.valueOf(tag.getString("locationTriggerType")); }
-            catch (Exception ignored) {}
-        }
-        // Portal
-        location.portalEnabled            = tag.contains("portalEnabled") && tag.getBoolean("portalEnabled");
-        location.portalPenaltyWave        = tag.contains("portalPenaltyWave")        ? tag.getInt("portalPenaltyWave")        : -1;
-        location.portalPenaltyTimerSec    = tag.contains("portalPenaltyTimerSec")    ? tag.getInt("portalPenaltyTimerSec")    : 60;
-        location.portalDisappearsOnComplete= tag.contains("portalDisappearsOnComplete") ? tag.getBoolean("portalDisappearsOnComplete") : true;
-        location.portalRespawnTimerSec    = tag.contains("portalRespawnTimerSec")    ? tag.getInt("portalRespawnTimerSec")    : 300;
-        location.keepLootOnExit           = tag.contains("keepLootOnExit") && tag.getBoolean("keepLootOnExit");
-        if (tag.contains("autoActivateEntryPos")) location.autoActivateEntryPos = net.minecraft.core.BlockPos.of(tag.getLong("autoActivateEntryPos"));
-        location.reEntryCooldownSec = tag.contains("reEntryCooldownSec") ? tag.getInt("reEntryCooldownSec") : 0;
-        location.totalMobsKilledAllTime = tag.contains("totalMobsKilledAllTime") ? tag.getLong("totalMobsKilledAllTime") : 0L;
-        location.totalSessionsCompleted = tag.contains("totalSessionsCompleted") ? tag.getInt("totalSessionsCompleted") : 0;
-        if (tag.contains("infoPanel")) location.infoPanel = InfoPanelSettings.load(tag.getCompound("infoPanel"));
-        else location.infoPanel = new InfoPanelSettings();
-        // Victory
-        location.victoryScreenEnabled = !tag.contains("victoryScreenEnabled") || tag.getBoolean("victoryScreenEnabled");
-        location.victoryLingerTimeSec = tag.contains("victoryLingerTimeSec") ? tag.getInt("victoryLingerTimeSec") : 30;
-        // Zone extended
-        if (tag.contains("zoneCenter")) location.zoneCenter = net.minecraft.core.BlockPos.of(tag.getLong("zoneCenter"));
-        location.zoneUsesCustomCenter = tag.contains("zoneUsesCustomCenter") && tag.getBoolean("zoneUsesCustomCenter");
-        location.zoneActivationTimeSec = tag.contains("zoneActivationTimeSec") ? tag.getInt("zoneActivationTimeSec") : 0;
-        location.zoneOpenAfterStartSec = tag.contains("zoneOpenAfterStartSec") ? tag.getInt("zoneOpenAfterStartSec") : 0;
-        // Portal open-after-start
-        location.portalOpenAfterStartSec = tag.contains("portalOpenAfterStartSec") ? tag.getInt("portalOpenAfterStartSec") : -1;
-        // ── New fields v0.2.18 ────────────────────────────────────────
-        if (tag.contains("victoryExitPos"))  location.victoryExitPos  = net.minecraft.core.BlockPos.of(tag.getLong("victoryExitPos"));
-        if (tag.contains("surrenderExitPos")) location.surrenderExitPos = net.minecraft.core.BlockPos.of(tag.getLong("surrenderExitPos"));
-        location.hiddenFromPlayers = tag.contains("hiddenFromPlayers") && tag.getBoolean("hiddenFromPlayers");
-        location.firstWaveDelaySec = tag.contains("firstWaveDelaySec") ? tag.getInt("firstWaveDelaySec") : 0;
-        location.zoneParticleType  = tag.contains("zoneParticleType")  ? tag.getString("zoneParticleType") : null;
-        location.zoneParticleCount = tag.contains("zoneParticleCount") ? tag.getInt("zoneParticleCount") : 0;
-        location.zoneParticleSpeed = tag.contains("zoneParticleSpeed") ? tag.getFloat("zoneParticleSpeed") : 0.02f;
-        location.zoneParticleInterval = tag.contains("zoneParticleInterval") ? tag.getInt("zoneParticleInterval") : 1;
-        // ── PvP extended ──────────────────────────────────────────────
-        location.pvpRoundStartDelay  = tag.contains("pvpRoundStartDelay")  ? tag.getInt("pvpRoundStartDelay")  : 5;
-        location.pvpRoundStartPoints = tag.contains("pvpRoundStartPoints") ? tag.getInt("pvpRoundStartPoints") : 0;
-        location.pvpWinPoints        = tag.contains("pvpWinPoints")        ? tag.getInt("pvpWinPoints")        : 0;
-        location.pvpLosePoints       = tag.contains("pvpLosePoints")       ? tag.getInt("pvpLosePoints")       : 0;
-        location.dmKillsToWin        = tag.contains("dmKillsToWin")         ? tag.getInt("dmKillsToWin")         : 10;
-        location.pvpWaitEffect       = !tag.contains("pvpWaitEffect")      || tag.getBoolean("pvpWaitEffect");
-        if (tag.contains("pvpMode")) {
-            try { location.pvpMode = PvpMode.valueOf(tag.getString("pvpMode")); }
-            catch (Exception ignored) { location.pvpMode = PvpMode.STANDARD; }
-        }
-        location.brBorderRadius        = tag.contains("brBorderRadius")        ? tag.getInt("brBorderRadius")        : 100;
-        location.brShrinkIntervalSec   = tag.contains("brShrinkIntervalSec")   ? tag.getInt("brShrinkIntervalSec")   : 30;
-        location.brBorderParticle      = tag.contains("brBorderParticle")      ? tag.getString("brBorderParticle")   : "minecraft:flame";
-        location.brBorderParticleCount = tag.contains("brBorderParticleCount") ? tag.getInt("brBorderParticleCount") : 8;
-        location.brBorderDamage        = !tag.contains("brBorderDamage")       || tag.getBoolean("brBorderDamage");
-        location.brBorderDamageAmt     = tag.contains("brBorderDamageAmt")     ? tag.getFloat("brBorderDamageAmt")   : 1.0f;
-        location.pvpTeamAutoBalance  = !tag.contains("pvpTeamAutoBalance") || tag.getBoolean("pvpTeamAutoBalance");
-        location.enforceGameMode     = !tag.contains("enforceGameMode")    || tag.getBoolean("enforceGameMode");
-
-        if (tag.contains("lootSpawns")) {
-            ListTag lsList = tag.getList("lootSpawns", 10);
-            for (int i = 0; i < lsList.size(); i++) location.lootSpawns.add(LootSpawn.load(lsList.getCompound(i)));
-        }
-
-        return location;
+    /**
+     * Gets the game mode for this location.
+     * Defaults to SURVIVAL if not configured.
+     */
+    public String getGameMode() {
+        return enforceGameMode ? "SURVIVAL" : "DEFAULT";
     }
 }

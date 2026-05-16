@@ -2,10 +2,18 @@ package com.wavedefense.network;
 
 import com.wavedefense.WaveDefenseMod;
 import com.wavedefense.network.packets.*;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.network.NetworkDirection;
+import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.network.simple.SimpleChannel;
+
+import java.util.Optional;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 public class PacketHandler {
     private static final String PROTOCOL_VERSION = "7";
@@ -20,74 +28,57 @@ public class PacketHandler {
     private static int id() { return packetId++; }
 
     public static void register() {
-        INSTANCE.registerMessage(id(), TeleportPacket.class,
-                TeleportPacket::encode, TeleportPacket::decode, TeleportPacket::handle);
-        INSTANCE.registerMessage(id(), UpdatePointsPacket.class,
-                UpdatePointsPacket::encode, UpdatePointsPacket::decode, UpdatePointsPacket::handle);
-        INSTANCE.registerMessage(id(), PurchaseItemPacket.class,
-                PurchaseItemPacket::encode, PurchaseItemPacket::decode, PurchaseItemPacket::handle);
-        INSTANCE.registerMessage(id(), SellItemPacket.class,
-                SellItemPacket::encode, SellItemPacket::decode, SellItemPacket::handle);
-        INSTANCE.registerMessage(id(), SyncStatsPacket.class,
-                SyncStatsPacket::encode, SyncStatsPacket::decode, SyncStatsPacket::handle);
-        INSTANCE.registerMessage(id(), SyncPlayerDataPacket.class,
-                SyncPlayerDataPacket::encode, SyncPlayerDataPacket::decode, SyncPlayerDataPacket::handle);
-        INSTANCE.registerMessage(id(), SyncLocationDataPacket.class,
-                SyncLocationDataPacket::encode, SyncLocationDataPacket::decode, SyncLocationDataPacket::handle);
-        INSTANCE.registerMessage(id(), RequestLocationDataPacket.class,
-                RequestLocationDataPacket::encode, RequestLocationDataPacket::decode, RequestLocationDataPacket::handle);
-        INSTANCE.registerMessage(id(), CreateLocationPacket.class,
-                CreateLocationPacket::encode, CreateLocationPacket::decode, CreateLocationPacket::handle);
-        INSTANCE.registerMessage(id(), DeleteLocationPacket.class,
-                DeleteLocationPacket::encode, DeleteLocationPacket::decode, DeleteLocationPacket::handle);
-        INSTANCE.registerMessage(id(), UpdateLocationPacket.class,
-                UpdateLocationPacket::encode, UpdateLocationPacket::decode, UpdateLocationPacket::handle);
-        INSTANCE.registerMessage(id(), UpdatePlayerSettingsPacket.class,
-                UpdatePlayerSettingsPacket::encode, UpdatePlayerSettingsPacket::decode, UpdatePlayerSettingsPacket::handle);
-        INSTANCE.registerMessage(id(), SurrenderPacket.class,
-                SurrenderPacket::encode, SurrenderPacket::decode, SurrenderPacket::handle);
-        INSTANCE.registerMessage(id(), OpenMenuPacket.class,
-                OpenMenuPacket::encode, OpenMenuPacket::decode, OpenMenuPacket::handle);
-        INSTANCE.registerMessage(id(), AdminTeleportPacket.class,
-                AdminTeleportPacket::encode, AdminTeleportPacket::decode, AdminTeleportPacket::handle);
-        INSTANCE.registerMessage(id(), SyncPvpStatePacket.class,
-                SyncPvpStatePacket::encode, SyncPvpStatePacket::decode, SyncPvpStatePacket::handle);
-        INSTANCE.registerMessage(id(), ExportLocationPacket.class,
-                ExportLocationPacket::encode, ExportLocationPacket::decode, ExportLocationPacket::handle);
-        INSTANCE.registerMessage(id(), ImportLocationPacket.class,
-                ImportLocationPacket::encode, ImportLocationPacket::decode, ImportLocationPacket::handle);
-        INSTANCE.registerMessage(id(), ExportListResponsePacket.class,
-                ExportListResponsePacket::encode, ExportListResponsePacket::decode, ExportListResponsePacket::handle);
-        INSTANCE.registerMessage(id(), SyncShopPacket.class,
-                SyncShopPacket::encode, SyncShopPacket::decode, SyncShopPacket::handle);
-        INSTANCE.registerMessage(id(), ExitPvpPacket.class,
-                ExitPvpPacket::encode, ExitPvpPacket::decode, ExitPvpPacket::handle);
+        c2s(TeleportPacket.class, TeleportPacket::encode, TeleportPacket::decode, TeleportPacket::handle);
+        s2c(UpdatePointsPacket.class, UpdatePointsPacket::encode, UpdatePointsPacket::decode, UpdatePointsPacket::handle);
+        c2s(PurchaseItemPacket.class, PurchaseItemPacket::encode, PurchaseItemPacket::decode, PurchaseItemPacket::handle);
+        c2s(SellItemPacket.class, SellItemPacket::encode, SellItemPacket::decode, SellItemPacket::handle);
+        s2c(SyncStatsPacket.class, SyncStatsPacket::encode, SyncStatsPacket::decode, SyncStatsPacket::handle);
+        s2c(SyncPlayerDataPacket.class, SyncPlayerDataPacket::encode, SyncPlayerDataPacket::decode, SyncPlayerDataPacket::handle);
+        s2c(SyncLocationDataPacket.class, SyncLocationDataPacket::encode, SyncLocationDataPacket::decode, SyncLocationDataPacket::handle);
+        c2s(RequestLocationDataPacket.class, RequestLocationDataPacket::encode, RequestLocationDataPacket::decode, RequestLocationDataPacket::handle);
+        c2s(CreateLocationPacket.class, CreateLocationPacket::encode, CreateLocationPacket::decode, CreateLocationPacket::handle);
+        c2s(DeleteLocationPacket.class, DeleteLocationPacket::encode, DeleteLocationPacket::decode, DeleteLocationPacket::handle);
+        c2s(UpdateLocationPacket.class, UpdateLocationPacket::encode, UpdateLocationPacket::decode, UpdateLocationPacket::handle);
+        c2s(UpdatePlayerSettingsPacket.class, UpdatePlayerSettingsPacket::encode, UpdatePlayerSettingsPacket::decode, UpdatePlayerSettingsPacket::handle);
+        c2s(SurrenderPacket.class, SurrenderPacket::encode, SurrenderPacket::decode, SurrenderPacket::handle);
+        s2c(OpenMenuPacket.class, OpenMenuPacket::encode, OpenMenuPacket::decode, OpenMenuPacket::handle);
+        c2s(AdminTeleportPacket.class, AdminTeleportPacket::encode, AdminTeleportPacket::decode, AdminTeleportPacket::handle);
+        s2c(SyncPvpStatePacket.class, SyncPvpStatePacket::encode, SyncPvpStatePacket::decode, SyncPvpStatePacket::handle);
+        c2s(ExportLocationPacket.class, ExportLocationPacket::encode, ExportLocationPacket::decode, ExportLocationPacket::handle);
+        c2s(ImportLocationPacket.class, ImportLocationPacket::encode, ImportLocationPacket::decode, ImportLocationPacket::handle);
+        s2c(ExportListResponsePacket.class, ExportListResponsePacket::encode, ExportListResponsePacket::decode, ExportListResponsePacket::handle);
+        s2c(SyncShopPacket.class, SyncShopPacket::encode, SyncShopPacket::decode, SyncShopPacket::handle);
+        c2s(ExitPvpPacket.class, ExitPvpPacket::encode, ExitPvpPacket::decode, ExitPvpPacket::handle);
 
-        // v0.2.27: нові пакети
-        INSTANCE.registerMessage(id(), SyncTeammatesPacket.class,
-                SyncTeammatesPacket::encode, SyncTeammatesPacket::decode, SyncTeammatesPacket::handle);
-        INSTANCE.registerMessage(id(), LeaveLocationPacket.class,
-                LeaveLocationPacket::encode, LeaveLocationPacket::decode, LeaveLocationPacket::handle);
-        INSTANCE.registerMessage(id(), ExportShopPacket.class,
-                ExportShopPacket::encode, ExportShopPacket::decode, ExportShopPacket::handle);
-        INSTANCE.registerMessage(id(), ImportShopPacket.class,
-                ImportShopPacket::encode, ImportShopPacket::decode, ImportShopPacket::handle);
-        INSTANCE.registerMessage(id(), ShopExportListPacket.class,
-                ShopExportListPacket::encode, ShopExportListPacket::decode, ShopExportListPacket::handle);
-        INSTANCE.registerMessage(id(), RequestShopExportListPacket.class,
-                RequestShopExportListPacket::encode, RequestShopExportListPacket::decode, RequestShopExportListPacket::handle);
+        s2c(SyncTeammatesPacket.class, SyncTeammatesPacket::encode, SyncTeammatesPacket::decode, SyncTeammatesPacket::handle);
+        c2s(LeaveLocationPacket.class, LeaveLocationPacket::encode, LeaveLocationPacket::decode, LeaveLocationPacket::handle);
+        c2s(ExportShopPacket.class, ExportShopPacket::encode, ExportShopPacket::decode, ExportShopPacket::handle);
+        c2s(ImportShopPacket.class, ImportShopPacket::encode, ImportShopPacket::decode, ImportShopPacket::handle);
+        s2c(ShopExportListPacket.class, ShopExportListPacket::encode, ShopExportListPacket::decode, ShopExportListPacket::handle);
+        c2s(RequestShopExportListPacket.class, RequestShopExportListPacket::encode, RequestShopExportListPacket::decode, RequestShopExportListPacket::handle);
 
-        // Wave export/import
-        INSTANCE.registerMessage(id(), ExportWavePacket.class,
-                ExportWavePacket::encode, ExportWavePacket::decode, ExportWavePacket::handle);
-        INSTANCE.registerMessage(id(), ImportWavePacket.class,
-                ImportWavePacket::encode, ImportWavePacket::decode, ImportWavePacket::handle);
-        INSTANCE.registerMessage(id(), WaveExportListPacket.class,
-                WaveExportListPacket::encode, WaveExportListPacket::decode, WaveExportListPacket::handle);
-        INSTANCE.registerMessage(id(), RequestWaveExportListPacket.class,
-                RequestWaveExportListPacket::encode, RequestWaveExportListPacket::decode, RequestWaveExportListPacket::handle);
+        c2s(ExportWavePacket.class, ExportWavePacket::encode, ExportWavePacket::decode, ExportWavePacket::handle);
+        c2s(ImportWavePacket.class, ImportWavePacket::encode, ImportWavePacket::decode, ImportWavePacket::handle);
+        s2c(WaveExportListPacket.class, WaveExportListPacket::encode, WaveExportListPacket::decode, WaveExportListPacket::handle);
+        c2s(RequestWaveExportListPacket.class, RequestWaveExportListPacket::encode, RequestWaveExportListPacket::decode, RequestWaveExportListPacket::handle);
 
         WaveDefenseMod.LOGGER.info("Network packets registered");
+    }
+
+    private static <MSG> void c2s(Class<MSG> type,
+                                  BiConsumer<MSG, FriendlyByteBuf> encoder,
+                                  Function<FriendlyByteBuf, MSG> decoder,
+                                  BiConsumer<MSG, Supplier<NetworkEvent.Context>> handler) {
+        INSTANCE.registerMessage(id(), type, encoder, decoder, handler,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+    }
+
+    private static <MSG> void s2c(Class<MSG> type,
+                                  BiConsumer<MSG, FriendlyByteBuf> encoder,
+                                  Function<FriendlyByteBuf, MSG> decoder,
+                                  BiConsumer<MSG, Supplier<NetworkEvent.Context>> handler) {
+        INSTANCE.registerMessage(id(), type, encoder, decoder, handler,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
     }
 
     public void send(PacketDistributor.PacketTarget target, Object message) {

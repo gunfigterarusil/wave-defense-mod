@@ -70,7 +70,7 @@ public class LootSpawnEditorScreen extends Screen {
         int btnW = Math.min(340, this.width - 60);
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("§e➕ Додати точку луту"),
+                Component.translatable("wavedefense.button.add_loot_point"),
                 button -> startAddAtPlayerPos()
         ).bounds(cx - btnW / 2, y, btnW - 100, 20).build());
 
@@ -141,7 +141,7 @@ public class LootSpawnEditorScreen extends Screen {
         }
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("§a✓ Зберегти і назад"), b -> saveAndBack()
+                Component.translatable("wavedefense.button.save_back"), b -> saveAndBack()
         ).bounds(cx - 110, this.height - 26, 220, 20).build());
     }
 
@@ -151,12 +151,12 @@ public class LootSpawnEditorScreen extends Screen {
 
         // ── Слоти предметів ────────────────────────────────────────────
         this.addRenderableWidget(Button.builder(
-                Component.literal("§7Предмети луту:"), b -> {}
+                Component.translatable("wavedefense.auto.предмети_луту_87a19179"), b -> {}
         ).bounds(cx - btnW / 2, y, 120, 14).build()).active = false;
 
         // Кнопка "Додати з руки"
         this.addRenderableWidget(Button.builder(
-                Component.literal("✋ З руки"),
+                Component.translatable("wavedefense.button.from_hand"),
                 b -> {
                     if (minecraft.player != null) {
                         net.minecraft.world.item.ItemStack held = minecraft.player.getMainHandItem();
@@ -198,7 +198,7 @@ public class LootSpawnEditorScreen extends Screen {
             ).bounds(xPos, y, dynSlotW, SLOT_H).build());
 
             this.addRenderableWidget(Button.builder(
-                    Component.literal("§cОчистити"),
+                    Component.translatable("wavedefense.button.clear_item"),
                     b -> { editItems.set(si, ItemStack.EMPTY); rebuildWidgets(); }
             ).bounds(xPos, y + SLOT_H + 2, dynSlotW, SLOT_H).build());
         }
@@ -214,7 +214,7 @@ public class LootSpawnEditorScreen extends Screen {
             }
             int fw = 45;
             int cx2 = cx - btnW / 2;
-            this.addRenderableWidget(Button.builder(Component.literal("§7📍 X:"), b -> {}).bounds(cx2, y, 28, 14).build()).active = false;
+            this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.x_be0e6536"), b -> {}).bounds(cx2, y, 28, 14).build()).active = false;
             lootXInput = new EditBox(this.font, cx2 + 30, y, fw, 14, Component.literal("X"));
             lootXInput.setValue(String.valueOf(curPos.getX())); lootXInput.setMaxLength(7);
             this.addRenderableWidget(lootXInput);
@@ -245,9 +245,9 @@ public class LootSpawnEditorScreen extends Screen {
 
         // Шанс
         this.addRenderableWidget(Button.builder(
-                Component.literal("§7Шанс (1-100%):"), b -> {}
+                Component.translatable("wavedefense.auto.шанс_1_100_dd19b46b"), b -> {}
         ).bounds(cx - btnW / 2, y, 140, 18).build()).active = false;
-        chanceInput = new EditBox(this.font, cx, y, 55, 18, Component.literal("Шанс"));
+        chanceInput = new EditBox(this.font, cx, y, 55, 18, Component.translatable("wavedefense.auto.шанс_7ce3c7bb"));
         chanceInput.setValue(editingIndex >= 0
                 ? String.valueOf(location.getLootSpawns().get(editingIndex).getSpawnChance()) : "100");
         chanceInput.setMaxLength(3);
@@ -256,9 +256,9 @@ public class LootSpawnEditorScreen extends Screen {
 
         // Кількість
         this.addRenderableWidget(Button.builder(
-                Component.literal("§7Кількість:"), b -> {}
+                Component.translatable("wavedefense.auto.кількість_e25b1eb1"), b -> {}
         ).bounds(cx - btnW / 2, y, 140, 18).build()).active = false;
-        countInput = new EditBox(this.font, cx, y, 55, 18, Component.literal("К-сть"));
+        countInput = new EditBox(this.font, cx, y, 55, 18, Component.translatable("wavedefense.auto.к_сть_7beea1a7"));
         countInput.setValue(editingIndex >= 0
                 ? String.valueOf(location.getLootSpawns().get(editingIndex).getCount()) : "1");
         countInput.setMaxLength(4);
@@ -269,16 +269,16 @@ public class LootSpawnEditorScreen extends Screen {
         int trigCount = editingIndex >= 0
                 ? location.getLootSpawns().get(editingIndex).getTriggers().size() : 1;
         this.addRenderableWidget(Button.builder(
-                Component.literal("§b⚡ Тригери спавну (" + trigCount + " обрано)"),
+                Component.translatable("wavedefense.auto.тригери_спавну_value_c28b183d", trigCount + " обрано)"),
                 b -> { showTriggers = true; rebuildWidgets(); }
         ).bounds(cx - btnW / 2, y, 210, 20).build());
         y += 28;
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("§a✓ Зберегти"), b -> saveItem()
+                Component.translatable("wavedefense.button.save"), b -> saveItem()
         ).bounds(cx - 110, y, 100, 20).build());
         this.addRenderableWidget(Button.builder(
-                Component.literal("Скасувати"),
+                Component.translatable("wavedefense.button.cancel"),
                 b -> { editingItem = false; showTriggers = false; rebuildWidgets(); }
         ).bounds(cx + 10, y, 100, 20).build());
     }
@@ -302,7 +302,7 @@ public class LootSpawnEditorScreen extends Screen {
 
         // Підказка
         this.addRenderableWidget(Button.builder(
-            Component.literal("§8Клік = увімк/вимк  │  ☑ = активний  │  прокрутіть колесо миші"), b -> {}
+            Component.translatable("wavedefense.auto.клік_увімк_вимк_активний_прокрут_151cf949"), b -> {}
         ).bounds(cx - btnW / 2, y, btnW, 12).build()).active = false;
         y += 16;
 
@@ -362,7 +362,7 @@ public class LootSpawnEditorScreen extends Screen {
                 }
             ).bounds(cx - btnW / 2, ty, btnW, LOOT_BTN_H).build();
             btn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                Component.literal("§7" + ft.tooltip + (ft.needsValue ? "\n§8(задайте N внизу списку)" : ""))));
+                Component.literal("?7" + ft.tooltip + (ft.needsValue ? "\n?8??????? N ????? ??????" : ""))));
             this.addRenderableWidget(btn);
             ty += LOOT_BTN_H + LOOT_BTN_GAP;
         }
@@ -371,7 +371,7 @@ public class LootSpawnEditorScreen extends Screen {
         if (!valueTriggers.isEmpty()) {
             int sy = lootTrigScrollBot + 4;
             this.addRenderableWidget(Button.builder(
-                Component.literal("§e⚙ §7Налаштування значень N:"), b -> {}
+                Component.translatable("wavedefense.auto.налаштування_значень_n_b3f05f0e"), b -> {}
             ).bounds(cx - btnW / 2, sy, btnW, 14).build()).active = false;
             sy += 16;
             for (LootSpawn.Trigger vt : valueTriggers) {
@@ -406,7 +406,7 @@ public class LootSpawnEditorScreen extends Screen {
 
         // ── Кнопка Готово ─────────────────────────────────────────────
         this.addRenderableWidget(Button.builder(
-            Component.literal("§a✓ Готово"),
+            Component.translatable("wavedefense.button.done"),
             b -> { showTriggers = false; rebuildWidgets(); }
         ).bounds(cx - 60, this.height - 26, 120, 20).build());
     }
@@ -452,7 +452,7 @@ public class LootSpawnEditorScreen extends Screen {
             if (finalItems.isEmpty()) {
                 if (minecraft.player != null)
                     minecraft.player.displayClientMessage(
-                        Component.literal("§cДодайте хоча б один предмет!"), true);
+                        Component.translatable("wavedefense.auto.додайте_хоча_б_один_предмет_aa9e1df5"), true);
                 return;
             }
 
@@ -485,7 +485,7 @@ public class LootSpawnEditorScreen extends Screen {
         } catch (NumberFormatException e) {
             if (minecraft.player != null)
                 minecraft.player.displayClientMessage(
-                    Component.literal("§cНевірний формат числа!"), true);
+                    Component.translatable("wavedefense.auto.невірний_формат_числа_c9f66713"), true);
         }
     }
 
@@ -493,7 +493,7 @@ public class LootSpawnEditorScreen extends Screen {
         PacketHandler.sendToServer(new UpdateLocationPacket(location));
         if (minecraft.player != null)
             minecraft.player.displayClientMessage(
-                Component.literal("§a✓ Точки луту збережено!"), true);
+                Component.translatable("wavedefense.auto.точки_луту_збережено_099a7605"), true);
         this.minecraft.setScreen(parent);
     }
 
@@ -518,7 +518,7 @@ public class LootSpawnEditorScreen extends Screen {
         int listTop = 28, listBot = this.height - 30;
 
         if (editingItem && showTriggers) {
-            g.drawCenteredString(this.font, "§b⚡ Оберіть тригери спавну", cx, 16, 0x55FFFF);
+            g.drawCenteredString(this.font, Component.translatable("wavedefense.loot.trigger_pick_title"), cx, 16, 0x55FFFF);
             // Статичні елементи ДО scissor (заголовок вже намальований)
             for (var r : this.renderables) {
                 if (r instanceof net.minecraft.client.gui.components.AbstractWidget w

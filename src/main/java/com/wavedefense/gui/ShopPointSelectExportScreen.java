@@ -18,7 +18,7 @@ public class ShopPointSelectExportScreen extends Screen {
     private final Screen parent;
 
     public ShopPointSelectExportScreen(Location location, Screen parent) {
-        super(Component.literal("Експорт точки магазину"));
+        super(Component.translatable("wavedefense.auto.експорт_точки_магазину_e19a3bbd"));
         this.location = location;
         this.parent = parent;
     }
@@ -32,7 +32,7 @@ public class ShopPointSelectExportScreen extends Screen {
         List<ShopPoint> points = location.getShopPoints();
         if (points.isEmpty()) {
             this.addRenderableWidget(Button.builder(
-                Component.literal("§c(Точок немає)"), b -> {}
+                Component.translatable("wavedefense.auto.точок_немає_6ee9d45d"), b -> {}
             ).bounds(cx - 100, y, 200, 20).build()).active = false;
         } else {
             for (int pi = 0; pi < points.size(); pi++) {
@@ -45,7 +45,7 @@ public class ShopPointSelectExportScreen extends Screen {
                         PacketHandler.sendToServer(new ExportShopPacket(location.getName(), "point:" + pName));
                         if (minecraft.player != null)
                             minecraft.player.displayClientMessage(
-                                Component.literal("§a⬆ Збережено точку «" + pName + "»"), true);
+                                Component.translatable("wavedefense.auto.збережено_точку_value_b9ad0158", pName + "»"), true);
                         minecraft.setScreen(parent);
                     }
                 ).bounds(cx - 130, rowY, 260, 20).build());
@@ -53,7 +53,7 @@ public class ShopPointSelectExportScreen extends Screen {
         }
 
         this.addRenderableWidget(Button.builder(
-            Component.literal("Назад"), b -> minecraft.setScreen(parent)
+            Component.translatable("wavedefense.auto.назад_f6dab074"), b -> minecraft.setScreen(parent)
         ).bounds(cx - 55, this.height - 28, 110, 20).build());
     }
 
@@ -61,7 +61,7 @@ public class ShopPointSelectExportScreen extends Screen {
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(g);
         g.drawCenteredString(this.font, this.title, this.width / 2, 14, 0xFFFFFF);
-        g.drawCenteredString(this.font, "§7Оберіть точку для збереження:", this.width / 2, 26, 0xAAAAAA);
+        g.drawCenteredString(this.font, Component.translatable("wavedefense.shop.export_pick_point"), this.width / 2, 26, 0xAAAAAA);
         super.render(g, mouseX, mouseY, partialTick);
     }
 

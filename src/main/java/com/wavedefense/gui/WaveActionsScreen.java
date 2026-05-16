@@ -10,9 +10,11 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 
+import java.util.HashMap;
 import java.util.Map;
 import com.wavedefense.gui.TooltipHelper;
 
@@ -23,7 +25,9 @@ import com.wavedefense.gui.TooltipHelper;
  */
 public class WaveActionsScreen extends Screen {
 
-    private String pvpStatusLine = "";
+    // Не кешуємо рядки в полях — обчислюємо в render() через I18n.get(),
+    // щоб вони оновлювались при зміні мови без перевідкриття екрану.
+    private final Map<Button, String> buttonTooltips = new HashMap<>();
 
     public WaveActionsScreen() {
         super(Component.translatable("wavedefense.title.wave_actions"));
@@ -32,6 +36,7 @@ public class WaveActionsScreen extends Screen {
     @Override
     protected void init() {
         super.init();
+        buttonTooltips.clear();
 
         // Адаптивна ширина кнопок під розширення монітора
         int cx   = this.width / 2;
@@ -45,15 +50,15 @@ public class WaveActionsScreen extends Screen {
         // ── Спектатор у PvP — кнопки "Вийти з PvP" і "Здатися" ────────────────
         if (player.isSpectator()) {
             int startY = this.height / 2 - 40;
-            g_spectatorLabel = ClientPvpStateManager.getPhase().equals("WAITING")
-                    ? "§7Очікуємо гравців..."
-                    : "§7Ви загинули — чекаємо наступного раунду";
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("§c🏳 Здатися (з пенальті)"),
+            Button surrenderBtn = Button.builder(
+                    Component.translatable("wavedefense.button.surrender_penalty"),
                     b -> { PacketHandler.sendToServer(new SurrenderPacket()); this.onClose(); }
-            ).bounds(cx - btnW / 2, startY, btnW, btnH).build());
+            ).bounds(cx - btnW / 2, startY, btnW, btnH).build();
+            this.addRenderableWidget(surrenderBtn);
+            buttonTooltips.put(surrenderBtn, TooltipHelper.SURRENDER);
+
             this.addRenderableWidget(Button.builder(
-                    Component.literal("Закрити меню"),
+                    Component.translatable("wavedefense.button.close_menu"),
                     b -> this.onClose()
             ).bounds(cx - 55, startY + btnH + gap + 4, 110, 20).build());
             return;
@@ -70,25 +75,8 @@ public class WaveActionsScreen extends Screen {
         }
     }
 
-    private String g_spectatorLabel = "";
-
     private void renderPvpMenu(int cx, int btnW, int btnH, int gap,
                                PlayerWaveData pd, Location location) {
-        String phase    = ClientPvpStateManager.getPhase();
-        boolean isBuy   = "BUY".equals(phase);
-        int timerSec    = ClientPvpStateManager.getTimerSeconds();
-        int round       = ClientPvpStateManager.getCurrentRound();
-        int total       = ClientPvpStateManager.getTotalRounds();
-
-        if (isBuy)
-            pvpStatusLine = String.format("§e⏱ Час покупок: §a%d сек | §7Раунд %d/%d", timerSec, round, total);
-        else if ("ACTIVE".equals(phase))
-            pvpStatusLine = String.format("§c⚔ Раунд %d/%d активний!", round, total);
-        else if ("WAITING".equals(phase))
-            pvpStatusLine = "§7Чекаємо гравців...";
-        else
-            pvpStatusLine = "§6Матч завершено";
-
         int startY = this.height / 2 - 70;
         int i = 0;
 
@@ -97,39 +85,48 @@ public class WaveActionsScreen extends Screen {
             ? !location.getShopPoints().isEmpty()
             : !location.getShopItems().isEmpty();
         Button shopBtn = Button.builder(
-            Component.literal("§6🛒 Магазин"),
+            Component.translatable("wavedefense.button.shop"),
             b -> openShopForLocation(location)
         ).bounds(cx - btnW / 2, startY + (btnH + gap) * i++, btnW, btnH).build();
         shopBtn.active = hasShop;
         this.addRenderableWidget(shopBtn);
+        buttonTooltips.put(shopBtn, TooltipHelper.SHOP_OPEN);
 
         // Статистика
-        this.addRenderableWidget(Button.builder(
-            Component.literal("§b📊 Статистика команд"),
+        Button statsBtn = Button.builder(
+            Component.translatable("wavedefense.button.team_stats"),
             b -> minecraft.setScreen(new PvpScoreboardScreen())
-        ).bounds(cx - btnW / 2, startY + (btnH + gap) * i++, btnW, btnH).build());
+        ).bounds(cx - btnW / 2, startY + (btnH + gap) * i++, btnW, btnH).build();
+        this.addRenderableWidget(statsBtn);
+        buttonTooltips.put(statsBtn, TooltipHelper.STATS);
 
         // Налаштування
-        this.addRenderableWidget(Button.builder(
-            Component.literal("⚙ Налаштування HUD"),
+        Button settingsBtn = Button.builder(
+            Component.translatable("wavedefense.button.settings"),
             b -> { if (pd != null) minecraft.setScreen(new PlayerSettingsScreen(pd)); }
-        ).bounds(cx - btnW / 2, startY + (btnH + gap) * i++, btnW, btnH).build());
+        ).bounds(cx - btnW / 2, startY + (btnH + gap) * i++, btnW, btnH).build();
+        this.addRenderableWidget(settingsBtn);
+        buttonTooltips.put(settingsBtn, TooltipHelper.HUD_SETTINGS);
 
         // Вийти з PvP (без штрафу)
-        this.addRenderableWidget(Button.builder(
-            Component.literal("§e🚪 Вийти з PvP"),
+        Button exitBtn = Button.builder(
+            Component.translatable("wavedefense.button.exit_pvp"),
             b -> { PacketHandler.sendToServer(new ExitPvpPacket()); this.onClose(); }
-        ).bounds(cx - btnW / 2, startY + (btnH + gap) * i++, btnW, btnH).build());
+        ).bounds(cx - btnW / 2, startY + (btnH + gap) * i++, btnW, btnH).build();
+        this.addRenderableWidget(exitBtn);
+        buttonTooltips.put(exitBtn, I18n.get("wavedefense.tooltip.exit_pvp"));
 
         // Здатися (з пенальті)
-        this.addRenderableWidget(Button.builder(
-            Component.literal("§c🏳 Здатися"),
+        Button surrenderBtn = Button.builder(
+            Component.translatable("wavedefense.button.surrender"),
             b -> { PacketHandler.sendToServer(new SurrenderPacket()); this.onClose(); }
-        ).bounds(cx - btnW / 2, startY + (btnH + gap) * i++, btnW, btnH).build());
+        ).bounds(cx - btnW / 2, startY + (btnH + gap) * i++, btnW, btnH).build();
+        this.addRenderableWidget(surrenderBtn);
+        buttonTooltips.put(surrenderBtn, TooltipHelper.SURRENDER);
 
         // Закрити
         this.addRenderableWidget(Button.builder(
-            Component.literal("Закрити"),
+            Component.translatable("wavedefense.button.close"),
             b -> this.onClose()
         ).bounds(cx - 50, startY + (btnH + gap) * i + 4, 100, 20).build());
     }
@@ -142,29 +139,34 @@ public class WaveActionsScreen extends Screen {
             ? !location.getShopPoints().isEmpty()
             : !location.getShopItems().isEmpty());
         Button shopBtn = Button.builder(
-            Component.literal("§6🛒 Відкрити магазин"),
+            Component.translatable("wavedefense.button.shop"),
             b -> { if (location != null) openShopForLocation(location); }
         ).bounds(cx - btnW / 2, startY, btnW, btnH).build();
         shopBtn.active = hasShop;
         this.addRenderableWidget(shopBtn);
+        buttonTooltips.put(shopBtn, TooltipHelper.SHOP_OPEN);
 
-        this.addRenderableWidget(Button.builder(
-            Component.literal("⚙ Налаштування HUD"),
+        Button settingsBtn = Button.builder(
+            Component.translatable("wavedefense.button.settings"),
             b -> { if (pd != null) minecraft.setScreen(new PlayerSettingsScreen(pd)); }
-        ).bounds(cx - btnW / 2, startY + btnH + gap, btnW, btnH).build());
+        ).bounds(cx - btnW / 2, startY + btnH + gap, btnW, btnH).build();
+        this.addRenderableWidget(settingsBtn);
+        buttonTooltips.put(settingsBtn, TooltipHelper.HUD_SETTINGS);
 
-        this.addRenderableWidget(Button.builder(
-            Component.literal("§c🏳 Здатися"),
+        Button surrenderBtn = Button.builder(
+            Component.translatable("wavedefense.button.surrender"),
             b -> { PacketHandler.sendToServer(new SurrenderPacket()); this.onClose(); }
-        ).bounds(cx - btnW / 2, startY + (btnH + gap) * 2, btnW, btnH).build());
+        ).bounds(cx - btnW / 2, startY + (btnH + gap) * 2, btnW, btnH).build();
+        this.addRenderableWidget(surrenderBtn);
+        buttonTooltips.put(surrenderBtn, TooltipHelper.SURRENDER);
 
         this.addRenderableWidget(Button.builder(
-            Component.literal("§7📦 Інвентар"),
+            Component.translatable("wavedefense.button.inventory"),
             b -> minecraft.setScreen(new InventoryScreen(player))
         ).bounds(cx - btnW / 2, startY + (btnH + gap) * 3, btnW, btnH).build());
 
         this.addRenderableWidget(Button.builder(
-            Component.literal("Закрити"),
+            Component.translatable("wavedefense.button.close"),
             b -> this.onClose()
         ).bounds(cx - 50, startY + (btnH + gap) * 4 + 10, 100, 20).build());
     }
@@ -177,12 +179,28 @@ public class WaveActionsScreen extends Screen {
 
         // Спектатор — простий оверлей
         if (minecraft.player != null && minecraft.player.isSpectator()) {
-            g.drawCenteredString(this.font, "§c§l⚔ Wave Defense — PvP Меню", cx, topY + 8, 0xFF5555);
-            g.drawCenteredString(this.font, g_spectatorLabel, cx, topY + 22, 0xAAAAAA);
-            g.drawCenteredString(this.font, "§7Вийти — повернутись без штрафу | Здатися — з пенальті", cx, topY + 34, 0x888888);
+            // Обчислюємо тут, а не в init(), щоб коректно оновлювалось при зміні мови
+            String spectatorLabel = ClientPvpStateManager.getPhase().equals("WAITING")
+                    ? I18n.get("wavedefense.pvp.waiting")
+                    : I18n.get("wavedefense.pvp.spectator_dead");
+            g.drawCenteredString(this.font, I18n.get("wavedefense.pvp.menu_title"), cx, topY + 8, 0xFF5555);
+            g.drawCenteredString(this.font, spectatorLabel, cx, topY + 22, 0xAAAAAA);
+            g.drawCenteredString(this.font, I18n.get("wavedefense.pvp.spectator_hint"), cx, topY + 34, 0x888888);
             super.render(g, mouseX, mouseY, partialTick);
             return;
         }
+
+        // Обчислюємо pvpStatusLine тут (render-фрейм), не в init() — оновлюється при зміні мови
+        String phase   = ClientPvpStateManager.getPhase();
+        int timerSec   = ClientPvpStateManager.getTimerSeconds();
+        int round      = ClientPvpStateManager.getCurrentRound();
+        int total      = ClientPvpStateManager.getTotalRounds();
+        String pvpStatusLine;
+        if ("BUY".equals(phase))        pvpStatusLine = I18n.get("wavedefense.pvp.buy_phase", timerSec, round, total);
+        else if ("ACTIVE".equals(phase)) pvpStatusLine = I18n.get("wavedefense.pvp.round_active", round, total);
+        else if ("WAITING".equals(phase)) pvpStatusLine = I18n.get("wavedefense.pvp.waiting");
+        else if (!phase.isEmpty())       pvpStatusLine = I18n.get("wavedefense.pvp.match_ended");
+        else                             pvpStatusLine = "";
 
         if (!pvpStatusLine.isEmpty()) {
             String loc = ClientPvpStateManager.getLocation();
@@ -192,19 +210,19 @@ public class WaveActionsScreen extends Screen {
             // Рахунок команд
             Map<String, Integer> wins = ClientPvpStateManager.getTeamWins();
             if (!wins.isEmpty()) {
-                StringBuilder sb = new StringBuilder("§7Рахунок: ");
+                StringBuilder sb = new StringBuilder(I18n.get("wavedefense.pvp.score_prefix"));
                 wins.forEach((t, w) -> sb.append("§e").append(t).append("§7:§a").append(w).append("  "));
                 g.drawCenteredString(this.font, sb.toString().trim(), cx, topY + 24, 0xFFFFFF);
             }
         } else {
-            g.drawCenteredString(this.font, "§6§lWave Defense — Меню", cx, topY + 8, 0xFFFFFF);
+            g.drawCenteredString(this.font, I18n.get("wavedefense.menu.title_pve"), cx, topY + 8, 0xFFFFFF);
         }
 
         // Tooltips при наведенні на кнопки
         this.renderables.forEach(r -> {
             if (r instanceof net.minecraft.client.gui.components.Button btn) {
                 if (btn.isHoveredOrFocused() && btn.active) {
-                    String tip = getButtonTooltip(btn.getMessage().getString());
+                    String tip = buttonTooltips.get(btn);
                     if (tip != null) {
                         com.wavedefense.gui.TooltipHelper.renderIfEnabled(g, this.font, tip, mouseX, mouseY);
                     }
@@ -213,15 +231,6 @@ public class WaveActionsScreen extends Screen {
         });
 
         super.render(g, mouseX, mouseY, partialTick);
-    }
-
-    private String getButtonTooltip(String label) {
-        if (label.contains("Магазин"))    return TooltipHelper.SHOP_OPEN;
-        if (label.contains("Статистик"))  return TooltipHelper.STATS;
-        if (label.contains("Здатися"))    return TooltipHelper.SURRENDER;
-        if (label.contains("Налаштув"))   return TooltipHelper.HUD_SETTINGS;
-        if (label.contains("Вийти з PvP")) return "§7Покинути PvP локацію без штрафних очків";
-        return null;
     }
 
     @Override
@@ -238,13 +247,13 @@ public class WaveActionsScreen extends Screen {
             com.wavedefense.data.ShopPoint sp = loc.findNearestShopPoint(px, py, pz);
             if (sp == null) {
                 minecraft.player.displayClientMessage(
-                    net.minecraft.network.chat.Component.literal("§c🛒 Підійдіть до точки магазину щоб відкрити його."), true);
+                    Component.translatable("wavedefense.msg.shop_too_far"), true);
                 this.onClose();
                 return;
             }
             if (sp.getItems().isEmpty()) {
                 minecraft.player.displayClientMessage(
-                    net.minecraft.network.chat.Component.literal("§c🛒 Магазин поруч порожній!"), true);
+                    Component.translatable("wavedefense.msg.shop_empty_nearby"), true);
                 return;
             }
             minecraft.setScreen(new PlayerShopScreen(loc, sp));

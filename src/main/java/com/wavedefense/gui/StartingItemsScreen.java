@@ -15,7 +15,7 @@ public class StartingItemsScreen extends Screen {
     private static final int ITEMS_PER_PAGE = 8;
 
     public StartingItemsScreen(Screen parentScreen, Location location) {
-        super(Component.literal("Стартове спорядження"));
+        super(Component.translatable("wavedefense.title.starting_items"));
         this.parentScreen = parentScreen;
         this.location = location;
     }
@@ -28,12 +28,12 @@ public class StartingItemsScreen extends Screen {
         int startY = 60;
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("§7Тримайте предмет у руці та натисніть 'Додати'"),
+                Component.translatable("wavedefense.auto.тримайте_предмет_у_руці_та_натис_fe14c625"),
                 button -> {}
         ).bounds(centerX - 150, 35, 300, 20).build()).active = false;
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("➕ Додати предмет"),
+                Component.translatable("wavedefense.auto.додати_предмет_fc5e5016"),
                 button -> addItem()
         ).bounds(centerX - 100, startY, 200, 20).build());
 
@@ -74,7 +74,7 @@ public class StartingItemsScreen extends Screen {
         }
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("Готово"),
+                Component.translatable("wavedefense.button.done"),
                 button -> this.minecraft.setScreen(parentScreen)
         ).bounds(centerX - 50, this.height - 30, 100, 20).build());
     }

@@ -1,5 +1,9 @@
 package com.wavedefense.data;
 
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
+
 import java.util.*;
 
 /**
@@ -122,6 +126,8 @@ public class PvpRoundState {
         aliveThisRound.clear();
         aliveThisRound.addAll(allPlayers);
         recentAttackers.clear();
+        // H1 fix: reset DM kill counters so they don't carry over from previous rounds
+        dmTeamKills.clear();
     }
 
     public boolean isAllRoundsDone() { return currentRound >= totalRounds; }
@@ -169,10 +175,110 @@ public class PvpRoundState {
     }
 
     public void recordTeamWin(String teamName) {
-        teamWins.merge(teamName, 1, Integer::sum);
-        phase = Phase.ENDED;
+        // C1 fix: do NOT set phase = ENDED here — endRound() / endPvpMatch() owns
+        // the phase transition. Setting ENDED prematurely creates a 1-tick window
+        // where the state machine is in ENDED but startBuyPhase() hasn't run yet.
+        // Null = draw (no team recorded as winner).
+        if (teamName != null && !teamName.isBlank()) {
+            teamWins.merge(teamName, 1, Integer::sum);
+        }
     }
 
     public Map<String, Integer> getTeamWins()  { return teamWins; }
     public Set<UUID> getAliveThisRound()        { return aliveThisRound; }
+
+    // ──────────────────────────────────────────────────────────────────────
+    //  Save/Load for backup system
+    // ──────────────────────────────────────────────────────────────────────
+
+    public CompoundTag save() {
+        CompoundTag tag = new CompoundTag();
+        tag.putString("phase", phase.name());
+        tag.putInt("currentRound", currentRound);
+        tag.putInt("totalRounds", totalRounds);
+        tag.putInt("buyTime", buyTime);
+        tag.putInt("roundStartDelay", roundStartDelay);
+        tag.putInt("timerTicks", timerTicks);
+        tag.putInt("dmKillsToWin", dmKillsToWin);
+        if (pendingWinner != null) {
+            tag.putString("pendingWinner", pendingWinner);
+        }
+        // Save stats
+        ListTag statsList = new ListTag();
+        for (Map.Entry<UUID, PvpPlayerStats> entry : stats.entrySet()) {
+            CompoundTag entryTag = new CompoundTag();
+            entryTag.putUUID("uuid", entry.getKey());
+            entryTag.put("stats", entry.getValue().save());
+            statsList.add(entryTag);
+        }
+        tag.put("stats", statsList);
+        // Save team wins
+        CompoundTag teamWinsTag = new CompoundTag();
+        for (Map.Entry<String, Integer> entry : teamWins.entrySet()) {
+            teamWinsTag.putInt(entry.getKey(), entry.getValue());
+        }
+        tag.put("teamWins", teamWinsTag);
+        // Save alive this round
+        ListTag aliveList = new ListTag();
+        for (UUID uuid : aliveThisRound) {
+            aliveList.add(StringTag.valueOf(uuid.toString()));
+        }
+        tag.put("aliveThisRound", aliveList);
+        // Save DM team kills
+        CompoundTag dmKillsTag = new CompoundTag();
+        for (Map.Entry<String, Integer> entry : dmTeamKills.entrySet()) {
+            dmKillsTag.putInt(entry.getKey(), entry.getValue());
+        }
+        tag.put("dmTeamKills", dmKillsTag);
+        return tag;
+    }
+
+    /**
+     * Статичний метод для завантаження стану з NBT.
+     */
+    public static PvpRoundState load(CompoundTag tag) {
+        PvpRoundState state = new PvpRoundState(
+            tag.getInt("totalRounds"),
+            tag.getInt("buyTime")
+        );
+        state.phase = Phase.valueOf(tag.getString("phase"));
+        state.currentRound = tag.getInt("currentRound");
+        state.roundStartDelay = tag.getInt("roundStartDelay");
+        state.timerTicks = tag.getInt("timerTicks");
+        state.dmKillsToWin = tag.getInt("dmKillsToWin");
+        state.pendingWinner = tag.contains("pendingWinner") ? tag.getString("pendingWinner") : null;
+        // Load stats
+        if (tag.contains("stats")) {
+            ListTag statsList = tag.getList("stats", 10);
+            for (int i = 0; i < statsList.size(); i++) {
+                CompoundTag entryTag = statsList.getCompound(i);
+                UUID uuid = entryTag.getUUID("uuid");
+                PvpPlayerStats pps = new PvpPlayerStats();
+                pps.load(entryTag.getCompound("stats"));
+                state.stats.put(uuid, pps);
+            }
+        }
+        // Load team wins
+        if (tag.contains("teamWins")) {
+            CompoundTag teamWinsTag = tag.getCompound("teamWins");
+            for (String key : teamWinsTag.getAllKeys()) {
+                state.teamWins.put(key, teamWinsTag.getInt(key));
+            }
+        }
+        // Load alive this round
+        if (tag.contains("aliveThisRound")) {
+            ListTag aliveList = tag.getList("aliveThisRound", 8);
+            for (int i = 0; i < aliveList.size(); i++) {
+                state.aliveThisRound.add(UUID.fromString(aliveList.getString(i)));
+            }
+        }
+        // Load DM team kills
+        if (tag.contains("dmTeamKills")) {
+            CompoundTag dmKillsTag = tag.getCompound("dmTeamKills");
+            for (String key : dmKillsTag.getAllKeys()) {
+                state.dmTeamKills.put(key, dmKillsTag.getInt(key));
+            }
+        }
+        return state;
+    }
 }

@@ -54,7 +54,7 @@ public class ShopAvailabilityScreen extends Screen {
 
     public ShopAvailabilityScreen(Screen parent, Location location,
             com.wavedefense.data.ShopPoint shopPoint, int itemIndex) {
-        super(Component.literal("🛒 Тригер доступності товару"));
+        super(Component.translatable("wavedefense.auto.тригер_доступності_товару_fcf1c654"));
         this.parent    = parent;
         this.location  = location;
         this.shopPoint = shopPoint;
@@ -80,7 +80,7 @@ public class ShopAvailabilityScreen extends Screen {
 
         // Підказка
         this.addRenderableWidget(Button.builder(
-            Component.literal("§7Оберіть умову появи товару в магазині:"), b -> {}
+            Component.translatable("wavedefense.auto.оберіть_умову_появи_товару_в_маг_7a185e1b"), b -> {}
         ).bounds(cx - btnW / 2, y, btnW, 14).build()).active = false;
         y += 18;
 
@@ -132,7 +132,7 @@ public class ShopAvailabilityScreen extends Screen {
 
         if (selected == WaveTrigger.SHOP_WAVE_N) {
             this.addRenderableWidget(Button.builder(
-                Component.literal("§e📋 §7Тільки на хвилі №:"), b -> {}
+                Component.translatable("wavedefense.auto.тільки_на_хвилі_88738afb"), b -> {}
             ).bounds(cx - btnW / 2, sy, 160, 18).build()).active = false;
             waveInput = new EditBox(this.font, cx - btnW / 2 + 164, sy, 60, 18, Component.literal("1"));
             waveInput.setValue(item != null ? String.valueOf(item.getAvailabilityWave()) : "1");
@@ -143,7 +143,7 @@ public class ShopAvailabilityScreen extends Screen {
 
         if (selected == WaveTrigger.SHOP_PLAYER_HAS_ITEM) {
             this.addRenderableWidget(Button.builder(
-                Component.literal("§e🎁 §7Предмет (item id через кому):"), b -> {}
+                Component.translatable("wavedefense.auto.предмет_item_id_через_кому_1f69adb0"), b -> {}
             ).bounds(cx - btnW / 2, sy, btnW - 26, 14).build()).active = false;
             // Кнопка "з руки"
             this.addRenderableWidget(Button.builder(
@@ -164,23 +164,23 @@ public class ShopAvailabilityScreen extends Screen {
                 }
             ).bounds(cx + btnW / 2 - 24, sy, 24, 14).build()
             ).setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                Component.literal("§7Додати предмет з основної руки до поля")));
+                Component.translatable("wavedefense.auto.додати_предмет_з_основної_руки_д_199913a1")));
             sy += 16;
-            itemInput = new EditBox(this.font, cx - btnW / 2, sy, btnW, 18, Component.literal("id"));
+            itemInput = new EditBox(this.font, cx - btnW / 2, sy, btnW, 18, Component.translatable("wavedefense.auto.id_87ea5dfc"));
             itemInput.setMaxLength(256);
             itemInput.setValue(item != null && !item.getAvailabilityItemId().isEmpty()
                 ? item.getAvailabilityItemId() : "minecraft:diamond");
-            itemInput.setHint(Component.literal("§8minecraft:diamond,..."));
+            itemInput.setHint(Component.translatable("wavedefense.auto.minecraft_diamond_f20ff3f7"));
             this.addRenderableWidget(itemInput);
             sy += 20;
         }
 
         // ── Кнопки ───────────────────────────────────────────────────
         this.addRenderableWidget(Button.builder(
-            Component.literal("§a✓ Зберегти"), b -> save()
+            Component.translatable("wavedefense.auto.зберегти_617e5dc0"), b -> save()
         ).bounds(cx - 110, this.height - 26, 100, 20).build());
         this.addRenderableWidget(Button.builder(
-            Component.literal("Скасувати"), b -> this.minecraft.setScreen(parent)
+            Component.translatable("wavedefense.auto.скасувати_8b4c2025"), b -> this.minecraft.setScreen(parent)
         ).bounds(cx + 10, this.height - 26, 100, 20).build());
     }
 
@@ -188,7 +188,7 @@ public class ShopAvailabilityScreen extends Screen {
     @Override
     public void render(GuiGraphics g, int mx, int my, float pt) {
         this.renderBackground(g);
-        g.drawCenteredString(this.font, "§6🛒 Тригер доступності товару", this.width / 2, 14, 0xFFFFFF);
+        g.drawCenteredString(this.font, Component.translatable("wavedefense.shop.availability_title"), this.width / 2, 14, 0xFFFFFF);
 
         // Статичні до списку
         for (var r : this.renderables) {

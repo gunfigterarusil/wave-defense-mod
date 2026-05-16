@@ -10,26 +10,23 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraftforge.registries.ForgeRegistries;
 
-import com.wavedefense.gui.ScissorHelper;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MobTypeSelectionScreen extends Screen {
+public class MobTypeSelectionScreen extends ScrollableScreen {
     private final Screen parentScreen;
     private final WaveConfig waveConfig;
     private final int mobIndex;
     private List<EntityType<?>> availableMobs;
-    private int scrollOffset = 0;
     private static final int ITEMS_PER_PAGE = 12;
     private int selectedIndex = -1;
 
     public MobTypeSelectionScreen(Screen parentScreen, WaveConfig waveConfig, int mobIndex) {
-        super(Component.literal("Вибір типу моба"));
+        super(Component.translatable("wavedefense.title.mob_type_selection"));
         this.parentScreen = parentScreen;
         this.waveConfig = waveConfig;
         this.mobIndex = mobIndex;
 
-        // Фільтруємо тільки ворожих мобів
         availableMobs = new ArrayList<>();
         ForgeRegistries.ENTITY_TYPES.getValues().forEach(entityType -> {
             if (entityType.getCategory().isFriendly() == false &&
@@ -39,6 +36,33 @@ public class MobTypeSelectionScreen extends Screen {
         });
     }
 
+    // ─── ScrollableScreen API ──────────────────────────────────────────
+
+    @Override protected int getClipTop() { return 48; }
+    @Override protected int getClipBot() { return this.height - 34; }
+    // Grid: 3 columns, so "rows" = ceil(availableMobs / 3), items visible = ITEMS_PER_PAGE
+    @Override protected int getListSize() { return availableMobs.size(); }
+    @Override protected int getItemsPerPage() { return ITEMS_PER_PAGE; }
+
+    // Page-based scroll override (scroll by ITEMS_PER_PAGE at a time)
+    @Override
+    public boolean mouseScrolled(double mx, double my, double delta) {
+        if (delta > 0 && scrollOffset > 0) {
+            scrollOffset -= ITEMS_PER_PAGE;
+            if (scrollOffset < 0) scrollOffset = 0;
+            rebuildWidgets();
+            return true;
+        }
+        if (delta < 0 && scrollOffset + ITEMS_PER_PAGE < availableMobs.size()) {
+            scrollOffset += ITEMS_PER_PAGE;
+            rebuildWidgets();
+            return true;
+        }
+        return false;
+    }
+
+    // ─── init() ────────────────────────────────────────────────────────
+
     @Override
     protected void init() {
         super.init();
@@ -46,10 +70,8 @@ public class MobTypeSelectionScreen extends Screen {
         int centerX = this.width / 2;
         int startY = 50;
 
-        // Список мобів (3 колонки)
+        // ── Content (scrollable) — grid 3 columns ───────────────────
         int cols = 3;
-        int rows = (int) Math.ceil((double) Math.min(ITEMS_PER_PAGE, availableMobs.size()) / cols);
-
         for (int i = 0; i < Math.min(ITEMS_PER_PAGE, availableMobs.size()); i++) {
             int index = i + scrollOffset;
             if (index >= availableMobs.size()) break;
@@ -72,32 +94,41 @@ public class MobTypeSelectionScreen extends Screen {
             ).bounds(xPos, yPos, 110, 25).build());
         }
 
-        // Кнопки прокрутки
+        // Scroll buttons
         if (availableMobs.size() > ITEMS_PER_PAGE) {
             this.addRenderableWidget(Button.builder(
                     Component.literal("▲"),
-                    button -> scrollUp()
+                    button -> { if (scrollOffset > 0) { scrollOffset -= ITEMS_PER_PAGE; if (scrollOffset < 0) scrollOffset = 0; rebuildWidgets(); } }
             ).bounds(centerX + 150, startY, 25, 25).build());
 
             this.addRenderableWidget(Button.builder(
                     Component.literal("▼"),
-                    button -> scrollDown()
+                    button -> { if (scrollOffset + ITEMS_PER_PAGE < availableMobs.size()) { scrollOffset += ITEMS_PER_PAGE; rebuildWidgets(); } }
             ).bounds(centerX + 150, this.height - 80, 25, 25).build());
         }
 
-        // Кнопки навігації
-        Button confirmButton = Button.builder(
-                Component.literal("Вибрати"),
+        // ── Footer (static) ─────────────────────────────────────────
+        Button confirmButton = addStatic(Button.builder(
+                Component.translatable("wavedefense.button.select"),
                 button -> confirm()
-        ).bounds(centerX - 110, this.height - 30, 100, 20).build();
+        ).bounds(centerX - 110, this.height - 30, 100, 20).build());
         confirmButton.active = selectedIndex >= 0;
-        this.addRenderableWidget(confirmButton);
 
-        this.addRenderableWidget(Button.builder(
-                Component.literal("Скасувати"),
+        addStatic(Button.builder(
+                Component.translatable("wavedefense.button.cancel"),
                 button -> this.minecraft.setScreen(parentScreen)
         ).bounds(centerX + 10, this.height - 30, 100, 20).build());
     }
+
+    // ─── Render hooks ──────────────────────────────────────────────────
+
+    @Override
+    protected void renderHeader(GuiGraphics g, int mx, int my, float pt) {
+        g.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
+        g.drawString(this.font, Component.translatable("wavedefense.stats.mobs_available", availableMobs.size()), 10, 30, 0xAAAAAA);
+    }
+
+    // ─── Дії ───────────────────────────────────────────────────────────
 
     private void selectMob(int index) {
         selectedIndex = index;
@@ -109,52 +140,10 @@ public class MobTypeSelectionScreen extends Screen {
             EntityType<?> selectedType = availableMobs.get(selectedIndex);
             ResourceLocation mobId = ForgeRegistries.ENTITY_TYPES.getKey(selectedType);
 
-            // Оновлюємо тип моба
             WaveMob mob = waveConfig.getMobs().get(mobIndex);
             mob.setMobType(mobId);
 
             this.minecraft.setScreen(parentScreen);
         }
-    }
-
-    private void scrollUp() {
-        if (scrollOffset > 0) {
-            scrollOffset -= ITEMS_PER_PAGE;
-            if (scrollOffset < 0) scrollOffset = 0;
-            this.rebuildWidgets();
-        }
-    }
-
-    private void scrollDown() {
-        if (scrollOffset + ITEMS_PER_PAGE < availableMobs.size()) {
-            scrollOffset += ITEMS_PER_PAGE;
-            this.rebuildWidgets();
-        }
-    }
-
-    @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(g);
-        g.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
-        g.drawString(this.font, "Доступно мобів: " + availableMobs.size(), 10, 30, 0xAAAAAA);
-        // Scissor: список мобів між заголовком (48) та нижніми кнопками (height-34)
-        int listTop = 48, listBot = this.height - 34;
-        ScissorHelper.enable(0, listTop, this.width, Math.max(1, listBot - listTop));
-        for (var r : this.renderables) {
-            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
-                    && w.getY() + w.getHeight() > listTop && w.getY() < listBot)
-                w.render(g, mouseX, mouseY, partialTick);
-        }
-        ScissorHelper.disable();
-        for (var r : this.renderables) {
-            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
-                    && (w.getY() < listTop || w.getY() >= listBot))
-                w.render(g, mouseX, mouseY, partialTick);
-        }
-    }
-
-    @Override
-    public boolean isPauseScreen() {
-        return false;
     }
 }

@@ -8,25 +8,31 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
-/**
- * Екран вибору команди (точки спавну) для PvP локації.
- * Гравець вибирає за якою точкою спавниться.
- */
 public class PvpTeamSelectScreen extends Screen {
+
+    private static final int CARD_W = 190;
+    private static final int CARD_H = 44;
+    private static final int GAP = 10;
 
     private final Location location;
     private final Screen parent;
+    private int scrollRow;
+    private List<TeamOption> teamOptions = List.of();
 
     public PvpTeamSelectScreen(Location location, Screen parent) {
-        super(Component.literal(
-            switch (location.getPvpMode()) {
-                case BATTLE_ROYALE -> "§c🏆 Королівська Битва — " + location.getName();
-                case DEATHMATCH    -> "§e⚡ Deathmatch — " + location.getName();
-                default            -> "§c⚔ PvP — " + location.getName() + " §7| Обери команду";
-            }));
+        super(switch (location.getPvpMode()) {
+            case BATTLE_ROYALE -> Component.translatable("wavedefense.pvp.team_select.battle_royale", location.getName());
+            case DEATHMATCH -> Component.translatable("wavedefense.pvp.team_select.deathmatch", location.getName());
+            default -> Component.translatable("wavedefense.pvp.team_select.choose", location.getName());
+        });
         this.location = location;
         this.parent = parent;
     }
@@ -34,78 +40,139 @@ public class PvpTeamSelectScreen extends Screen {
     @Override
     protected void init() {
         super.init();
+        this.teamOptions = buildTeamOptions();
+        clampScroll();
+
         int cx = this.width / 2;
-        int y = 45;
+        int y = 42;
 
-        com.wavedefense.data.Location.PvpMode mode = location.getPvpMode();
-
-        // ── Battle Royale: гравець не обирає — одна кнопка "Увійти" ────
-        if (mode == com.wavedefense.data.Location.PvpMode.BATTLE_ROYALE) {
-            this.addRenderableWidget(Button.builder(
-                Component.literal("§c§l🏆 КОРОЛІВСЬКА БИТВА"), b -> {}
-            ).bounds(cx - 150, y, 300, 18).build()).active = false;
-            y += 24;
-            this.addRenderableWidget(Button.builder(
-                Component.literal("§8Вас телепортує на випадкову позицію"), b -> {}
-            ).bounds(cx - 150, y, 300, 14).build()).active = false;
-            y += 20;
-            this.addRenderableWidget(Button.builder(
-                Component.literal("§a▶ Увійти в гру"),
-                b -> joinTeam(0) // сервер сам призначить випадкову точку
-            ).bounds(cx - 80, y, 160, 24).build());
-
-        } else if (mode == com.wavedefense.data.Location.PvpMode.DEATHMATCH) {
-            // ── Deathmatch: вибір команди є, але показуємо режим ──────────
-            this.addRenderableWidget(Button.builder(
-                Component.literal("§e§l⚡ DEATHMATCH"), b -> {}
-            ).bounds(cx - 150, y, 300, 18).build()).active = false;
-            y += 24;
-            this.addRenderableWidget(Button.builder(
-                Component.literal("§8Перемагає команда що першою набере §e"
-                    + location.getDmKillsToWin() + "§8 вбивств"), b -> {}
-            ).bounds(cx - 150, y, 300, 14).build()).active = false;
-            y += 20;
-            renderTeamButtons(cx, y);
-
-        } else {
-            // ── Standard: звичайний вибір команди ─────────────────────────
-            this.addRenderableWidget(Button.builder(
-                Component.literal("§7Оберіть команду:"), button -> {}
-            ).bounds(cx - 150, y, 300, 16).build()).active = false;
+        if (location.isBattleRoyale()) {
+            addLabel(cx - 150, y, 300, Component.translatable("wavedefense.pvp.team_select.br_title"));
             y += 22;
-            renderTeamButtons(cx, y);
+            addLabel(cx - 150, y, 300, Component.translatable("wavedefense.pvp.team_select.br_hint"));
+            y += 28;
+            this.addRenderableWidget(Button.builder(
+                Component.translatable("wavedefense.button.enter_game"),
+                b -> joinTeam(-1)
+            ).bounds(cx - 80, y, 160, 24).build());
+        } else {
+            addModeSummary(cx, y);
+            y += 34;
+            addTeamCards(y);
         }
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("Назад"),
-                button -> this.minecraft.setScreen(parent)
-        ).bounds(cx - 50, this.height - 30, 100, 20).build());
+            Component.translatable("wavedefense.button.back"),
+            button -> this.minecraft.setScreen(parent)
+        ).bounds(cx - 50, this.height - 28, 100, 20).build());
     }
 
-    private void renderTeamButtons(int cx, int y) {
-        List<PvpSpawnPoint> spawns = location.getPvpSpawnPoints();
-        if (spawns.isEmpty()) {
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("§cЖодних команд не налаштовано!"), b -> {}
-            ).bounds(cx - 150, y, 300, 20).build()).active = false;
-        } else {
-            for (int i = 0; i < spawns.size(); i++) {
-                PvpSpawnPoint sp = spawns.get(i);
-                final int idx = i;
-                // Колір кнопки залежить від назви команди
-                String color = switch (sp.getTeamName().toLowerCase()) {
-                    case "red",   "червоні", "червона" -> "§c";
-                    case "blue",  "сині",    "синя"    -> "§9";
-                    case "green", "зелені",  "зелена"  -> "§a";
-                    case "yellow","жовті",   "жовта"   -> "§e";
-                    default -> "§f";
-                };
-                this.addRenderableWidget(Button.builder(
-                        Component.literal(color + "⚑ " + sp.getTeamName()),
-                        b -> joinTeam(idx)
-                ).bounds(cx - 120, y + i * 28, 240, 22).build());
-            }
+    private void addModeSummary(int cx, int y) {
+        Component mode = location.isDeathmatch()
+            ? Component.translatable("wavedefense.pvp.team_select.dm_mode")
+            : Component.translatable("wavedefense.pvp.team_select.team_mode");
+        Component rule = location.isDeathmatch()
+            ? Component.translatable("wavedefense.pvp.team_select.dm_rule", location.getDmKillsToWin())
+            : Component.translatable("wavedefense.pvp.team_select.team_rule");
+        addLabel(cx - 160, y, 320, Component.translatable("wavedefense.auto.u00a7e_u00a7l_99162931").append(mode));
+        addLabel(cx - 160, y + 18, 320, Component.translatable("wavedefense.auto.u00a77_d0a4b613").append(rule));
+    }
+
+    private void addTeamCards(int startY) {
+        if (teamOptions.isEmpty()) {
+            addLabel(this.width / 2 - 155, startY + 10, 310,
+                Component.translatable("wavedefense.auto.u00a7c_aae14fff").append(Component.translatable("wavedefense.pvp.team_select.no_teams")));
+            return;
         }
+
+        int cols = columns();
+        int totalW = cols * CARD_W + (cols - 1) * GAP;
+        int startX = this.width / 2 - totalW / 2;
+        int visibleRows = visibleRows(startY);
+        int first = scrollRow * cols;
+        int last = Math.min(teamOptions.size(), first + visibleRows * cols);
+
+        for (int i = first; i < last; i++) {
+            TeamOption option = teamOptions.get(i);
+            int local = i - first;
+            int col = local % cols;
+            int row = local / cols;
+            int x = startX + col * (CARD_W + GAP);
+            int y = startY + row * (CARD_H + GAP);
+
+            this.addRenderableWidget(Button.builder(
+                Component.translatable("wavedefense.pvp.team_select.card",
+                    option.colorCode(), shorten(option.teamName(), 18),
+                    option.spawnIndex() + 1, option.spawn().getSpawnRadius()),
+                b -> joinTeam(option.spawnIndex())
+            ).bounds(x, y, CARD_W, CARD_H).build());
+        }
+
+        int max = maxScrollRows(startY);
+        if (max > 0) {
+            int x = startX + totalW + 8;
+            this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.u25b2_80c50879"), b -> {
+                scrollRow = Math.max(0, scrollRow - 1);
+                rebuildWidgets();
+            }).bounds(x, startY, 22, 20).build()).active = scrollRow > 0;
+            this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.u25bc_7a1f8e34"), b -> {
+                scrollRow = Math.min(maxScrollRows(startY), scrollRow + 1);
+                rebuildWidgets();
+            }).bounds(x, Math.min(this.height - 54, startY + visibleRows * (CARD_H + GAP) - 20), 22, 20).build()).active = scrollRow < max;
+        }
+    }
+
+    private List<TeamOption> buildTeamOptions() {
+        Map<String, TeamOption> uniqueTeams = new LinkedHashMap<>();
+        List<PvpSpawnPoint> spawns = location.getPvpSpawnPoints();
+        for (int i = 0; i < spawns.size(); i++) {
+            PvpSpawnPoint spawn = spawns.get(i);
+            String teamName = spawn.getTeamName() == null || spawn.getTeamName().isBlank()
+                ? Component.translatable("wavedefense.pvp.team_select.team_fallback", i + 1).getString()
+                : spawn.getTeamName();
+            uniqueTeams.putIfAbsent(teamName, new TeamOption(teamName, i, spawn, colorFor(teamName)));
+        }
+        return new ArrayList<>(uniqueTeams.values());
+    }
+
+    private String colorFor(String teamName) {
+        String normalized = teamName.toLowerCase(Locale.ROOT);
+        if (normalized.contains("red") || normalized.contains("cherv") || normalized.contains("черв")) return "\u00A7c";
+        if (normalized.contains("blue") || normalized.contains("syn") || normalized.contains("син")) return "\u00A79";
+        if (normalized.contains("green") || normalized.contains("zelen") || normalized.contains("зелен")) return "\u00A7a";
+        if (normalized.contains("yellow") || normalized.contains("zhov") || normalized.contains("жов")) return "\u00A7e";
+        return "\u00A7f";
+    }
+
+    private String shorten(String value, int maxChars) {
+        if (value.length() <= maxChars) return value;
+        return value.substring(0, Math.max(1, maxChars - 3)) + "...";
+    }
+
+    private int columns() {
+        return this.width >= 500 ? 2 : 1;
+    }
+
+    private int visibleRows(int startY) {
+        int available = Math.max(CARD_H, this.height - startY - 58);
+        return Math.max(1, available / (CARD_H + GAP));
+    }
+
+    private int maxScrollRows(int startY) {
+        int totalRows = (teamOptions.size() + columns() - 1) / columns();
+        return Math.max(0, totalRows - visibleRows(startY));
+    }
+
+    private void clampScroll() {
+        scrollRow = Mth.clamp(scrollRow, 0, maxScrollRows(76));
+    }
+
+    private void addLabel(int x, int y, int w, Component text) {
+        Button label = Button.builder(text, b -> {})
+            .bounds(x, y, w, 16)
+            .build();
+        label.active = false;
+        this.addRenderableWidget(label);
     }
 
     private void joinTeam(int spawnIndex) {
@@ -114,17 +181,39 @@ public class PvpTeamSelectScreen extends Screen {
     }
 
     @Override
+    protected void rebuildWidgets() {
+        this.clearWidgets();
+        this.init();
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        if (location.isBattleRoyale() || teamOptions.isEmpty()) {
+            return super.mouseScrolled(mouseX, mouseY, delta);
+        }
+        int max = maxScrollRows(76);
+        int next = scrollRow + (delta < 0 ? 1 : -1);
+        scrollRow = Mth.clamp(next, 0, max);
+        rebuildWidgets();
+        return true;
+    }
+
+    @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics);
         int titleColor = switch (location.getPvpMode()) {
-            case BATTLE_ROYALE -> 0xFF4444;
-            case DEATHMATCH    -> 0xFFAA00;
-            default            -> 0xFF5555;
+            case BATTLE_ROYALE -> 0xFF5555;
+            case DEATHMATCH -> 0xFFAA33;
+            default -> 0xFF66AAFF;
         };
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 14, titleColor);
         super.render(graphics, mouseX, mouseY, partialTick);
     }
 
     @Override
-    public boolean isPauseScreen() { return false; }
+    public boolean isPauseScreen() {
+        return false;
+    }
+
+    private record TeamOption(String teamName, int spawnIndex, PvpSpawnPoint spawn, String colorCode) {}
 }

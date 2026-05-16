@@ -30,19 +30,21 @@ public class ImportExportScreen extends Screen {
     private static final int LIST_PER_PAGE = 6;
 
     public ImportExportScreen(Screen parent) {
-        super(Component.literal("📤 Імпорт / Експорт локацій"));
+        super(Component.translatable("wavedefense.auto.імпорт_експорт_локацій_ca7d533a"));
         this.parent = parent;
     }
 
     /** Викликається після отримання відповіді сервера */
     public void setAvailableExports(List<String> names) {
         this.availableExports = names;
-        if (this.minecraft != null) this.minecraft.tell(this::rebuildWidgets);
+        if (this.minecraft != null)
+            this.minecraft.tell(() -> { if (this.minecraft.screen == this) rebuildWidgets(); });
     }
 
     public void setStatus(String msg) {
         this.statusMsg = msg;
-        if (this.minecraft != null) this.minecraft.tell(this::rebuildWidgets);
+        if (this.minecraft != null)
+            this.minecraft.tell(() -> { if (this.minecraft.screen == this) rebuildWidgets(); });
     }
 
     @Override
@@ -53,7 +55,7 @@ public class ImportExportScreen extends Screen {
 
         // ── СЕКЦІЯ ЕКСПОРТУ ─────────────────────────────────────────────
         this.addRenderableWidget(Button.builder(
-            Component.literal("§e§l── ЕКСПОРТ ──"), b -> {}
+            Component.translatable("wavedefense.auto.експорт_db6cfb09"), b -> {}
         ).bounds(cx - 160, y, 320, 12).build()).active = false;
         y += 16;
 
@@ -74,7 +76,7 @@ public class ImportExportScreen extends Screen {
         }
         if (allLocs.isEmpty()) {
             this.addRenderableWidget(Button.builder(
-                Component.literal("§8(немає локацій)"), b -> {}
+                Component.translatable("wavedefense.auto.немає_локацій_0684a624"), b -> {}
             ).bounds(lx, y, 200, 14).build()).active = false;
             y += 18;
         }
@@ -82,12 +84,12 @@ public class ImportExportScreen extends Screen {
 
         // ── СЕКЦІЯ ІМПОРТУ ─────────────────────────────────────────────
         this.addRenderableWidget(Button.builder(
-            Component.literal("§b§l── ІМПОРТ ──"), b -> {}
+            Component.translatable("wavedefense.auto.імпорт_1edc3386"), b -> {}
         ).bounds(cx - 160, y, 320, 12).build()).active = false;
         y += 16;
 
         this.addRenderableWidget(Button.builder(
-            Component.literal("§7Оновити список"), b -> {
+            Component.translatable("wavedefense.auto.оновити_список_0f28150f"), b -> {
                 PacketHandler.sendToServer(new ExportLocationPacket("__list__"));
                 statusMsg = "§7Завантажую список...";
                 rebuildWidgets();
@@ -112,7 +114,7 @@ public class ImportExportScreen extends Screen {
         }
         if (availableExports.isEmpty()) {
             this.addRenderableWidget(Button.builder(
-                Component.literal("§8(немає файлів — натисніть Оновити)"), b -> {}
+                Component.translatable("wavedefense.auto.немає_файлів_натисніть_оновити_77eada10"), b -> {}
             ).bounds(lx, y, 300, 14).build()).active = false;
             y += 18;
         }
@@ -126,7 +128,7 @@ public class ImportExportScreen extends Screen {
         }
 
         this.addRenderableWidget(Button.builder(
-            Component.literal("◀ Назад"), b -> this.minecraft.setScreen(parent)
+            Component.translatable("wavedefense.auto.назад_3fa51863"), b -> this.minecraft.setScreen(parent)
         ).bounds(cx - 50, this.height - 28, 100, 20).build());
     }
 
@@ -143,10 +145,10 @@ public class ImportExportScreen extends Screen {
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
         this.renderBackground(g);
-        g.drawCenteredString(this.font, "§e§l📤 Імпорт / Експорт локацій", this.width / 2, 10, 0xFFFFFF);
+        g.drawCenteredString(this.font, Component.translatable("wavedefense.import_export.title"), this.width / 2, 10, 0xFFFFFF);
         if (!statusMsg.isEmpty())
             g.drawCenteredString(this.font, statusMsg, this.width / 2, this.height - 44, 0xFFFFFF);
-        g.drawString(this.font, "§8Файли зберігаються: <world>/wavedefense/export/",
+        g.drawString(this.font, Component.translatable("wavedefense.import_export.path_hint"),
             this.width / 2 - 160, this.height - 12, 0x888888);
 
         // Scissor: прокручуваний контент між заголовком (24) і нижніми елементами (height-52)

@@ -47,7 +47,7 @@ public class WaveImportScreen extends Screen {
 
         if (files.isEmpty()) {
             this.addRenderableWidget(Button.builder(
-                Component.literal("§7(Файли не знайдено у wave_export/)"),
+                Component.translatable("wavedefense.auto.файли_не_знайдено_у_wave_export_4006e193"),
                 b -> {}
             ).bounds(cx - 130, listStartY, 260, BTN_H).build()).active = false;
         } else {
@@ -75,7 +75,7 @@ public class WaveImportScreen extends Screen {
         }
 
         this.addRenderableWidget(Button.builder(
-            Component.literal("Скасувати"),
+            Component.translatable("wavedefense.auto.скасувати_8b4c2025"),
             b -> { ClientWaveExportManager.clearOnUpdate(); minecraft.setScreen(parent); }
         ).bounds(cx - 55, this.height - 28, 110, BTN_H).build());
 

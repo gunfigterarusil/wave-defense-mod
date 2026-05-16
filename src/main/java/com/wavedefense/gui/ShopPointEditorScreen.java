@@ -32,7 +32,7 @@ public class ShopPointEditorScreen extends Screen {
 
     private EditBox nameInput;
     private EditBox radiusInput;
-    private EditBox posXInput, posYInput, posZInput;
+    private CoordinateInputField posCoordField;
 
     private int scrollOffset = 0;
     private static final int ROW_H = 58;
@@ -41,7 +41,7 @@ public class ShopPointEditorScreen extends Screen {
     private int listBotY   = 0;   // оновлюється в init()
 
     public ShopPointEditorScreen(Location location, int pointIndex, Screen parent) {
-        super(Component.literal(pointIndex >= 0 ? "Редагування точки магазину" : "Нова точка магазину"));
+        super(pointIndex >= 0 ? Component.translatable("wavedefense.title.edit_shop_point") : Component.translatable("wavedefense.title.new_shop_point"));
         this.location   = location;
         this.pointIndex = pointIndex;
         this.parent     = parent;
@@ -64,9 +64,9 @@ public class ShopPointEditorScreen extends Screen {
         // ── Назва ──────────────────────────────────────────────────
         int y = 28;
         this.addRenderableWidget(Button.builder(
-            Component.literal("§7Назва:"), b -> {}
+            Component.translatable("wavedefense.auto.назва_c3a01b80"), b -> {}
         ).bounds(cx - 160, y, 50, 14).build()).active = false;
-        nameInput = new EditBox(this.font, cx - 106, y, 220, 14, Component.literal("Назва"));
+        nameInput = new EditBox(this.font, cx - 106, y, 220, 14, Component.translatable("wavedefense.auto.назва_382c87f9"));
         nameInput.setMaxLength(32);
         nameInput.setValue(editingPoint.getName());
         nameInput.setResponder(s -> editingPoint.setName(s.isBlank() ? "Магазин" : s));
@@ -75,34 +75,26 @@ public class ShopPointEditorScreen extends Screen {
         // ── Позиція ─────────────────────────────────────────────────
         y += 18;
         this.addRenderableWidget(Button.builder(
-            Component.literal("§7📍 Позиція точки:"), b -> {}
+            Component.translatable("wavedefense.auto.позиція_точки_9c5a6640"), b -> {}
         ).bounds(cx - 160, y, 118, 14).build()).active = false;
         this.addRenderableWidget(Button.builder(
-            Component.literal("📌 Моя позиція"), b -> setCurrentPos()
+            Component.translatable("wavedefense.button.my_position"), b -> setCurrentPos()
         ).bounds(cx - 38, y, 100, 14).build());
         this.addRenderableWidget(Button.builder(
             Component.literal("§a✓"), b -> applyPosCoords()
         ).bounds(cx + 66, y, 22, 14).build())
-        .setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("Застосувати координати")));
+        .setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("wavedefense.auto.застосувати_координати_e1ba0f17")));
 
         y += 16;
-        BlockPos p = editingPoint.getPos();
-        this.addRenderableWidget(Button.builder(Component.literal("§7X:"), b->{}).bounds(cx-160,y,14,14).build()).active=false;
-        posXInput = new EditBox(this.font, cx-144, y, 48, 14, Component.literal("X"));
-        posXInput.setValue(p!=null?String.valueOf(p.getX()):""); posXInput.setMaxLength(8); this.addRenderableWidget(posXInput);
-
-        this.addRenderableWidget(Button.builder(Component.literal("§7Y:"), b->{}).bounds(cx-92,y,14,14).build()).active=false;
-        posYInput = new EditBox(this.font, cx-76, y, 48, 14, Component.literal("Y"));
-        posYInput.setValue(p!=null?String.valueOf(p.getY()):""); posYInput.setMaxLength(8); this.addRenderableWidget(posYInput);
-
-        this.addRenderableWidget(Button.builder(Component.literal("§7Z:"), b->{}).bounds(cx-24,y,14,14).build()).active=false;
-        posZInput = new EditBox(this.font, cx-8, y, 48, 14, Component.literal("Z"));
-        posZInput.setValue(p!=null?String.valueOf(p.getZ()):""); posZInput.setMaxLength(8); this.addRenderableWidget(posZInput);
+        // startX=cx-160, labelW=14, fieldW=48, height=14, stride=68
+        posCoordField = new CoordinateInputField(this.font, cx - 160, y, 14, 48, 14, 68);
+        posCoordField.setValue(editingPoint.getPos());
+        posCoordField.addToScreen(this::addRenderableWidget);
 
         // ── Радіус ─────────────────────────────────────────────────
         y += 18;
         this.addRenderableWidget(Button.builder(
-            Component.literal("§7Радіус доступу (1-64 бл):"), b -> {}
+            Component.translatable("wavedefense.auto.радіус_доступу_1_64_бл_228e2d0c"), b -> {}
         ).bounds(cx - 160, y, 168, 14).build()).active = false;
         radiusInput = new EditBox(this.font, cx + 12, y, 48, 14, Component.literal("5"));
         radiusInput.setValue(String.valueOf(editingPoint.getRadius()));
@@ -123,10 +115,10 @@ public class ShopPointEditorScreen extends Screen {
         // ── Товари точки ────────────────────────────────────────────
         y += 16;
         this.addRenderableWidget(Button.builder(
-            Component.literal("§6§l── Товари цієї точки ──"), b -> {}
+            Component.translatable("wavedefense.auto.товари_цієї_точки_9270f86c"), b -> {}
         ).bounds(cx - 160, y, 180, 14).build()).active = false;
         this.addRenderableWidget(Button.builder(
-            Component.literal("§e➕ Додати товар"),
+            Component.translatable("wavedefense.button.add_shop_item"),
             b -> minecraft.setScreen(new ShopItemEditorScreen(location, editingPoint, -1, this))
         ).bounds(cx + 24, y, 120, 14).build());
 
@@ -169,7 +161,7 @@ public class ShopPointEditorScreen extends Screen {
             ).bounds(cx - 160, yy + 2, 220, 14).build()).active = false;
 
             this.addRenderableWidget(Button.builder(
-                Component.literal(String.format("§6Купити: %d  §aПродати: %d", si.getBuyPrice(), si.getSellPrice())), b -> {}
+                Component.translatable("wavedefense.auto.купити_d_продати_d_05ac8a91", si.getBuyPrice(), si.getSellPrice()), b -> {}
             ).bounds(cx - 160, yy + 18, 220, 12).build()).active = false;
 
             final int fi = idx;
@@ -178,7 +170,7 @@ public class ShopPointEditorScreen extends Screen {
                 b -> minecraft.setScreen(new ShopItemEditorScreen(location, editingPoint, fi, this))
             ).bounds(cx + 68, yy, 32, 20).build());
             this.addRenderableWidget(Button.builder(
-                Component.literal("§c✕"),
+                Component.translatable("wavedefense.button.delete"),
                 b -> { editingPoint.removeItem(fi); scrollOffset = Math.min(scrollOffset, Math.max(0, editingPoint.getItems().size() - itemsPerPage)); rebuildWidgets(); }
             ).bounds(cx + 104, yy, 32, 20).build());
 
@@ -191,16 +183,16 @@ public class ShopPointEditorScreen extends Screen {
         // Підказка якщо список порожній
         if (items.isEmpty()) {
             this.addRenderableWidget(Button.builder(
-                Component.literal("§7(Товарів немає — натисніть «Додати товар»)"), b -> {}
+                Component.translatable("wavedefense.auto.товарів_немає_натисніть_додати_т_1516fbe1"), b -> {}
             ).bounds(cx - 160, listTop + 4, 320, 14).build()).active = false;
         }
 
         // ── Нижні кнопки ────────────────────────────────────────────
         this.addRenderableWidget(Button.builder(
-            Component.literal("§a✓ Зберегти"), b -> save()
+            Component.translatable("wavedefense.button.save"), b -> save()
         ).bounds(cx - 130, this.height - 28, 120, 20).build());
         this.addRenderableWidget(Button.builder(
-            Component.literal("Скасувати"), b -> minecraft.setScreen(parent)
+            Component.translatable("wavedefense.button.cancel"), b -> minecraft.setScreen(parent)
         ).bounds(cx - 5, this.height - 28, 120, 20).build());
     }
 
@@ -212,22 +204,21 @@ public class ShopPointEditorScreen extends Screen {
     }
 
     private void applyPosCoords() {
-        try {
-            int x = Integer.parseInt(posXInput.getValue().trim());
-            int y = Integer.parseInt(posYInput.getValue().trim());
-            int z = Integer.parseInt(posZInput.getValue().trim());
-            editingPoint.setPos(new BlockPos(x, y, z));
+        if (posCoordField == null) return;
+        BlockPos pos = posCoordField.getValue();
+        if (pos != null) {
+            editingPoint.setPos(pos);
             rebuildWidgets();
-        } catch (NumberFormatException e) {
-            if (minecraft.player != null)
-                minecraft.player.displayClientMessage(Component.literal("§cНевірний формат координат!"), true);
+        } else if (!posCoordField.isEmpty() && minecraft.player != null) {
+            minecraft.player.displayClientMessage(Component.translatable("wavedefense.auto.невірний_формат_координат_607bcb51"), true);
         }
     }
 
     private void save() {
+        applyPosCoords(); // apply coord fields even if user didn't click "✓"
         if (editingPoint.getPos() == null) {
             if (minecraft.player != null)
-                minecraft.player.displayClientMessage(Component.literal("§c⚠ Спочатку вкажіть позицію!"), true);
+                minecraft.player.displayClientMessage(Component.translatable("wavedefense.auto.спочатку_вкажіть_позицію_f2c05d75"), true);
             return;
         }
         // Застосовуємо поля перед збереженням

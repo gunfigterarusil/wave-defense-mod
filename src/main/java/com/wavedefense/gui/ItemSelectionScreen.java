@@ -47,7 +47,7 @@ public class ItemSelectionScreen extends Screen {
     private List<ItemStack> filteredStacks;
 
     public ItemSelectionScreen(Screen parent, Consumer<ItemStack> onSelect, ItemStack currentItem) {
-        super(Component.literal("Вибір предмета"));
+        super(Component.translatable("wavedefense.title.item_selection"));
         this.parent      = parent;
         this.onSelect    = onSelect;
         this.currentItem = currentItem == null ? ItemStack.EMPTY : currentItem;
@@ -187,7 +187,7 @@ public class ItemSelectionScreen extends Screen {
         int cx = this.width / 2;
 
         // Пошук
-        searchBox = new EditBox(this.font, cx - 80, 24, 200, 16, Component.literal("Пошук..."));
+        searchBox = new EditBox(this.font, cx - 80, 24, 200, 16, Component.translatable("wavedefense.label.search"));
         searchBox.setMaxLength(64);
         searchBox.setValue(searchQuery);
         searchBox.setResponder(s -> {
@@ -216,7 +216,7 @@ public class ItemSelectionScreen extends Screen {
 
         // Закрити
         this.addRenderableWidget(Button.builder(
-                Component.literal("✕ Закрити"),
+                Component.translatable("wavedefense.button.close"),
                 b -> this.minecraft.setScreen(parent)
         ).bounds(this.width - 72, 24, 68, 16).build());
     }
@@ -303,7 +303,7 @@ public class ItemSelectionScreen extends Screen {
         this.renderBackground(g);
         previewAngle = (previewAngle + 0.5f) % 360f;
 
-        g.drawCenteredString(this.font, "§6Вибір предмета", this.width / 2, 8, 0xFFFFFF);
+        g.drawCenteredString(this.font, this.title, this.width / 2, 8, 0xFFFFFF);
 
         int gridX = PREVIEW_W + 8;
         int gridY = 64;

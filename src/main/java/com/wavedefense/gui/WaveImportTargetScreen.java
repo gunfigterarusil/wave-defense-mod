@@ -44,11 +44,11 @@ public class WaveImportTargetScreen extends Screen {
 
         // ── Замінити всі хвилі ────────────────────────────────────────
         this.addRenderableWidget(Button.builder(
-            Component.literal("§c♻ Замінити всі хвилі"),
+            Component.translatable("wavedefense.auto.замінити_всі_хвилі_132cdde4"),
             b -> sendImport("replace_all")
         ).bounds(cx - 130, y, 260, BTN_H).build())
         .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-            Component.literal("§7Видалити поточні хвилі і вставити з файлу")));
+            Component.translatable("wavedefense.auto.видалити_поточні_хвилі_і_вставит_58c1357b")));
 
         y += BTN_H + GAP + 4;
 
@@ -80,13 +80,13 @@ public class WaveImportTargetScreen extends Screen {
 
             // Замінити цю хвилю
             this.addRenderableWidget(Button.builder(
-                Component.literal("§e♻ Замінити: " + info),
+                Component.translatable("wavedefense.auto.замінити_value_908f6b74", info),
                 b -> sendImport("replace:" + finalIdx)
             ).bounds(cx - 130, listStartY + i * ((BTN_H + GAP) * 2 + 4), 260, BTN_H).build());
 
             // Вставити після цієї хвилі
             this.addRenderableWidget(Button.builder(
-                Component.literal("§b➕ Після: " + info),
+                Component.translatable("wavedefense.auto.після_value_e155ba08", info),
                 b -> sendImport("insert_after:" + finalIdx)
             ).bounds(cx - 130, listStartY + i * ((BTN_H + GAP) * 2 + 4) + BTN_H + GAP, 260, BTN_H).build());
         }
@@ -105,7 +105,7 @@ public class WaveImportTargetScreen extends Screen {
 
         // ── Скасувати ─────────────────────────────────────────────────
         this.addRenderableWidget(Button.builder(
-            Component.literal("◀ Назад"),
+            Component.translatable("wavedefense.auto.назад_3fa51863"),
             b -> minecraft.setScreen(parent)
         ).bounds(cx - 55, this.height - 28, 110, BTN_H).build());
     }
@@ -114,7 +114,7 @@ public class WaveImportTargetScreen extends Screen {
         PacketHandler.sendToServer(new ImportWavePacket(fileName, location.getName(), insertMode));
         if (minecraft.player != null)
             minecraft.player.displayClientMessage(
-                Component.literal("§b⬇ Імпортую хвилі з §7" + fileName + "§b..."), true);
+                Component.translatable("wavedefense.auto.імпортую_хвилі_з_value_fc238cb7", fileName + "§b..."), true);
         // Повертаємось до WaveConfigScreen (пропускаємо WaveImportScreen)
         Screen target = (parent instanceof WaveImportScreen imp) ? imp.parent : parent;
         ClientWaveExportManager.clearOnUpdate();
@@ -136,12 +136,12 @@ public class WaveImportTargetScreen extends Screen {
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(g);
         g.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
-        g.drawCenteredString(this.font, "§7Оберіть спосіб вставки хвиль:", this.width / 2, 22, 0xAAAAAA);
+        g.drawCenteredString(this.font, Component.translatable("wavedefense.wave.import_insert_mode"), this.width / 2, 22, 0xAAAAAA);
 
         // Роздільник між загальними і порядковими
         int divY = 46 + BTN_H + GAP + 4 + BTN_H + GAP + 2;
         g.fill(this.width / 2 - 130, divY + 8, this.width / 2 + 130, divY + 9, 0x44FFFFFF);
-        g.drawCenteredString(this.font, "§7── або вставити відносно хвилі ──", this.width / 2, divY, 0x666666);
+        g.drawCenteredString(this.font, Component.translatable("wavedefense.wave.import_or_relative"), this.width / 2, divY, 0x666666);
 
         super.render(g, mouseX, mouseY, partialTick);
     }
