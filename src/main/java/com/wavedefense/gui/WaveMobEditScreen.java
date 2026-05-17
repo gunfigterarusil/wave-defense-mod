@@ -81,28 +81,28 @@ public class WaveMobEditScreen extends Screen {
         ).bounds(cx - 150, startY - 20, 300, 18).build()).active = false;
 
         // Кількість мобів
-        addLabeledField(cx, startY, "§7Кількість мобів у хвилі:", "count");
+        addLabeledField(cx, startY, net.minecraft.client.resources.language.I18n.get("wavedefense.label.mob_count_wave"), "count");
         countInput = new EditBox(this.font, cx + 45, startY, 80, 20, Component.translatable("wavedefense.auto.кількість_df256936"));
         countInput.setValue(String.valueOf(editMob.getCount()));
         this.addRenderableWidget(countInput);
         startY += 26;
 
         // Приріст
-        addLabeledField(cx, startY, "§7Приріст кількості за хвилю:", "growth");
+        addLabeledField(cx, startY, net.minecraft.client.resources.language.I18n.get("wavedefense.label.mob_growth_per_wave"), "growth");
         growthPerWaveInput = new EditBox(this.font, cx + 45, startY, 80, 20, Component.translatable("wavedefense.auto.приріст_5779238f"));
         growthPerWaveInput.setValue(String.valueOf(editMob.getGrowthPerWave()));
         this.addRenderableWidget(growthPerWaveInput);
         startY += 26;
 
         // Шанс появи
-        addLabeledField(cx, startY, "§7Шанс появи (1-100%):", "chance");
+        addLabeledField(cx, startY, net.minecraft.client.resources.language.I18n.get("wavedefense.label.mob_spawn_chance"), "chance");
         spawnChanceInput = new EditBox(this.font, cx + 45, startY, 80, 20, Component.translatable("wavedefense.auto.шанс_7ce3c7bb"));
         spawnChanceInput.setValue(String.valueOf(editMob.getSpawnChance()));
         this.addRenderableWidget(spawnChanceInput);
         startY += 26;
 
         // Поінти за вбивство
-        addLabeledField(cx, startY, "§7Поінтів за вбивство:", "points");
+        addLabeledField(cx, startY, net.minecraft.client.resources.language.I18n.get("wavedefense.label.mob_points_per_kill"), "points");
         pointsPerKillInput = new EditBox(this.font, cx + 45, startY, 80, 20, Component.translatable("wavedefense.auto.поінти_66d72273"));
         pointsPerKillInput.setValue(String.valueOf(editMob.getPointsPerKill()));
         this.addRenderableWidget(pointsPerKillInput);
@@ -114,7 +114,12 @@ public class WaveMobEditScreen extends Screen {
         ).bounds(cx - 150, startY, 300, 12).build()).active = false;
         startY += 14;
 
-        String[] armorLabels = {"Шолом", "Нагруд.", "Поноги", "Чоботи"};
+        String[] armorLabels = {
+            net.minecraft.client.resources.language.I18n.get("wavedefense.label.armor_slot.helmet"),
+            net.minecraft.client.resources.language.I18n.get("wavedefense.label.armor_slot.chest"),
+            net.minecraft.client.resources.language.I18n.get("wavedefense.label.armor_slot.legs"),
+            net.minecraft.client.resources.language.I18n.get("wavedefense.label.armor_slot.boots")
+        };
         ItemStack[] armorSlots = {editMob.getHelmet(), editMob.getChestplate(), editMob.getLeggings(), editMob.getBoots()};
         int armorW = 70, armorGap = 4;
         int totalArmorW = 4 * armorW + 3 * armorGap;
@@ -175,8 +180,9 @@ public class WaveMobEditScreen extends Screen {
         {
             final ItemStack curMain = editMob.getMainHand();
             String mainNm = curMain.isEmpty() ? "" : curMain.getHoverName().getString();
-            String mainLabel = curMain.isEmpty() ? "§8Осн. рука [—]"
-                : "§6§l▶ §r§aОсн: " + (mainNm.length() > 9 ? mainNm.substring(0, 8) + "…" : mainNm);
+            String mainLabel = curMain.isEmpty()
+                ? net.minecraft.client.resources.language.I18n.get("wavedefense.label.mainhand_empty")
+                : "§6§l▶ §r§a" + (mainNm.length() > 9 ? mainNm.substring(0, 8) + "…" : mainNm);
             this.addRenderableWidget(Button.builder(
                     Component.literal(mainLabel),
                     b -> minecraft.setScreen(new ItemSelectionScreen(this, stack -> {
@@ -193,8 +199,9 @@ public class WaveMobEditScreen extends Screen {
         {
             final ItemStack curOff = editMob.getOffHand();
             String offNm = curOff.isEmpty() ? "" : curOff.getHoverName().getString();
-            String offLabel = curOff.isEmpty() ? "§8Ліва рука [—]"
-                : "§6§l▶ §r§aЛіва: " + (offNm.length() > 9 ? offNm.substring(0, 8) + "…" : offNm);
+            String offLabel = curOff.isEmpty()
+                ? net.minecraft.client.resources.language.I18n.get("wavedefense.label.offhand_empty")
+                : "§6§l▶ §r§a" + (offNm.length() > 9 ? offNm.substring(0, 8) + "…" : offNm);
             this.addRenderableWidget(Button.builder(
                     Component.literal(offLabel),
                     b -> minecraft.setScreen(new ItemSelectionScreen(this, stack -> {

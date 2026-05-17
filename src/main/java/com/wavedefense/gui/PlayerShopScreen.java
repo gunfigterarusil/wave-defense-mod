@@ -234,10 +234,19 @@ public class PlayerShopScreen extends ScrollableScreen {
     }
 
     private void addSellButton(ShopItem shopItem, int realIndex, int x, int y, int w, int h) {
+        // Resolve shopPointIndex so SellItemPacket mirrors PurchaseItemPacket behaviour
+        int spIdx = -1;
+        if (shopPoint != null) {
+            java.util.List<com.wavedefense.data.ShopPoint> pts = location.getShopPoints();
+            for (int si = 0; si < pts.size(); si++) {
+                if (pts.get(si) == shopPoint) { spIdx = si; break; }
+            }
+        }
+        final int resolvedSpIdx = spIdx;
         Button sellBtn = Button.builder(
                 Component.translatable("wavedefense.shop.sell_price", shopItem.getSellPrice()),
                 b -> {
-                    PacketHandler.sendToServer(new SellItemPacket(location.getName(), realIndex));
+                    PacketHandler.sendToServer(new SellItemPacket(location.getName(), resolvedSpIdx, realIndex));
                     updatePlayerPoints();
                     rebuildFilter();
                     rebuildWidgets();

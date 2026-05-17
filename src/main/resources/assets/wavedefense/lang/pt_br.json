@@ -125,6 +125,7 @@
   "wavedefense.hud.mobs_left": "Mobs restantes: %d",
   "wavedefense.hud.points": "Pontos: %d",
   "wavedefense.hud.next_wave_timer": "Próxima onda: %s",
+  "wavedefense.hud.wave_counter": "Onda %s / %s",
   "wavedefense.hud.drag_hint": "§8Arraste o bloco ou selecione um preset",
   "wavedefense.hud.drag_label": "§e✥ Arrastar",
   "wavedefense.hud.preview.location": "§7Local: §fExemplo",
@@ -765,5 +766,39 @@
   "wavedefense.pvp.actions_title": "?c?l? PvP ? ?r?f%s",
   "wavedefense.info.avg_wave_time": "Average time between waves: ?a%d:%02d",
   "wavedefense.info.inventory_kept": "?aKept",
-  "wavedefense.info.inventory_cleared": "?cCleared"
+  "wavedefense.info.inventory_cleared": "?cCleared",
+
+  "wavedefense.boundary.consequence.timer_surrender": "⏱ Temporizador → rendição",
+  "wavedefense.boundary.consequence.damage": "💀 Dano constante",
+  "wavedefense.boundary.consequence.teleport_back": "↩ Teleporte de volta",
+  "wavedefense.boundary.consequence.instant_surrender": "⚡ Rendição instantânea",
+
+  "wavedefense.wave.label": "?6Onda %s ?7(Mobs: %s | Tempo: ?e%ss?7)",
+  "wavedefense.wave.no_trigger": "?7⚡ Gatilho",
+  "wavedefense.wave.spawn_tooltip_active": "?aSpawn da onda: ?eX%s Y%s Z%s",
+  "wavedefense.wave.spawn_tooltip_hint": "?7Spawn personalizado para esta onda\n?8(padrão — pontos de spawn da localização)",
+  "wavedefense.wave.confirm_reduce": "?7Redução de ?e%s ?7para ?e%s",
+  "wavedefense.msg.wave_has_no_mobs": "?e⚠ A onda %s não tem mobs configurados!",
+
+  "wavedefense.label.mob_count_wave": "?7Quantidade de mobs por onda:",
+  "wavedefense.label.mob_growth_per_wave": "?7Crescimento por onda:",
+  "wavedefense.label.mob_spawn_chance": "?7Chance de aparição (1-100):",
+  "wavedefense.label.mob_points_per_kill": "?7Pontos por abate:",
+  "wavedefense.label.armor_slot.helmet": "Capacete",
+  "wavedefense.label.armor_slot.chest": "Peitoral",
+  "wavedefense.label.armor_slot.legs": "Calças",
+  "wavedefense.label.armor_slot.boots": "Botas",
+  "wavedefense.label.mainhand_empty": "?8Mão principal [—]",
+  "wavedefense.label.offhand_empty": "?8Mão secundária [—]",
+  "wavedefense.wave.mob_info": "?7Qtd.: ?f%s ?7| Cresc.: ?f%s ?7| Chance: ?f%s%% ?7| Pontos: ?f%s",
+
+  "wavedefense.label.global_items_count": "Itens globais: %s",
+  "wavedefense.label.shop_points_count": "Pontos de loja: %s",
+  "wavedefense.label.loot_points_count": "Pontos de saque: %s",
+  "wavedefense.label.loot_spawn_count": "?7%s pontos",
+  "wavedefense.label.loot_empty": "?7vazio",
+  "wavedefense.label.shop_point_pos_set": "?a✓ X:%s Y:%s Z:%s  ?7(raio ?e%s?7 bl.)",
+  "wavedefense.label.shop_point_pos_unset": "?c⚠ Posição não definida — clique em Minha posição",
+  "wavedefense.title.wave_rewards": "Configurações da onda %s",
+  "wavedefense.label.wave_effect_preview": "?7Efeito: ?b%s ?7nível ?e%s ?7(onda inteira)"
 }

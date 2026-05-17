@@ -125,6 +125,7 @@
   "wavedefense.hud.mobs_left": "Mobs übrig: %d",
   "wavedefense.hud.points": "Punkte: %d",
   "wavedefense.hud.next_wave_timer": "Nächste Welle: %s",
+  "wavedefense.hud.wave_counter": "Welle %s / %s",
   "wavedefense.hud.drag_hint": "§8Block ziehen oder Preset wählen",
   "wavedefense.hud.drag_label": "§e✥ Ziehen",
   "wavedefense.hud.preview.location": "§7Ort: §fBeispielort",
@@ -765,5 +766,39 @@
   "wavedefense.pvp.actions_title": "?c?l? PvP ? ?r?f%s",
   "wavedefense.info.avg_wave_time": "Average time between waves: ?a%d:%02d",
   "wavedefense.info.inventory_kept": "?aKept",
-  "wavedefense.info.inventory_cleared": "?cCleared"
+  "wavedefense.info.inventory_cleared": "?cCleared",
+
+  "wavedefense.boundary.consequence.timer_surrender": "⏱ Timer → Aufgabe",
+  "wavedefense.boundary.consequence.damage": "💀 Dauerschaden",
+  "wavedefense.boundary.consequence.teleport_back": "↩ Zurückteleportieren",
+  "wavedefense.boundary.consequence.instant_surrender": "⚡ Sofortige Aufgabe",
+
+  "wavedefense.wave.label": "?6Welle %s ?7(Gegner: %s | Zeit: ?e%ss?7)",
+  "wavedefense.wave.no_trigger": "?7⚡ Auslöser",
+  "wavedefense.wave.spawn_tooltip_active": "?aWellen-Spawn: ?eX%s Y%s Z%s",
+  "wavedefense.wave.spawn_tooltip_hint": "?7Benutzerdefinierter Spawn für diese Welle\n?8(Standard — Spawn-Punkte der Location)",
+  "wavedefense.wave.confirm_reduce": "?7Reduzierung von ?e%s ?7auf ?e%s",
+  "wavedefense.msg.wave_has_no_mobs": "?e⚠ Welle %s hat keine Gegner konfiguriert!",
+
+  "wavedefense.label.mob_count_wave": "?7Anzahl Gegner pro Welle:",
+  "wavedefense.label.mob_growth_per_wave": "?7Wachstum pro Welle:",
+  "wavedefense.label.mob_spawn_chance": "?7Spawn-Chance (1-100):",
+  "wavedefense.label.mob_points_per_kill": "?7Punkte pro Abschuss:",
+  "wavedefense.label.armor_slot.helmet": "Helm",
+  "wavedefense.label.armor_slot.chest": "Brust",
+  "wavedefense.label.armor_slot.legs": "Beine",
+  "wavedefense.label.armor_slot.boots": "Stiefel",
+  "wavedefense.label.mainhand_empty": "?8Haupthand [—]",
+  "wavedefense.label.offhand_empty": "?8Nebenhand [—]",
+  "wavedefense.wave.mob_info": "?7Anz.: ?f%s ?7| Wachs.: ?f%s ?7| Chance: ?f%s%% ?7| Punkte: ?f%s",
+
+  "wavedefense.label.global_items_count": "Globale Gegenstände: %s",
+  "wavedefense.label.shop_points_count": "Shop-Punkte: %s",
+  "wavedefense.label.loot_points_count": "Beute-Punkte: %s",
+  "wavedefense.label.loot_spawn_count": "?7%s Punkte",
+  "wavedefense.label.loot_empty": "?7leer",
+  "wavedefense.label.shop_point_pos_set": "?a✓ X:%s Y:%s Z:%s  ?7(Radius ?e%s?7 Bl.)",
+  "wavedefense.label.shop_point_pos_unset": "?c⚠ Position nicht gesetzt — klicke Meine Position",
+  "wavedefense.title.wave_rewards": "Einstellungen Welle %s",
+  "wavedefense.label.wave_effect_preview": "?7Effekt: ?b%s ?7Stufe ?e%s ?7(ganze Welle)"
 }

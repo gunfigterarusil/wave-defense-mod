@@ -191,6 +191,8 @@ public class SessionManager {
                     .anyMatch(d -> d.getCurrentLocation() != null
                                && d.getCurrentLocation().getName().equals(locName));
                 if (!anyLeft) {
+                    // Всі гравці вийшли — видаляємо spawned-мобів зі світу
+                    despawnSessionMobs(locName);
                     ctx.removeSession(locName);
                     wm.pvpMgr.clearLocation(locName);
                 } else {
@@ -375,8 +377,34 @@ public class SessionManager {
         }
 
         wm.removeInfoPanelEntities(locationName);
+        // Видаляємо spawned-мобів зі світу перед закриттям сесії
+        despawnSessionMobs(locationName);
         // removeSession disposes all per-location state (spawnedMobs, timers, portals, etc.)
         ctx.removeSession(locationName);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  Internal helpers
+    // ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Видаляє всіх живих spawned-мобів сесії зі світу.
+     * Викликається при завершенні сесії (перемога, здача, вихід останнього гравця),
+     * щоб моби не блукали сервером після закінчення гри.
+     */
+    private void despawnSessionMobs(String locationName) {
+        LocationSession sess = ctx.getSession(locationName);
+        if (sess == null || sess.spawnedMobs.isEmpty()) return;
+        if (WaveDefenseMod.getServer() == null) return;
+        net.minecraft.server.level.ServerLevel world =
+            WaveDefenseMod.getServer().getLevel(net.minecraft.world.level.Level.OVERWORLD);
+        if (world == null) return;
+        for (UUID uuid : sess.spawnedMobs) {
+            net.minecraft.world.entity.Entity e = world.getEntity(uuid);
+            if (e != null) e.discard();
+        }
+        WaveDefenseMod.LOGGER.info("[WaveDefense] Despawned {} mobs for ended session '{}'",
+            sess.spawnedMobs.size(), locationName);
     }
 
     // ─────────────────────────────────────────────────────────────────

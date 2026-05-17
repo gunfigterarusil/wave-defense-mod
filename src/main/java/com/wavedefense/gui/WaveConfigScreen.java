@@ -101,10 +101,10 @@ public class WaveConfigScreen extends ScrollableScreen {
                 WaveConfig wave = location.getWaves().get(waveIndex);
                 int yPos = listStartY + (i * rowH);
 
-                String waveLabel = String.format("§6Хвиля %d §7(Мобів: %d | Час: §e%d сек§7)",
-                        waveIndex + 1, wave.getMobs().size(), wave.getTimeBetweenWaves());
                 this.addRenderableWidget(Button.builder(
-                        Component.literal(waveLabel), button -> {}
+                        Component.translatable("wavedefense.wave.label",
+                                waveIndex + 1, wave.getMobs().size(), wave.getTimeBetweenWaves()),
+                        button -> {}
                 ).bounds(centerX - 150, yPos, 245, 18).build()).active = false;
 
                 final int finalWaveIndex = waveIndex;
@@ -130,7 +130,7 @@ public class WaveConfigScreen extends ScrollableScreen {
                 String fromSuffix = (hasTrigger && wave.getActivateFromWave() > 0) ? "§8≥" + wave.getActivateFromWave() : "";
                 String trigLbl = hasTrigger
                     ? "§d§l⚡§r §d" + trigShort + oneTimeSuffix + fromSuffix
-                    : "§7⚡ Тригер";
+                    : net.minecraft.client.resources.language.I18n.get("wavedefense.wave.no_trigger");
                 this.addRenderableWidget(Button.builder(
                         Component.literal(trigLbl),
                         button -> openWaveTrigger(finalWaveIndex)
@@ -142,9 +142,10 @@ public class WaveConfigScreen extends ScrollableScreen {
                         button -> openWaveSpawnEditor(finalWaveIndex)
                 ).bounds(centerX + 100, yPos + 22, 20, 20).build())
                 .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                    Component.literal(hasWSpawn
-                        ? "§aСпавн хвилі: §eX" + wave.getWaveSpawnPos().getX() + " Y" + wave.getWaveSpawnPos().getY() + " Z" + wave.getWaveSpawnPos().getZ()
-                        : "§7Особливий спавн мобів для цієї хвилі\n§8(за замовч. — точки спавну локації)")));
+                    hasWSpawn
+                        ? Component.translatable("wavedefense.wave.spawn_tooltip_active",
+                            wave.getWaveSpawnPos().getX(), wave.getWaveSpawnPos().getY(), wave.getWaveSpawnPos().getZ())
+                        : Component.translatable("wavedefense.wave.spawn_tooltip_hint")));
 
                 this.addRenderableWidget(Button.builder(
                         Component.translatable("wavedefense.auto.сек_79350eb0"), button -> {}
@@ -241,7 +242,7 @@ public class WaveConfigScreen extends ScrollableScreen {
                 Component.translatable("wavedefense.auto.попередження_907dd752"), button -> {}
         ).bounds(centerX - 150, dialogY, 300, 25).build()).active = false;
         this.addRenderableWidget(Button.builder(
-                Component.literal("§7Зменшення з §e" + location.getWaves().size() + " §7до §e" + pendingWaveCount), button -> {}
+                Component.translatable("wavedefense.wave.confirm_reduce", location.getWaves().size(), pendingWaveCount), button -> {}
         ).bounds(centerX - 150, dialogY + 30, 300, 20).build()).active = false;
         this.addRenderableWidget(Button.builder(
                 Component.translatable("wavedefense.auto.всі_налаштування_зайвих_хвиль_бу_dafdbfa3"), button -> {}

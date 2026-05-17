@@ -24,13 +24,19 @@ Already repaired in this workspace:
 - Added grouped dashboard-style PvE/PvP location tabs for waves, shop, loot, and shared settings.
 - Added player shop tile/grid mode while keeping the classic list mode.
 - Reworked PvP team selection into a scrollable team-card screen that preserves explicit team/spawn choice.
-- Verified with `compileJava` and `test` on Java 17.
+- Fixed all critical PvE data-loss bugs: `totalWaves` persistence, `victoryLingerTicks` countdown, dead-mob cleanup, `waveStartMobCount` inflation, `halfMobsTriggered` reset, and `PlayerBackup` restore completeness.
+- Fixed all runtime features that were stored but never applied: `waveEffect`, `pointsReward`, `completionCommand`, `firstWaveDelaySec`.
+- Fixed full PvP audit: `pvpPendingRespawn` clear, `dmTeamKills` clear, BR simultaneous death draw, BR environment death tracking, rebalance in BUY phase, double-point award on final round, premature `ENDED` state.
+- Fixed shop sell path: `SellItemPacket` now passes `shopPointIndex` so sells from per-point shops use the correct item list.
+- Fixed `PvpLocationEditorScreen` losing typed damage values on toggle rebuilds.
+- Fixed `PvpTeamSelectScreen` hiding duplicate-named spawn points — all spawns now appear with `(N)` suffix when names clash.
+- Fixed `StatsScreen` showing truncated UUIDs instead of player names.
+- Replaced all hardcoded Ukrainian strings across 6 GUI screens with `Component.translatable()` keys; 35 new keys in all 8 language files (en/uk/de/fr/es/pl/pt_br/zh_cn).
+- Verified code for correctness against Java 17 / Forge 1.20.1 API.
 
 Still planned:
 
-- Continue improving the remaining smaller admin screens into clearer grouped editors.
 - Clean generated notes, old summaries, corrupted files, and root-level prototype files.
-- Improve localization strings and fix mojibake text where needed.
 - Run full in-game testing for PvE waves and 2+ player PvP sessions.
 
 ---

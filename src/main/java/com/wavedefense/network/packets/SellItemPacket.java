@@ -13,22 +13,35 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
 
+/**
+ * Запит на продаж предмету в магазині.
+ * shopPointIndex = -1 → глобальний магазин локації.
+ * shopPointIndex >= 0 → товар у точці магазину з цим індексом.
+ */
 public class SellItemPacket {
     private final String locationName;
-    private final int itemIndex;
+    private final int    shopPointIndex; // -1 = global
+    private final int    itemIndex;
 
+    // Зворотна сумісність: старий конструктор (глобальний магазин)
     public SellItemPacket(String locationName, int itemIndex) {
-        this.locationName = locationName;
-        this.itemIndex = itemIndex;
+        this(locationName, -1, itemIndex);
+    }
+
+    public SellItemPacket(String locationName, int shopPointIndex, int itemIndex) {
+        this.locationName   = locationName;
+        this.shopPointIndex = shopPointIndex;
+        this.itemIndex      = itemIndex;
     }
 
     public static void encode(SellItemPacket packet, FriendlyByteBuf buf) {
         buf.writeUtf(packet.locationName);
+        buf.writeInt(packet.shopPointIndex);
         buf.writeInt(packet.itemIndex);
     }
 
     public static SellItemPacket decode(FriendlyByteBuf buf) {
-        return new SellItemPacket(buf.readUtf(), buf.readInt());
+        return new SellItemPacket(buf.readUtf(), buf.readInt(), buf.readInt());
     }
 
     public static void handle(SellItemPacket packet, Supplier<NetworkEvent.Context> ctx) {
@@ -38,9 +51,22 @@ public class SellItemPacket {
 
             Location location = WaveDefenseMod.locationManager.getLocation(packet.locationName);
             if (location == null) return;
-            if (packet.itemIndex < 0 || packet.itemIndex >= location.getShopItems().size()) return;
 
-            ShopItem shopItem = location.getShopItems().get(packet.itemIndex);
+            // Resolve source list: global shop or specific shop point
+            java.util.List<ShopItem> sourceList;
+            if (packet.shopPointIndex >= 0) {
+                java.util.List<com.wavedefense.data.ShopPoint> points = location.getShopPoints();
+                if (packet.shopPointIndex >= points.size()) return;
+                com.wavedefense.data.ShopPoint sp = points.get(packet.shopPointIndex);
+                if (sp == null) return;
+                sourceList = sp.getItems();
+            } else {
+                sourceList = location.getShopItems();
+            }
+            if (sourceList == null) return;
+            if (packet.itemIndex < 0 || packet.itemIndex >= sourceList.size()) return;
+
+            ShopItem shopItem = sourceList.get(packet.itemIndex);
             if (!shopItem.canSell()) return;
 
             // Підраховуємо скільки кожного ТИПУ предмета потрібно

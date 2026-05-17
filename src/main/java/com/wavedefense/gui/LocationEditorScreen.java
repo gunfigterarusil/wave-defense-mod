@@ -352,16 +352,10 @@ public class LocationEditorScreen extends Screen {
     }
 
     private void switchTab(int tab) {
-        // Зберігаємо поточні значення EditBox перед перемиканням вкладки
-        flushCurrentTabInputs();
+        // parseAllInputsToLocation() буде викликано автоматично з rebuildWidgets()
         this.currentTab = tab;
         this.basicScrollOffset = 0; // скидаємо скрол при зміні вкладки
         this.rebuildWidgets();
-    }
-
-    /** Записує поточні значення всіх EditBox у об'єкт location (щоб не губити при перебудові) */
-    private void flushCurrentTabInputs() {
-        parseAllInputsToLocation();
     }
 
     /**
@@ -444,6 +438,16 @@ public class LocationEditorScreen extends Screen {
             catch (NumberFormatException ignored) {}
         }
     }
+    /**
+     * Перед кожним перебудовуванням GUI зберігаємо поточні значення полів у location.
+     * Це запобігає тихій втраті даних при скролі або будь-якому rebuildWidgets() виклику.
+     */
+    @Override
+    public void rebuildWidgets() {
+        parseAllInputsToLocation();
+        super.rebuildWidgets();
+    }
+
     private void setPlayerSpawn() {
         if (minecraft.player != null) {
             net.minecraft.core.BlockPos pos = minecraft.player.blockPosition();
@@ -860,12 +864,19 @@ public class LocationEditorScreen extends Screen {
                 com.wavedefense.data.Location.BoundaryConsequence.TELEPORT_BACK,
                 com.wavedefense.data.Location.BoundaryConsequence.INSTANT_SURRENDER
             };
-            String[] conseqLabels = { "⏱ Таймер → здача", "💀 Постійна шкода", "↩ Телепорт назад", "⚡ Миттєва здача" };
+            String[] conseqKeys = {
+                "wavedefense.boundary.consequence.timer_surrender",
+                "wavedefense.boundary.consequence.damage",
+                "wavedefense.boundary.consequence.teleport_back",
+                "wavedefense.boundary.consequence.instant_surrender"
+            };
             for (int ci = 0; ci < conseqs.length; ci++) {
                 final com.wavedefense.data.Location.BoundaryConsequence cq = conseqs[ci];
                 boolean sel = location.getBoundaryConsequence() == cq;
+                String lbl = (sel ? "§a● " : "§7○ ")
+                    + net.minecraft.client.resources.language.I18n.get(conseqKeys[ci]);
                 this.addRenderableWidget(Button.builder(
-                    Component.literal(sel ? "§a● " + conseqLabels[ci] : "§7○ " + conseqLabels[ci]),
+                    Component.literal(lbl),
                     b -> { location.setBoundaryConsequence(cq); rebuildWidgets(); }
                 ).bounds(lx + (ci % 2) * (panelW / 2), y + (ci / 2) * 20, panelW / 2 - 2, 18).build());
             }

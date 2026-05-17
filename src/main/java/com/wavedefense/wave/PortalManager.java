@@ -229,6 +229,16 @@ public class PortalManager {
             s.portalPosition = null;
             s.portalPenaltyTimer = 0;
             s.portalPenaltyWaveIndex = 0;
+            // Видаляємо penalty-мобів зі світу (раніше вони залишались назавжди)
+            if (!s.portalPenaltyMobs.isEmpty() && WaveDefenseMod.getServer() != null) {
+                ServerLevel world = WaveDefenseMod.getServer().getLevel(Level.OVERWORLD);
+                if (world != null) {
+                    for (UUID uuid : s.portalPenaltyMobs) {
+                        net.minecraft.world.entity.Entity e = world.getEntity(uuid);
+                        if (e != null) e.discard();
+                    }
+                }
+            }
             s.portalPenaltyMobs.clear();
             s.portalGraceEndTime = 0L;
             s.portalEnteredCount = 0;
@@ -329,6 +339,7 @@ public class PortalManager {
     // ════════════════════════════════════════════════════════════════════
 
     private void spawnPortalParticles(Location loc, BlockPos pos) {
+        if (pos == null) return;
         ServerLevel world = (ServerLevel)
             WaveDefenseMod.getServer().getLevel(Level.OVERWORLD);
         if (world == null) return;

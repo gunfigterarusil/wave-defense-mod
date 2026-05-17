@@ -48,8 +48,9 @@ public class BoundaryManager {
             if (player == null) continue;
             if (player.isSpectator()) continue;
 
-            double dist = Math.sqrt(player.blockPosition().distSqr(center));
-            boolean outside = dist > loc.getLocationBoundaryRadius();
+            // Порівнюємо квадрати відстаней — уникаємо дорогого Math.sqrt()
+            int radius = loc.getLocationBoundaryRadius();
+            boolean outside = player.blockPosition().distSqr(center) > (double) radius * radius;
 
             if (outside) {
                 applyConsequence(wm, player, uid, loc, doSecond);

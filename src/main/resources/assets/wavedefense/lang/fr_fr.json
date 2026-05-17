@@ -125,6 +125,7 @@
   "wavedefense.hud.mobs_left": "Mobs restants : %d",
   "wavedefense.hud.points": "Points : %d",
   "wavedefense.hud.next_wave_timer": "Prochaine vague : %s",
+  "wavedefense.hud.wave_counter": "Vague %s / %s",
   "wavedefense.hud.drag_hint": "§8Faites glisser le bloc ou sélectionnez un préréglage",
   "wavedefense.hud.drag_label": "§e✥ Glisser",
   "wavedefense.hud.preview.location": "§7Lieu : §fExemple",
@@ -765,5 +766,39 @@
   "wavedefense.pvp.actions_title": "?c?l? PvP ? ?r?f%s",
   "wavedefense.info.avg_wave_time": "Average time between waves: ?a%d:%02d",
   "wavedefense.info.inventory_kept": "?aKept",
-  "wavedefense.info.inventory_cleared": "?cCleared"
+  "wavedefense.info.inventory_cleared": "?cCleared",
+
+  "wavedefense.boundary.consequence.timer_surrender": "⏱ Minuterie → abandon",
+  "wavedefense.boundary.consequence.damage": "💀 Dégâts constants",
+  "wavedefense.boundary.consequence.teleport_back": "↩ Téléportation retour",
+  "wavedefense.boundary.consequence.instant_surrender": "⚡ Abandon instantané",
+
+  "wavedefense.wave.label": "?6Vague %s ?7(Monstres : %s | Temps : ?e%ss?7)",
+  "wavedefense.wave.no_trigger": "?7⚡ Déclencheur",
+  "wavedefense.wave.spawn_tooltip_active": "?aApparition de vague : ?eX%s Y%s Z%s",
+  "wavedefense.wave.spawn_tooltip_hint": "?7Apparition personnalisée pour cette vague\n?8(défaut — points d'apparition de la location)",
+  "wavedefense.wave.confirm_reduce": "?7Réduction de ?e%s ?7à ?e%s",
+  "wavedefense.msg.wave_has_no_mobs": "?e⚠ La vague %s n'a aucun monstre configuré !",
+
+  "wavedefense.label.mob_count_wave": "?7Nombre de monstres par vague :",
+  "wavedefense.label.mob_growth_per_wave": "?7Croissance par vague :",
+  "wavedefense.label.mob_spawn_chance": "?7Chance d'apparition (1-100) :",
+  "wavedefense.label.mob_points_per_kill": "?7Points par élimination :",
+  "wavedefense.label.armor_slot.helmet": "Casque",
+  "wavedefense.label.armor_slot.chest": "Plastron",
+  "wavedefense.label.armor_slot.legs": "Jambières",
+  "wavedefense.label.armor_slot.boots": "Bottes",
+  "wavedefense.label.mainhand_empty": "?8Main principale [—]",
+  "wavedefense.label.offhand_empty": "?8Main secondaire [—]",
+  "wavedefense.wave.mob_info": "?7Qté : ?f%s ?7| Croiss. : ?f%s ?7| Chance : ?f%s%% ?7| Points : ?f%s",
+
+  "wavedefense.label.global_items_count": "Objets globaux : %s",
+  "wavedefense.label.shop_points_count": "Points de boutique : %s",
+  "wavedefense.label.loot_points_count": "Points de butin : %s",
+  "wavedefense.label.loot_spawn_count": "?7%s points",
+  "wavedefense.label.loot_empty": "?7vide",
+  "wavedefense.label.shop_point_pos_set": "?a✓ X:%s Y:%s Z:%s  ?7(rayon ?e%s?7 bl.)",
+  "wavedefense.label.shop_point_pos_unset": "?c⚠ Position non définie — cliquez Ma position",
+  "wavedefense.title.wave_rewards": "Paramètres de la vague %s",
+  "wavedefense.label.wave_effect_preview": "?7Effet : ?b%s ?7niveau ?e%s ?7(toute la vague)"
 }

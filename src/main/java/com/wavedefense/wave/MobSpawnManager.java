@@ -38,7 +38,9 @@ public class MobSpawnManager {
         List<ServerPlayer> players = ctx.getPlayersInLocation(locationName);
         if (players.isEmpty()) return false;
 
-        ServerLevel world = players.get(0).serverLevel();
+        if (WaveDefenseMod.getServer() == null) return false;
+        ServerLevel world = WaveDefenseMod.getServer().getLevel(net.minecraft.world.level.Level.OVERWORLD);
+        if (world == null) return false;
         LocationSession sess = ctx.getOrCreateSession(locationName, location);
         Set<UUID> spawnedMobs = sess.spawnedMobs;
 
@@ -137,6 +139,10 @@ public class MobSpawnManager {
 
     private Mob trySpawn(EntityType<?> entityType, ServerLevel world,
                           BlockPos pos, String locationName, WaveMob waveMob) {
+        if (!world.isLoaded(pos)) {
+            WaveDefenseMod.LOGGER.debug("[WaveDefense] Skipping spawn at {} — chunk not loaded", pos);
+            return null;
+        }
         try {
             Mob mob = (Mob) entityType.create(world);
             if (mob == null) return null;

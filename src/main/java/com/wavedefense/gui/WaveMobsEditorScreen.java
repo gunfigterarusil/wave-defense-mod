@@ -121,10 +121,10 @@ public class WaveMobsEditorScreen extends ListEditorScreen<WaveMob> {
                 button -> deleteMob(index)
         ).bounds(cx - 150 + nameWidth + 152, y, 30, 20).build());
 
-        String info = String.format("§7К-сть: §f%d §7| Приріст: §f%d §7| Шанс: §f%d%% §7| Поінти: §f%d",
-                mob.getCount(), mob.getGrowthPerWave(), mob.getSpawnChance(), mob.getPointsPerKill());
         this.addRenderableWidget(Button.builder(
-                Component.literal(info), button -> {}
+                Component.translatable("wavedefense.wave.mob_info",
+                        mob.getCount(), mob.getGrowthPerWave(), mob.getSpawnChance(), mob.getPointsPerKill()),
+                button -> {}
         ).bounds(cx - 150, y + 22, 320, 18).build()).active = false;
     }
 

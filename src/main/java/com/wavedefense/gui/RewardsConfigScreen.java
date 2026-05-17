@@ -26,7 +26,7 @@ public class RewardsConfigScreen extends Screen {
     private int suggestionIndex = 0;
 
     public RewardsConfigScreen(Screen parentScreen, WaveConfig waveConfig) {
-        super(Component.literal("Налаштування хвилі " + waveConfig.getWaveNumber()));
+        super(Component.translatable("wavedefense.title.wave_rewards", waveConfig.getWaveNumber()));
         this.parentScreen = parentScreen;
         this.waveConfig = waveConfig;
     }
@@ -169,9 +169,9 @@ public class RewardsConfigScreen extends Screen {
 
         // Показуємо поточний ефект якщо вибраний
         if (effectInput != null && !effectInput.getValue().isEmpty()) {
-            String preview = "§7Ефект: §b" + effectInput.getValue()
-                    + " §7рівень §e" + (waveConfig.getWaveEffectAmplifier() + 1)
-                    + " §7(весь час хвилі)";
+            String preview = net.minecraft.client.resources.language.I18n.get(
+                    "wavedefense.label.wave_effect_preview",
+                    effectInput.getValue(), waveConfig.getWaveEffectAmplifier() + 1);
             graphics.drawString(this.font, preview, this.width / 2 - 180, this.height - 48, 0xFFFFFF);
         }
 

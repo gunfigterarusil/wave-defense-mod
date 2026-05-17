@@ -45,7 +45,12 @@ public class StatsScreen extends Screen {
         y += 20;
 
         for (Map.Entry<UUID, PlayerStats> entry : stats.getPlayerStats().entrySet()) {
-            String playerName = entry.getKey().toString().substring(0, 8);
+            // Resolve display name from the multiplayer player list; fall back to UUID string
+            String playerName;
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            net.minecraft.client.multiplayer.PlayerInfo info = (mc.getConnection() != null)
+                ? mc.getConnection().getPlayerInfo(entry.getKey()) : null;
+            playerName = (info != null) ? info.getProfile().getName() : entry.getKey().toString();
             PlayerStats playerStats = entry.getValue();
             graphics.drawString(this.font, Component.translatable("wavedefense.stats.player", playerName), this.width / 2 - 50, y, 0xFFFFFF);
             y += 10;
@@ -57,4 +62,7 @@ public class StatsScreen extends Screen {
 
         super.render(graphics, mouseX, mouseY, partialTick);
     }
+
+    @Override
+    public boolean isPauseScreen() { return false; }
 }

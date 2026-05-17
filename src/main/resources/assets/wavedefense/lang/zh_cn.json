@@ -125,6 +125,7 @@
   "wavedefense.hud.mobs_left": "剩余怪物: %d",
   "wavedefense.hud.points": "积分: %d",
   "wavedefense.hud.next_wave_timer": "下一波次: %s",
+  "wavedefense.hud.wave_counter": "波次 %s / %s",
   "wavedefense.hud.drag_hint": "§8拖动方块或选择预设",
   "wavedefense.hud.drag_label": "§e✥ 拖动",
   "wavedefense.hud.preview.location": "§7地点: §f示例地点",
@@ -765,5 +766,39 @@
   "wavedefense.pvp.actions_title": "?c?l? PvP ? ?r?f%s",
   "wavedefense.info.avg_wave_time": "Average time between waves: ?a%d:%02d",
   "wavedefense.info.inventory_kept": "?aKept",
-  "wavedefense.info.inventory_cleared": "?cCleared"
+  "wavedefense.info.inventory_cleared": "?cCleared",
+
+  "wavedefense.boundary.consequence.timer_surrender": "⏱ 计时器→投降",
+  "wavedefense.boundary.consequence.damage": "💀 持续伤害",
+  "wavedefense.boundary.consequence.teleport_back": "↩ 传送回来",
+  "wavedefense.boundary.consequence.instant_surrender": "⚡ 立即投降",
+
+  "wavedefense.wave.label": "?6波次 %s ?7(怪物: %s | 时间: ?e%s秒?7)",
+  "wavedefense.wave.no_trigger": "?7⚡ 触发器",
+  "wavedefense.wave.spawn_tooltip_active": "?a波次刷怪点: ?eX%s Y%s Z%s",
+  "wavedefense.wave.spawn_tooltip_hint": "?7此波次的自定义刷怪点\n?8(默认 — 地点刷怪点)",
+  "wavedefense.wave.confirm_reduce": "?7从 ?e%s ?7减少到 ?e%s",
+  "wavedefense.msg.wave_has_no_mobs": "?e⚠ 波次 %s 没有配置怪物！",
+
+  "wavedefense.label.mob_count_wave": "?7每波怪物数量:",
+  "wavedefense.label.mob_growth_per_wave": "?7每波增长量:",
+  "wavedefense.label.mob_spawn_chance": "?7出现概率 (1-100):",
+  "wavedefense.label.mob_points_per_kill": "?7每次击杀积分:",
+  "wavedefense.label.armor_slot.helmet": "头盔",
+  "wavedefense.label.armor_slot.chest": "胸甲",
+  "wavedefense.label.armor_slot.legs": "护腿",
+  "wavedefense.label.armor_slot.boots": "靴子",
+  "wavedefense.label.mainhand_empty": "?8主手 [—]",
+  "wavedefense.label.offhand_empty": "?8副手 [—]",
+  "wavedefense.wave.mob_info": "?7数量: ?f%s ?7| 增长: ?f%s ?7| 概率: ?f%s%% ?7| 积分: ?f%s",
+
+  "wavedefense.label.global_items_count": "全局物品: %s",
+  "wavedefense.label.shop_points_count": "商店积分点: %s",
+  "wavedefense.label.loot_points_count": "战利品积分点: %s",
+  "wavedefense.label.loot_spawn_count": "?7%s 个点",
+  "wavedefense.label.loot_empty": "?7空",
+  "wavedefense.label.shop_point_pos_set": "?a✓ X:%s Y:%s Z:%s  ?7(半径 ?e%s?7 格)",
+  "wavedefense.label.shop_point_pos_unset": "?c⚠ 未设置位置 — 点击我的位置",
+  "wavedefense.title.wave_rewards": "第 %s 波设置",
+  "wavedefense.label.wave_effect_preview": "?7效果：?b%s ?7等级 ?e%s ?7（整波）"
 }

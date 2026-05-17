@@ -125,6 +125,7 @@
   "wavedefense.hud.mobs_left": "Мобів залишилось: %d",
   "wavedefense.hud.points": "Очки: %d",
   "wavedefense.hud.next_wave_timer": "Наступна хвиля: %s",
+  "wavedefense.hud.wave_counter": "Хвиля %s / %s",
   "wavedefense.hud.drag_hint": "§8Перетягніть блок мишею або оберіть пресет",
   "wavedefense.hud.drag_label": "§e✥ Перетягніть",
   "wavedefense.hud.preview.location": "§7Локація: §fНазва локації",
@@ -767,5 +768,39 @@
   "wavedefense.pvp.actions_title": "?c?l? PvP ? ?r?f%s",
   "wavedefense.info.avg_wave_time": "Average time between waves: ?a%d:%02d",
   "wavedefense.info.inventory_kept": "?aKept",
-  "wavedefense.info.inventory_cleared": "?cCleared"
+  "wavedefense.info.inventory_cleared": "?cCleared",
+
+  "wavedefense.boundary.consequence.timer_surrender": "⏱ Таймер → здача",
+  "wavedefense.boundary.consequence.damage": "💀 Постійна шкода",
+  "wavedefense.boundary.consequence.teleport_back": "↩ Телепорт назад",
+  "wavedefense.boundary.consequence.instant_surrender": "⚡ Миттєва здача",
+
+  "wavedefense.wave.label": "?6Хвиля %s ?7(Мобів: %s | Час: ?e%s с?7)",
+  "wavedefense.wave.no_trigger": "?7⚡ Тригер",
+  "wavedefense.wave.spawn_tooltip_active": "?aСпавн хвилі: ?eX%s Y%s Z%s",
+  "wavedefense.wave.spawn_tooltip_hint": "?7Особливий спавн мобів для цієї хвилі\n?8(за замовч. — точки спавну локації)",
+  "wavedefense.wave.confirm_reduce": "?7Зменшення з ?e%s ?7до ?e%s",
+  "wavedefense.msg.wave_has_no_mobs": "?e⚠ Хвиля %s не має налаштованих мобів!",
+
+  "wavedefense.label.mob_count_wave": "?7Кількість мобів у хвилі:",
+  "wavedefense.label.mob_growth_per_wave": "?7Приріст кількості за хвилю:",
+  "wavedefense.label.mob_spawn_chance": "?7Шанс появи (1-100):",
+  "wavedefense.label.mob_points_per_kill": "?7Поінти за вбивство:",
+  "wavedefense.label.armor_slot.helmet": "Шолом",
+  "wavedefense.label.armor_slot.chest": "Нагруд.",
+  "wavedefense.label.armor_slot.legs": "Поноги",
+  "wavedefense.label.armor_slot.boots": "Чоботи",
+  "wavedefense.label.mainhand_empty": "?8Осн. рука [—]",
+  "wavedefense.label.offhand_empty": "?8Ліва рука [—]",
+  "wavedefense.wave.mob_info": "?7К-сть: ?f%s ?7| Приріст: ?f%s ?7| Шанс: ?f%s%% ?7| Поінти: ?f%s",
+
+  "wavedefense.label.global_items_count": "Глобальних предметів: %s",
+  "wavedefense.label.shop_points_count": "Точок магазину: %s",
+  "wavedefense.label.loot_points_count": "Точок луту: %s",
+  "wavedefense.label.loot_spawn_count": "?7%s точок",
+  "wavedefense.label.loot_empty": "?7порожньо",
+  "wavedefense.label.shop_point_pos_set": "?a✓ X:%s Y:%s Z:%s  ?7(радіус ?e%s?7 бл)",
+  "wavedefense.label.shop_point_pos_unset": "?c⚠ Позиція не вказана — натисніть «Моя позиція»",
+  "wavedefense.title.wave_rewards": "Налаштування хвилі %s",
+  "wavedefense.label.wave_effect_preview": "?7Ефект: ?b%s ?7рівень ?e%s ?7(весь час хвилі)"
 }

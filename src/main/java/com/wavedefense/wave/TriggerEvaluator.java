@@ -403,10 +403,12 @@ public class TriggerEvaluator {
                 return false;
             }
             case PLAYER_FULL_INVENT: {
-                // Fires when ANY player has a completely full inventory (getFreeSlot() == -1 → no free slot).
-                // Consistent with PLAYER_LOW_HEALTH, PLAYER_HAS_DIAMOND, etc. (ANY-player semantics).
+                // Fires when ANY player has a completely full inventory.
+                // Checks main inventory (27 slots) AND offhand — both must be occupied.
                 for (ServerPlayer p : players) {
-                    if (p.getInventory().getFreeSlot() == -1) return true;
+                    boolean mainFull    = p.getInventory().getFreeSlot() == -1;
+                    boolean offhandFull = !p.getInventory().offhand.get(0).isEmpty();
+                    if (mainFull && offhandFull) return true;
                 }
                 return false;
             }

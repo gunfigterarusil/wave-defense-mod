@@ -22,6 +22,18 @@ public class PlayerHUD {
         int textWidth = mc.font.width(pointsText);
         g.drawString(mc.font, pointsText, width - textWidth - 10, height - 20, 0xFFFFFF);
 
+        // ── Лічильник хвиль (нижній правий, над таймером) ────────
+        com.wavedefense.data.Location currentLoc = data.getCurrentLocation();
+        if (currentLoc != null
+                && currentLoc.getMode() == com.wavedefense.data.LocationMode.PVE
+                && data.getCurrentWave() > 0) {
+            int totalWaves = currentLoc.getTotalWaves();
+            String waveText = I18n.get("wavedefense.hud.wave_counter",
+                    data.getCurrentWave(), totalWaves);
+            int ww = mc.font.width(waveText);
+            g.drawString(mc.font, waveText, width - ww - 10, height - 50, 0xFFE0A020);
+        }
+
         // ── Таймер (нижній правий, над поінтами) ──────────────────
         if (data.getVictoryCountdownSec() <= 0 && data.isTimerActive() && data.isShowTimer()) {
             String timerText = I18n.get("wavedefense.hud.next_wave_timer", data.getTimeUntilNextWave());

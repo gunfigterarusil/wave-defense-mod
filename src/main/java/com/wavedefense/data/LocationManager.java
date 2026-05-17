@@ -80,6 +80,9 @@ public class LocationManager {
         try {
             dataFile.getParentFile().mkdirs();
             NbtIo.writeCompressed(save(), dataFile);
+            // Зберігаємо .bak копію для відновлення при пошкодженні основного файлу
+            File bakFile = new File(dataFile.getAbsolutePath() + ".bak");
+            NbtIo.writeCompressed(save(), bakFile);
         } catch (IOException e) {
             WaveDefenseMod.LOGGER.error("Could not save location data", e);
         }
@@ -105,7 +108,29 @@ public class LocationManager {
             CompoundTag data = NbtIo.readCompressed(dataFile);
             loadFromTag(data);
         } catch (IOException e) {
-            WaveDefenseMod.LOGGER.error("Could not load location data", e);
+            WaveDefenseMod.LOGGER.error("[WaveDefense] Primary data file corrupt: {}", e.getMessage());
+            // Спробуємо відновити з .bak копії
+            File bakFile = new File(dataFile.getAbsolutePath() + ".bak");
+            if (bakFile.exists()) {
+                try {
+                    WaveDefenseMod.LOGGER.warn("[WaveDefense] Attempting to restore from backup file...");
+                    CompoundTag bakData = NbtIo.readCompressed(bakFile);
+                    loadFromTag(bakData);
+                    WaveDefenseMod.LOGGER.info("[WaveDefense] Successfully restored {} location(s) from backup.",
+                        locations.size());
+                } catch (IOException bakEx) {
+                    WaveDefenseMod.LOGGER.error("[WaveDefense] Backup file also corrupt: {}. Starting with empty location list.", bakEx.getMessage());
+                    // Перейменовуємо пошкоджений файл щоб не затирати нові дані
+                    File corruptFile = new File(dataFile.getAbsolutePath() + ".corrupted");
+                    //noinspection ResultOfMethodCallIgnored
+                    dataFile.renameTo(corruptFile);
+                }
+            } else {
+                WaveDefenseMod.LOGGER.error("[WaveDefense] No backup file found. Starting with empty location list.");
+                File corruptFile = new File(dataFile.getAbsolutePath() + ".corrupted");
+                //noinspection ResultOfMethodCallIgnored
+                dataFile.renameTo(corruptFile);
+            }
         }
     }
     /** Повертає поточну хвилю для вказаної локації (0 якщо неактивна). */

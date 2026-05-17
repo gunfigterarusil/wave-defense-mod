@@ -105,11 +105,12 @@ public class ShopPointEditorScreen extends Screen {
         // Статус позиції
         y += 18;
         BlockPos cur = editingPoint.getPos();
-        String posStatus = cur != null
-            ? String.format("§a✓ X:%d Y:%d Z:%d  §7(радіус §e%d§7 бл)", cur.getX(), cur.getY(), cur.getZ(), editingPoint.getRadius())
-            : "§c⚠ Позиція не вказана — натисніть «Моя позиція»";
+        net.minecraft.network.chat.Component posStatus = cur != null
+            ? Component.translatable("wavedefense.label.shop_point_pos_set",
+                cur.getX(), cur.getY(), cur.getZ(), editingPoint.getRadius())
+            : Component.translatable("wavedefense.label.shop_point_pos_unset");
         this.addRenderableWidget(Button.builder(
-            Component.literal(posStatus), b -> {}
+            posStatus, b -> {}
         ).bounds(cx - 160, y, 340, 12).build()).active = false;
 
         // ── Товари точки ────────────────────────────────────────────

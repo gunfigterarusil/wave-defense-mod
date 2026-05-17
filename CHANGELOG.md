@@ -1,5 +1,105 @@
 # Changelog
 
+## [0.2.43] - 2026-05-17 (third pass)
+
+### Fixed — third audit (server/client correctness, spawn dimension, null-safety)
+
+**`MobSpawnManager`: mob spawn dimension tied to player's current dimension** — `spawnWave()` used `players.get(0).serverLevel()` to obtain the world for mob spawning. If any player was in the Nether or End at the time, all wave mobs were spawned in that dimension, not in Overworld where the location resides. The UUIDs were tracked in `spawnedMobs` but `world.getEntity(uuid)` in Overworld returned `null`, so mobs were never counted as killed and the wave would eventually stall. Fixed by replacing the player-level lookup with `WaveDefenseMod.getServer().getLevel(Level.OVERWORLD)` and guarding against a `null` return.
+
+**`MobSpawnManager`: mob spawning in unloaded chunks stalled waves** — `trySpawn()` attempted `entityType.create(world)` and `world.addFreshEntity(mob)` without checking whether the target chunk was loaded. In an unloaded chunk the entity creation succeeded but the mob was never ticked, never died, and was never counted — effectively hanging the wave indefinitely. Fixed by adding `if (!world.isLoaded(pos)) return null;` at the top of `trySpawn()` before any entity allocation. A debug-level log line is emitted so admins can detect misconfigured spawn points.
+
+**`WaveDefenseCommand`: NPE on `/wavedefense reload` and `/wavedefense tp` before init** — Both command executors accessed `WaveDefenseMod.locationManager` directly without a null-check. Issuing either command before `ServerStartingEvent` fires (e.g., in a command block that executes on first tick) would throw a `NullPointerException` and print a server-side stacktrace with no feedback to the caller. Fixed by returning early with a `sendFailure("[WaveDefense] Not yet initialized.")` message if `locationManager == null`.
+
+**`WaveDefenseMod`: no explicit save on server shutdown** — Location data is written to disk on every change via `saveToFile()`, making data loss very unlikely. However, a hard crash or OS-level kill can skip the change-triggered write. Added a `ServerStoppingEvent` handler (`onServerStopping`) that calls `locationManager.saveToFile()` on clean shutdown, ensuring the final in-memory state is always flushed before the JVM exits.
+
+#### Server/client separation audit result
+
+All event handlers verified: Dist.CLIENT-only handlers are annotated with `@Mod.EventBusSubscriber(value = Dist.CLIENT)`, all S2C packet handlers use `DistExecutor.unsafeRunWhenOn(Dist.CLIENT, ...)`, all C2S handlers use `ctx.get().enqueueWork(...)`. No dedicated-server crashes or logical errors found.
+
+---
+
+## [0.2.43] - 2026-05-17 (second pass)
+
+### Fixed — second audit (GUI data-loss, runtime, UX, security)
+
+#### Critical — silent data loss in GUI
+
+**`ShopItemEditorScreen`: buy/sell prices lost on category switch** — `buyPriceInput` and `sellPriceInput` had no `setResponder()`. Clicking a category button called `rebuildWidgets()`, destroying both fields and resetting them to the original value from the shop item list. The user's typed price was silently discarded. Fixed by adding class-level `pendingBuyPrice`/`pendingSellPrice` buffers, initializing them once in `init()`, and attaching `setResponder()` to both fields. `save()` now reads from the buffers, which are always current regardless of how many rebuilds occurred.
+
+**`LocationEditorScreen`: all EditBox values lost on scroll** — None of the EditBox fields in this screen (starting points, boundary radius, portal timers, zone settings, info panel offsets — 13 fields total) used `setResponder()`. Scrolling called `rebuildWidgets()`, which re-read from `location` (not from the now-destroyed fields). Any value typed but not saved was silently dropped. Fixed by overriding `rebuildWidgets()` to call `parseAllInputsToLocation()` before `super.rebuildWidgets()`. This flushes all current field values to the model on every rebuild, so the fields are always re-populated correctly. The now-redundant explicit flush in `switchTab()` was removed.
+
+#### High — runtime bugs
+
+**`PortalManager`: penalty mobs remained in the world after portal closed** — `closePortalIfGraceExpired()` called `portalPenaltyMobs.clear()` (cleared the UUID set) but never called `entity.discard()` on the actual mob entities. Portal penalty mobs accumulated indefinitely on the server. Fixed by iterating the UUID set before clearing it and calling `world.getEntity(uuid).discard()` for each live entity. Also added a null guard to `spawnPortalParticles()` (`if (pos == null) return`).
+
+**`SessionManager`: spawned mobs remained in the world when all players left** — When the last player surrendered, `ctx.removeSession()` was called immediately. The `spawnedMobs` UUID set was disposed (in-memory), but the actual mob entities stayed alive in the world. Same issue existed in the `endSession()` path (victory / end-of-session). Fixed by adding a `despawnSessionMobs(locationName)` helper that iterates `session.spawnedMobs`, discards each live entity, and logs the count. Called in both paths before `ctx.removeSession()`.
+
+**`TriggerEvaluator`: `PLAYER_FULL_INVENT` did not check the offhand slot** — `getInventory().getFreeSlot() == -1` only covers the 27 main inventory slots. A player with a full main inventory but empty offhand would still trigger the condition. Fixed by also checking `!p.getInventory().offhand.get(0).isEmpty()` — both conditions must be true simultaneously.
+
+**`BoundaryManager`: `Math.sqrt()` called every tick per player** — The distance check used `Math.sqrt(player.blockPosition().distSqr(center)) > radius`, which is mathematically correct but performs an expensive square-root operation for every player on every tick. With 10+ players this is 200+ `sqrt()` calls per second. Fixed by comparing squared distances directly: `player.blockPosition().distSqr(center) > (double) radius * radius`. Identical result, zero trigonometric cost.
+
+#### Medium — UX and security
+
+**`ClientEventHandler`: admin menu opened for any creative-mode player** — The V-key handler checked `mc.player.isCreative()` to decide whether to open `AdminMenuScreen`. Any player in creative mode (including non-ops on creative servers) saw the admin GUI. Server-side packets were protected by `hasPermissions(2)`, but the client GUI itself opened unconditionally for creative players. Fixed by replacing `isCreative()` with `hasPermissions(2)`.
+
+**`StatsScreen` missing `isPauseScreen()` override** — `StatsScreen extends Screen` and did not override `isPauseScreen()`, so the default `true` was returned. In singleplayer, opening this screen paused the game, freezing wave timers. Fixed by adding `@Override public boolean isPauseScreen() { return false; }`. (All other GUI screens either extend `ScrollableScreen`, which already returns `false`, or had the override already in place.)
+
+**HUD missing wave counter** — The HUD showed points and a "Next wave" timer but no indication of how many waves remain. Players had no way to track progress without opening a menu. Added a `"Wave X / Y"` line rendered in amber (`0xFFE0A020`) at the bottom-right (above the next-wave timer), reading `data.getCurrentWave()` and `currentLoc.getTotalWaves()`. Only shown in PvE mode. New key `wavedefense.hud.wave_counter` added to all 8 language files.
+
+**`LocationManager`: no recovery when data file is corrupt** — If `wavedefense_locations.dat` was malformed, `NbtIo.readCompressed()` threw `IOException`, the catch block logged the error, and the server started with an empty location list (silently losing all data). Fixed in two parts: (1) `saveToFile()` now also writes a `.bak` copy after every successful save; (2) `load()` now attempts to restore from `.bak` on primary file failure, logs a detailed warning, and renames the corrupt file to `.corrupted` if neither source is readable — ensuring the server never silently starts with an empty list due to data corruption.
+
+#### New lang key
+
+`wavedefense.hud.wave_counter` — added to all 8 language files (en/uk/de/fr/es/pl/pt\_br/zh\_cn).
+
+---
+
+## [0.2.43] - 2026-05-17
+
+### Fixed — GUI audit (full pass, all 52 screens)
+
+#### High — broken shop sell path
+
+**`SellItemPacket` ignored `shopPointIndex`** — the packet only carried `locationName` and `itemIndex`. Selling an item from a per-point shop always read from `location.getShopItems()` (global), so the wrong price could be applied or the item not found at all. Fixed: `SellItemPacket` now encodes/decodes a third `shopPointIndex` integer (−1 = global). `PlayerShopScreen.addSellButton()` resolves the point index by reference scan of `location.getShopPoints()` before building the packet. The server handler mirrors `PurchaseItemPacket`: if `shopPointIndex >= 0` it reads from the correct `ShopPoint.getItems()` list.
+
+**`PvpLocationEditorScreen` lost typed values on toggle** — `brBorderDamageAmtInput` and `boundaryDamageInput` were recreated empty every time a toggle rebuilt the widget tree. Fixed by adding `setResponder()` to both EditBoxes so each keystroke immediately writes the value into `location`; `rebuildWidgets()` then correctly re-populates the field from `location` rather than a stale buffer.
+
+#### Medium — UX and display
+
+**`PvpTeamSelectScreen` hid duplicate-named spawn points** — `putIfAbsent(teamName, ...)` silently dropped every spawn point beyond the first when two points shared the same team name. Fixed by rewriting `buildTeamOptions()` to enumerate all `pvpSpawnPoints` in order. Points with a unique team name keep their display name as-is; points whose team name appears more than once get a `" (N)"` suffix. The translatable fallback key `wavedefense.pvp.team_select.team_fallback` is used for blank team names.
+
+**`StatsScreen` showed truncated UUIDs instead of player names** — `entry.getKey().toString().substring(0, 8)` produced strings like `"550e8400"`. Fixed by querying `minecraft.getConnection().getPlayerInfo(uuid)` first; the full UUID string is used only as a last resort when the player info is unavailable.
+
+#### Localization — replaced all hardcoded Ukrainian strings (full audit L1–L6)
+
+**`LocationEditorScreen` boundary consequence labels** (`L1`) — The `String[]` array of four hardcoded Ukrainian consequence display names replaced with `Component.translatable()` via `I18n.get()` at render time. Four new keys: `wavedefense.boundary.consequence.timer_surrender / damage / teleport_back / instant_surrender`.
+
+**`WaveConfigScreen` wave label and dialogs** (`L2`) — Five hardcoded Ukrainian format strings replaced: wave list row (`wavedefense.wave.label`), no-trigger indicator (`wavedefense.wave.no_trigger`), spawn tooltip active/hint (`wavedefense.wave.spawn_tooltip_active / spawn_tooltip_hint`), and wave-count reduction confirmation dialog (`wavedefense.wave.confirm_reduce`). Empty-wave validation warning added (`wavedefense.msg.wave_has_no_mobs`).
+
+**`WaveMobEditScreen` field labels and armor/hand slots** (`L3`) — Ten hardcoded Ukrainian labels replaced: `wavedefense.label.mob_count_wave`, `mob_growth_per_wave`, `mob_spawn_chance`, `mob_points_per_kill`, `armor_slot.helmet / chest / legs / boots`, `mainhand_empty`, `offhand_empty`.
+
+**`WaveMobsEditorScreen` mob info row** (`L4`) — `String.format("§7К-сть: …")` replaced with `Component.translatable("wavedefense.wave.mob_info", count, growth, chance, points)`.
+
+**`LootSpawnEditorScreen` and `ShopPointEditorScreen` count/status labels** (`L5`) — `"X точок"` → `wavedefense.label.loot_spawn_count`; `"порожньо"` → `wavedefense.label.loot_empty`; shop point position status → `wavedefense.label.shop_point_pos_set / shop_point_pos_unset`.
+
+**`RewardsConfigScreen` title and effect preview** (`L6`) — Screen title `Component.literal("Налаштування хвилі " + N)` replaced with `Component.translatable("wavedefense.title.wave_rewards", N)`. Effect preview string in `render()` replaced with `I18n.get("wavedefense.label.wave_effect_preview", effectId, level)`. All 4 wave-reward fields (`pointsReward`, `waveEffect`, `waveEffectAmplifier`, `completionCommand`) confirmed present and correctly persisted in `save()`.
+
+#### New lang keys (all 8 language files — en/uk/de/fr/es/pl/pt\_br/zh\_cn)
+
+35 new translatable keys added in this sprint:
+`boundary.consequence.timer_surrender/damage/teleport_back/instant_surrender`,
+`wave.label`, `wave.no_trigger`, `wave.spawn_tooltip_active/hint`, `wave.confirm_reduce`, `wave.mob_info`,
+`msg.wave_has_no_mobs`,
+`label.mob_count_wave/mob_growth_per_wave/mob_spawn_chance/mob_points_per_kill`,
+`label.armor_slot.helmet/chest/legs/boots`,
+`label.mainhand_empty/offhand_empty`,
+`label.global_items_count/shop_points_count/loot_points_count/loot_spawn_count/loot_empty`,
+`label.shop_point_pos_set/shop_point_pos_unset`,
+`title.wave_rewards`,
+`label.wave_effect_preview`.
+
+---
+
 ## [0.2.43] - 2026-05-16
 
 ### Fixed — PvP system bugs (full audit)

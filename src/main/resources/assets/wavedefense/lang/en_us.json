@@ -125,6 +125,7 @@
   "wavedefense.hud.mobs_left": "Mobs left: %d",
   "wavedefense.hud.points": "Points: %d",
   "wavedefense.hud.next_wave_timer": "Next wave: %s",
+  "wavedefense.hud.wave_counter": "Wave %s / %s",
   "wavedefense.hud.drag_hint": "§8Drag the block with mouse or select a preset",
   "wavedefense.hud.drag_label": "§e✥ Drag",
   "wavedefense.hud.preview.location": "§7Location: §fExample",
@@ -768,5 +769,39 @@
   "wavedefense.pvp.actions_title": "?c?l? PvP ? ?r?f%s",
   "wavedefense.info.avg_wave_time": "Average time between waves: ?a%d:%02d",
   "wavedefense.info.inventory_kept": "?aKept",
-  "wavedefense.info.inventory_cleared": "?cCleared"
+  "wavedefense.info.inventory_cleared": "?cCleared",
+
+  "wavedefense.boundary.consequence.timer_surrender": "⏱ Timer → surrender",
+  "wavedefense.boundary.consequence.damage": "💀 Constant damage",
+  "wavedefense.boundary.consequence.teleport_back": "↩ Teleport back",
+  "wavedefense.boundary.consequence.instant_surrender": "⚡ Instant surrender",
+
+  "wavedefense.wave.label": "?6Wave %s ?7(Mobs: %s | Time: ?e%ss?7)",
+  "wavedefense.wave.no_trigger": "?7⚡ Trigger",
+  "wavedefense.wave.spawn_tooltip_active": "?aWave spawn: ?eX%s Y%s Z%s",
+  "wavedefense.wave.spawn_tooltip_hint": "?7Custom mob spawn for this wave\n?8(default — location spawn points)",
+  "wavedefense.wave.confirm_reduce": "?7Reducing from ?e%s ?7to ?e%s",
+  "wavedefense.msg.wave_has_no_mobs": "?e⚠ Wave %s has no mobs configured!",
+
+  "wavedefense.label.mob_count_wave": "?7Mob count per wave:",
+  "wavedefense.label.mob_growth_per_wave": "?7Growth per wave:",
+  "wavedefense.label.mob_spawn_chance": "?7Spawn chance (1-100):",
+  "wavedefense.label.mob_points_per_kill": "?7Points per kill:",
+  "wavedefense.label.armor_slot.helmet": "Helmet",
+  "wavedefense.label.armor_slot.chest": "Chest",
+  "wavedefense.label.armor_slot.legs": "Legs",
+  "wavedefense.label.armor_slot.boots": "Boots",
+  "wavedefense.label.mainhand_empty": "?8Main hand [—]",
+  "wavedefense.label.offhand_empty": "?8Off hand [—]",
+  "wavedefense.wave.mob_info": "?7Count: ?f%s ?7| Growth: ?f%s ?7| Chance: ?f%s%% ?7| Points: ?f%s",
+
+  "wavedefense.label.global_items_count": "Global items: %s",
+  "wavedefense.label.shop_points_count": "Shop points: %s",
+  "wavedefense.label.loot_points_count": "Loot points: %s",
+  "wavedefense.label.loot_spawn_count": "?7%s points",
+  "wavedefense.label.loot_empty": "?7empty",
+  "wavedefense.label.shop_point_pos_set": "?a✓ X:%s Y:%s Z:%s  ?7(radius ?e%s?7 bl)",
+  "wavedefense.label.shop_point_pos_unset": "?c⚠ Position not set — click My Position",
+  "wavedefense.title.wave_rewards": "Wave %s Settings",
+  "wavedefense.label.wave_effect_preview": "?7Effect: ?b%s ?7level ?e%s ?7(entire wave)"
 }

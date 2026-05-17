@@ -75,7 +75,7 @@ public class LootSpawnEditorScreen extends Screen {
         ).bounds(cx - btnW / 2, y, btnW - 100, 20).build());
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("§7" + location.getLootSpawns().size() + " точок"),
+                Component.translatable("wavedefense.label.loot_spawn_count", location.getLootSpawns().size()),
                 b -> {}
         ).bounds(cx + btnW / 2 - 95, y, 95, 20).build()).active = false;
 
@@ -93,7 +93,8 @@ public class LootSpawnEditorScreen extends Screen {
             BlockPos pos = ls.getPos();
             List<ItemStack> items = ls.getItems().stream()
                     .filter(it -> !it.isEmpty()).collect(Collectors.toList());
-            String firstName = items.isEmpty() ? "порожньо"
+            String firstName = items.isEmpty()
+                    ? net.minecraft.client.resources.language.I18n.get("wavedefense.label.loot_empty")
                     : items.get(0).getHoverName().getString();
             if (firstName.length() > 14) firstName = firstName.substring(0, 12) + "…";
             if (items.size() > 1) firstName += " (+" + (items.size() - 1) + ")";

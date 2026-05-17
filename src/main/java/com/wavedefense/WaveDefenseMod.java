@@ -13,6 +13,7 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
+import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -50,6 +51,14 @@ public class WaveDefenseMod {
     public void onServerStarting(ServerStartingEvent event) {
         serverInstance = event.getServer();
         locationManager = new LocationManager(serverInstance);
+    }
+
+    @SubscribeEvent
+    public void onServerStopping(ServerStoppingEvent event) {
+        if (locationManager != null) {
+            locationManager.saveToFile();
+            LOGGER.info("[WaveDefense] Location data saved on server stop.");
+        }
     }
 
     @SubscribeEvent

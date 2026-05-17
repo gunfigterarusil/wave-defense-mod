@@ -125,6 +125,7 @@
   "wavedefense.hud.mobs_left": "Mobs restantes: %d",
   "wavedefense.hud.points": "Puntos: %d",
   "wavedefense.hud.next_wave_timer": "Próxima oleada: %s",
+  "wavedefense.hud.wave_counter": "Oleada %s / %s",
   "wavedefense.hud.drag_hint": "§8Arrastra el bloque o selecciona un preajuste",
   "wavedefense.hud.drag_label": "§e✥ Arrastrar",
   "wavedefense.hud.preview.location": "§7Lugar: §fEjemplo",
@@ -765,5 +766,39 @@
   "wavedefense.pvp.actions_title": "?c?l? PvP ? ?r?f%s",
   "wavedefense.info.avg_wave_time": "Average time between waves: ?a%d:%02d",
   "wavedefense.info.inventory_kept": "?aKept",
-  "wavedefense.info.inventory_cleared": "?cCleared"
+  "wavedefense.info.inventory_cleared": "?cCleared",
+
+  "wavedefense.boundary.consequence.timer_surrender": "⏱ Temporizador → rendición",
+  "wavedefense.boundary.consequence.damage": "💀 Daño constante",
+  "wavedefense.boundary.consequence.teleport_back": "↩ Teletransporte de vuelta",
+  "wavedefense.boundary.consequence.instant_surrender": "⚡ Rendición instantánea",
+
+  "wavedefense.wave.label": "?6Oleada %s ?7(Mob.: %s | Tiempo: ?e%ss?7)",
+  "wavedefense.wave.no_trigger": "?7⚡ Disparador",
+  "wavedefense.wave.spawn_tooltip_active": "?aSpawn de oleada: ?eX%s Y%s Z%s",
+  "wavedefense.wave.spawn_tooltip_hint": "?7Spawn personalizado para esta oleada\n?8(predeterminado — puntos de spawn de la ubicación)",
+  "wavedefense.wave.confirm_reduce": "?7Reducción de ?e%s ?7a ?e%s",
+  "wavedefense.msg.wave_has_no_mobs": "?e⚠ ¡La oleada %s no tiene mobs configurados!",
+
+  "wavedefense.label.mob_count_wave": "?7Cantidad de mobs por oleada:",
+  "wavedefense.label.mob_growth_per_wave": "?7Crecimiento por oleada:",
+  "wavedefense.label.mob_spawn_chance": "?7Probabilidad de aparición (1-100):",
+  "wavedefense.label.mob_points_per_kill": "?7Puntos por eliminación:",
+  "wavedefense.label.armor_slot.helmet": "Casco",
+  "wavedefense.label.armor_slot.chest": "Pechera",
+  "wavedefense.label.armor_slot.legs": "Polainas",
+  "wavedefense.label.armor_slot.boots": "Botas",
+  "wavedefense.label.mainhand_empty": "?8Mano principal [—]",
+  "wavedefense.label.offhand_empty": "?8Mano secundaria [—]",
+  "wavedefense.wave.mob_info": "?7Cant.: ?f%s ?7| Crec.: ?f%s ?7| Prob.: ?f%s%% ?7| Puntos: ?f%s",
+
+  "wavedefense.label.global_items_count": "Objetos globales: %s",
+  "wavedefense.label.shop_points_count": "Puntos de tienda: %s",
+  "wavedefense.label.loot_points_count": "Puntos de botín: %s",
+  "wavedefense.label.loot_spawn_count": "?7%s puntos",
+  "wavedefense.label.loot_empty": "?7vacío",
+  "wavedefense.label.shop_point_pos_set": "?a✓ X:%s Y:%s Z:%s  ?7(radio ?e%s?7 bl.)",
+  "wavedefense.label.shop_point_pos_unset": "?c⚠ Posición no definida — haz clic en Mi posición",
+  "wavedefense.title.wave_rewards": "Configuración de oleada %s",
+  "wavedefense.label.wave_effect_preview": "?7Efecto: ?b%s ?7nivel ?e%s ?7(toda la oleada)"
 }

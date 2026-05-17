@@ -108,6 +108,10 @@ public class WaveDefenseCommand {
                  // /wavedefense reload
                 .then(Commands.literal("reload")
                         .executes(ctx -> {
+                            if (WaveDefenseMod.locationManager == null) {
+                                ctx.getSource().sendFailure(Component.literal("[WaveDefense] Not yet initialized."));
+                                return 0;
+                            }
                             WaveDefenseMod.locationManager.loadLocations();
                             ctx.getSource().sendSuccess(
                                     () -> Component.translatable("wavedefense.auto.локації_перезавантажено_5c281373"), true);
@@ -212,6 +216,10 @@ public class WaveDefenseCommand {
     private static int teleportPlayersToLocation(CommandSourceStack source,
                                                   String locationName,
                                                   Collection<ServerPlayer> players) {
+        if (WaveDefenseMod.locationManager == null) {
+            source.sendFailure(Component.literal("[WaveDefense] Not yet initialized."));
+            return 0;
+        }
         Location location = WaveDefenseMod.locationManager.getLocation(locationName);
         if (location == null || location.getPlayerSpawn() == null) {
             source.sendFailure(Component.translatable("wavedefense.auto.локація_value_879f640b", locationName + "\" не знайдена або не має точки спавну!"));

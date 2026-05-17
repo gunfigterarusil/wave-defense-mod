@@ -140,7 +140,9 @@ public class ClientEventHandler {
             mc.setScreen(new WaveActionsScreen());
             return;
         }
-        if (mc.player.isCreative()) {
+        // Адмін-меню — тільки для гравців з правами оператора (рівень 2+)
+        // Раніше перевірявся лише creative-режим, що дозволяло non-op creative гравцям бачити адмін GUI
+        if (mc.player.hasPermissions(2)) {
             mc.setScreen(new AdminMenuScreen());
         } else {
             mc.setScreen(new PlayerMenuScreen());

@@ -35,6 +35,10 @@ public class ShopItemEditorScreen extends Screen {
     // Якщо не null — редагуємо товари точки магазину (не глобального списку)
     private final com.wavedefense.data.ShopPoint shopPoint;
 
+    // Буфери ціни — зберігаються між rebuildWidgets() щоб не губити введені значення
+    private int pendingBuyPrice  = -1; // -1 = ще не ініціалізовано
+    private int pendingSellPrice = -1;
+
     private static final int SLOT_W = 70;
     private static final int SLOT_H = 16;
     private static final int SLOT_GAP = 6;
@@ -140,8 +144,22 @@ public class ShopItemEditorScreen extends Screen {
                 button -> {}
         ).bounds(cx - 155, startY, labelW, 18).build()).active = false;
 
+        // Ініціалізувати буфери лише один раз (при першому init())
+        if (pendingBuyPrice < 0) {
+            pendingBuyPrice = (itemIndex >= 0 && itemIndex < getSourceList().size())
+                ? getSourceList().get(itemIndex).getBuyPrice() : 0;
+        }
+        if (pendingSellPrice < 0) {
+            pendingSellPrice = (itemIndex >= 0 && itemIndex < getSourceList().size())
+                ? getSourceList().get(itemIndex).getSellPrice() : 0;
+        }
+
         buyPriceInput = new EditBox(this.font, fieldX, startY, fieldW, 20, Component.translatable("wavedefense.auto.ціна_купівлі_31506e84"));
-        buyPriceInput.setValue(itemIndex >= 0 && itemIndex < getSourceList().size() ? String.valueOf(getSourceList().get(itemIndex).getBuyPrice()) : "0");
+        buyPriceInput.setValue(String.valueOf(pendingBuyPrice));
+        buyPriceInput.setResponder(s -> {
+            try { pendingBuyPrice = Integer.parseInt(s.trim()); }
+            catch (NumberFormatException ignored) {}
+        });
         this.addRenderableWidget(buyPriceInput);
 
         startY += 26;
@@ -154,7 +172,11 @@ public class ShopItemEditorScreen extends Screen {
         startY += 20;
 
         sellPriceInput = new EditBox(this.font, cx - 155, startY, fieldW, 20, Component.translatable("wavedefense.auto.ціна_продажу_27f60154"));
-        sellPriceInput.setValue(itemIndex >= 0 && itemIndex < getSourceList().size() ? String.valueOf(getSourceList().get(itemIndex).getSellPrice()) : "0");
+        sellPriceInput.setValue(String.valueOf(pendingSellPrice));
+        sellPriceInput.setResponder(s -> {
+            try { pendingSellPrice = Integer.parseInt(s.trim()); }
+            catch (NumberFormatException ignored) {}
+        });
         this.addRenderableWidget(sellPriceInput);
 
         // Категорія
@@ -251,8 +273,9 @@ public class ShopItemEditorScreen extends Screen {
         List<ItemStack> finalItems = items.stream().filter(i -> !i.isEmpty()).collect(Collectors.toList());
         if (finalItems.isEmpty()) return;
         try {
-            int buyPrice = Integer.parseInt(buyPriceInput.getValue());
-            int sellPrice = Integer.parseInt(sellPriceInput.getValue());
+            // Читаємо з буферів (оновлюються setResponder, безпечні після rebuildWidgets)
+            int buyPrice  = pendingBuyPrice  >= 0 ? pendingBuyPrice  : Integer.parseInt(buyPriceInput.getValue());
+            int sellPrice = pendingSellPrice >= 0 ? pendingSellPrice : Integer.parseInt(sellPriceInput.getValue());
             ShopItem shopItem = new ShopItem(finalItems, buyPrice, sellPrice);
             shopItem.setCategory(selectedCategory);
             List<com.wavedefense.data.ShopItem> list = getSourceList();

@@ -123,16 +123,35 @@ public class PvpTeamSelectScreen extends Screen {
     }
 
     private List<TeamOption> buildTeamOptions() {
-        Map<String, TeamOption> uniqueTeams = new LinkedHashMap<>();
+        // Count how many spawn points share each team name (to detect duplicates)
+        Map<String, Integer> nameCount = new java.util.LinkedHashMap<>();
         List<PvpSpawnPoint> spawns = location.getPvpSpawnPoints();
+        for (PvpSpawnPoint spawn : spawns) {
+            String raw = spawn.getTeamName() == null || spawn.getTeamName().isBlank() ? "" : spawn.getTeamName();
+            nameCount.merge(raw, 1, Integer::sum);
+        }
+        // Track per-name occurrence index for suffix labelling
+        Map<String, Integer> nameIdx = new java.util.LinkedHashMap<>();
+
+        List<TeamOption> result = new ArrayList<>();
         for (int i = 0; i < spawns.size(); i++) {
             PvpSpawnPoint spawn = spawns.get(i);
-            String teamName = spawn.getTeamName() == null || spawn.getTeamName().isBlank()
+            String raw = spawn.getTeamName() == null || spawn.getTeamName().isBlank() ? "" : spawn.getTeamName();
+            // Base display name
+            String baseName = raw.isBlank()
                 ? Component.translatable("wavedefense.pvp.team_select.team_fallback", i + 1).getString()
-                : spawn.getTeamName();
-            uniqueTeams.putIfAbsent(teamName, new TeamOption(teamName, i, spawn, colorFor(teamName)));
+                : raw;
+            // Append spawn-index suffix only when multiple spawns share the same name
+            String displayName;
+            if (nameCount.getOrDefault(raw, 0) > 1) {
+                int occurrence = nameIdx.merge(raw, 1, Integer::sum);
+                displayName = baseName + " (" + occurrence + ")";
+            } else {
+                displayName = baseName;
+            }
+            result.add(new TeamOption(displayName, i, spawn, colorFor(raw)));
         }
-        return new ArrayList<>(uniqueTeams.values());
+        return result;
     }
 
     private String colorFor(String teamName) {

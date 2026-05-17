@@ -462,6 +462,11 @@ public class PvpLocationEditorScreen extends Screen {
             brBorderDamageAmtInput = new EditBox(this.font, cx, y, 55, 18, Component.literal("1.0"));
             brBorderDamageAmtInput.setValue(String.format("%.1f", location.getBrBorderDamageAmt()));
             brBorderDamageAmtInput.setMaxLength(5);
+            // Persist immediately so the value survives rebuildWidgets() when the toggle is clicked
+            brBorderDamageAmtInput.setResponder(s -> {
+                try { location.setBrBorderDamageAmt(Math.max(0f, Float.parseFloat(s.trim()))); }
+                catch (NumberFormatException ignored) {}
+            });
             this.addRenderableWidget(brBorderDamageAmtInput);
             this.addRenderableWidget(Button.builder(
                 Component.translatable("wavedefense.auto.hp_сек_801e0516"), b -> {}
@@ -683,6 +688,11 @@ public class PvpLocationEditorScreen extends Screen {
                 boundaryDamageInput = new EditBox(this.font, left + 122, y, 50, 18, Component.literal("2.0"));
                 boundaryDamageInput.setValue(String.format("%.1f", location.getBoundaryDamagePerSec()));
                 boundaryDamageInput.setMaxLength(5);
+                // Persist immediately so value survives rebuildWidgets() on consequence-type switch
+                boundaryDamageInput.setResponder(s -> {
+                    try { location.setBoundaryDamagePerSec(Math.max(0f, Float.parseFloat(s.trim()))); }
+                    catch (NumberFormatException ignored) {}
+                });
                 this.addRenderableWidget(boundaryDamageInput);
                 y += 24;
             }
