@@ -99,21 +99,22 @@ public class LocationEditorScreen extends Screen {
                 button -> this.minecraft.setScreen(new AdminMenuScreen())
         ).bounds(cx + 110, 25, 110, 20).build());
 
-        // ── PvP — одразу переходимо до редактора PvP (без проміжного екрану) ──
+        // ── PvP — показуємо кнопку переходу до PvP-редактора ──────────────────
+        // Виправлення G1: більше не авто-редиректимо на PvP-редактор, щоб гравець
+        // міг повернутися і переключити режим назад на PvE.
         if (!isPve) {
-            // Відкладаємо перехід на наступний тік щоб уникнути рекурсії в init()
-            net.minecraft.client.Minecraft.getInstance().tell(() -> {
-                if (location.getMode() == LocationMode.PVP) {
-                    this.minecraft.setScreen(new PvpLocationEditorScreen(location, parent));
-                }
-            });
-            // Показуємо порожній екран поки не відбудеться перехід
-            this.addRenderableWidget(Button.builder(
-                    Component.translatable("wavedefense.auto.завантаження_pvp_редактора_7dd3fa23"), b -> {}
-            ).bounds(cx - 120, 60, 240, 20).build()).active = false;
-            this.addRenderableWidget(Button.builder(
+            addStatic(Button.builder(
+                    Component.translatable("wavedefense.button.open_pvp_editor"),
+                    b -> this.minecraft.setScreen(new PvpLocationEditorScreen(location, this))
+            ).bounds(cx - 120, 60, 240, 22).build());
+            // U7: Кнопка Save і Back у PvP-гілці (раніше Back була відсутня)
+            addStatic(Button.builder(
                     Component.translatable("wavedefense.button.save"), button -> saveChanges()
-            ).bounds(cx - 60, this.height - 28, 120, 20).build());
+            ).bounds(cx - 90, this.height - 28, 85, 20).build());
+            addStatic(Button.builder(
+                    Component.translatable("wavedefense.button.back"),
+                    b -> this.minecraft.setScreen(parent)
+            ).bounds(cx + 4, this.height - 28, 85, 20).build());
             return;
         }
 
@@ -340,12 +341,10 @@ public class LocationEditorScreen extends Screen {
         this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.pve_triggers_value_37060374", pveLinks), b -> {})
                 .bounds(left + 180, startY, 160, 18).build()).active = false;
         startY += 30;
+        // G5: Видалено дублікат кнопки "Configure triggers" — вона відкривала той самий екран
         this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.edit_loot_points_401d74d4"),
                 button -> this.minecraft.setScreen(new LootSpawnEditorScreen(location, this))
-        ).bounds(left, startY, 160, 22).build());
-        this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.configure_triggers_f2c9e85a"),
-                button -> this.minecraft.setScreen(new LootSpawnEditorScreen(location, this))
-        ).bounds(left + 180, startY, 160, 22).build());
+        ).bounds(left, startY, 200, 22).build());
         startY += 30;
         this.addRenderableWidget(Button.builder(((triggerLinks > 0) ? Component.translatable("wavedefense.auto.loot_is_connected_to_wave_player_loc_48bd6878") : Component.translatable("wavedefense.auto.no_loot_triggers_configured_yet_bafe0803")), b -> {})
                 .bounds(left, startY, w, 16).build()).active = false;

@@ -82,24 +82,24 @@ public class AdminMenuScreen extends ListEditorScreen<String> {
         int scrollX = cx + 105;
         addScrollButtons(scrollX, LIST_START_Y, LIST_START_Y + (Math.max(1, getItemsPerPage()) - 1) * ROW_H, 20, 20);
 
-        // Cancel-delete button (in scrollable zone)
+        // ── Footer (static) ───────────────────────────────────────────
+        // Коли є очікуване видалення — показуємо Cancel на весь footer (замість Import/Close)
         if (pendingDeleteName != null) {
-            this.addRenderableWidget(Button.builder(
+            addStatic(Button.builder(
                     Component.translatable("wavedefense.button.cancel_delete"),
                     button -> { pendingDeleteName = null; rebuildWidgets(); }
-            ).bounds(cx - 80, this.height - 55, 160, 18).build());
+            ).bounds(cx - panelW / 2, this.height - 30, panelW, 20).build());
+        } else {
+            addStatic(Button.builder(
+                    Component.translatable("wavedefense.button.import_export"),
+                    button -> this.minecraft.setScreen(new ImportExportScreen(this))
+            ).bounds(cx - panelW / 2, this.height - 30, panelW / 2 - 4, 20).build());
+
+            addStatic(Button.builder(
+                    Component.translatable("wavedefense.button.close"),
+                    button -> this.onClose()
+            ).bounds(cx + 4, this.height - 30, panelW / 2 - 4, 20).build());
         }
-
-        // ── Footer (static) ───────────────────────────────────────────
-        addStatic(Button.builder(
-                Component.translatable("wavedefense.button.import_export"),
-                button -> this.minecraft.setScreen(new ImportExportScreen(this))
-        ).bounds(cx - panelW / 2, this.height - 30, panelW / 2 - 4, 20).build());
-
-        addStatic(Button.builder(
-                Component.translatable("wavedefense.button.close"),
-                button -> this.onClose()
-        ).bounds(cx + 4, this.height - 30, panelW / 2 - 4, 20).build());
     }
 
     // ─── Row builder ───────────────────────────────────────────────────────
@@ -116,7 +116,9 @@ public class AdminMenuScreen extends ListEditorScreen<String> {
         this.addRenderableWidget(Button.builder(
                 Component.literal("✎"),
                 button -> editLocation(finalName)
-        ).bounds(cx + panelW / 2 - 75, y, 35, 20).build());
+        ).bounds(cx + panelW / 2 - 75, y, 35, 20).build())
+        .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+            Component.translatable("wavedefense.tooltip.edit_location", finalName)));
 
         boolean isPendingDel = name.equals(pendingDeleteName);
         this.addRenderableWidget(Button.builder(

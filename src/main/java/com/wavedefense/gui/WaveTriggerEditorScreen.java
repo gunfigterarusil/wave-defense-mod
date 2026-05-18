@@ -48,7 +48,7 @@ public class WaveTriggerEditorScreen extends Screen {
     private WaveTrigger selected;
 
     public WaveTriggerEditorScreen(Screen parent, WaveConfig wave, int waveIndex, boolean isPvp) {
-        super(Component.literal("⚡ Тригер Хвилі " + (waveIndex + 1)));
+        super(Component.translatable("wavedefense.title.wave_trigger", waveIndex + 1));
         this.parent    = parent;
         this.wave      = wave;
         this.waveIndex = waveIndex;
@@ -116,7 +116,9 @@ public class WaveTriggerEditorScreen extends Screen {
         // Розраховуємо висоту нижньої статичної зони
         int staticH = calcStaticHeight();
         scrollBot = this.height - staticH - 28; // 28 = кнопки внизу + відступ
-        if (scrollBot < scrollTop + BTN_H) scrollBot = scrollTop + BTN_H;
+        // Мінімум 3 видимі рядки в зоні тригерів (захист від дуже малих вікон)
+        int minScrollZone = 3 * (BTN_H + BTN_GAP);
+        if (scrollBot < scrollTop + minScrollZone) scrollBot = scrollTop + minScrollZone;
 
         // Скрол
         int listH   = scrollBot - scrollTop;
@@ -125,6 +127,8 @@ public class WaveTriggerEditorScreen extends Screen {
         if (triggerScrollOffset > maxScr) triggerScrollOffset = maxScr;
 
         // ── Список тригерів (одна колонка) ──────────────────────────────
+        // U1: [+AND] / [-AND] кнопка поряд з кожним не-primary тригером
+        final int AND_BTN_W = 38;
         int ty = scrollTop;
         for (int i = triggerScrollOffset; i < available.size(); i++) {
             if (ty + BTN_H > scrollBot) break;
@@ -133,19 +137,43 @@ public class WaveTriggerEditorScreen extends Screen {
             boolean isExtra = wave.getExtraTriggers().contains(t);
             String lbl = (isSel ? "§e§l▶ " : isExtra ? "§b§l+ " : "§7  ") + t.label;
             final WaveTrigger ft = t;
+            // Основна кнопка: коротша якщо не primary (місце для [+AND])
+            int mainBtnW = isSel ? btnW : btnW - AND_BTN_W - 2;
             Button btn = Button.builder(
                 Component.literal(lbl),
                 b -> {
                     if (ft == selected) return;
-                    if (wave.getExtraTriggers().contains(ft)) wave.removeExtraTrigger(ft);
-                    else { selected = ft; wave.setTriggerType(ft); }
-                    rebuildWidgets();
+                    // Клік по AND-тригеру — він залишається AND (прибирається кнопкою [-AND])
+                    // Клік по звичайному — обираємо як primary
+                    if (!wave.getExtraTriggers().contains(ft)) {
+                        selected = ft;
+                        wave.setTriggerType(ft);
+                        rebuildWidgets();
+                    }
                 }
-            ).bounds(cx - btnW / 2, ty, btnW, BTN_H).build();
+            ).bounds(cx - btnW / 2, ty, mainBtnW, BTN_H).build();
             btn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
                 Component.literal("§7" + t.tooltip +
-                    (isExtra ? "\n§b[AND: обидві умови мають спрацювати]" : ""))));
+                    (isExtra ? "\n§b" + net.minecraft.client.resources.language.I18n.get("wavedefense.tooltip.trigger_and_hint") : ""))));
             this.addRenderableWidget(btn);
+            // [+AND] / [-AND] кнопка для не-primary тригерів
+            if (!isSel) {
+                Button andBtn = Button.builder(
+                    isExtra
+                        ? Component.literal("§c-AND")
+                        : Component.literal("§b+AND"),
+                    b -> {
+                        if (isExtra) wave.removeExtraTrigger(ft);
+                        else wave.addExtraTrigger(ft);
+                        rebuildWidgets();
+                    }
+                ).bounds(cx - btnW / 2 + mainBtnW + 2, ty, AND_BTN_W, BTN_H).build();
+                andBtn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                    Component.translatable(isExtra
+                        ? "wavedefense.tooltip.remove_and_trigger"
+                        : "wavedefense.tooltip.add_and_trigger")));
+                this.addRenderableWidget(andBtn);
+            }
             ty += BTN_H + BTN_GAP;
         }
 

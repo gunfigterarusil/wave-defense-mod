@@ -23,6 +23,11 @@ public class WaveConfigScreen extends ScrollableScreen {
 
     private boolean showConfirmDialog = false;
     private int pendingWaveCount = 0;
+    // Підтвердження видалення хвилі (G2)
+    private int pendingDeleteWaveIndex = -1;
+    // G8: Попередження про незбережені зміни при ESC
+    private boolean isDirty = false;
+    private boolean showUnsavedDialog = false;
 
     public WaveConfigScreen(Location location, Screen parent) {
         super(Component.translatable("wavedefense.title.wave_config").append(": ").append(location.getName()));
@@ -44,6 +49,11 @@ public class WaveConfigScreen extends ScrollableScreen {
         super.init();
         int centerX = this.width / 2;
         int startY = 45;
+
+        if (showUnsavedDialog) {
+            initUnsavedDialog(centerX);
+            return;
+        }
 
         if (showConfirmDialog) {
             initConfirmDialog(centerX);
@@ -108,8 +118,20 @@ public class WaveConfigScreen extends ScrollableScreen {
                 ).bounds(centerX - 150, yPos, 245, 18).build()).active = false;
 
                 final int finalWaveIndex = waveIndex;
+                boolean isPendingDel = (pendingDeleteWaveIndex == finalWaveIndex);
                 Button deleteBtn = Button.builder(
-                        Component.literal("✕"), button -> deleteWave(finalWaveIndex)
+                        isPendingDel
+                            ? Component.translatable("wavedefense.button.confirm_delete")
+                            : Component.literal("✕"),
+                        button -> {
+                            if (isPendingDel) {
+                                pendingDeleteWaveIndex = -1;
+                                deleteWave(finalWaveIndex);
+                            } else {
+                                pendingDeleteWaveIndex = finalWaveIndex;
+                                rebuildWidgets();
+                            }
+                        }
                 ).bounds(centerX + 100, yPos, 20, 18).build();
                 deleteBtn.active = location.getWaves().size() > 1;
                 this.addRenderableWidget(deleteBtn);
@@ -158,7 +180,10 @@ public class WaveConfigScreen extends ScrollableScreen {
                 timerBox.setResponder(s -> {
                     try {
                         int v = Integer.parseInt(s.trim());
-                        if (v >= 1) location.getWaves().get(finalWaveIndex).setTimeBetweenWaves(v);
+                        if (v >= 1) {
+                            location.getWaves().get(finalWaveIndex).setTimeBetweenWaves(v);
+                            isDirty = true;
+                        }
                     } catch (NumberFormatException ignored) {}
                 });
                 this.addRenderableWidget(timerBox);
@@ -183,19 +208,25 @@ public class WaveConfigScreen extends ScrollableScreen {
         addStatic(Button.builder(
                 Component.translatable("wavedefense.button.save_back"),
                 button -> saveChanges()
-        ).bounds(centerX - 110, this.height - 28, 148, 20).build());
+        ).bounds(centerX - 160, this.height - 28, 110, 20).build());
+
+        // G3: Кнопка "Назад без збереження"
+        addStatic(Button.builder(
+                Component.translatable("wavedefense.button.cancel"),
+                button -> this.minecraft.setScreen(parent)
+        ).bounds(centerX - 46, this.height - 28, 80, 20).build());
 
         addStatic(Button.builder(
                 Component.translatable("wavedefense.auto.exp_648cf132"),
                 button -> minecraft.setScreen(new WaveExportScreen(location, this))
-        ).bounds(centerX + 42, this.height - 28, 50, 20).build())
+        ).bounds(centerX + 38, this.height - 28, 50, 20).build())
         .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
             Component.translatable("wavedefense.auto.зберегти_хвилі_у_файл_world_wave_6a05af92")));
 
         addStatic(Button.builder(
                 Component.translatable("wavedefense.auto.imp_3d6db024"),
                 button -> minecraft.setScreen(new WaveImportScreen(location, this))
-        ).bounds(centerX + 96, this.height - 28, 50, 20).build())
+        ).bounds(centerX + 92, this.height - 28, 50, 20).build())
         .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
             Component.translatable("wavedefense.auto.завантажити_хвилі_з_файлу_world_9717fe73")));
     }
@@ -204,11 +235,54 @@ public class WaveConfigScreen extends ScrollableScreen {
 
     @Override
     public void render(GuiGraphics g, int mx, int my, float pt) {
+        if (showUnsavedDialog) {
+            renderUnsavedDialog(g, mx, my, pt);
+            return;
+        }
         if (showConfirmDialog) {
             renderConfirmDialog(g, mx, my, pt);
             return;
         }
         super.render(g, mx, my, pt);
+    }
+
+    // G8: Діалог незбережених змін при ESC
+    private void renderUnsavedDialog(GuiGraphics g, int mx, int my, float pt) {
+        this.renderBackground(g);
+        g.fill(0, 0, this.width, this.height, 0xAA000000);
+        int cx = this.width / 2;
+        int dy = this.height / 2 - 45;
+        g.fill(cx - 155, dy - 5, cx + 155, dy + 95, 0xFF1a1a1a);
+        g.fill(cx - 156, dy - 6, cx + 156, dy - 5, 0xFFf59e0b);
+        g.fill(cx - 156, dy + 95, cx + 156, dy + 96, 0xFFf59e0b);
+        g.fill(cx - 156, dy - 5, cx - 155, dy + 95, 0xFFf59e0b);
+        g.fill(cx + 155, dy - 5, cx + 156, dy + 95, 0xFFf59e0b);
+        g.drawCenteredString(this.font,
+            "§e§l⚠ " + net.minecraft.client.resources.language.I18n.get("wavedefense.msg.unsaved_changes"),
+            cx, dy + 5, 0xFFFFFF);
+        g.drawCenteredString(this.font,
+            "§7" + net.minecraft.client.resources.language.I18n.get("wavedefense.msg.unsaved_changes_hint"),
+            cx, dy + 22, 0xAAAAAA);
+        super.render(g, mx, my, pt);
+    }
+
+    private void initUnsavedDialog(int cx) {
+        int dy = this.height / 2 - 45;
+        // Зберегти і вийти
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.button.save_back"),
+            b -> saveChanges()
+        ).bounds(cx - 150, dy + 45, 140, 20).build());
+        // Вийти без збереження
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.button.exit_without_saving"),
+            b -> { isDirty = false; showUnsavedDialog = false; this.minecraft.setScreen(parent); }
+        ).bounds(cx - 5, dy + 45, 155, 20).build());
+        // Залишитись
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.button.stay"),
+            b -> { showUnsavedDialog = false; rebuildWidgets(); }
+        ).bounds(cx - 75, dy + 70, 150, 20).build());
     }
 
     @Override
@@ -273,6 +347,7 @@ public class WaveConfigScreen extends ScrollableScreen {
                     location.addWave(new WaveConfig(i + 1, seconds));
                 }
             }
+            isDirty = true;
             location.setTotalWaves(targetCount);
             rebuildWidgets();
         } catch (NumberFormatException ignored) {}
@@ -345,6 +420,7 @@ public class WaveConfigScreen extends ScrollableScreen {
 
     private void deleteWave(int idx) {
         if (location.getWaves().size() > 1 && idx >= 0 && idx < location.getWaves().size()) {
+            isDirty = true;
             location.getWaves().remove(idx);
             location.setTotalWaves(location.getWaves().size());
             clampScroll();
@@ -355,6 +431,8 @@ public class WaveConfigScreen extends ScrollableScreen {
     public void autoSave() { saveChanges(); }
 
     private void saveChanges() {
+        isDirty = false;
+        showUnsavedDialog = false;
         // Always sync totalWaves to the actual number of configured waves
         location.setTotalWaves(location.getWaves().size());
 
@@ -380,6 +458,17 @@ public class WaveConfigScreen extends ScrollableScreen {
             minecraft.player.displayClientMessage(Component.translatable("wavedefense.auto.зміни_збережено_60feafc0"), true);
         }
         this.minecraft.setScreen(parent);
+    }
+
+    // G8: При ESC — показати попередження якщо є незбережені зміни
+    @Override
+    public void onClose() {
+        if (isDirty && !showUnsavedDialog) {
+            showUnsavedDialog = true;
+            rebuildWidgets();
+        } else {
+            super.onClose();
+        }
     }
 
     @Override

@@ -39,6 +39,8 @@ public class LootSpawnEditorScreen extends Screen {
 
     private int scrollOffset = 0;
     private static final int PER_PAGE = 5;
+    // G6c: Підтвердження видалення loot spawn
+    private int pendingDeleteLootIndex = -1;
     private static final int SLOT_W    = 70;
     private static final int LIST_ROW_H = 44; // висота рядка у списку (достатньо для іконок + 2 рядки тексту)
     private static final int SLOT_H   = 16;
@@ -123,13 +125,28 @@ public class LootSpawnEditorScreen extends Screen {
             ).bounds(cx - btnW / 2, yPos + 18, btnW - 48, 14).build()).active = false;
 
             final int fIdx = idx;
+            boolean isPendingDelLoot = (pendingDeleteLootIndex == fIdx);
             this.addRenderableWidget(Button.builder(
-                    Component.literal("✎"), button -> startEditItem(fIdx)
+                    Component.literal("✎"), button -> { pendingDeleteLootIndex = -1; startEditItem(fIdx); }
             ).bounds(cx + btnW / 2 - 45, yPos, 22, 38).build());
+            // Ширина розширюється при підтвердженні (35px як у AdminMenuScreen)
+            int delLootW = isPendingDelLoot ? 35 : 22;
+            int delLootX = isPendingDelLoot ? cx + btnW / 2 - 35 : cx + btnW / 2 - 20; // правий край cx+btnW/2
             this.addRenderableWidget(Button.builder(
-                    Component.literal("§c✕"),
-                    button -> { location.removeLootSpawn(fIdx); rebuildWidgets(); }
-            ).bounds(cx + btnW / 2 - 20, yPos, 22, 38).build());
+                    isPendingDelLoot
+                        ? Component.translatable("wavedefense.button.confirm_delete")
+                        : Component.literal("§c✕"),
+                    button -> {
+                        if (isPendingDelLoot) {
+                            pendingDeleteLootIndex = -1;
+                            location.removeLootSpawn(fIdx);
+                            rebuildWidgets();
+                        } else {
+                            pendingDeleteLootIndex = fIdx;
+                            rebuildWidgets();
+                        }
+                    }
+            ).bounds(delLootX, yPos, delLootW, 38).build());
         }
 
         if (spawns.size() > PER_PAGE) {

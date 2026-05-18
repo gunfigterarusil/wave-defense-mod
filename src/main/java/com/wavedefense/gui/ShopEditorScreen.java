@@ -31,6 +31,9 @@ public class ShopEditorScreen extends Screen {
     private int scrollOffsetPoints = 0;
     private static final int POINTS_PER_PAGE = 5;
 
+    // G6a: Підтвердження видалення товару
+    private int pendingDeleteShopIndex = -1;
+
     public ShopEditorScreen(Location location, Screen parent) {
         super(Component.translatable("wavedefense.title.shop_editor")
                 .append(": ").append(location.getName()));
@@ -105,7 +108,8 @@ public class ShopEditorScreen extends Screen {
             if (idx >= items.size()) break;
             ShopItem si = items.get(idx);
             int yPos = startY + i * 66;
-            String nm = si.getItems().isEmpty() ? "Пусто"
+            String nm = si.getItems().isEmpty()
+                ? net.minecraft.client.resources.language.I18n.get("wavedefense.label.empty")
                 : si.getItems().get(0).getHoverName().getString();
             if (nm.length() > 25) nm = nm.substring(0, 22) + "...";
             if (si.getItems().size() > 1) nm += " (+" + (si.getItems().size()-1) + ")";
@@ -113,13 +117,26 @@ public class ShopEditorScreen extends Screen {
                 Component.literal("§e" + nm), b -> {}
             ).bounds(cx - 140, yPos + 4, 150, 18).build()).active = false;
             final int fi = idx;
+            boolean isPendingDelShop = (pendingDeleteShopIndex == fi);
             this.addRenderableWidget(Button.builder(
                 Component.translatable("wavedefense.button.edit"),
-                b -> minecraft.setScreen(new ShopItemEditorScreen(location, fi, this))
+                b -> { pendingDeleteShopIndex = -1; minecraft.setScreen(new ShopItemEditorScreen(location, fi, this)); }
             ).bounds(cx + 14, yPos, 70, 18).build());
             this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.delete"),
-                b -> { location.removeShopItem(fi); scrollOffsetGlobal = Math.max(0, Math.min(scrollOffsetGlobal, location.getShopItems().size()-1)); rebuildWidgets(); }
+                isPendingDelShop
+                    ? Component.translatable("wavedefense.button.confirm_delete")
+                    : Component.translatable("wavedefense.button.delete"),
+                b -> {
+                    if (isPendingDelShop) {
+                        pendingDeleteShopIndex = -1;
+                        location.removeShopItem(fi);
+                        scrollOffsetGlobal = Math.max(0, Math.min(scrollOffsetGlobal, location.getShopItems().size() - 1));
+                        rebuildWidgets();
+                    } else {
+                        pendingDeleteShopIndex = fi;
+                        rebuildWidgets();
+                    }
+                }
             ).bounds(cx + 88, yPos, 70, 18).build());
             this.addRenderableWidget(Button.builder(
                 Component.translatable("wavedefense.auto.купити_d_продати_d_05ac8a91", si.getBuyPrice(), si.getSellPrice()),
@@ -251,12 +268,14 @@ public class ShopEditorScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
-        this.renderBackground(g);
+        GuiTheme.renderBackground(g, this.width, this.height);
+        GuiTheme.renderHeader(g, this.font, this.title, this.width);
         int cx = this.width / 2;
 
         // Зони: рядок режиму Y=24..38, нижні кнопки Y=height-28..height
         final int MODE_BOT   = 40;
         final int BOTTOM_TOP = this.height - 32;
+        GuiTheme.renderContentFrame(g, 8, MODE_BOT - 4, this.width - 8, BOTTOM_TOP + 4);
 
         // ── Прохід 1: прокручений контент зі scissor ─────────────────
         ScissorHelper.enable(0, MODE_BOT, this.width, Math.max(1, BOTTOM_TOP - MODE_BOT));
@@ -321,8 +340,16 @@ public class ShopEditorScreen extends Screen {
         }
         ScissorHelper.disable();
 
+        // V3: Scrollbar indicator
+        if (!location.isPointShopMode()) {
+            GuiTheme.scrollBar(g, this.width - 8, MODE_BOT, BOTTOM_TOP,
+                scrollOffsetGlobal, location.getShopItems().size(), ITEMS_PER_PAGE);
+        } else {
+            GuiTheme.scrollBar(g, this.width - 8, MODE_BOT, BOTTOM_TOP,
+                scrollOffsetPoints, location.getShopPoints().size(), POINTS_PER_PAGE);
+        }
+
         // ── Прохід 2: заголовок + рядок вибору режиму (верхня статична зона) ─
-        g.drawCenteredString(this.font, this.title, cx, 10, 0xFFFFFF);
         ScissorHelper.enable(0, 0, this.width, MODE_BOT);
         for (var r : this.renderables) {
             if (r instanceof net.minecraft.client.gui.components.AbstractWidget w && w.getY() < MODE_BOT)

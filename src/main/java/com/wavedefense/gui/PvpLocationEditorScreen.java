@@ -61,6 +61,8 @@ public class PvpLocationEditorScreen extends Screen {
     private int rulesScrollOffset = 0;
     private int rulesContentHeight = 0;
     private static final int PER_PAGE = 6;
+    // G6b: Підтвердження видалення точки спавну
+    private int pendingDeleteSpawnIndex = -1;
     private final java.util.Set<net.minecraft.client.gui.components.AbstractWidget> staticWidgets
         = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 
@@ -143,12 +145,28 @@ public class PvpLocationEditorScreen extends Screen {
             ).bounds(cx - 175, yPos, 300, 20).build()).active = false;
 
             final int fIdx = idx;
+            boolean isPendingDelSpawn = (pendingDeleteSpawnIndex == fIdx);
             this.addRenderableWidget(Button.builder(
-                    Component.literal("✎"), button -> startEditSpawn(fIdx)
+                    Component.literal("✎"), button -> { pendingDeleteSpawnIndex = -1; startEditSpawn(fIdx); }
             ).bounds(cx + 130, yPos, 22, 20).build());
+            // Ширина кнопки розширюється при підтвердженні (як у AdminMenuScreen — 35px)
+            int delSpawnW = isPendingDelSpawn ? 35 : 22;
+            int delSpawnX = isPendingDelSpawn ? cx + 142 : cx + 155; // правий край cx+177
             this.addRenderableWidget(Button.builder(
-                    Component.literal("§c✕"), button -> { location.removePvpSpawnPoint(fIdx); rebuildWidgets(); }
-            ).bounds(cx + 155, yPos, 22, 20).build());
+                    isPendingDelSpawn
+                        ? Component.translatable("wavedefense.button.confirm_delete")
+                        : Component.literal("§c✕"),
+                    button -> {
+                        if (isPendingDelSpawn) {
+                            pendingDeleteSpawnIndex = -1;
+                            location.removePvpSpawnPoint(fIdx);
+                            rebuildWidgets();
+                        } else {
+                            pendingDeleteSpawnIndex = fIdx;
+                            rebuildWidgets();
+                        }
+                    }
+            ).bounds(delSpawnX, yPos, delSpawnW, 20).build());
         }
 
         if (spawns.size() > PER_PAGE) {
@@ -222,7 +240,11 @@ public class PvpLocationEditorScreen extends Screen {
             Component.translatable("wavedefense.auto.підрежим_pvp_b45dc081"), b -> {}
         ).bounds(cx - 160, y, 320, 14).build()).active = false;
         y += 18;
-        String[] modeLabels = {"⚔ Стандарт", "⚡ Deathmatch", "👑 Королівська Битва"};
+        String[] modeLabels = {
+            "⚔ " + net.minecraft.client.resources.language.I18n.get("wavedefense.pvp.mode.standard"),
+            "⚡ " + net.minecraft.client.resources.language.I18n.get("wavedefense.pvp.mode.deathmatch"),
+            "👑 " + net.minecraft.client.resources.language.I18n.get("wavedefense.pvp.mode.battle_royale")
+        };
         com.wavedefense.data.Location.PvpMode[] modes = com.wavedefense.data.Location.PvpMode.values();
         int mBtnW = 100, mBtnGap = 5;
         int mStartX = cx - (modes.length * mBtnW + (modes.length - 1) * mBtnGap) / 2;
@@ -253,8 +275,8 @@ public class PvpLocationEditorScreen extends Screen {
 
         int teamCount = location.getPvpSpawnPoints().size();
         String info = teamCount < 2
-            ? "§c⚠ Потрібно ≥2 точки спавну (вкладка Команди)"
-            : String.format("§a✓ %d команд | мін. гравців: %d", teamCount, location.getPvpMinPlayers());
+            ? "§c⚠ " + net.minecraft.client.resources.language.I18n.get("wavedefense.pvp.warning.need_spawn_points")
+            : "§a✓ " + net.minecraft.client.resources.language.I18n.get("wavedefense.pvp.teams_info", teamCount, location.getPvpMinPlayers());
         this.addRenderableWidget(Button.builder(
             Component.literal(info), b -> {}
         ).bounds(cx - 160, y, 320, 16).build()).active = false;
@@ -653,7 +675,7 @@ public class PvpLocationEditorScreen extends Screen {
                 b -> { location.setLocationBoundaryEnabled(!location.isLocationBoundaryEnabled()); rebuildWidgets(); }
         ).bounds(left, y, 160, 18).build());
         if (location.isLocationBoundaryEnabled()) {
-            this.addRenderableWidget(Button.builder(Component.literal("§7Radius:"), b -> {})
+            this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.label.radius"), b -> {})
                     .bounds(left + 170, y, 55, 18).build()).active = false;
             boundaryRadiusInput = new EditBox(this.font, left + 226, y, 50, 18, Component.literal("50"));
             boundaryRadiusInput.setValue(String.valueOf(location.getLocationBoundaryRadius()));
@@ -662,15 +684,24 @@ public class PvpLocationEditorScreen extends Screen {
             y += 24;
 
             Location.BoundaryConsequence[] values = Location.BoundaryConsequence.values();
-            String[] labels = {"Timer", "Damage", "TP Back", "Instant"};
+            String[] labels = {
+                net.minecraft.client.resources.language.I18n.get("wavedefense.boundary.consequence.timer"),
+                net.minecraft.client.resources.language.I18n.get("wavedefense.boundary.consequence.damage"),
+                net.minecraft.client.resources.language.I18n.get("wavedefense.boundary.consequence.tp_back"),
+                net.minecraft.client.resources.language.I18n.get("wavedefense.boundary.consequence.instant")
+            };
+            // Динамічна ширина кнопок — не виходять за межі при будь-якому розмірі вікна
+            int totalBoundaryGaps = (values.length - 1) * 4;
+            int availBoundaryW = Math.min(320, this.width - 80);
+            int bw = (availBoundaryW - totalBoundaryGaps) / values.length;
+            int bStartX = cx - availBoundaryW / 2;
             for (int i = 0; i < values.length; i++) {
                 Location.BoundaryConsequence consequence = values[i];
                 boolean selected = location.getBoundaryConsequence() == consequence;
-                int bw = 78;
                 this.addRenderableWidget(Button.builder(
                         Component.literal((selected ? "§a" : "§7") + labels[i]),
                         b -> { location.setBoundaryConsequence(consequence); rebuildWidgets(); }
-                ).bounds(left + i * (bw + 4), y, bw, 18).build());
+                ).bounds(bStartX + i * (bw + 4), y, bw, 18).build());
             }
             y += 24;
 
