@@ -142,7 +142,7 @@ public class MobEffectsEditorScreen extends Screen {
             this.addRenderableWidget(Button.builder(
                     Component.literal(label),
                     b -> { selectedEffect = fef; rebuildWidgets(); }
-            ).bounds(rightX, ry + i * EFFECT_ROW_H, rightW - (filteredEffects.size() > effectVisibleMax ? 16 : 0), EFFECT_ROW_H - 1).build());
+            ).bounds(rightX, ry + i * EFFECT_ROW_H, rightW - 16, EFFECT_ROW_H - 1).build());
         }
 
         // Скрол списку ефектів

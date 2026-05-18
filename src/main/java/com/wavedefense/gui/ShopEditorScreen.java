@@ -74,20 +74,24 @@ public class ShopEditorScreen extends Screen {
         this.addRenderableWidget(Button.builder(
             Component.translatable("wavedefense.button.save_back"),
             b -> saveChanges()
-        ).bounds(cx - 120, this.height - 28, 180, 20).build());
+        ).bounds(cx - 160, this.height - 28, 150, 20).build());
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.button.cancel"),
+            b -> this.minecraft.setScreen(parent)
+        ).bounds(cx - 5, this.height - 28, 110, 20).build());
 
         // Кнопки імпорту/експорту магазину
         this.addRenderableWidget(Button.builder(
             Component.translatable("wavedefense.auto.exp_648cf132"),
             b -> exportShop(isPoint)
-        ).bounds(cx + 64, this.height - 28, 42, 20).build())
+        ).bounds(cx + 110, this.height - 28, 42, 20).build())
         .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
             Component.translatable("wavedefense.auto.зберегти_магазин_у_файл_server_w_7b502093")));
 
         this.addRenderableWidget(Button.builder(
             Component.translatable("wavedefense.auto.imp_3d6db024"),
             b -> minecraft.setScreen(new ShopImportScreen(location, isPoint, this))
-        ).bounds(cx + 110, this.height - 28, 42, 20).build())
+        ).bounds(cx + 156, this.height - 28, 42, 20).build())
         .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
             Component.translatable("wavedefense.auto.завантажити_магазин_з_файлу_075366bf")));
     }

@@ -1,40 +1,30 @@
-# Wave Defense Mod - v0.2.43
+# Wave Defense Mod - v0.2.44
 
 Wave Defense is a PvE/PvP Forge mod for **Minecraft 1.20.1** and **Java 17**.
 It lets server owners build configurable arena locations with mob waves, team PvP,
 shops, loot events, portals, boundaries, HUD panels, and in-game admin editors.
 
-The public release before this repair branch is **0.2.42**, so this workspace now
-targets **0.2.43**.
-
 ---
 
 ## Status
 
-Version `0.2.43` is a repair and UI-improvement branch.
+Version `0.2.44` — stable after seven audit passes and full tester review (43 screenshots).
 
-Already repaired in this workspace:
+Completed in this workspace:
 
-- Restored important `WaveManager` delegations and sync methods that had become stubs.
-- Repaired PvE player-death handling so real deaths are counted separately from surrender/logout.
-- Repaired PvP team selection so an explicitly chosen team/spawn is not overwritten by auto-balance.
-- Repaired player/team sync packets used by HUD teammate panels.
-- Repaired shop item editor scrolling and hidden-widget click filtering.
-- Repaired PvP rules editor scrolling so it uses real content height instead of a fixed limit.
-- Added grouped dashboard-style PvE/PvP location tabs for waves, shop, loot, and shared settings.
-- Added player shop tile/grid mode while keeping the classic list mode.
-- Reworked PvP team selection into a scrollable team-card screen that preserves explicit team/spawn choice.
-- Fixed all critical PvE data-loss bugs: `totalWaves` persistence, `victoryLingerTicks` countdown, dead-mob cleanup, `waveStartMobCount` inflation, `halfMobsTriggered` reset, and `PlayerBackup` restore completeness.
-- Fixed all runtime features that were stored but never applied: `waveEffect`, `pointsReward`, `completionCommand`, `firstWaveDelaySec`.
-- Fixed full PvP audit: `pvpPendingRespawn` clear, `dmTeamKills` clear, BR simultaneous death draw, BR environment death tracking, rebalance in BUY phase, double-point award on final round, premature `ENDED` state.
-- Fixed shop sell path: `SellItemPacket` now passes `shopPointIndex` so sells from per-point shops use the correct item list.
-- Fixed `PvpLocationEditorScreen` losing typed damage values on toggle rebuilds.
-- Fixed `PvpTeamSelectScreen` hiding duplicate-named spawn points — all spawns now appear with `(N)` suffix when names clash.
-- Fixed `StatsScreen` showing truncated UUIDs instead of player names.
-- Replaced all hardcoded Ukrainian strings across 6 GUI screens with `Component.translatable()` keys; 35 new keys in all 8 language files (en/uk/de/fr/es/pl/pt_br/zh_cn).
-- Verified code for correctness against Java 17 / Forge 1.20.1 API.
+- **Architecture**: Decomposed `WaveManager` (3 748 lines) into 11 focused sub-managers; `LocationSession` value object; `ListEditorScreen<T>` base class; `CoordinateInputField` compound widget; `LocationSerializer` / `NbtHelper` data layer.
+- **PvE runtime**: Fixed `totalWaves` persistence, `victoryLingerTicks` countdown, dead-mob cleanup, `waveStartMobCount` inflation, `PlayerBackup` restore (armor/offhand/effects). Activated `waveEffect`, `pointsReward`, `completionCommand`, `firstWaveDelaySec`.
+- **PvP runtime**: Fixed premature `ENDED` state, `dmTeamKills` accumulation, BR simultaneous death draw, BR environment death tracking, rebalance during BUY phase, double-point award, PvP teammates HUD sync.
+- **Networking**: `SellItemPacket` now carries `shopPointIndex`; all server responses use `Component.translatable()`.
+- **Data safety**: `LocationManager` writes a `.bak` copy on save; restores from backup on corrupt primary file.
+- **Spawn correctness**: Mob dimension fixed (no longer tied to player's current dimension); unloaded-chunk guard prevents stalled waves.
+- **i18n**: Full localization — 224 keys per language, 8 language files (EN · UK · DE · FR · ES · PL · PT-BR · ZH-CN), zero hardcoded player-visible strings.
+- **§ corruption fix**: All `?[color]` substitutions and `\\u00A7x` literal-escape auto-keys corrected across all 8 lang files and 3 Java GUI files.
+- **GUI audit (52 screens)**: Scissor clipping, scroll behavior, hidden-widget click filtering, two-click delete confirmations (waves, rewards, PvP spawns), Cancel buttons, per-slot loot "from hand" buttons, stable effect-picker width, standardized button heights.
+- **Layout fixes**: Import/Export header overlap, Completion Rewards item frame padding, tooltip black-box bug, LocationEditor footer overlap, mob spawn scroll Y offset, PvP mode unlock button.
+- **Config screen**: In-game configuration via Mods menu → Wave Defense → Config (all `wavedefense-common.toml` settings, five tabs, saves on close).
 
-Still planned:
+Still to do:
 
 - Clean generated notes, old summaries, corrupted files, and root-level prototype files.
 - Run full in-game testing for PvE waves and 2+ player PvP sessions.
@@ -44,7 +34,7 @@ Still planned:
 ## Installation
 
 1. Install Forge `1.20.1` (`47.2.0+` recommended).
-2. Copy the built `wavedefense-0.2.43.jar` into the `mods/` folder.
+2. Copy the built `wavedefense-0.2.44.jar` into the `mods/` folder.
 3. Start the client or dedicated server.
 
 ---
@@ -185,22 +175,28 @@ Examples:
 
 ## Configuration
 
+### In-game (recommended)
+
+Open the **Mods** menu → select **Wave Defense** → click **Config**.  
+A five-tab GUI covers every setting without editing any file manually:
+
+| Tab | Settings |
+|-----|----------|
+| **General** | HUD overlay, default wave time, UI tooltips, lobby timer, location game mode |
+| **PvP** | Hide enemy nametags, default rounds, default buy time |
+| **Mobs & Shop** | Mob equipment toggle, armor drop chance, shop categories, shop hotkey |
+| **Limits** | Max mob types, waves, spawn points, shop items, loot spawns (1–9999) |
+| **Debug** | Admin debug messages, server log verbosity |
+
+Changes are written to disk immediately on **Save & Close**.
+
+### File (manual)
+
 Common config file:
 
 ```text
 config/wavedefense-common.toml
 ```
-
-Important settings include:
-
-- HUD enabled/disabled;
-- shop hotkey;
-- UI tooltips;
-- default PvP rounds;
-- default PvP buy time;
-- mob equipment;
-- equipment drop chance;
-- debug logging.
 
 ---
 

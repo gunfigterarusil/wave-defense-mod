@@ -1,5 +1,133 @@
 # Changelog
 
+## [0.2.44] - 2026-05-18
+
+### Added — In-game configuration screen
+
+Registered `WaveDefenseConfigScreen` as the mod's config screen via Forge's
+`ConfigScreenHandler.ConfigScreenFactory`. The screen opens from the Mods menu
+(select Wave Defense → Config button) and covers every setting in
+`config/wavedefense-common.toml` without requiring players to edit the file manually.
+
+Screen layout — five tabs:
+- **General**: HUD overlay, default wave time, UI tooltips, lobby timer, location game mode (Survival / Adventure).
+- **PvP**: hide enemy nametags, default round count, default buy time.
+- **Mobs & Shop**: mob equipment toggle, armor drop chance, shop categories, shop hotkey (B).
+- **Limits**: max mob types per wave, max waves, mob spawn points, PvP spawn points, shop items, loot spawns.
+- **Debug**: admin debug messages, server log verbosity.
+
+Values are applied and written to disk immediately on Save. Cancel discards all
+unsaved changes. An info line on the Limits tab notes the 1–9999 valid range.
+
+---
+
+### Fixed — Critical button-layout bugs introduced in 0.2.43 seventh audit
+
+Four regressions found by post-audit error analysis and corrected:
+
+**`CompletionRewardScreen`: Delete button overlapped Edit button in pending-confirmation state.**
+When `isPendingDelReward = true` the button width expanded to 50 px, but the position
+formula `cx + 156 − delRewardW` placed the left edge at `cx + 106` — directly on top of
+the ✎ Edit button at `cx + 105`. Fixed by using a fixed left anchor `cx + 131`
+(immediately right of the edit button) so the expanded button grows rightward only.
+
+**`ShopEditorScreen`: Cancel button overlapped Exp (export) button.**
+Cancel spanned `cx − 5` to `cx + 105`; Exp started at `cx + 64` — a 41 px overlap.
+Fixed by moving Exp to `cx + 110` and Imp to `cx + 156`, leaving a clean 5 px gap
+after Cancel.
+
+**`LootSpawnEditorScreen`: per-slot "←" button threw `IndexOutOfBoundsException`.**
+`editItems.set(si, held.copy())` assumed `editItems` always had ≥ 4 entries, but the
+list can be shorter when loading sparse loot data. Fixed with a guard:
+`while (editItems.size() <= si) editItems.add(ItemStack.EMPTY)` before every `set()`.
+
+**`WaveConfigScreen`: `pendingDeleteWaveIndex` not reset on scroll.**
+After clicking ✕ on wave #3 (first-click pending state), scrolling moved the list but
+kept wave #3 highlighted. A subsequent click could delete the wrong wave. Fixed by
+clearing `pendingDeleteWaveIndex = -1` in both ▲/▼ button handlers and in an overridden
+`mouseScrolled()`.
+
+---
+
+### Fixed — Seventh audit: § character corruption (all 8 language files + Java GUI)
+
+`§` (U+00A7) was corrupted in two distinct ways across the codebase:
+
+**Cause A — `?` substitution in lang file values** (saved in wrong encoding): corrected
+in the shared block (lines 736–807 in every lang file) across all eight language files:
+`en_us`, `uk_ua`, `de_de`, `fr_fr`, `es_es`, `pl_pl`, `pt_br`, `zh_cn`.
+Patterns fixed: `?6Wave %s`, `?d?l`, `?c?l PvP`, `?a▶`, `?7`, `?e`, `?8` etc.
+
+**Cause B — `\\u00A7x` literal backslash-unicode in auto-keys**: six auto-generated keys
+per language file (e.g. `wavedefense.auto.u00a76_u00a7l_*`) stored `"\\u00A76\\u00A7l"`
+as their value. After JSON parsing this became the 12-character string `§6§l`
+which Minecraft rendered literally (visible as `§6§lShop 1111` in image30).
+Fixed to actual `§6§l` characters. Also fixed `\\u25B2` → `▲` and `\\u25BC` → `▼` in the
+same auto-key batch.
+
+**Java GUI files**: three screens had `?` where `§` was expected:
+- `LocationEditorScreen.java` line 130: `"?a?l? "` / `"?7? "` → `"§a§l▶ "` / `"§7▶ "`
+- `PvpLocationEditorScreen.java` line 94: same pattern
+- `LootSpawnEditorScreen.java` line 383: `"?7"`, `"?8"`, garbled hint text → corrected Ukrainian
+
+---
+
+### Fixed — Seventh audit: layout and UX bugs (from tester's 43-screenshot report)
+
+**`ImportExportScreen` (Bug 2.1):** "Refresh list" button used a `y − 14` hack that placed it
+on the same row as the "— IMPORT —" header label, causing visual overlap. Moved to a
+dedicated row with `y += 22` spacing.
+
+**`CompletionRewardScreen` (Bug 2.2):** item slot frames started at `cx − 161` with zero
+left padding, clipping through the card border. Shifted all item columns by +4 px
+(`cx − 160 + j * 22` → `cx − 156 + j * 22`) in both `buildRowWidgets` and `renderContentExtra`.
+
+**`CompletionRewardScreen` (Bug 2.3):** `renderTooltip` was called inside the item render loop
+while ScissorHelper was active, producing a black rectangle instead of the tooltip.
+Fixed by collecting `tooltipItem` in the loop and calling `renderTooltip` once after the
+loop, after `ScissorHelper.disable()`.
+
+**`LocationEditorScreen` (Bug 2.4 / 2.5 / N17):** scrollable content in Basic and Special tabs
+overlapped the Save / Back / Close footer buttons. `CLIP_BOT` adjusted to
+`CONTENT_BOT − 4` so the scissor region always ends above the footer.
+
+**`LocationEditorScreen` (N3):** mob spawn point ▲/▼ scroll buttons were registered via
+`addStatic()`, which placed them outside the scissor clip and left the list items at fixed
+Y positions regardless of `mobSpawnScrollOffset`. Changed to `addRenderableWidget` so
+buttons scroll with content and the ▼ position tracks `listY + maxVisible * 22`.
+
+**`LocationEditorScreen` (N18):** switching to PvP mode from the location editor had no way
+back. Added an explicit `"§a← PvE мобів/хвилі"` button that calls
+`location.setMode(LocationMode.PVE)` and rebuilds the widget tree.
+
+**`LootSpawnEditorScreen` (N14):** a single global "from hand" button filled only the first
+empty slot. Replaced with four per-slot `"←"` buttons rendered below each slot icon,
+each bound to its own slot index.
+
+**`MobEffectsEditorScreen` (N6):** effect-picker button width was conditional on scrollbar
+presence (`rightW − 16` or `rightW`), causing all buttons to jump in width when scrolling
+crossed the visibility threshold. Fixed to always subtract 16 px.
+
+**`WaveTriggerEditorScreen` (N8):** item-type label and hand button heights were 14 px while
+surrounding rows used 18–20 px, making the section visually cramped. Standardised to
+18 px height with `y += 20 / 22` spacing.
+
+**`ShopEditorScreen` (N9):** no way to close the shop editor without saving. Added a
+"Cancel" button (`cx − 5`, width 110) next to the existing "Save & Back" button.
+"Save & Back" resized from 200 px → 150 px to make room.
+
+**`WaveConfigScreen` (F1):** wave deletion was instant on a single click. Added two-click
+confirmation: first click highlights the row and sets `pendingDeleteWaveIndex`; second
+click on the same row executes the delete.
+
+**`CompletionRewardScreen` (F2):** no way to leave the reward list without saving. Added
+"Cancel" button that returns to `parent` without calling `saveAndBack()`.
+
+**`CompletionRewardScreen` (F3):** reward deletion was instant. Added two-click confirmation
+via `pendingDeleteRewardIndex` field (same pattern as wave deletion).
+
+---
+
 ## [0.2.43] - 2026-05-17 (third pass)
 
 ### Fixed — third audit (server/client correctness, spawn dimension, null-safety)

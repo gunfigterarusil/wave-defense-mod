@@ -193,12 +193,12 @@ public class WaveConfigScreen extends ScrollableScreen {
             if (location.getWaves().size() > itemsPerPage) {
                 addStatic(Button.builder(
                         Component.literal("▲"),
-                        button -> { if (scrollOffset > 0) { scrollOffset--; rebuildWidgets(); } }
+                        button -> { if (scrollOffset > 0) { scrollOffset--; pendingDeleteWaveIndex = -1; rebuildWidgets(); } }
                 ).bounds(centerX + 155, listStartY, 22, 20).build());
                 addStatic(Button.builder(
                         Component.literal("▼"),
                         button -> {
-                            if (scrollOffset + getItemsPerPage() < location.getWaves().size()) { scrollOffset++; rebuildWidgets(); }
+                            if (scrollOffset + getItemsPerPage() < location.getWaves().size()) { scrollOffset++; pendingDeleteWaveIndex = -1; rebuildWidgets(); }
                         }
                 ).bounds(centerX + 155, listStartY + (itemsPerPage - 1) * 46 + 22, 22, 20).build());
             }
@@ -469,6 +469,13 @@ public class WaveConfigScreen extends ScrollableScreen {
         } else {
             super.onClose();
         }
+    }
+
+    // BUG-D: скидати pendingDeleteWaveIndex при прокрутці мишею
+    @Override
+    public boolean mouseScrolled(double mx, double my, double delta) {
+        pendingDeleteWaveIndex = -1;
+        return super.mouseScrolled(mx, my, delta);
     }
 
     @Override

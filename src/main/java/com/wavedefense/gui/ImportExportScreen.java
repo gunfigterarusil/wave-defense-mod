@@ -94,7 +94,8 @@ public class ImportExportScreen extends Screen {
                 statusMsg = "§7Завантажую список...";
                 rebuildWidgets();
             }
-        ).bounds(cx + 60, y - 14, 100, 12).build());
+        ).bounds(cx - 160, y, 200, 18).build());
+        y += 22;
 
         // Список файлів для імпорту
         int visibleFrom = scrollOffset;

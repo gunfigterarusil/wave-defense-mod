@@ -10,19 +10,31 @@ displayName="${mod_name}"
 description='''
 Wave Defense ${mod_version} - PvE/PvP arena engine for Minecraft 1.20.1 Forge.
 
-This version is a repair and UI-improvement branch after the public 0.2.42 release.
+Build configurable arena locations with mob waves, team PvP, shops, loot events,
+portals, boundaries, HUD panels, and full in-game admin editors.
+No config files needed — everything is configured through in-game GUI screens.
 
-Main features:
-- PvE wave-defense locations with configurable mobs, equipment, effects, spawn points, rewards, shops, loot, boundaries, portals, and info panels.
-- PvP locations with team spawns, Standard rounds, Deathmatch, Battle Royale, buy phase, team auto-balance, friendly fire, points, and scoreboard/HUD sync.
-- In-game admin editors for locations, waves, mobs, shops, loot spawns, triggers, PvP rules, and HUD settings.
-- Player HUD, teammate panel, direct shop hotkey, import/export, and NBT-backed persistence.
+PvE features:
+- Wave-defense locations: configurable mobs, equipment, potion effects, spawn points,
+  starting items, completion rewards, points per kill, wave scaling.
+- Shop system: global or per-point mode, multiple items per entry, buy/sell prices,
+  availability triggers, import/export.
+- Loot spawn points with configurable triggers.
+- Auto-activation zone, location boundary (timer/damage/teleport/surrender modes),
+  portal system for penalty waves, info panel TextDisplays.
+- HUD overlay: wave counter, timer, mob count, points, teammates.
 
-0.2.43 focus:
-- restore broken WaveManager/PvE/PvP logic from the repair branch;
-- keep explicit PvP team selection stable when auto-balance is enabled;
-- improve large GUI scrolling and hidden-widget click behavior;
-- start the UI cleanup track for better location configuration and a future shop tile/grid mode.
+PvP features:
+- Standard rounds (buy phase → countdown → active → round end).
+- Deathmatch: unlimited respawns, victory by kill target.
+- Battle Royale: random spawn, shrinking border, border damage and particles.
+- Team spawns, auto-balance, friendly fire, scoreboard nametag hiding, per-round points.
+
+Languages: EN · UK · DE · FR · ES · PL · PT-BR · ZH-CN
+
+Hotkeys:  V — main menu   |   B — open shop   |   L — leave location
+
+Configuration: Mods menu → Wave Defense → Config  (or edit config/wavedefense-common.toml)
 '''
 logoFile="logo.png"
 authors="${mod_authors}"

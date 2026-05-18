@@ -107,6 +107,11 @@ public class LocationEditorScreen extends Screen {
                     Component.translatable("wavedefense.button.open_pvp_editor"),
                     b -> this.minecraft.setScreen(new PvpLocationEditorScreen(location, this))
             ).bounds(cx - 120, 60, 240, 22).build());
+            // Явна кнопка повернення до PvE (N18: тестер не бачив маленьку сіру кнопку зверху)
+            addStatic(Button.builder(
+                    Component.literal("§a← ").append(Component.translatable("wavedefense.auto.pve_мобів_хвилі_8b812f4e")),
+                    b -> { location.setMode(LocationMode.PVE); rebuildWidgets(); }
+            ).bounds(cx - 120, 88, 240, 18).build());
             // U7: Кнопка Save і Back у PvP-гілці (раніше Back була відсутня)
             addStatic(Button.builder(
                     Component.translatable("wavedefense.button.save"), button -> saveChanges()
@@ -127,7 +132,7 @@ public class LocationEditorScreen extends Screen {
         for (int ti = 0; ti < tabNames.length; ti++) {
             final int fti = ti;
             addStatic(Button.builder(
-                Component.literal(currentTab == ti ? "?a?l? " : "?7? ").append(Component.translatable(tabNames[ti])),
+                Component.literal(currentTab == ti ? "§a§l▶ " : "§7▶ ").append(Component.translatable(tabNames[ti])),
                 b -> switchTab(fti)
             ).bounds(tabStartX + (tabW + tabGap) * ti, 52, tabW, 20).build());
         }
@@ -211,12 +216,12 @@ public class LocationEditorScreen extends Screen {
         }
 
         if (location.getMobSpawns().size() > MOB_SPAWN_PER_PAGE) {
-            addStatic(Button.builder(Component.literal("▲"),
+            this.addRenderableWidget(Button.builder(Component.literal("▲"),
                     button -> { if (mobSpawnScrollOffset > 0) { mobSpawnScrollOffset--; rebuildWidgets(); } }
             ).bounds(cx + 105, listY, 20, 20).build());
-            addStatic(Button.builder(Component.literal("▼"),
+            this.addRenderableWidget(Button.builder(Component.literal("▼"),
                     button -> { if (mobSpawnScrollOffset + MOB_SPAWN_PER_PAGE < location.getMobSpawns().size()) { mobSpawnScrollOffset++; rebuildWidgets(); } }
-            ).bounds(cx + 105, listY + (MOB_SPAWN_PER_PAGE - 1) * 22, 20, 20).build());
+            ).bounds(cx + 105, listY + maxVisible * 22, 20, 20).build());
         }
 
         int invY = listY + MOB_SPAWN_PER_PAGE * 22 + 8;
@@ -506,7 +511,7 @@ public class LocationEditorScreen extends Screen {
         // Блокуємо кліки на scrolled widgets що вийшли за межі scissor-зони (PvE режим)
         if (!location.isPvp()) {
             final int CLIP_TOP = 76;
-            final int CLIP_BOT = this.height - 30;
+            final int CLIP_BOT = this.height - 34;
             for (var r : this.renderables) {
                 if (r instanceof net.minecraft.client.gui.components.AbstractWidget w) {
                     if (staticWidgets.contains(w)) continue; // статичні — не блокуємо
@@ -573,7 +578,7 @@ public class LocationEditorScreen extends Screen {
         final int CONTENT_TOP   = TAB_Y + TAB_H; // = 72, нижній край табів
         final int CONTENT_BOT   = this.height - 30; // верхній край нижніх кнопок
         final int CLIP_TOP      = CONTENT_TOP + 4;  // = 76, з невеликим відступом
-        final int CLIP_BOT      = CONTENT_BOT;
+        final int CLIP_BOT      = CONTENT_BOT - 4;  // 4px буфер щоб контент не торкався footer
 
         // ── Крок 1: прокручений контент через scissor [CLIP_TOP..CLIP_BOT] ──
         // Статичні widgets (PvE/PvP toggle, таби, нижні кнопки) у scissor не рендеряться.

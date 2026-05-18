@@ -24,6 +24,7 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
     private int editingIndex = -1;
     private List<ItemStack> editItems = new ArrayList<>();
     private EditBox minPointsInput;
+    private int pendingDeleteRewardIndex = -1;
 
     private static final int ITEMS_PER_PAGE = 4;
     private static final int ROW_H  = 62;
@@ -80,7 +81,11 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
         // ── Footer (static) ───────────────────────────────────────────
         addStatic(Button.builder(
                 Component.translatable("wavedefense.button.save_back"), button -> saveAndBack()
-        ).bounds(cx - 110, this.height - 28, 220, 20).build());
+        ).bounds(cx - 160, this.height - 28, 150, 20).build());
+        addStatic(Button.builder(
+                Component.translatable("wavedefense.button.cancel"),
+                button -> this.minecraft.setScreen(parent)
+        ).bounds(cx - 5, this.height - 28, 110, 20).build());
     }
 
     // ─── Row builder ───────────────────────────────────────────────────────
@@ -111,14 +116,28 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
         this.addRenderableWidget(Button.builder(
                 Component.literal("✎"), button -> startEditItem(fIdx)
         ).bounds(cx + 105, y, 24, 18).build());
+        boolean isPendingDelReward = (pendingDeleteRewardIndex == fIdx);
+        int delRewardW = isPendingDelReward ? 50 : 24;
         this.addRenderableWidget(Button.builder(
-                Component.literal("§c✕"), button -> { location.removeCompletionReward(fIdx); rebuildWidgets(); }
-        ).bounds(cx + 132, y, 24, 18).build());
+                isPendingDelReward
+                    ? Component.translatable("wavedefense.button.confirm_delete")
+                    : Component.literal("§c✕"),
+                button -> {
+                    if (isPendingDelReward) {
+                        pendingDeleteRewardIndex = -1;
+                        location.removeCompletionReward(fIdx);
+                        rebuildWidgets();
+                    } else {
+                        pendingDeleteRewardIndex = fIdx;
+                        rebuildWidgets();
+                    }
+                }
+        ).bounds(cx + 131, y, delRewardW, 18).build());
 
         for (int j = 0; j < Math.min(4, items.size()); j++) {
             this.addRenderableWidget(Button.builder(
                     Component.literal(""), button -> {}
-            ).bounds(cx - 160 + j * 22, y + 20, 20, 20).build()).active = false;
+            ).bounds(cx - 156 + j * 22, y + 20, 20, 20).build()).active = false;
         }
         if (!items.isEmpty()) {
             String itemName = "§7" + items.get(0).getHoverName().getString();
@@ -196,14 +215,14 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
     protected void renderContentExtra(GuiGraphics g, int mx, int my, float pt) {
         int cx = this.width / 2;
         List<ShopItem> rewards = location.getCompletionRewards();
+        ItemStack tooltipItem = null;
         for (int i = 0; i < Math.min(ITEMS_PER_PAGE, rewards.size()); i++) {
             int idx = i + scrollOffset;
             if (idx >= rewards.size()) break;
             List<ItemStack> items = rewards.get(idx).getItems();
             int yPos = LIST_Y + i * ROW_H;
-            ItemStack tooltipItem = null;
             for (int j = 0; j < Math.min(4, items.size()); j++) {
-                int ix = cx - 160 + j * 22;
+                int ix = cx - 156 + j * 22;
                 int iy = yPos + 20;
                 g.fill(ix - 1, iy - 1, ix + 17, iy + 17, 0xFF444444);
                 g.fill(ix, iy, ix + 16, iy + 16, 0xFF222222);
@@ -213,12 +232,10 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
                     tooltipItem = items.get(j);
                 }
             }
-            if (tooltipItem != null) {
-                ScissorHelper.disable();
-                g.renderTooltip(this.font, tooltipItem, mx, my);
-                ScissorHelper.enable(0, getClipTop(), this.width,
-                        Math.max(1, getClipBot() - getClipTop()));
-            }
+        }
+        if (tooltipItem != null) {
+            ScissorHelper.disable();
+            g.renderTooltip(this.font, tooltipItem, mx, my);
         }
     }
 

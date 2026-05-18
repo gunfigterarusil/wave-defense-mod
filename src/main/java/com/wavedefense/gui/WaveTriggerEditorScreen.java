@@ -223,7 +223,7 @@ public class WaveTriggerEditorScreen extends Screen {
         if (needsItem()) {
             this.addRenderableWidget(Button.builder(
                 Component.translatable("wavedefense.auto.предмет_и_item_id_через_кому_fa084ffb"), b -> {}
-            ).bounds(cx - btnW / 2, y, btnW - 26, 14).build()).active = false;
+            ).bounds(cx - btnW / 2, y, btnW - 26, 18).build()).active = false;
             this.addRenderableWidget(Button.builder(
                 Component.literal("✋"),
                 b -> {
@@ -240,10 +240,10 @@ public class WaveTriggerEditorScreen extends Screen {
                         }
                     }
                 }
-            ).bounds(cx + btnW / 2 - 24, y, 24, 14).build()
+            ).bounds(cx + btnW / 2 - 24, y, 24, 18).build()
             ).setTooltip(net.minecraft.client.gui.components.Tooltip.create(
                 Component.translatable("wavedefense.auto.вставити_id_з_основної_руки_50646419")));
-            y += 16;
+            y += 20;
             customItemInput = new EditBox(this.font, cx - btnW / 2, y, btnW, 18, Component.translatable("wavedefense.auto.id_87ea5dfc"));
             customItemInput.setMaxLength(256);
             customItemInput.setValue(wave.getTriggerCustomItemId().isEmpty()
@@ -291,8 +291,8 @@ public class WaveTriggerEditorScreen extends Screen {
         // Перезарядка
         this.addRenderableWidget(Button.builder(
             Component.translatable("wavedefense.auto.перезарядка_мін_5с_4172cb22"), b -> {}
-        ).bounds(cx - btnW / 2, y, 180, 14).build()).active = false;
-        y += 16;
+        ).bounds(cx - btnW / 2, y, 180, 18).build()).active = false;
+        y += 22;
 
         WaveConfig.CooldownMode cm = wave.getCooldownMode();
         int mW = 76;

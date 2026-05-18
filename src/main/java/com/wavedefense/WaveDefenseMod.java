@@ -5,10 +5,12 @@ import com.wavedefense.config.WaveDefenseConfig;
 import com.wavedefense.data.LocationManager;
 import com.wavedefense.events.EventHandler;
 import com.wavedefense.events.KeyBindings;
+import com.wavedefense.gui.WaveDefenseConfigScreen;
 import com.wavedefense.monitor.WaveDefenseMonitor;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.wave.WaveManager;
 import net.minecraft.server.MinecraftServer;
+import net.minecraftforge.client.ConfigScreenHandler;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.TickEvent;
@@ -16,6 +18,7 @@ import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
@@ -84,5 +87,13 @@ public class WaveDefenseMod {
 
     private void clientSetup(final FMLClientSetupEvent event) {
         LOGGER.info("Wave Defense Mod - Client Setup");
+
+        // Register in-game config screen (Mods menu → Wave Defense → Config)
+        ModLoadingContext.get().registerExtensionPoint(
+            ConfigScreenHandler.ConfigScreenFactory.class,
+            () -> new ConfigScreenHandler.ConfigScreenFactory(
+                (mc, parentScreen) -> new WaveDefenseConfigScreen(parentScreen)
+            )
+        );
     }
 }

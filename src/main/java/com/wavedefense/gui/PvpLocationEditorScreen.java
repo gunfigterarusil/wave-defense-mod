@@ -91,7 +91,7 @@ public class PvpLocationEditorScreen extends Screen {
         for (int i = 0; i < tabs.length; i++) {
             final int ti = i;
             addStatic(Button.builder(
-                    Component.literal(currentTab == i ? "?a?l? " : "?7? ").append(Component.translatable(tabs[i])),
+                    Component.literal(currentTab == i ? "§a§l▶ " : "§7▶ ").append(Component.translatable(tabs[i])),
                     button -> { currentTab = ti; scrollOffset = 0; rulesScrollOffset = 0; rebuildWidgets(); }
             ).bounds(tabX + i * (tabW + tabGap), 25, tabW, 20).build());
         }

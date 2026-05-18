@@ -172,25 +172,7 @@ public class LootSpawnEditorScreen extends Screen {
                 Component.translatable("wavedefense.auto.предмети_луту_87a19179"), b -> {}
         ).bounds(cx - btnW / 2, y, 120, 14).build()).active = false;
 
-        // Кнопка "Додати з руки"
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.from_hand"),
-                b -> {
-                    if (minecraft.player != null) {
-                        net.minecraft.world.item.ItemStack held = minecraft.player.getMainHandItem();
-                        if (!held.isEmpty()) {
-                            for (int si = 0; si < editItems.size(); si++) {
-                                if (editItems.get(si).isEmpty()) {
-                                    editItems.set(si, held.copy());
-                                    rebuildWidgets();
-                                    return;
-                                }
-                            }
-                        }
-                    }
-                }
-        ).bounds(cx + btnW / 2 - 55, y, 55, 14).build());
-        y += 16;
+        y += 4;
 
         // Динамічна ширина слотів (адаптується до розміру екрану)
         int dynSlotW = Math.max(40, (btnW - 3 * SLOT_GAP) / 4);
@@ -219,8 +201,25 @@ public class LootSpawnEditorScreen extends Screen {
                     Component.translatable("wavedefense.button.clear_item"),
                     b -> { editItems.set(si, ItemStack.EMPTY); rebuildWidgets(); }
             ).bounds(xPos, y + SLOT_H + 2, dynSlotW, SLOT_H).build());
+
+            // Кнопка "←" взяти з руки — під кожним слотом
+            this.addRenderableWidget(Button.builder(
+                    Component.literal("←"),
+                    b -> {
+                        if (minecraft.player != null) {
+                            net.minecraft.world.item.ItemStack held = minecraft.player.getMainHandItem();
+                            if (!held.isEmpty()) {
+                                while (editItems.size() <= si) editItems.add(net.minecraft.world.item.ItemStack.EMPTY);
+                                editItems.set(si, held.copy());
+                                rebuildWidgets();
+                            }
+                        }
+                    }
+            ).bounds(xPos, y + SLOT_H * 2 + 4, dynSlotW, SLOT_H).build())
+            .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                    Component.translatable("wavedefense.button.from_hand")));
         }
-        y += SLOT_H * 2 + 14;
+        y += SLOT_H * 3 + 16;
 
         // ── Координати точки спавну луту (компактно) ─────────────────
         {
@@ -380,7 +379,7 @@ public class LootSpawnEditorScreen extends Screen {
                 }
             ).bounds(cx - btnW / 2, ty, btnW, LOOT_BTN_H).build();
             btn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                Component.literal("?7" + ft.tooltip + (ft.needsValue ? "\n?8??????? N ????? ??????" : ""))));
+                Component.literal("§7" + ft.tooltip + (ft.needsValue ? "\n§8Вкажи значення N (ціле число)" : ""))));
             this.addRenderableWidget(btn);
             ty += LOOT_BTN_H + LOOT_BTN_GAP;
         }
