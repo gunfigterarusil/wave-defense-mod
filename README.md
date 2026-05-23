@@ -1,4 +1,4 @@
-# Wave Defense Mod - v0.2.44
+# Wave Defense Mod - v0.2.45
 
 Wave Defense is a PvE/PvP Forge mod for **Minecraft 1.20.1** and **Java 17**.
 It lets server owners build configurable arena locations with mob waves, team PvP,
@@ -8,7 +8,7 @@ shops, loot events, portals, boundaries, HUD panels, and in-game admin editors.
 
 ## Status
 
-Version `0.2.44` — stable after seven audit passes and full tester review (43 screenshots).
+Version `0.2.45` — UI design system applied to all main screens; loot trigger dispatch completed.
 
 Completed in this workspace:
 
@@ -23,6 +23,8 @@ Completed in this workspace:
 - **GUI audit (52 screens)**: Scissor clipping, scroll behavior, hidden-widget click filtering, two-click delete confirmations (waves, rewards, PvP spawns), Cancel buttons, per-slot loot "from hand" buttons, stable effect-picker width, standardized button heights.
 - **Layout fixes**: Import/Export header overlap, Completion Rewards item frame padding, tooltip black-box bug, LocationEditor footer overlap, mob spawn scroll Y offset, PvP mode unlock button.
 - **Config screen**: In-game configuration via Mods menu → Wave Defense → Config (all `wavedefense-common.toml` settings, five tabs, saves on close).
+- **UI design**: `GuiTheme` extended with 7 constants + 5 helpers; all 9 main screens and HUD use consistent theme (colors, cards, progress bars, section dividers, badges).
+- **Loot triggers**: 7 of 20 `LootSpawn.Trigger` values (`LOCATION_START`, `WAVE_START`, `WAVE_N`, `WAVE_END`, `LOCATION_END`, `MOB_KILL`, `MOBS_KILLED_N`, `HALF_MOBS_DEAD`) now have runtime dispatch points.
 
 Still to do:
 
@@ -34,7 +36,7 @@ Still to do:
 ## Installation
 
 1. Install Forge `1.20.1` (`47.2.0+` recommended).
-2. Copy the built `wavedefense-0.2.44.jar` into the `mods/` folder.
+2. Copy the built `wavedefense-0.2.45.jar` into the `mods/` folder.
 3. Start the client or dedicated server.
 
 ---

@@ -79,12 +79,14 @@ public class WaveContext {
 
     /** Повертає список серверних гравців у конкретній локації. */
     public List<ServerPlayer> getPlayersInLocation(String locationName) {
+        // С9: server may be null during shutdown or world reload
+        net.minecraft.server.MinecraftServer srv = WaveDefenseMod.getServer();
+        if (srv == null) return java.util.Collections.emptyList();
         List<ServerPlayer> list = new ArrayList<>();
         for (Map.Entry<UUID, PlayerWaveData> e : playerData.entrySet()) {
             if (e.getValue().getCurrentLocation() != null &&
                     e.getValue().getCurrentLocation().getName().equals(locationName)) {
-                ServerPlayer sp = WaveDefenseMod.getServer()
-                        .getPlayerList().getPlayer(e.getKey());
+                ServerPlayer sp = srv.getPlayerList().getPlayer(e.getKey());
                 if (sp != null) list.add(sp);
             }
         }

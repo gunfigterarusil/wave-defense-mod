@@ -29,7 +29,7 @@ public class WaveImportTargetScreen extends Screen {
     private static final int GAP   = 4;
 
     public WaveImportTargetScreen(Location location, String fileName, Screen parent) {
-        super(Component.literal("§b⬇ " + fileName + " → §e" + location.getName()));
+        super(Component.translatable("wavedefense.wave.import_target_title", fileName, location.getName()));
         this.location = location;
         this.fileName = fileName;
         this.parent = parent;
@@ -54,7 +54,7 @@ public class WaveImportTargetScreen extends Screen {
 
         // ── Додати в кінець ───────────────────────────────────────────
         this.addRenderableWidget(Button.builder(
-            Component.literal("§a➕ Додати в кінець (після хвилі " + location.getWaves().size() + ")"),
+            Component.translatable("wavedefense.wave.import_append", location.getWaves().size()),
             b -> sendImport("append")
         ).bounds(cx - 130, y, 260, BTN_H).build());
 
@@ -76,7 +76,8 @@ public class WaveImportTargetScreen extends Screen {
             WaveConfig wc = waves.get(idx);
             final int finalIdx = idx;
 
-            String info = String.format("Хвиля %d  §7(%d мобів, %d сек)", idx + 1, wc.getMobs().size(), wc.getTimeBetweenWaves());
+            String info = net.minecraft.client.resources.language.I18n.get(
+                "wavedefense.wave.export_wave_line", idx + 1, wc.getMobs().size(), wc.getTimeBetweenWaves(), "");
 
             // Замінити цю хвилю
             this.addRenderableWidget(Button.builder(

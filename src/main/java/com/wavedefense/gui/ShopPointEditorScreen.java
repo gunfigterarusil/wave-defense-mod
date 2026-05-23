@@ -9,6 +9,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
@@ -49,7 +50,7 @@ public class ShopPointEditorScreen extends Screen {
         if (pointIndex >= 0 && pointIndex < location.getShopPoints().size()) {
             this.editingPoint = location.getShopPoints().get(pointIndex); // редагуємо in-place
         } else {
-            this.editingPoint = new ShopPoint("Магазин", null, 5);
+            this.editingPoint = new ShopPoint(I18n.get("wavedefense.shop.default_name"), null, 5);
         }
     }
 
@@ -69,7 +70,7 @@ public class ShopPointEditorScreen extends Screen {
         nameInput = new EditBox(this.font, cx - 106, y, 220, 14, Component.translatable("wavedefense.auto.назва_382c87f9"));
         nameInput.setMaxLength(32);
         nameInput.setValue(editingPoint.getName());
-        nameInput.setResponder(s -> editingPoint.setName(s.isBlank() ? "Магазин" : s));
+        nameInput.setResponder(s -> editingPoint.setName(s.isBlank() ? I18n.get("wavedefense.shop.default_name") : s));
         this.addRenderableWidget(nameInput);
 
         // ── Позиція ─────────────────────────────────────────────────
@@ -153,7 +154,7 @@ public class ShopPointEditorScreen extends Screen {
             ShopItem si = items.get(idx);
             int yy = y + i * ROW_H;
 
-            String nm = si.getItems().isEmpty() ? "§cПусто"
+            String nm = si.getItems().isEmpty() ? "§c" + I18n.get("wavedefense.gui.empty")
                 : "§e" + si.getItems().get(0).getHoverName().getString();
             if (nm.length() > 30) nm = nm.substring(0, 28) + "…";
             if (si.getItems().size() > 1) nm += " §8(+" + (si.getItems().size()-1) + ")";
@@ -223,7 +224,7 @@ public class ShopPointEditorScreen extends Screen {
             return;
         }
         // Застосовуємо поля перед збереженням
-        if (nameInput != null) editingPoint.setName(nameInput.getValue().isBlank() ? "Магазин" : nameInput.getValue().trim());
+        if (nameInput != null) editingPoint.setName(nameInput.getValue().isBlank() ? I18n.get("wavedefense.shop.default_name") : nameInput.getValue().trim());
         if (radiusInput != null) { try { editingPoint.setRadius(Integer.parseInt(radiusInput.getValue().trim())); } catch (Exception ignored){} }
         // Якщо нова точка — додаємо до локації
         if (pointIndex < 0) location.addShopPoint(editingPoint);

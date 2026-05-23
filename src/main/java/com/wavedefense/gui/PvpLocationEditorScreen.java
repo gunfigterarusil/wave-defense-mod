@@ -756,6 +756,11 @@ public class PvpLocationEditorScreen extends Screen {
             portalOpenAfterStartInput = new EditBox(this.font, left + 290, y, 50, 18, Component.literal("-1"));
             portalOpenAfterStartInput.setValue(String.valueOf(location.getPortalOpenAfterStartSec()));
             portalOpenAfterStartInput.setMaxLength(5);
+            // С3: add responder so value is persisted immediately and survives rebuildWidgets()
+            portalOpenAfterStartInput.setResponder(s -> {
+                try { location.setPortalOpenAfterStartSec(Integer.parseInt(s.trim())); }
+                catch (NumberFormatException ignored) {}
+            });
             this.addRenderableWidget(portalOpenAfterStartInput);
             y += 24;
 
@@ -969,13 +974,36 @@ public class PvpLocationEditorScreen extends Screen {
         this.renderables.forEach(r -> {
             if (r instanceof net.minecraft.client.gui.components.Button btn
                     && btn.isHoveredOrFocused() && btn.active) {
-                String t = getTip(btn.getMessage().getString());
+                String t = getTip(btn.getMessage());
                 if (t != null) TooltipHelper.renderIfEnabled(g, this.font, t, mouseX, mouseY);
             }
         });
     }
 
-    private String getTip(String label) {
+    private String getTip(net.minecraft.network.chat.Component msg) {
+        // Primary match: use the stable i18n key (locale-independent)
+        net.minecraft.network.chat.ComponentContents contents = msg.getContents();
+        if (contents instanceof net.minecraft.network.chat.contents.TranslatableContents tc) {
+            String key = tc.getKey();
+            if (key.contains("friendly_fire"))             return TooltipHelper.PVP_FF;
+            if (key.contains("к_сть_раундів"))             return TooltipHelper.PVP_ROUNDS;
+            if (key.contains("час_покупок"))               return TooltipHelper.PVP_BUY_TIME;
+            if (key.contains("радіус_розкиду_гравців"))    return TooltipHelper.PVP_SPAWN_RADIUS;
+            if (key.contains("ефекти_очікування"))         return TooltipHelper.PVP_WAIT_EFFECT;
+            if (key.contains("автобаланс_команд"))         return TooltipHelper.PVP_AUTO_BALANCE;
+            if (key.contains("затримка_старту_раунду"))    return TooltipHelper.PVP_ROUND_DELAY;
+            if (key.contains("поінтів_переможцю_раунду"))  return TooltipHelper.PVP_WIN_POINTS;
+            if (key.contains("поінтів_команді_що_програла")) return TooltipHelper.PVP_LOSE_POINTS;
+            if (key.contains("поінти_на_початок_раунду"))  return TooltipHelper.PVP_ROUND_POINTS;
+            if (key.contains("вбивств_для_перемоги"))      return TooltipHelper.DM_KILLS_TO_WIN;
+            if (key.contains("початковий_радіус_кордону")) return TooltipHelper.BR_BORDER_RADIUS;
+            if (key.contains("звуження_"))                 return TooltipHelper.BR_SHRINK;
+            if (key.contains("частинки_кордону"))          return TooltipHelper.BR_PARTICLE;
+            if (key.contains("шкода_поза_зоною") || key.contains("без_шкоди")) return TooltipHelper.BR_DAMAGE;
+            if (key.contains("королівська_битва"))         return TooltipHelper.BR_RANDOM_SPAWN;
+        }
+        // Fallback: plain-text matching for any non-translatable labels
+        String label = msg.getString();
         if (label.contains("Дружній вогонь") || label.contains("Friendly Fire")) return TooltipHelper.PVP_FF;
         if (label.contains("раундів"))            return TooltipHelper.PVP_ROUNDS;
         if (label.contains("покупок"))            return TooltipHelper.PVP_BUY_TIME;
@@ -986,13 +1014,12 @@ public class PvpLocationEditorScreen extends Screen {
         if (label.contains("переможцю раунду"))   return TooltipHelper.PVP_WIN_POINTS;
         if (label.contains("програла раунд"))     return TooltipHelper.PVP_LOSE_POINTS;
         if (label.contains("початок раунду"))     return TooltipHelper.PVP_ROUND_POINTS;
-        if (label.contains("Примусовий режим"))   return TooltipHelper.ENFORCE_GAMEMODE;
         if (label.contains("вбивств для перемоги")) return TooltipHelper.DM_KILLS_TO_WIN;
         if (label.contains("радіус кордону"))     return TooltipHelper.BR_BORDER_RADIUS;
         if (label.contains("Звуження на"))        return TooltipHelper.BR_SHRINK;
         if (label.contains("Частинки кордону"))   return TooltipHelper.BR_PARTICLE;
-        if (label.contains("Шкода при виході"))   return TooltipHelper.BR_DAMAGE;
-        if (label.contains("ROYALE") || label.contains("Битва")) return TooltipHelper.BR_RANDOM_SPAWN;
+        if (label.contains("Шкода при виході") || label.contains("шкода поза зоною")) return TooltipHelper.BR_DAMAGE;
+        if (label.contains("ROYALE") || label.contains("Битва") || label.contains("королівська"))  return TooltipHelper.BR_RANDOM_SPAWN;
         return null;
     }
 

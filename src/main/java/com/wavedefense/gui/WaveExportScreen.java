@@ -7,6 +7,7 @@ import com.wavedefense.network.packets.ExportWavePacket;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
@@ -26,7 +27,7 @@ public class WaveExportScreen extends Screen {
     private static final int GAP   = 4;
 
     public WaveExportScreen(Location location, Screen parent) {
-        super(Component.literal("§6⬆ Експорт хвиль: §e" + location.getName()));
+        super(Component.translatable("wavedefense.wave.export_title", location.getName()));
         this.location = location;
         this.parent = parent;
     }
@@ -41,7 +42,7 @@ public class WaveExportScreen extends Screen {
         // ── Заголовок ─────────────────────────────────────────────────
         // "Зберегти всі хвилі" — один файл з усіма
         this.addRenderableWidget(Button.builder(
-            Component.literal("§a⬆ Зберегти всі §e(" + location.getWaves().size() + " хвиль)"),
+            Component.translatable("wavedefense.wave.export_save_all", location.getWaves().size()),
             b -> {
                 PacketHandler.sendToServer(new ExportWavePacket(location.getName(), "all"));
                 if (minecraft.player != null)
@@ -66,9 +67,9 @@ public class WaveExportScreen extends Screen {
             WaveConfig wc = waves.get(idx);
             final int finalIdx = idx;
 
-            String label = String.format("§e⬆ Хвиля %d  §7(%d мобів, %d сек%s)",
+            String label = I18n.get("wavedefense.wave.export_wave_line",
                 idx + 1, wc.getMobs().size(), wc.getTimeBetweenWaves(),
-                wc.isTriggerEnabled() ? ", тригер" : "");
+                wc.isTriggerEnabled() ? " " + I18n.get("wavedefense.wave.export_wave_trigger") : "");
 
             this.addRenderableWidget(Button.builder(
                 Component.literal(label),
@@ -77,7 +78,7 @@ public class WaveExportScreen extends Screen {
                         new ExportWavePacket(location.getName(), "wave:" + finalIdx));
                     if (minecraft.player != null)
                         minecraft.player.displayClientMessage(
-                            Component.literal("§a⬆ Надіслано запит на збереження хвилі " + (finalIdx + 1) + "..."), true);
+                            Component.translatable("wavedefense.wave.export_saving_wave", finalIdx + 1), true);
                     minecraft.setScreen(parent);
                 }
             ).bounds(cx - 130, y + i * (BTN_H + GAP), 260, BTN_H).build());
@@ -119,7 +120,7 @@ public class WaveExportScreen extends Screen {
         this.renderBackground(g);
         g.drawCenteredString(this.font, this.title, this.width / 2, 16, 0xFFFFFF);
         g.drawCenteredString(this.font,
-            "§7Оберіть що зберегти у wave_export/",
+            I18n.get("wavedefense.wave.export_hint"),
             this.width / 2, 28, 0x888888);
 
         // Роздільна лінія між "всі" і окремими

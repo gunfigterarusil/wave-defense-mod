@@ -353,13 +353,7 @@ public class WaveDefenseBackupSystem {
         if (locationManager != null) {
             CompoundTag locationsTag = locationManager.save();
             Path locationsFile = backupDir.resolve("locations.dat");
-            if (isCompressionEnabled()) {
-                try (OutputStream os = new GZIPOutputStream(Files.newOutputStream(locationsFile))) {
-                    NbtIo.writeCompressed(locationsTag, os);
-                }
-            } else {
-                NbtIo.writeCompressed(locationsTag, locationsFile.toFile());
-            }
+            writeNbt(locationsTag, locationsFile);
             metadata.locationCount = locationManager.getAllLocations().size();
         }
 
@@ -368,13 +362,7 @@ public class WaveDefenseBackupSystem {
         if (waveManager != null) {
             CompoundTag waveTag = waveManager.save();
             Path waveFile = backupDir.resolve("wavemanager.dat");
-            if (isCompressionEnabled()) {
-                try (OutputStream os = new GZIPOutputStream(Files.newOutputStream(waveFile))) {
-                    NbtIo.writeCompressed(waveTag, os);
-                }
-            } else {
-                NbtIo.writeCompressed(waveTag, waveFile.toFile());
-            }
+            writeNbt(waveTag, waveFile);
         }
 
         // Backup player data
@@ -387,13 +375,7 @@ public class WaveDefenseBackupSystem {
                     Path playerFile = playersDir.resolve(player.getUUID() + ".dat");
                     CompoundTag playerTag = new CompoundTag();
                     player.saveWithoutId(playerTag);
-                    if (isCompressionEnabled()) {
-                        try (OutputStream os = new GZIPOutputStream(Files.newOutputStream(playerFile))) {
-                            NbtIo.writeCompressed(playerTag, os);
-                        }
-                    } else {
-                        NbtIo.writeCompressed(playerTag, playerFile.toFile());
-                    }
+                    writeNbt(playerTag, playerFile);
                     playerCount++;
                 } catch (Exception e) {
                     WaveDefenseMod.LOGGER.warn("Failed to backup player data: " + player.getGameProfile().getName(), e);
@@ -592,14 +574,7 @@ public class WaveDefenseBackupSystem {
             // Restore locations
             Path locationsFile = backupDir.resolve("locations.dat");
             if (Files.exists(locationsFile)) {
-                CompoundTag locationsTag;
-                if (isCompressionEnabled()) {
-                    try (InputStream is = new GZIPInputStream(Files.newInputStream(locationsFile))) {
-                        locationsTag = NbtIo.readCompressed(is);
-                    }
-                } else {
-                    locationsTag = NbtIo.readCompressed(locationsFile.toFile());
-                }
+                CompoundTag locationsTag = readNbt(locationsFile);
                 WaveDefenseMod.locationManager = new LocationManager(server);
                 WaveDefenseMod.locationManager.loadFromTag(locationsTag);
             }
@@ -607,14 +582,7 @@ public class WaveDefenseBackupSystem {
             // Restore wave manager
             Path waveFile = backupDir.resolve("wavemanager.dat");
             if (Files.exists(waveFile)) {
-                CompoundTag waveTag;
-                if (isCompressionEnabled()) {
-                    try (InputStream is = new GZIPInputStream(Files.newInputStream(waveFile))) {
-                        waveTag = NbtIo.readCompressed(is);
-                    }
-                } else {
-                    waveTag = NbtIo.readCompressed(waveFile.toFile());
-                }
+                CompoundTag waveTag = readNbt(waveFile);
                 WaveDefenseMod.waveManager.load(waveTag);
             }
 
@@ -625,14 +593,7 @@ public class WaveDefenseBackupSystem {
                 for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                     Path playerFile = playersDir.resolve(player.getUUID() + ".dat");
                     if (Files.exists(playerFile)) {
-                        CompoundTag playerTag;
-                        if (isCompressionEnabled()) {
-                            try (InputStream is = new GZIPInputStream(Files.newInputStream(playerFile))) {
-                                playerTag = NbtIo.readCompressed(is);
-                            }
-                        } else {
-                            playerTag = NbtIo.readCompressed(playerFile.toFile());
-                        }
+                        CompoundTag playerTag = readNbt(playerFile);
                         player.load(playerTag);
                         restoredPlayers.add(player.getGameProfile().getName());
                     }
@@ -956,6 +917,48 @@ public class WaveDefenseBackupSystem {
             }
         } catch (IOException e) {
             WaveDefenseMod.LOGGER.warn("Failed to load last known state", e);
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    //  NBT I/O helpers — single point for compression logic
+    //  (fixes: old code wrapped GZIPOutputStream around NbtIo.writeCompressed
+    //   which itself uses GZIP → double compression → corrupt files)
+    // ──────────────────────────────────────────────────────────────────────
+
+    /**
+     * Writes an NBT CompoundTag to a file.
+     * When compression is enabled, NbtIo.writeCompressed handles GZIP internally.
+     * When disabled, writes plain uncompressed NBT via DataOutputStream.
+     */
+    private void writeNbt(CompoundTag tag, Path file) throws IOException {
+        if (isCompressionEnabled()) {
+            // NbtIo.writeCompressed uses GZIP internally — do NOT wrap in GZIPOutputStream
+            try (OutputStream os = Files.newOutputStream(file)) {
+                NbtIo.writeCompressed(tag, os);
+            }
+        } else {
+            try (java.io.DataOutputStream dos = new java.io.DataOutputStream(
+                    Files.newOutputStream(file))) {
+                NbtIo.write(tag, dos);
+            }
+        }
+    }
+
+    /**
+     * Reads an NBT CompoundTag from a file.
+     * Symmetric to writeNbt — uses same compression setting.
+     */
+    private CompoundTag readNbt(Path file) throws IOException {
+        if (isCompressionEnabled()) {
+            try (InputStream is = Files.newInputStream(file)) {
+                return NbtIo.readCompressed(is);
+            }
+        } else {
+            try (java.io.DataInputStream dis = new java.io.DataInputStream(
+                    Files.newInputStream(file))) {
+                return NbtIo.read(dis);
+            }
         }
     }
 

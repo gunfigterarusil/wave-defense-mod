@@ -104,6 +104,9 @@ public class WaveConfigScreen extends ScrollableScreen {
             int itemsPerPage = getItemsPerPage();
             int rowH = 46;
 
+            // В4: clear pending-delete when only one wave remains so confirm button cannot fire
+            if (location.getWaves().size() <= 1) pendingDeleteWaveIndex = -1;
+
             for (int i = 0; i < Math.min(itemsPerPage, location.getWaves().size()); i++) {
                 int waveIndex = i + scrollOffset;
                 if (waveIndex >= location.getWaves().size()) break;
@@ -248,21 +251,18 @@ public class WaveConfigScreen extends ScrollableScreen {
 
     // G8: Діалог незбережених змін при ESC
     private void renderUnsavedDialog(GuiGraphics g, int mx, int my, float pt) {
-        this.renderBackground(g);
+        GuiTheme.renderBackground(g, this.width, this.height);
         g.fill(0, 0, this.width, this.height, 0xAA000000);
         int cx = this.width / 2;
         int dy = this.height / 2 - 45;
-        g.fill(cx - 155, dy - 5, cx + 155, dy + 95, 0xFF1a1a1a);
-        g.fill(cx - 156, dy - 6, cx + 156, dy - 5, 0xFFf59e0b);
-        g.fill(cx - 156, dy + 95, cx + 156, dy + 96, 0xFFf59e0b);
-        g.fill(cx - 156, dy - 5, cx - 155, dy + 95, 0xFFf59e0b);
-        g.fill(cx + 155, dy - 5, cx + 156, dy + 95, 0xFFf59e0b);
+        g.fill(cx - 155, dy - 5, cx + 155, dy + 95, GuiTheme.PANEL_DARK);
+        GuiTheme.outline(g, cx - 156, dy - 6, cx + 156, dy + 96, GuiTheme.WARN);
         g.drawCenteredString(this.font,
             "§e§l⚠ " + net.minecraft.client.resources.language.I18n.get("wavedefense.msg.unsaved_changes"),
-            cx, dy + 5, 0xFFFFFF);
+            cx, dy + 5, GuiTheme.TEXT);
         g.drawCenteredString(this.font,
-            "§7" + net.minecraft.client.resources.language.I18n.get("wavedefense.msg.unsaved_changes_hint"),
-            cx, dy + 22, 0xAAAAAA);
+            net.minecraft.client.resources.language.I18n.get("wavedefense.msg.unsaved_changes_hint"),
+            cx, dy + 22, GuiTheme.TEXT_MUTED);
         super.render(g, mx, my, pt);
     }
 
@@ -287,21 +287,41 @@ public class WaveConfigScreen extends ScrollableScreen {
 
     @Override
     protected void renderHeader(GuiGraphics g, int mx, int my, float pt) {
-        g.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
+        // Title already rendered by GuiTheme.renderHeader in ScrollableScreen.render()
         g.drawString(this.font, Component.translatable("wavedefense.wave.time_per_wave_hint"),
-                this.width / 2 - 150, 28, 0x888888);
+                this.width / 2 - 150, 28, GuiTheme.TEXT_MUTED, false);
+    }
+
+    @Override
+    protected void renderContentExtra(GuiGraphics g, int mx, int my, float pt) {
+        if (location.getWaves().isEmpty()) return;
+        int listStartY = getClipTop();
+        int itemsPerPage = getItemsPerPage();
+        int rowH = 46;
+        int cx = this.width / 2;
+
+        for (int i = 0; i < Math.min(itemsPerPage, location.getWaves().size()); i++) {
+            int waveIndex = i + scrollOffset;
+            if (waveIndex >= location.getWaves().size()) break;
+            int yPos = listStartY + i * rowH;
+            boolean isPendingDel = (pendingDeleteWaveIndex == waveIndex);
+            boolean hovered = my >= yPos && my < yPos + rowH - 2;
+
+            // Card background for each row
+            GuiTheme.card(g, cx - 156, yPos - 2, cx + 126, yPos + rowH - 2, hovered);
+            // Left accent stripe — red if pending delete, otherwise ACCENT
+            g.fill(cx - 156, yPos - 2, cx - 154, yPos + rowH - 2,
+                   isPendingDel ? GuiTheme.DANGER : GuiTheme.ACCENT);
+        }
     }
 
     private void renderConfirmDialog(GuiGraphics g, int mx, int my, float pt) {
-        this.renderBackground(g);
+        GuiTheme.renderBackground(g, this.width, this.height);
         g.fill(0, 0, this.width, this.height, 0xAA000000);
         int cx = this.width / 2;
         int dy = this.height / 2 - 60;
-        g.fill(cx - 155, dy - 5, cx + 155, dy + 130, 0xFF1a1a1a);
-        g.fill(cx - 156, dy - 6, cx + 156, dy - 5, 0xFFef4444);
-        g.fill(cx - 156, dy + 130, cx + 156, dy + 131, 0xFFef4444);
-        g.fill(cx - 156, dy - 5, cx - 155, dy + 130, 0xFFef4444);
-        g.fill(cx + 155, dy - 5, cx + 156, dy + 130, 0xFFef4444);
+        g.fill(cx - 155, dy - 5, cx + 155, dy + 130, GuiTheme.PANEL_DARK);
+        GuiTheme.outline(g, cx - 156, dy - 6, cx + 156, dy + 131, GuiTheme.DANGER);
         // Рендер всіх віджетів діалогу без scissor
         for (var r : this.renderables) {
             if (r instanceof AbstractWidget w) w.render(g, mx, my, pt);

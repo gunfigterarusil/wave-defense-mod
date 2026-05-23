@@ -102,7 +102,7 @@ public class ZoneActivationManager {
                     s.zoneCountdownTicker = 0;
                     s.zoneCountdownStartMs = 0L;
                     wm.broadcastToNearby(center, location,
-                        "§7Активацію скасовано — зона порожня.");
+                        Component.translatable("wavedefense.zone.activation_cancelled").getString());
                 }
                 continue;
             }
@@ -119,8 +119,8 @@ public class ZoneActivationManager {
                 }
                 s.zoneCountdownTicker = activationDelay * 20;
                 s.zoneCountdownStartMs = System.currentTimeMillis();
-                wm.broadcastToNearby(center, location, String.format(
-                    "§e⚠ Зона §6%s§e активується через §a%d сек§e!", locName, activationDelay));
+                wm.broadcastToNearby(center, location,
+                    Component.translatable("wavedefense.zone.activating_countdown", locName, activationDelay).getString());
             }
 
             int ticks = s.zoneCountdownTicker - 1;
@@ -191,9 +191,8 @@ public class ZoneActivationManager {
         }
 
         if (activated > 0) {
-            wm.broadcastToNearby(location.getPlayerSpawn(), location, String.format(
-                "§a🎮 Локацію §e%s §aактивовано для §e%d §aгравців!",
-                location.getName(), activated));
+            wm.broadcastToNearby(location.getPlayerSpawn(), location,
+                Component.translatable("wavedefense.zone.activated_players", location.getName(), activated).getString());
         }
     }
 

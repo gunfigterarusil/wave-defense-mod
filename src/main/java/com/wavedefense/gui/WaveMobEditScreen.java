@@ -7,7 +7,6 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import com.wavedefense.gui.TooltipHelper;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -31,16 +30,16 @@ public class WaveMobEditScreen extends Screen {
     // Поточний стан спорядження (зберігається між перебудовами)
     private WaveMob editMob;
 
-    // Tooltip підказки
+    // Tooltip keys — resolved via I18n.get() at render time
     private static final java.util.Map<String, String> TOOLTIPS = new java.util.HashMap<>();
     static {
-        TOOLTIPS.put("count",   "Скільки мобів цього типу спавниться за хвилю");
-        TOOLTIPS.put("growth",  "На скільки збільшується кількість мобів з кожною хвилею");
-        TOOLTIPS.put("chance",  "Шанс (1-100%) що цей моб з'явиться у хвилі");
-        TOOLTIPS.put("points",  "Кількість очок гравцю за вбивство цього моба");
-        TOOLTIPS.put("armor",   "Видати мобам цього типу броню. Вибір через меню предметів");
-        TOOLTIPS.put("weapon",  "Видати мобам основну зброю (права рука)");
-        TOOLTIPS.put("effects", "Додати мобам ефекти (зілля). Формат: effectId:рівень:тіків");
+        TOOLTIPS.put("count",   "wavedefense.tooltip.mob_edit.count");
+        TOOLTIPS.put("growth",  "wavedefense.tooltip.mob_edit.growth");
+        TOOLTIPS.put("chance",  "wavedefense.tooltip.mob_edit.chance");
+        TOOLTIPS.put("points",  "wavedefense.tooltip.mob_edit.points");
+        TOOLTIPS.put("armor",   "wavedefense.tooltip.mob_edit.armor");
+        TOOLTIPS.put("weapon",  "wavedefense.tooltip.mob_edit.weapon");
+        TOOLTIPS.put("effects", "wavedefense.tooltip.mob_edit.effects");
     }
 
     public WaveMobEditScreen(Screen parentScreen, WaveConfig waveConfig, int mobIndex) {
@@ -234,17 +233,23 @@ public class WaveMobEditScreen extends Screen {
     }
 
     private void addLabeledField(int cx, int y, String text, String tooltipKey) {
-        this.addRenderableWidget(Button.builder(
+        String tipI18nKey = TOOLTIPS.get(tooltipKey);
+        var btn = this.addRenderableWidget(Button.builder(
                 Component.literal(text), b -> {}
-        ).bounds(cx - 150, y, 190, 18).build()).active = false;
+        ).bounds(cx - 150, y, 190, 18).build());
+        btn.active = false;
+        if (tipI18nKey != null) {
+            btn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                net.minecraft.network.chat.Component.translatable(tipI18nKey)));
+        }
     }
 
     private void save() {
         try {
-            int count  = Integer.parseInt(countInput.getValue());
-            int growth = Integer.parseInt(growthPerWaveInput.getValue());
+            int count  = Math.max(1, Integer.parseInt(countInput.getValue()));  // С4: min 1
+            int growth = Math.max(0, Integer.parseInt(growthPerWaveInput.getValue()));
             int chance = Math.min(100, Math.max(1, Integer.parseInt(spawnChanceInput.getValue())));
-            int points = Integer.parseInt(pointsPerKillInput.getValue());
+            int points = Math.max(0, Integer.parseInt(pointsPerKillInput.getValue()));
 
             editMob.setCount(count);
             editMob.setGrowthPerWave(growth);
@@ -309,16 +314,6 @@ public class WaveMobEditScreen extends Screen {
             if (mouseX >= ix && mouseX < ix + 16 && mouseY >= armorRowY + 48 && mouseY < armorRowY + 64)
                 g.renderTooltip(this.font, editMob.getOffHand(), mouseX, mouseY);
         }
-    }
-
-    private String getMobTip(String label) {
-        if (label.contains("Шолом") || label.contains("Нагрудник") || label.contains("Поножі") || label.contains("Чоботи"))
-            return TooltipHelper.MOB_ARMOR;
-        if (label.contains("зброю") || label.contains("MainHand") || label.contains("зброя"))
-            return TooltipHelper.MOB_WEAPON;
-        if (label.contains("Ефект") || label.contains("ефект"))
-            return TooltipHelper.MOB_EFFECT;
-        return null;
     }
 
     @Override

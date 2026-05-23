@@ -5,6 +5,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.effect.MobEffect;
@@ -64,7 +65,7 @@ public class MobEffectsEditorScreen extends Screen {
         int y = 28;
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("§6§l Активні ефекти (" + effects.size() + "):"), b -> {}
+                Component.literal(I18n.get("wavedefense.mob_effect.active_header", effects.size())), b -> {}
         ).bounds(lx, y, leftW - 4, 14).build()).active = false;
         y += 16;
 
@@ -177,7 +178,7 @@ public class MobEffectsEditorScreen extends Screen {
 
         String addLbl = selectedEffect != null
                 ? "§a➕ " + selectedEffect.getDisplayName().getString()
-                : "§8[Виберіть ефект вище]";
+                : I18n.get("wavedefense.mob_effect.select_hint");
         if (addLbl.length() > 28) addLbl = addLbl.substring(0, 27) + "…";
         this.addRenderableWidget(Button.builder(
                 Component.literal(addLbl),

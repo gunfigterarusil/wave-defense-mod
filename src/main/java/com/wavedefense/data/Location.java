@@ -196,7 +196,7 @@ public class Location {
     public void removeMobSpawn(int index) { if (index >= 0 && index < mobSpawns.size()) mobSpawns.remove(index); }
 
     public List<WaveConfig> getWaves() { return waves; }
-    public void addWave(WaveConfig wave) { waves.add(wave); }
+    public void addWave(WaveConfig wave) { if (waves.size() < com.wavedefense.config.WaveDefenseConfig.MAX_WAVES.get()) waves.add(wave); }
 
     public int getTotalWaves() { return totalWaves; }
     public void setTotalWaves(int count) { this.totalWaves = count; }

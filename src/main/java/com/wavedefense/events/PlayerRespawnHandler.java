@@ -85,8 +85,7 @@ public class PlayerRespawnHandler {
                 if (player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR) {
                     player.setGameMode(GameType.SURVIVAL);
                 }
-                player.setHealth(player.getMaxHealth());
-                player.getFoodData().setFoodLevel(20);
+                // Н2: health/food already set at line 81 above — removed duplicate call
                 if (teamSpawn != null) {
                     WaveDefenseMod.waveManager.teleportToSpawnPoint(player, teamSpawn);
                 }

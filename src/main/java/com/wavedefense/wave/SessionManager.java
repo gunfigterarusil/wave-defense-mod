@@ -5,6 +5,7 @@ import com.wavedefense.data.GameStats;
 import com.wavedefense.data.Location;
 import com.wavedefense.data.PlayerBackup;
 import com.wavedefense.wave.PlayerWaveData;
+import com.wavedefense.wave.WaveConfigValidator;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -45,6 +46,23 @@ public class SessionManager {
             player.displayClientMessage(Component.translatable(
                 "wavedefense.msg.entry_cooldown", secsLeft, location.getName()), false);
             return;
+        }
+
+        // Н4: validate wave config before letting the first player in
+        WaveConfigValidator validator = new WaveConfigValidator(location);
+        if (!validator.validate()) {
+            for (String err : validator.getErrors()) {
+                WaveDefenseMod.LOGGER.warn("[WaveDefense] Config error for '{}': {}", location.getName(), err);
+            }
+            if (!location.isPvp()) {
+                // PvE with no waves — abort
+                player.displayClientMessage(Component.translatable("wavedefense.msg.no_waves_configured"), false);
+                return;
+            }
+        } else {
+            for (String w : validator.getWarnings()) {
+                WaveDefenseMod.LOGGER.debug("[WaveDefense] Config warning for '{}': {}", location.getName(), w);
+            }
         }
 
         // Визначаємо точку спавну до будь-яких змін стану гравця
@@ -245,6 +263,9 @@ public class SessionManager {
             }
         }
 
+        // Fire LOCATION_END loot trigger before the victory screen
+        wm.fireLootTriggerByName(locationName, com.wavedefense.data.LootSpawn.Trigger.LOCATION_END);
+
         if (loc.isVictoryScreenEnabled() && loc.getVictoryLingerTimeSec() > 0) {
             // Відображаємо title "ПЕРЕМОГА" всім гравцям на локації
             net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket anim =
@@ -395,16 +416,22 @@ public class SessionManager {
     private void despawnSessionMobs(String locationName) {
         LocationSession sess = ctx.getSession(locationName);
         if (sess == null || sess.spawnedMobs.isEmpty()) return;
-        if (WaveDefenseMod.getServer() == null) return;
-        net.minecraft.server.level.ServerLevel world =
-            WaveDefenseMod.getServer().getLevel(net.minecraft.world.level.Level.OVERWORLD);
-        if (world == null) return;
+        net.minecraft.server.MinecraftServer srv = WaveDefenseMod.getServer();
+        if (srv == null) return;
+        int despawned = 0;
         for (UUID uuid : sess.spawnedMobs) {
-            net.minecraft.world.entity.Entity e = world.getEntity(uuid);
-            if (e != null) e.discard();
+            // Search all loaded levels — location may be in Nether or End
+            for (net.minecraft.server.level.ServerLevel world : srv.getAllLevels()) {
+                net.minecraft.world.entity.Entity e = world.getEntity(uuid);
+                if (e != null) {
+                    e.discard();
+                    despawned++;
+                    break;
+                }
+            }
         }
         WaveDefenseMod.LOGGER.info("[WaveDefense] Despawned {} mobs for ended session '{}'",
-            sess.spawnedMobs.size(), locationName);
+            despawned, locationName);
     }
 
     // ─────────────────────────────────────────────────────────────────

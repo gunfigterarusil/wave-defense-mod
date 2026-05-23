@@ -12,6 +12,7 @@ import com.wavedefense.wave.PvpRoundManager;
 import com.wavedefense.data.PvpRoundState;
 import com.wavedefense.data.WaveConfig;
 import com.wavedefense.data.WaveTrigger;
+import com.wavedefense.data.LootSpawn;
 import com.wavedefense.data.PlayerBackup;
 import com.wavedefense.data.PvpSpawnPoint;
 import com.wavedefense.network.packets.SyncLocationDataPacket;
@@ -49,6 +50,7 @@ public class WaveManager {
     public final SessionManager sessionMgr;
     public final MobSpawnManager mobSpawnMgr;
     public final WaveAutoScaler autoScaler;
+    public final InfoPanelManager infoPanelMgr;
 
     public final Map<UUID, Integer> leaveCountdownTicks;
     public final Map<UUID, Long> reEntryCooldowns;
@@ -66,6 +68,7 @@ public class WaveManager {
         this.sessionMgr = new SessionManager(waveCtx);
         this.mobSpawnMgr = new MobSpawnManager(waveCtx);
         this.autoScaler = new WaveAutoScaler();
+        this.infoPanelMgr = new InfoPanelManager(waveCtx);
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -194,7 +197,7 @@ public class WaveManager {
     }
 
     public void removeInfoPanelEntities(String locationName) {
-        // Remove info panel entities
+        infoPanelMgr.removeInfoPanelEntities(locationName);
     }
 
     public java.util.List<ServerPlayer> getPlayersInLocation(String locationName) {
@@ -208,7 +211,15 @@ public class WaveManager {
     }
 
     public void broadcastToNearby(BlockPos center, Location location, String message) {
-        // Broadcast to nearby players
+        net.minecraft.server.MinecraftServer srv = WaveDefenseMod.getServer();
+        if (srv == null || center == null || message == null) return;
+        net.minecraft.network.chat.Component comp = net.minecraft.network.chat.Component.literal(message);
+        final double RADIUS_SQ = 80.0 * 80.0;
+        for (net.minecraft.server.level.ServerPlayer p : srv.getPlayerList().getPlayers()) {
+            if (p.blockPosition().distSqr(center) <= RADIUS_SQ) {
+                p.displayClientMessage(comp, false);
+            }
+        }
     }
 
     public void debugLog(String message) {
@@ -224,15 +235,67 @@ public class WaveManager {
     // ──────────────────────────────────────────────────────────────────────
 
     public void fireLootTrigger(Location loc, net.minecraft.server.level.ServerLevel world,
-                                 com.wavedefense.data.LootSpawn.Trigger trigger) {
-        // Fire loot trigger
+                                 LootSpawn.Trigger trigger) {
+        fireLootTrigger(loc, world, trigger, -1);
+    }
+
+    /**
+     * @param requiredValue Pass -1 to ignore; pass >=0 to match only LootSpawns
+     *                      whose stored value for this trigger equals requiredValue.
+     *                      Used for WAVE_N and MOBS_KILLED_N triggers.
+     */
+    public void fireLootTrigger(Location loc, net.minecraft.server.level.ServerLevel world,
+                                 LootSpawn.Trigger trigger, int requiredValue) {
+        if (loc == null || world == null || trigger == null) return;
+        List<LootSpawn> lootSpawns = loc.getLootSpawns();
+        if (lootSpawns == null || lootSpawns.isEmpty()) return;
+        java.util.Random rng = new java.util.Random();
+        for (LootSpawn ls : lootSpawns) {
+            if (!ls.hasTrigger(trigger)) continue;
+            if (requiredValue >= 0 && ls.getTriggerValue(trigger) != requiredValue) continue;
+            if (rng.nextInt(100) >= ls.getSpawnChance()) continue;  // chance check
+            BlockPos spawnPos = ls.getPos();
+            if (spawnPos == null) continue;  // no position configured for this loot spawn
+            for (net.minecraft.world.item.ItemStack stack : ls.getItems()) {
+                if (stack.isEmpty()) continue;
+                for (int i = 0; i < ls.getCount(); i++) {
+                    net.minecraft.world.entity.item.ItemEntity ie =
+                        new net.minecraft.world.entity.item.ItemEntity(
+                            world,
+                            spawnPos.getX() + 0.5,
+                            spawnPos.getY() + 0.5,
+                            spawnPos.getZ() + 0.5,
+                            stack.copy());
+                    ie.setPickUpDelay(10);
+                    world.addFreshEntity(ie);
+                }
+            }
+        }
     }
 
     public void fireLootTriggerByName(String locationName, com.wavedefense.data.LootSpawn.Trigger trigger) {
         Location loc = WaveDefenseMod.locationManager.getLocation(locationName);
-        if (loc != null && WaveDefenseMod.getServer() != null) {
-            fireLootTrigger(loc, WaveDefenseMod.getServer().overworld(), trigger);
-        }
+        if (loc == null || WaveDefenseMod.getServer() == null) return;
+        // Resolve the correct dimension from the players currently in this location
+        List<net.minecraft.server.level.ServerPlayer> inLoc = getPlayersInLocation(locationName);
+        net.minecraft.server.level.ServerLevel world = inLoc.isEmpty()
+            ? WaveDefenseMod.getServer().overworld()
+            : inLoc.get(0).serverLevel();
+        fireLootTrigger(loc, world, trigger);
+    }
+
+    /** Fires loot for parameterized triggers (WAVE_N, MOBS_KILLED_N): only spawns
+     *  whose stored trigger value equals {@code value} will be activated. */
+    public void fireLootTriggerByNameWithValue(String locationName,
+                                               com.wavedefense.data.LootSpawn.Trigger trigger,
+                                               int value) {
+        Location loc = WaveDefenseMod.locationManager.getLocation(locationName);
+        if (loc == null || WaveDefenseMod.getServer() == null) return;
+        List<net.minecraft.server.level.ServerPlayer> inLoc = getPlayersInLocation(locationName);
+        net.minecraft.server.level.ServerLevel world = inLoc.isEmpty()
+            ? WaveDefenseMod.getServer().overworld()
+            : inLoc.get(0).serverLevel();
+        fireLootTrigger(loc, world, trigger, value);
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -249,6 +312,11 @@ public class WaveManager {
         // Tick all active sessions
         for (LocationSession sess : waveCtx.sessions.values()) {
             tickSession(sess);
+        }
+
+        // Update InfoPanel TextDisplay entities every second
+        if (waveCtx.tickCounter % 20 == 0) {
+            infoPanelMgr.tick();
         }
 
         waveCtx.tickCounter++;
@@ -342,6 +410,9 @@ public class WaveManager {
         // Increment kill counters
         if (wasTracked) {
             sess.mobsKilled++;
+            // Fire loot triggers for every mob kill
+            fireLootTriggerByName(locationName, LootSpawn.Trigger.MOB_KILL);
+            fireLootTriggerByNameWithValue(locationName, LootSpawn.Trigger.MOBS_KILLED_N, sess.mobsKilled);
 
             // Update player stats
             GameStats stats = sess.stats;
@@ -377,6 +448,7 @@ public class WaveManager {
                     sess.halfMobsTriggered = true;
                     // Fire HALF_MOBS_DEAD as a custom trigger event
                     fireLocationTrigger(player, WaveTrigger.MOBS_REMAINING_LOW);
+                    fireLootTriggerByName(locationName, LootSpawn.Trigger.HALF_MOBS_DEAD);
                 }
             }
 

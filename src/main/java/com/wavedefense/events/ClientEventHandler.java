@@ -27,15 +27,31 @@ import com.wavedefense.gui.AdminMenuScreen;
 import com.wavedefense.gui.PlayerHUD;
 import com.wavedefense.gui.PlayerMenuScreen;
 import com.wavedefense.gui.WaveActionsScreen;
+import com.wavedefense.network.PacketHandler;
+import com.wavedefense.network.packets.RequestLocationDataPacket;
 import net.minecraftforge.client.event.RenderGuiOverlayEvent;
 @Mod.EventBusSubscriber(modid = WaveDefenseMod.MODID, value = Dist.CLIENT)
 public class ClientEventHandler {
+
+    /** Tracks whether the initial location-data sync has been sent this session. */
+    private static boolean initialSyncSent = false;
 
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.level == null) return;
+
+        // Reset flag when player disconnects so the next login triggers a fresh sync.
+        if (mc.player == null || mc.level == null) {
+            initialSyncSent = false;
+            return;
+        }
+
+        // Proactively fetch location data right after login so menus are not empty on first open.
+        if (!initialSyncSent && mc.getConnection() != null) {
+            PacketHandler.sendToServer(new RequestLocationDataPacket());
+            initialSyncSent = true;
+        }
 
         PlayerWaveData data = ClientPlayerDataManager.getPlayerData();
         if (data == null || !data.isInPvp()) return;

@@ -235,7 +235,11 @@ public class MobSpawnManager {
             tag.put("ArmorDropChances", ad);
             tag.put("HandDropChances",  hd);
             mob.load(tag);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            com.wavedefense.WaveDefenseMod.LOGGER.warn(
+                "[WaveDefense] NBT-fallback for mob equipment failed (slot={}, mob={}): {}",
+                slot, mob.getType().getDescriptionId(), e.getMessage());
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────

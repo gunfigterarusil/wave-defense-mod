@@ -156,7 +156,16 @@ public class WaveDefenseAdminCommands {
 
     // ── Confirmation System ──────────────────────────────────────────────────
 
+    /** Н5: purge confirmations that were never acted on to prevent Map growth. */
+    private static void cleanupExpiredConfirmations() {
+        long now = System.currentTimeMillis();
+        pendingConfirmations.entrySet().removeIf(e -> now - e.getValue().timestamp > CONFIRMATION_TIMEOUT_MS);
+    }
+
     private static boolean requireConfirmation(CommandSourceStack src, String action, String description, Runnable onConfirm) {
+        // Н5: clean up stale entries each time a new confirmation is requested
+        cleanupExpiredConfirmations();
+
         UUID playerId;
         try {
             playerId = src.getPlayerOrException().getUUID();

@@ -8,6 +8,7 @@ import com.wavedefense.network.packets.RequestShopExportListPacket;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
@@ -107,7 +108,7 @@ public class ShopImportScreen extends Screen {
         this.renderBackground(g);
         g.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
         g.drawCenteredString(this.font, Component.translatable("wavedefense.shop.import_pick_file"), this.width / 2, 22, 0xAAAAAA);
-        String modeLabel = isPointMode ? "§7Режим: §eточковий" : "§7Режим: §eглобальний";
+        String modeLabel = isPointMode ? I18n.get("wavedefense.shop.import_mode_point") : I18n.get("wavedefense.shop.import_mode_global");
         g.drawCenteredString(this.font, modeLabel, this.width / 2, 32, 0xFFFFFF);
         super.render(g, mouseX, mouseY, partialTick);
     }

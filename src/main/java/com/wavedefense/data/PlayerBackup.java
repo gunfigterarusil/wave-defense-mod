@@ -153,8 +153,11 @@ public class PlayerBackup {
         player.getFoodData().setFoodLevel(foodLevel);
         player.getFoodData().setSaturation(saturation);
 
-        player.giveExperienceLevels(-player.experienceLevel);
-        player.giveExperienceLevels(experienceLevel);
+        // С7: set XP fields directly to avoid float-accumulation drift from giveExperienceLevels()
+        player.experienceLevel = 0;
+        player.totalExperience = 0;
+        player.experienceProgress = 0f;
+        player.experienceLevel = experienceLevel;
         player.totalExperience = totalExperience;
         player.experienceProgress = experienceProgress;
 

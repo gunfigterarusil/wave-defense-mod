@@ -118,4 +118,62 @@ public class WaveConfigValidator {
             this.playerScaleFactor = Math.max(0.5, Math.min(2.5, 1.0 + (playerCount - 1) * 0.15));
         }
     }
+
+    // Н4: basic validation — was missing entirely; called from SessionManager.startSession()
+    /**
+     * Validates the location's wave configuration.
+     * Populates {@link #getErrors()} and {@link #getWarnings()} and returns false if there are errors.
+     */
+    public boolean validate() {
+        errors.clear();
+        warnings.clear();
+
+        if (waves == null || waves.isEmpty()) {
+            errors.add("Location '" + location.getName() + "' has no waves configured.");
+            return false;
+        }
+        if (waves.size() > configMaxWaves) {
+            errors.add("Wave count " + waves.size() + " exceeds config maximum " + configMaxWaves + ".");
+        }
+
+        int totalMobs = 0;
+        for (int wi = 0; wi < waves.size(); wi++) {
+            WaveConfig wave = waves.get(wi);
+            if (wave.getMobs() == null || wave.getMobs().isEmpty()) {
+                warnings.add("Wave " + (wi + 1) + " has no mobs — it will complete instantly.");
+            }
+            if (wave.getTimeBetweenWaves() < minWaveTimeSeconds) {
+                warnings.add("Wave " + (wi + 1) + " timer " + wave.getTimeBetweenWaves()
+                    + "s is below minimum " + minWaveTimeSeconds + "s.");
+            }
+            if (wave.getTimeBetweenWaves() > maxWaveTimeSeconds) {
+                warnings.add("Wave " + (wi + 1) + " timer " + wave.getTimeBetweenWaves()
+                    + "s exceeds maximum " + maxWaveTimeSeconds + "s.");
+            }
+            int waveMobCount = 0;
+            if (wave.getMobs() != null) {
+                for (WaveMob mob : wave.getMobs()) {
+                    if (mob.getMobType() == null || ForgeRegistries.ENTITY_TYPES.getValue(mob.getMobType()) == null) {
+                        warnings.add("Wave " + (wi + 1) + " references unknown entity type: " + mob.getMobType());
+                    }
+                    waveMobCount += Math.max(0, mob.getCount());
+                }
+            }
+            if (waveMobCount > maxMobsPerWave) {
+                warnings.add("Wave " + (wi + 1) + " has " + waveMobCount
+                    + " mobs which exceeds recommended maximum " + maxMobsPerWave + ".");
+            }
+            totalMobs += waveMobCount;
+        }
+        if (totalMobs > maxTotalMobsAcrossWaves) {
+            warnings.add("Total mob count across all waves (" + totalMobs
+                + ") exceeds recommended maximum " + maxTotalMobsAcrossWaves + ".");
+        }
+
+        return errors.isEmpty();
+    }
+
+    public List<String> getErrors()   { return Collections.unmodifiableList(errors); }
+    public List<String> getWarnings() { return Collections.unmodifiableList(warnings); }
+    public boolean isValid()          { return errors.isEmpty(); }
 }

@@ -4,6 +4,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.wavedefense.WaveDefenseMod;
 import com.wavedefense.data.Location;
 import com.wavedefense.gui.ClientPlayerDataManager;
+import com.wavedefense.gui.GuiTheme;
 import com.wavedefense.gui.HudLayout;
 import com.wavedefense.wave.PlayerWaveData;
 import net.minecraft.client.Minecraft;
@@ -50,7 +51,7 @@ public class HudOverlay {
         String mobLine = null;
 
         if (hasVictory) {
-            mainLine = "§a§lПЕРЕМОГА! §r§7Вихід через §e" + playerData.getVictoryCountdownSec() + " §7сек";
+            mainLine = I18n.get("wavedefense.hud.victory_countdown", playerData.getVictoryCountdownSec());
         } else if (playerData.isShowTimer() && playerData.isTimerActive()) {
             int timeLeft = playerData.getTimeUntilNextWave();
             if (timeLeft > 0) {
@@ -106,46 +107,44 @@ public class HudOverlay {
         int lineH = mc.font.lineHeight;
         int curY  = blockY;
 
+        // ── Обчислюємо висоту блоку для зовнішнього panel ───────────────
+        int blockH = lineH + 6;
+        if (mainLine != null) blockH += lineH + 4;
+        if (showProgressBar)  blockH += 4 + 6;
+        if (mobLine  != null) blockH += lineH + 4;
+        GuiTheme.panel(graphics, blockX - 3, blockY - 3, blockX + estimatedW + 3, blockY + blockH + 3);
+
         // ── Локація ───────────────────────────────────────────────────
-        drawLine(graphics, mc, locationLabel, blockX, estimatedW, curY, 0x80000000, 0xFFFFFF);
+        drawLine(graphics, mc, locationLabel, blockX, estimatedW, curY, 0x50000000, GuiTheme.TEXT_MUTED);
         curY += lineH + 6;
 
         // ── Основний рядок ────────────────────────────────────────────
         if (mainLine != null) {
             int bgColor = hasVictory ? 0xCC007700
-                : (playerData.isTimerActive() ? 0x80000000 : (location.isPvp() ? 0xDD440000 : 0xDD00007A));
-            drawLine(graphics, mc, mainLine, blockX, estimatedW, curY, bgColor, 0xFFFFFF);
+                : (playerData.isTimerActive() ? 0x50000000 : (location.isPvp() ? 0xCC440000 : 0xCC00007A));
+            drawLine(graphics, mc, mainLine, blockX, estimatedW, curY, bgColor, GuiTheme.TEXT);
 
             if (!playerData.isTimerActive() && !hasVictory) {
-                // Рамка для "хвиля активна"
+                // Рамка для "хвиля активна" — використовуємо ACCENT_ALT
                 int bx = blockX - 1; int by = curY - 3;
                 int bw = estimatedW + 2; int bh = lineH + 6;
-                int brdC = 0xFFFFAA00;
-                graphics.fill(bx, by - 1,  bx + bw, by,      brdC);
-                graphics.fill(bx, by + bh, bx + bw, by+bh+1, brdC);
-                graphics.fill(bx - 1, by,  bx,       by + bh, brdC);
-                graphics.fill(bx + bw, by, bx+bw+1,  by + bh, brdC);
+                GuiTheme.outline(graphics, bx - 1, by - 1, bx + bw + 1, by + bh + 1, GuiTheme.ACCENT_ALT);
             }
             curY += lineH + 4;
 
-            // Прогрес-бар
+            // Прогрес-бар — замінено на GuiTheme.progressBar
             if (showProgressBar) {
-                int barW = estimatedW;
-                int barH = 4;
-                graphics.fill(blockX,           curY, blockX + barW,           curY + barH, 0xFF333333);
-                graphics.fill(blockX,           curY, blockX + (int)(barW * barProgress), curY + barH, 0xFF00CC00);
-                graphics.fill(blockX - 1, curY - 1, blockX + barW + 1, curY,         0xFF999999);
-                graphics.fill(blockX - 1, curY+barH, blockX+barW+1,   curY+barH+1,  0xFF999999);
-                graphics.fill(blockX - 1, curY,     blockX,           curY + barH,  0xFF999999);
-                graphics.fill(blockX+barW, curY,    blockX+barW+1,    curY + barH,  0xFF999999);
-                curY += barH + 6;
+                GuiTheme.progressBar(graphics, blockX, curY, estimatedW, 4, barProgress, GuiTheme.STATUS_ACTIVE);
+                curY += 4 + 6;
             }
         }
 
         // ── Мобів залишилось ─────────────────────────────────────────
         if (mobLine != null) {
             int mobsLeft = playerData.getMobsRemaining();
-            int mobColor = mobsLeft > 10 ? 0xFF5555 : (mobsLeft > 5 ? 0xFFAA00 : 0x55FF55);
+            int mobColor = mobsLeft > 5 ? GuiTheme.ACCENT
+                         : mobsLeft > 1 ? GuiTheme.WARN
+                         : GuiTheme.DANGER;
             drawLine(graphics, mc, mobLine, blockX, estimatedW, curY, 0xAA000000, mobColor);
         }
 

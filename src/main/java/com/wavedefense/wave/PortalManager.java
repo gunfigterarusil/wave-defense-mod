@@ -70,7 +70,7 @@ public class PortalManager {
                         s.portalOpenUntilMs = 0L;
                         s.portalPosition = null;
                         broadcastNearPortal(portalPos, name,
-                            "§5🌀 Портал §e" + name + "§5 зачинено.");
+                            Component.translatable("wavedefense.portal.closed", name));
                         continue;
                     }
                     portalOpenForLate = true;
@@ -82,9 +82,8 @@ public class PortalManager {
                     if (dist <= 4) {
                         if (portalOpenForLate) {
                             wm.addPlayerToLocation(p, loc);
-                            p.displayClientMessage(Component.literal(
-                                "§5🌀 Ви приєдналися до активної локації §e"
-                                + loc.getName() + "§5!"), false);
+                            p.displayClientMessage(
+                                Component.translatable("wavedefense.portal.joined_active", loc.getName()), false);
                         } else {
                             enterPortal(wm, p, loc, portalPos);
                         }
@@ -123,8 +122,7 @@ public class PortalManager {
                         if (timer % (20 * 15) == 0) {
                             int secsLeft = timer / 20;
                             broadcastNearPortal(portalPos, name,
-                                "§c⚠ Портал §e" + name
-                                + "§c: штрафна хвиля через §e" + secsLeft + " сек§c!");
+                                Component.translatable("wavedefense.portal.penalty_warning", name, secsLeft));
                         }
                     }
                 }
@@ -159,6 +157,8 @@ public class PortalManager {
         int ox = rng.nextInt(61) - 30;
         int oz = rng.nextInt(61) - 30;
         BlockPos base = target.blockPosition().offset(ox, 0, oz);
+        // В5: skip if the target chunk is not loaded — getHeightmapPos returns Y=0 for unloaded chunks
+        if (!world.isLoaded(base)) return;
         int y = world.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, base).getY();
         BlockPos portalPos = new BlockPos(base.getX(), y + 1, base.getZ());
 
@@ -167,8 +167,8 @@ public class PortalManager {
         s.portalPenaltyTimer = loc.getPortalPenaltyTimerSec() * 20;
 
         for (ServerPlayer p : WaveDefenseMod.getServer().getPlayerList().getPlayers()) {
-            p.displayClientMessage(Component.literal(
-                "§5🌀 Портал до §e" + loc.getName() + "§5 зʼявився!"), false);
+            p.displayClientMessage(
+                Component.translatable("wavedefense.portal.appeared", loc.getName()), false);
         }
     }
 
@@ -281,11 +281,11 @@ public class PortalManager {
             if (idx >= normalWaves.size()) {
                 idx = 0;
                 broadcastNearPortal(portalPos, loc.getName(),
-                    "§c⚡ Штрафний цикл перезапущено! §e" + loc.getName());
+                    Component.translatable("wavedefense.portal.penalty_reset", loc.getName()));
             }
             broadcastNearPortal(portalPos, loc.getName(),
-                "§c💥 Штрафна хвиля §e" + (idx + 1) + "§c/" + normalWaves.size()
-                + " порталу §e" + loc.getName() + "§c!");
+                Component.translatable("wavedefense.portal.penalty_wave_seq",
+                    idx + 1, normalWaves.size(), loc.getName()));
             Set<UUID> spawnedNow = new HashSet<>();
             spawnWaveAroundPos(wm, normalWaves.get(idx), loc, world, portalPos, 8, spawnedNow);
             s.portalPenaltyMobs.clear();
@@ -296,7 +296,7 @@ public class PortalManager {
         } else {
             int wi = loc.getPortalPenaltyWave();
             broadcastNearPortal(portalPos, loc.getName(),
-                "§c💥 Штрафна хвиля порталу §e" + loc.getName() + "§c!");
+                Component.translatable("wavedefense.portal.penalty_wave", loc.getName()));
             if (wi >= 0 && wi < loc.getWaves().size()) {
                 spawnWaveAroundPos(wm, loc.getWaves().get(wi), loc, world, portalPos, 8,
                     new HashSet<>());
@@ -380,10 +380,14 @@ public class PortalManager {
     }
 
     private void broadcastNearPortal(BlockPos pos, String locName, String msg) {
+        broadcastNearPortal(pos, locName, Component.literal(msg));
+    }
+
+    private void broadcastNearPortal(BlockPos pos, String locName, Component msg) {
         if (WaveDefenseMod.getServer() == null) return;
         for (ServerPlayer p : WaveDefenseMod.getServer().getPlayerList().getPlayers()) {
             if (p.blockPosition().distSqr(pos) <= 2500) {
-                p.displayClientMessage(Component.literal(msg), false);
+                p.displayClientMessage(msg, false);
             }
         }
     }

@@ -28,9 +28,13 @@ public class LocationEditorScreen extends Screen {
     private CoordinateInputField spawnCoordField;
     // Поле стартових поінтів
     private EditBox startingPointsInput;
+    // Section divider Y positions for Special tab sectionDivider rendering
+    private int ySectionBoundary = -1, ySectionZone = -1, ySectionPortal = -1;
+
     // Boundary inputs
     private EditBox boundaryRadiusInput;
     private EditBox leaveTimerInput;
+    private EditBox boundaryDamageInput;  // С2: class field so value survives consequence-type changes
     // Portal inputs
     private EditBox portalPenaltyTimerInput;
     private EditBox portalRespawnTimerInput;
@@ -374,59 +378,61 @@ public class LocationEditorScreen extends Screen {
             if (pos != null) location.setPlayerSpawn(pos);
         }
         if (startingPointsInput != null) {
-            try { location.setStartingPoints(Integer.parseInt(startingPointsInput.getValue().trim())); }
+            try { location.setStartingPoints(Math.max(0, Integer.parseInt(startingPointsInput.getValue().trim()))); } // С1
             catch (NumberFormatException ignored) {}
         }
         if (boundaryRadiusInput != null) {
-            try { location.setLocationBoundaryRadius(Integer.parseInt(boundaryRadiusInput.getValue().trim())); }
+            try { location.setLocationBoundaryRadius(Math.max(1, Integer.parseInt(boundaryRadiusInput.getValue().trim()))); } // С1
             catch (NumberFormatException ignored) {}
         }
         if (leaveTimerInput != null) {
-            try { location.setLocationLeaveTimerSec(Integer.parseInt(leaveTimerInput.getValue().trim())); }
+            try { location.setLocationLeaveTimerSec(Math.max(0, Integer.parseInt(leaveTimerInput.getValue().trim()))); } // С1
             catch (NumberFormatException ignored) {}
         }
         if (portalPenaltyTimerInput != null) {
-            try { location.setPortalPenaltyTimerSec(Integer.parseInt(portalPenaltyTimerInput.getValue().trim())); }
+            try { location.setPortalPenaltyTimerSec(Math.max(0, Integer.parseInt(portalPenaltyTimerInput.getValue().trim()))); } // С1
             catch (NumberFormatException ignored) {}
         }
         if (portalRespawnTimerInput != null) {
-            try { location.setPortalRespawnTimerSec(Integer.parseInt(portalRespawnTimerInput.getValue().trim())); }
+            try { location.setPortalRespawnTimerSec(Math.max(0, Integer.parseInt(portalRespawnTimerInput.getValue().trim()))); } // С1
             catch (NumberFormatException ignored) {}
         }
         if (reEntryCooldownInput != null) {
-            try { location.setReEntryCooldownSec(Integer.parseInt(reEntryCooldownInput.getValue().trim())); }
+            try { location.setReEntryCooldownSec(Math.max(0, Integer.parseInt(reEntryCooldownInput.getValue().trim()))); } // С1
             catch (NumberFormatException ignored) {}
         }
         if (zoneRadiusInput != null) {
-            try { location.setAutoActivateRadius(Integer.parseInt(zoneRadiusInput.getValue().trim())); }
+            try { location.setAutoActivateRadius(Math.max(1, Integer.parseInt(zoneRadiusInput.getValue().trim()))); } // С1
             catch (NumberFormatException ignored) {}
         }
         if (zoneActivationTimerInput != null) {
-            try { location.setZoneActivationTimeSec(Integer.parseInt(zoneActivationTimerInput.getValue().trim())); }
+            try { location.setZoneActivationTimeSec(Math.max(1, Integer.parseInt(zoneActivationTimerInput.getValue().trim()))); } // С1
             catch (NumberFormatException ignored) {}
         }
         if (zoneOpenAfterStartInput != null) {
-            try { location.setZoneOpenAfterStartSec(Integer.parseInt(zoneOpenAfterStartInput.getValue().trim())); }
+            // -1 is a valid sentinel meaning "disabled"
+            try { int v = Integer.parseInt(zoneOpenAfterStartInput.getValue().trim()); location.setZoneOpenAfterStartSec(v < 0 ? -1 : v); } // С1
             catch (NumberFormatException ignored) {}
         }
         if (portalOpenAfterStartInput != null) {
-            try { location.setPortalOpenAfterStartSec(Integer.parseInt(portalOpenAfterStartInput.getValue().trim())); }
+            // -1 is a valid sentinel meaning "disabled"
+            try { int v = Integer.parseInt(portalOpenAfterStartInput.getValue().trim()); location.setPortalOpenAfterStartSec(v < 0 ? -1 : v); } // С1
             catch (NumberFormatException ignored) {}
         }
         if (victoryLingerInput != null) {
-            try { location.setVictoryLingerTimeSec(Integer.parseInt(victoryLingerInput.getValue().trim())); }
+            try { location.setVictoryLingerTimeSec(Math.max(0, Integer.parseInt(victoryLingerInput.getValue().trim()))); } // С1
             catch (NumberFormatException ignored) {}
         }
         if (particleCountInput != null) {
-            try { location.setZoneParticleCount(Integer.parseInt(particleCountInput.getValue().trim())); }
+            try { location.setZoneParticleCount(Math.max(1, Integer.parseInt(particleCountInput.getValue().trim()))); } // С1
             catch (NumberFormatException ignored) {}
         }
         if (particleSpeedInput != null) {
-            try { location.setZoneParticleSpeed(Float.parseFloat(particleSpeedInput.getValue().replace(',', '.').trim())); }
+            try { location.setZoneParticleSpeed(Math.max(0f, Float.parseFloat(particleSpeedInput.getValue().replace(',', '.').trim()))); } // С1
             catch (NumberFormatException ignored) {}
         }
         if (particleIntervalInput != null) {
-            try { location.setZoneParticleInterval(Integer.parseInt(particleIntervalInput.getValue().trim())); }
+            try { location.setZoneParticleInterval(Math.max(1, Integer.parseInt(particleIntervalInput.getValue().trim()))); } // С1
             catch (NumberFormatException ignored) {}
         }
         if (infoPanelOffsetYInput != null) {
@@ -561,11 +567,11 @@ public class LocationEditorScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(graphics);
+        GuiTheme.renderBackground(graphics, this.width, this.height);
+        GuiTheme.renderHeader(graphics, this.font, this.title, this.width);
 
         if (location.isPvp()) {
             // PvP режим — без scissor
-            graphics.drawCenteredString(this.font, "§6§l" + this.title.getString(), this.width / 2, 10, 0xFFFFFF);
             super.render(graphics, mouseX, mouseY, partialTick);
             return;
         }
@@ -580,6 +586,9 @@ public class LocationEditorScreen extends Screen {
         final int CLIP_TOP      = CONTENT_TOP + 4;  // = 76, з невеликим відступом
         final int CLIP_BOT      = CONTENT_BOT - 4;  // 4px буфер щоб контент не торкався footer
 
+        // Content frame around the scrollable area
+        GuiTheme.renderContentFrame(graphics, 8, CLIP_TOP - 4, this.width - 8, CLIP_BOT + 4);
+
         // ── Крок 1: прокручений контент через scissor [CLIP_TOP..CLIP_BOT] ──
         // Статичні widgets (PvE/PvP toggle, таби, нижні кнопки) у scissor не рендеряться.
         ScissorHelper.enable(0, CLIP_TOP, this.width, Math.max(1, CLIP_BOT - CLIP_TOP));
@@ -590,11 +599,27 @@ public class LocationEditorScreen extends Screen {
                 }
             }
         }
+        // Special tab: section dividers for Boundary / Zone / Portal
+        if (currentTab == 4) {
+            int panelW = Math.min(330, this.width - 40);
+            int lx = this.width / 2 - panelW / 2;
+            if (ySectionBoundary >= CLIP_TOP && ySectionBoundary <= CLIP_BOT)
+                GuiTheme.sectionDivider(graphics, this.font,
+                    net.minecraft.network.chat.Component.translatable("wavedefense.section.boundary"),
+                    lx, ySectionBoundary, panelW);
+            if (ySectionZone >= CLIP_TOP && ySectionZone <= CLIP_BOT)
+                GuiTheme.sectionDivider(graphics, this.font,
+                    net.minecraft.network.chat.Component.translatable("wavedefense.section.zone"),
+                    lx, ySectionZone, panelW);
+            if (ySectionPortal >= CLIP_TOP && ySectionPortal <= CLIP_BOT)
+                GuiTheme.sectionDivider(graphics, this.font,
+                    net.minecraft.network.chat.Component.translatable("wavedefense.section.portal"),
+                    lx, ySectionPortal, panelW);
+        }
         ScissorHelper.disable();
 
         // ── Крок 2: статична зона ВГОРІ (заголовок + PvE/PvP toggle + таби) ──
-        // Рендеримо поверх контенту — вони завжди видимі.
-        graphics.drawCenteredString(this.font, "§6§l" + this.title.getString(), this.width / 2, 10, 0xFFFFFF);
+        // GuiTheme.renderHeader вже намалював заголовок — рендеримо лише статичні widgets.
         ScissorHelper.enable(0, 0, this.width, CLIP_TOP);
         for (var r : this.renderables) {
             if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
@@ -617,7 +642,7 @@ public class LocationEditorScreen extends Screen {
         // Tooltips (після всіх renders)
         this.renderables.forEach(r -> {
             if (r instanceof net.minecraft.client.gui.components.Button btn && btn.isHoveredOrFocused() && btn.active) {
-                String t = getLocTip(btn.getMessage().getString());
+                String t = getLocTip(btn.getMessage());
                 if (t != null) TooltipHelper.renderIfEnabled(graphics, this.font, t, mouseX, mouseY);
             }
         });
@@ -838,6 +863,7 @@ public class LocationEditorScreen extends Screen {
 
     // ── Секція: Кордон локації ────────────────────────────────────────────
     private int initBoundarySection(int lx, int panelW, int y) {
+        ySectionBoundary = y;
         y += 4;
         this.addRenderableWidget(Button.builder(
             Component.translatable("wavedefense.auto.кордон_локації_a8d00d3b"), b -> {}
@@ -899,11 +925,12 @@ public class LocationEditorScreen extends Screen {
                 this.addRenderableWidget(Button.builder(
                     Component.translatable("wavedefense.auto.шкода_hp_сек_70beedeb"), b -> {}
                 ).bounds(lx, y, 190, 16).build()).active = false;
-                EditBox dmgInput = new EditBox(this.font, lx + 194, y, 60, 16, Component.literal("2.0"));
-                dmgInput.setValue(String.format("%.1f", location.getBoundaryDamagePerSec()));
-                dmgInput.setMaxLength(5);
-                dmgInput.setResponder(s -> { try { location.setBoundaryDamagePerSec(Float.parseFloat(s)); } catch(Exception ignored){} });
-                this.addRenderableWidget(dmgInput);
+                // С2: use class field so the typed value is preserved across consequence-type changes
+                boundaryDamageInput = new EditBox(this.font, lx + 194, y, 60, 16, Component.literal("2.0"));
+                boundaryDamageInput.setValue(String.format("%.1f", location.getBoundaryDamagePerSec()));
+                boundaryDamageInput.setMaxLength(5);
+                boundaryDamageInput.setResponder(s -> { try { location.setBoundaryDamagePerSec(Float.parseFloat(s)); } catch(Exception ignored){} });
+                this.addRenderableWidget(boundaryDamageInput);
                 y += 22;
             }
             boolean partOn = location.isBoundaryParticlesEnabled();
@@ -962,6 +989,7 @@ public class LocationEditorScreen extends Screen {
 
     // ── Секція: Авто-активація зони ───────────────────────────────────────
     private int initZoneSection(int lx, int panelW, int y) {
+        ySectionZone = y;
         y += 4;
         boolean aa = location.isAutoActivate();
         this.addRenderableWidget(Button.builder(
@@ -1044,6 +1072,7 @@ public class LocationEditorScreen extends Screen {
 
     // ── Секція: Портал ────────────────────────────────────────────────────
     private int initPortalSection(int lx, int panelW, int y) {
+        ySectionPortal = y;
         y += 8;
         this.addRenderableWidget(Button.builder(
             Component.translatable("wavedefense.auto.портал_3a6b2e9f"), b -> {}
@@ -1277,26 +1306,45 @@ public class LocationEditorScreen extends Screen {
         return y;
     }
 
-    private String getLocTip(String label) {
-        // Strip colour codes for matching
-        String plain = label.replaceAll("§.", "").toLowerCase();
-        if (plain.contains("авто-активац")) return TooltipHelper.ZONE_ACTIVATE;
-        if (plain.contains("радіус активації")) return TooltipHelper.ZONE_RADIUS;
-        if (plain.contains("зберегти зміни")) return "§7Записати всі налаштування локації на сервер\n§8Зміни набудуть чинності одразу";
-        if (plain.contains("зберегти") && !plain.contains("назад")) return "§7Зберегти налаштування";
-        if (plain.contains("pvp") || plain.contains("pve")) return "§7Перемкнути режим локації\n§8PvE — хвилі мобів, PvP — гравці vs гравці";
+    private String getLocTip(net.minecraft.network.chat.Component msg) {
+        // Primary match: use the stable i18n key (locale-independent)
+        net.minecraft.network.chat.ComponentContents contents = msg.getContents();
+        if (contents instanceof net.minecraft.network.chat.contents.TranslatableContents tc) {
+            String key = tc.getKey();
+            if (key.contains("авто_активація_зони"))  return TooltipHelper.ZONE_ACTIVATE;
+            if (key.contains("радіус_зони_бл"))        return TooltipHelper.ZONE_RADIUS;
+            if (key.equals("wavedefense.button.save_changes")) return TooltipHelper.SAVE_ALL_SETTINGS;
+            if (key.equals("wavedefense.button.save")) return TooltipHelper.SAVE_SETTINGS;
+            if (key.startsWith("wavedefense.auto.pve_") || key.startsWith("wavedefense.auto.pvp_")) return TooltipHelper.MODE_TOGGLE;
+            if (key.contains("зберігати_речі") || key.contains("очищати_речі")) return TooltipHelper.KEEP_INVENTORY;
+            if (key.contains("стартові_поінти"))       return TooltipHelper.STARTING_POINTS;
+            if (key.equals("wavedefense.button.my_position") || key.contains("точка_спавну_гравця")) return TooltipHelper.SPAWN_COORDS;
+            if (key.equals("wavedefense.button.apply")) return TooltipHelper.SPAWN_COORDS;
+            if (key.contains("відстеження_кордону") || key.contains("кордон_локації")) return TooltipHelper.BOUNDARY_ZONE;
+            if (key.contains("портал") || key.contains("рандомний_портал")) return TooltipHelper.PORTAL_RANDOM;
+            if (key.contains("примусовий_режим_гри") || key.contains("не_примусувати_режим")) return TooltipHelper.ENFORCE_GAMEMODE;
+            if (key.equals("wavedefense.button.add_mob_spawn")) return TooltipHelper.MOB_SPAWN_ADD;
+            if (key.contains("таймер_лоббі"))          return TooltipHelper.LOBBY_TIMER;
+        }
+        // Fallback: plain-text matching for any remaining non-translatable labels
+        String plain = msg.getString().replaceAll("§.", "").toLowerCase();
+        if (plain.contains("авто-активац"))                                    return TooltipHelper.ZONE_ACTIVATE;
+        if (plain.contains("радіус активації"))                                return TooltipHelper.ZONE_RADIUS;
+        if (plain.contains("зберегти зміни"))                                  return TooltipHelper.SAVE_ALL_SETTINGS;
+        if (plain.contains("зберегти") && !plain.contains("назад"))            return TooltipHelper.SAVE_SETTINGS;
+        if (plain.contains("pvp") || plain.contains("pve"))                    return TooltipHelper.MODE_TOGGLE;
         if (plain.contains("зберігати речі") || plain.contains("очищати речі")) return TooltipHelper.KEEP_INVENTORY;
-        if (plain.contains("стартові поінти") || plain.contains("поінти")) return TooltipHelper.STARTING_POINTS;
-        if (plain.contains("📌") || plain.contains("моя позиція")) return TooltipHelper.SPAWN_COORDS;
-        if (plain.contains("застосувати")) return TooltipHelper.SPAWN_COORDS;
-        if (plain.contains("кордон")) return "§7Радіус де гравці вважаються «у зоні бою»\n§8При виході — відлік, потім автоздача";
-        if (plain.contains("тригер запуску")) return "§7Локація стартує автоматично при тригері\n§8Всі гравці в радіусі телепортуються";
-        if (plain.contains("портал")) return "§7Рандомний портал — кільце частинок\n§8Grace period 30 сек після першого гравця";
-        if (plain.contains("разово")) return "§7Тригерна хвиля спрацює лише 1 раз за сесію локації";
-        if (plain.contains("and")) return "§7Всі вказані тригери мають спрацювати одночасно";
-        if (plain.contains("точка спавну гравця")) return TooltipHelper.SPAWN_COORDS;
-        if (plain.contains("додати точку спавну мобів")) return "§7Додати точку де можуть з'являтись моби\n§8Поточна ваша позиція";
-        if (plain.contains("таймер лобі") || plain.contains("таймер лоббі")) return TooltipHelper.LOBBY_TIMER;
+        if (plain.contains("стартові поінти") || plain.contains("поінти"))     return TooltipHelper.STARTING_POINTS;
+        if (plain.contains("📌") || plain.contains("моя позиція"))             return TooltipHelper.SPAWN_COORDS;
+        if (plain.contains("застосувати"))                                     return TooltipHelper.SPAWN_COORDS;
+        if (plain.contains("кордон"))                                          return TooltipHelper.BOUNDARY_ZONE;
+        if (plain.contains("тригер запуску"))                                  return TooltipHelper.AUTO_TRIGGER;
+        if (plain.contains("портал"))                                          return TooltipHelper.PORTAL_RANDOM;
+        if (plain.contains("разово"))                                          return TooltipHelper.WAVE_TRIGGER_ONCE;
+        if (plain.contains("and"))                                             return TooltipHelper.WAVE_TRIGGER_AND;
+        if (plain.contains("точка спавну гравця"))                             return TooltipHelper.SPAWN_COORDS;
+        if (plain.contains("додати точку спавну мобів"))                       return TooltipHelper.MOB_SPAWN_ADD;
+        if (plain.contains("таймер лобі") || plain.contains("таймер лоббі"))   return TooltipHelper.LOBBY_TIMER;
         return null;
     }
 }

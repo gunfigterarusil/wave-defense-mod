@@ -153,17 +153,7 @@ public class TriggerEvaluator {
     }
 
     private void tickWaveTriggers(WaveManager wm) {
-        for (Map.Entry<UUID, PlayerWaveData> e : ctx.playerData.entrySet()) {
-            PlayerWaveData data = e.getValue();
-            if (data.getCurrentLocation() == null) continue;
-            Location loc = data.getCurrentLocation();
-            if (loc.isPvp()) continue;
-            String locName = loc.getName();
-
-            // Тільки один раз на локацію за тік
-            break; // Обробляємо локацію нижче окремо
-        }
-        // Обробка по локаціях
+        // Н1: removed dead loop that immediately broke without doing anything
         for (String locName : ctx.getActiveLocationNames()) {
             Location loc = WaveDefenseMod.locationManager.getLocation(locName);
             if (loc == null || loc.isPvp()) continue;
@@ -301,10 +291,10 @@ public class TriggerEvaluator {
         wm.broadcastToLocation(location.getName(),
             Component.translatable("wavedefense.msg.trigger_wave_launched", (waveIndex+1)));
 
+        // С8: if session is null mobs would go untracked and never despawn — abort instead
         LocationSession session = ctx.getSession(location.getName());
-        Set<UUID> spawnedMobs = session != null
-            ? session.getTriggerMobs(waveIndex)
-            : new HashSet<>();
+        if (session == null) return;
+        Set<UUID> spawnedMobs = session.getTriggerMobs(waveIndex);
 
         Random rng = new Random();
         for (WaveMob waveMob : wave.getMobs()) {

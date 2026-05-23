@@ -6,6 +6,7 @@ import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.PurchaseItemPacket;
 import com.wavedefense.network.packets.SellItemPacket;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
@@ -224,7 +225,8 @@ public class PlayerShopScreen extends ScrollableScreen {
                         }
                     }
                     PacketHandler.sendToServer(new PurchaseItemPacket(location.getName(), spIdx, realIndex));
-                    updatePlayerPoints();
+                    // С5: optimistically deduct cost so button states are correct before server confirms
+                    playerPoints = Math.max(0, playerPoints - shopItem.getBuyPrice());
                     rebuildFilter();
                     rebuildWidgets();
                 }
@@ -307,7 +309,7 @@ public class PlayerShopScreen extends ScrollableScreen {
                     Component.translatable("wavedefense.auto.u00a78_415f64f9").append(Component.translatable(categoryKey(shopItem.getCategory()))).append("\u00A78]"),
                     textX, yPos + 14, 0xAAAAAA);
             if (shopItem.hasAvailabilityTrigger()) {
-                g.drawString(this.font, "§8" + shopItem.getAvailabilityTrigger().label, textX, yPos + 24, 0xAAAAAA);
+                g.drawString(this.font, "§8" + I18n.get(shopItem.getAvailabilityTrigger().label), textX, yPos + 24, 0xAAAAAA);
             }
             renderTooltipIfNeeded(g, tooltipItem, mx, my);
         }

@@ -17,6 +17,14 @@ public final class GuiTheme {
     public static final int TEXT = 0xFFE7F5FF;
     public static final int TEXT_MUTED = 0xFF9FB4C5;
 
+    public static final int STATUS_PVP     = 0xFFE05555;
+    public static final int STATUS_PVE     = 0xFF55C855;
+    public static final int STATUS_WAITING = 0xFF888888;
+    public static final int STATUS_ACTIVE  = 0xFF5CC8FF;
+    public static final int DANGER         = 0xFFEF4444;
+    public static final int WARN           = 0xFFF59E0B;
+    public static final int SECTION_HEADER = 0xCC0D1825;
+
     private GuiTheme() {}
 
     public static void renderBackground(GuiGraphics g, int width, int height) {
@@ -70,7 +78,46 @@ public final class GuiTheme {
         g.fill(x - 1, thumbY, x + 4, thumbY + thumbH, ACCENT);
     }
 
-    private static void outline(GuiGraphics g, int x1, int y1, int x2, int y2, int color) {
+    /** Pill-shaped colored badge: "PvP", "Active", "2/8" etc. */
+    public static void badge(GuiGraphics g, Font font, String text, int x, int y, int bgColor) {
+        int w = font.width(text) + 6;
+        g.fill(x, y, x + w, y + 10, bgColor);
+        g.fill(x, y, x + 1, y + 10, 0x40FFFFFF); // subtle left-edge highlight
+        g.drawString(font, text, x + 3, y + 1, TEXT, false);
+    }
+
+    /** Section header with accent stripe — visual divider between form sections. */
+    public static void sectionDivider(GuiGraphics g, Font font, Component label, int x, int y, int width) {
+        g.fill(x, y + 4, x + width, y + 5, BORDER);
+        g.fill(x, y + 4, x + Math.min(4, width), y + 5, ACCENT);
+        int labelW = font.width(label);
+        g.fill(x + 8, y, x + 12 + labelW + 4, y + 12, SECTION_HEADER);
+        g.drawString(font, label, x + 12, y + 2, ACCENT, false);
+    }
+
+    /** Reusable progress bar (wave progress, health, etc.). */
+    public static void progressBar(GuiGraphics g, int x, int y, int w, int h, float progress, int fillColor) {
+        g.fill(x, y, x + w, y + h, 0x80000000);
+        int filled = (int)(net.minecraft.util.Mth.clamp(progress, 0f, 1f) * w);
+        if (filled > 0) g.fillGradient(x, y, x + filled, y + h, fillColor, (fillColor & 0x00FFFFFF) | 0xCC000000);
+        outline(g, x, y, x + w, y + h, BORDER);
+    }
+
+    /** Sub-section panel with colored left accent border. */
+    public static void renderSectionFrame(GuiGraphics g, int x1, int y1, int x2, int y2, int accentColor) {
+        g.fill(x1, y1, x2, y2, 0x30101822);
+        g.fill(x1, y1, x1 + 2, y2, accentColor);
+        g.fill(x1, y2 - 1, x2, y2, BORDER);
+    }
+
+    /** Horizontal status line with a colored block — for HUD rendering. */
+    public static void statusLine(GuiGraphics g, Font font, String text,
+                                   int blockX, int blockW, int y, int bgColor, int textColor) {
+        g.fill(blockX, y, blockX + blockW, y + 12, bgColor);
+        g.drawString(font, text, blockX + 3, y + 2, textColor, false);
+    }
+
+    public static void outline(GuiGraphics g, int x1, int y1, int x2, int y2, int color) {
         g.fill(x1, y1, x2, y1 + 1, color);
         g.fill(x1, y2 - 1, x2, y2, color);
         g.fill(x1, y1, x1 + 1, y2, color);

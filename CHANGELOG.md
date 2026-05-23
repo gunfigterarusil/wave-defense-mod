@@ -1,5 +1,70 @@
 # Changelog
 
+## [0.2.45] - 2026-05-23
+
+### Added — UI design system & screen theming
+
+Extended `GuiTheme.java` with 7 new color constants (`STATUS_PVP`, `STATUS_PVE`,
+`STATUS_WAITING`, `STATUS_ACTIVE`, `DANGER`, `WARN`, `SECTION_HEADER`) and 5 new
+rendering helpers (`badge`, `sectionDivider`, `progressBar`, `renderSectionFrame`,
+`statusLine`). `outline()` promoted from `private` to `public static`.
+
+Applied the design system consistently across 9 screens / subsystems:
+
+- **`WaveActionsScreen`** — `GuiTheme.renderBackground` / `renderHeader` / `renderContentFrame`; separator line between action buttons and exit; `GuiTheme.DANGER` / `STATUS_ACTIVE` / `TEXT_MUTED` replace hardcoded colors.
+- **`StatsScreen`** — `GuiTheme.renderBackground` + `renderHeader`; `GuiTheme.card()` per player row; `ACCENT_ALT` for points, `TEXT_MUTED` for muted info.
+- **`HudOverlay`** — `GuiTheme.panel()` for outer HUD block; `GuiTheme.progressBar()` for wave progress; mob-count color shifts from `ACCENT` → `WARN` → `DANGER` as mobs decrease.
+- **`PlayerMenuScreen`** — removed duplicate `drawCenteredString` header call (title was drawn twice).
+- **`ItemSelectionScreen`** — `GuiTheme.renderBackground` / `renderHeader`; `GuiTheme.scrollBar()` replaces manual fill; `PANEL_DARK` / `BORDER` for slot backgrounds; `GuiTheme.panel()` for preview panel; removed `§f`/`§7` format codes.
+- **`ShopEditorScreen`** — `BORDER` / `PANEL_DARK` for item slots; `ACCENT` underline under active tab.
+- **`WaveConfigScreen`** — `GuiTheme.card()` rows with left accent stripe; `TEXT_MUTED` for hints; `DANGER` tint for pending-delete row; dialog backgrounds use `PANEL_DARK` + `outline()` with `WARN`/`DANGER`.
+- **`LocationEditorScreen` (Special tab)** — `GuiTheme.sectionDivider()` visual dividers between Boundary, Auto-Zone, and Portal sections.
+- **Lang files (all 8)** — 3 new keys: `wavedefense.section.boundary`, `wavedefense.section.zone`, `wavedefense.section.portal`.
+
+---
+
+### Fixed — Loot trigger system: 7 of 20 triggers never fired
+
+`fireLootTrigger` was called only for `PLAYER_JOIN` (in `SessionManager`) and
+`KILL_STREAK_3` (in `PvpRoundManager`). The remaining triggers existed in the enum
+and UI but had no dispatch points in runtime code.
+
+**Dispatch points added:**
+
+| Trigger | Where dispatched |
+|---------|-----------------|
+| `LOCATION_START` | `LocationSession.startNextWave()` when `currentWave == 1` |
+| `WAVE_START` | `LocationSession.startNextWave()` on every successful spawn |
+| `WAVE_N` | `LocationSession.startNextWave()` with value-match (`currentWave == N`) |
+| `WAVE_END` | `LocationSession.onWaveCompleted()` |
+| `LOCATION_END` | `SessionManager.triggerVictory()` before victory screen |
+| `MOB_KILL` | `WaveManager.onMobKilled()` on every tracked kill |
+| `MOBS_KILLED_N` | `WaveManager.onMobKilled()` with value-match (`mobsKilled == N`) |
+| `HALF_MOBS_DEAD` | `WaveManager.onMobKilled()` when `halfMobsTriggered` set |
+
+`fireLootTrigger` received a new overload `(Location, ServerLevel, Trigger, int requiredValue)` —
+pass `requiredValue = -1` to skip the value check (backward-compatible), or `>= 0` to only
+activate `LootSpawn` entries whose stored trigger value equals `requiredValue` exactly.
+`fireLootTriggerByNameWithValue` wraps this for callers that have only a location name string.
+
+---
+
+### Fixed — Minor reliability issues
+
+**`MobSpawnManager.forceSetItemSlot`** — the NBT-fallback block (for GeckoLib/tacz mobs)
+was `catch (Exception ignored)`. Changed to `LOGGER.warn(slot, mob, message)` so admins
+can diagnose why custom mob equipment isn't appearing.
+
+**`Location.addWave`** — no capacity guard existed, unlike `addMob` and `addMobSpawn`
+which already checked `MAX_MOB_TYPES` and `MAX_MOB_SPAWNS` respectively. Added
+`if (waves.size() < WaveDefenseConfig.MAX_WAVES.get())` to match the pattern.
+
+**`InfoPanelManager.updateOrCreateTextDisplayInSession`** — `world.addFreshEntity(td)`
+was called without verifying the chunk was loaded. Added `if (!world.isLoaded(blockPos)) return`
+guard so TextDisplay panels are not spawned into unloaded chunks.
+
+---
+
 ## [0.2.44] - 2026-05-18
 
 ### Added — In-game configuration screen

@@ -4,6 +4,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.*;
@@ -22,8 +23,9 @@ import java.util.stream.Collectors;
 public class ItemSelectionScreen extends Screen {
 
     public enum Category {
-        ALL("📦 Всі"), WEAPON("⚔ Зброя"), ARMOR("🛡 Броня"),
-        POTION("🧪 Зілля"), FOOD("🍖 Їжа"), OTHER("📦 Інше");
+        ALL("wavedefense.item.category.all"), WEAPON("wavedefense.item.category.weapon"),
+        ARMOR("wavedefense.item.category.armor"), POTION("wavedefense.item.category.potion"),
+        FOOD("wavedefense.item.category.food"), OTHER("wavedefense.item.category.other");
         public final String label;
         Category(String l) { this.label = l; }
     }
@@ -206,7 +208,7 @@ public class ItemSelectionScreen extends Screen {
             final Category c = cat;
             boolean active = (cat == currentCategory);
             long cnt = allStacks.stream().filter(s -> matchesCategory(s, cat)).count();
-            String lbl = (active ? "§e§l" : "§7") + cat.label + " §8(" + cnt + ")";
+            String lbl = (active ? "§e§l" : "§7") + I18n.get(cat.label) + " §8(" + cnt + ")";
             this.addRenderableWidget(Button.builder(
                     Component.literal(lbl),
                     b -> { currentCategory = c; scrollOffset = 0; applyFilter(); }
@@ -300,10 +302,9 @@ public class ItemSelectionScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
-        this.renderBackground(g);
+        GuiTheme.renderBackground(g, this.width, this.height);
+        GuiTheme.renderHeader(g, this.font, this.title, this.width);
         previewAngle = (previewAngle + 0.5f) % 360f;
-
-        g.drawCenteredString(this.font, this.title, this.width / 2, 8, 0xFFFFFF);
 
         int gridX = PREVIEW_W + 8;
         int gridY = 64;
@@ -317,19 +318,13 @@ public class ItemSelectionScreen extends Screen {
         // (Grid items moved inside scissor below)
 
         // Лічильник
-        String counter = "§7" + filteredStacks.size() + " предметів";
-        if (!searchQuery.isEmpty()) counter += " §8(\"" + searchQuery + "\")";
-        g.drawString(this.font, counter, PREVIEW_W + 8, this.height - 12, 0xAAAAAA);
+        String counter = filteredStacks.size() + " " + I18n.get("wavedefense.item.count_suffix");
+        if (!searchQuery.isEmpty()) counter += " (\"" + searchQuery + "\")";
+        g.drawString(this.font, counter, PREVIEW_W + 8, this.height - 12, GuiTheme.TEXT_MUTED, false);
 
-        // Скролбар
+        // Скролбар (GuiTheme)
         int maxScroll = Math.max(0, filteredStacks.size() - perPage);
-        if (maxScroll > 0) {
-            int sbH    = this.height - gridY - 24;
-            int thumbH = Math.max(10, sbH * perPage / Math.max(1, filteredStacks.size()));
-            int thumbY = gridY + (scrollOffset == 0 ? 0 : (sbH - thumbH) * scrollOffset / maxScroll);
-            g.fill(this.width - 6, gridY, this.width - 4, gridY + sbH, 0xFF444444);
-            g.fill(this.width - 6, thumbY, this.width - 4, thumbY + thumbH, 0xFFAAAAAA);
-        }
+        GuiTheme.scrollBar(g, this.width - 7, gridY, gridBottom, scrollOffset, filteredStacks.size(), perPage);
 
         // ── Scissor: сітка предметів ─────────────────────────────────
         ScissorHelper.enable(gridX, gridY, gridW + 8, Math.max(1, gridBottom - gridY));
@@ -343,8 +338,8 @@ public class ItemSelectionScreen extends Screen {
             int sx = gridX + col * SLOT_SIZE;
             int sy = gridY + row * SLOT_SIZE;
 
-            g.fill(sx, sy, sx + SLOT_SIZE, sy + SLOT_SIZE, 0xFF333333);
-            g.fill(sx + 1, sy + 1, sx + SLOT_SIZE - 1, sy + SLOT_SIZE - 1, 0xFF1A1A1A);
+            g.fill(sx, sy, sx + SLOT_SIZE, sy + SLOT_SIZE, GuiTheme.BORDER);
+            g.fill(sx + 1, sy + 1, sx + SLOT_SIZE - 1, sy + SLOT_SIZE - 1, GuiTheme.PANEL_DARK);
 
             // Підсвічування вибраного (порівнюємо і item і теги)
             boolean isSelected = !currentItem.isEmpty()
@@ -393,8 +388,7 @@ public class ItemSelectionScreen extends Screen {
         ItemStack preview = hoveredStack.isEmpty() ? currentItem : hoveredStack;
         if (preview.isEmpty()) return;
 
-        g.fill(px - 1, py - 1, px + pw + 1, py + ph + 1, 0xFF444444);
-        g.fill(px, py, px + pw, py + ph, 0xFF222222);
+        GuiTheme.panel(g, px - 1, py - 1, px + pw + 1, py + ph + 1);
 
         int iconX = px + (pw - 16) / 2;
         int iconY = py + (ph - 16) / 2;
@@ -404,12 +398,12 @@ public class ItemSelectionScreen extends Screen {
         // Повна назва предмета (зілля мають довгу назву)
         String name = preview.getHoverName().getString();
         if (name.length() > 12) name = name.substring(0, 11) + "…";
-        g.drawCenteredString(this.font, "§f" + name, px + pw / 2, py + ph + 2, 0xFFFFFF);
+        g.drawCenteredString(this.font, name, px + pw / 2, py + ph + 2, GuiTheme.TEXT);
 
         ResourceLocation key = ForgeRegistries.ITEMS.getKey(preview.getItem());
         if (key != null && !key.getNamespace().equals("minecraft")) {
-            g.drawCenteredString(this.font, "§7[" + key.getNamespace() + "]",
-                    px + pw / 2, py + ph + 12, 0x888888);
+            g.drawCenteredString(this.font, "[" + key.getNamespace() + "]",
+                    px + pw / 2, py + ph + 12, GuiTheme.TEXT_MUTED);
         }
     }
 

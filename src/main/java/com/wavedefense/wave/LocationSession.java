@@ -329,6 +329,12 @@ public class LocationSession {
             // Хвиля успішно запущена
             waveTimerTicks = 0;
             waveActive = true;
+            // Fire loot triggers
+            if (currentWave == 1) {
+                wm.fireLootTriggerByName(locationName, com.wavedefense.data.LootSpawn.Trigger.LOCATION_START);
+            }
+            wm.fireLootTriggerByName(locationName, com.wavedefense.data.LootSpawn.Trigger.WAVE_START);
+            wm.fireLootTriggerByNameWithValue(locationName, com.wavedefense.data.LootSpawn.Trigger.WAVE_N, currentWave);
             // Apply this wave's effect to all current players (if configured)
             if (waveConfig.hasEffect()) {
                 applyWaveEffect(waveConfig.getWaveEffect(), waveConfig.getWaveEffectAmplifier(), wm);
@@ -351,6 +357,8 @@ public class LocationSession {
      * pointsReward to all players and executes completionCommand if configured.
      */
     private void onWaveCompleted(WaveConfig wc, WaveManager wm, Location location) {
+        // Fire WAVE_END loot trigger
+        wm.fireLootTriggerByName(locationName, com.wavedefense.data.LootSpawn.Trigger.WAVE_END);
         // Distribute per-wave points to every player in the location
         if (wc.getPointsReward() > 0) {
             for (net.minecraft.server.level.ServerPlayer player : wm.getPlayersInLocation(locationName)) {

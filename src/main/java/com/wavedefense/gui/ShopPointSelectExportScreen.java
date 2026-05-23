@@ -40,7 +40,7 @@ public class ShopPointSelectExportScreen extends Screen {
                 final String pName = sp.getName();
                 final int rowY = y + pi * 26;
                 this.addRenderableWidget(Button.builder(
-                    Component.literal("§e⬆ " + pName + " §7(" + sp.getItems().size() + " товарів)"),
+                    Component.literal("§e⬆ " + pName + " §7(" + sp.getItems().size() + " " + net.minecraft.client.resources.language.I18n.get("wavedefense.item.count_suffix") + ")"),
                     b -> {
                         PacketHandler.sendToServer(new ExportShopPacket(location.getName(), "point:" + pName));
                         if (minecraft.player != null)

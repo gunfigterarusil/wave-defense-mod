@@ -33,6 +33,8 @@ public class ShopEditorScreen extends Screen {
 
     // G6a: Підтвердження видалення товару
     private int pendingDeleteShopIndex = -1;
+    // В3: Підтвердження видалення точки магазину
+    private int pendingDeletePointIndex = -1;
 
     public ShopEditorScreen(Location location, Screen parent) {
         super(Component.translatable("wavedefense.title.shop_editor")
@@ -55,13 +57,23 @@ public class ShopEditorScreen extends Screen {
         this.addRenderableWidget(Button.builder(
             isPoint ? Component.translatable("wavedefense.button.shop_mode_global_off")
                     : Component.translatable("wavedefense.button.shop_mode_global_on"),
-            b -> { location.setShopMode(Location.ShopMode.GLOBAL); rebuildWidgets(); }
+            b -> {
+                // С6: reset scroll and pending state when switching modes
+                scrollOffsetGlobal = 0; scrollOffsetPoints = 0;
+                pendingDeleteShopIndex = -1; pendingDeletePointIndex = -1;
+                location.setShopMode(Location.ShopMode.GLOBAL); rebuildWidgets();
+            }
         ).bounds(cx - 106, 24, 100, 14).build());
 
         this.addRenderableWidget(Button.builder(
             isPoint ? Component.translatable("wavedefense.button.shop_mode_point_on")
                     : Component.translatable("wavedefense.button.shop_mode_point_off"),
-            b -> { location.setShopMode(Location.ShopMode.POINT); rebuildWidgets(); }
+            b -> {
+                // С6: reset scroll and pending state when switching modes
+                scrollOffsetGlobal = 0; scrollOffsetPoints = 0;
+                pendingDeleteShopIndex = -1; pendingDeletePointIndex = -1;
+                location.setShopMode(Location.ShopMode.POINT); rebuildWidgets();
+            }
         ).bounds(cx - 2, 24, 100, 14).build());
 
         int y = 42;
@@ -207,13 +219,27 @@ public class ShopEditorScreen extends Screen {
             ).bounds(cx - 160, yPos + 16, 120, 12).build()).active = false;
 
             final int fi = idx;
+            boolean isPendingDelPoint = (pendingDeletePointIndex == fi);
             this.addRenderableWidget(Button.builder(
                 Component.translatable("wavedefense.button.edit"),
-                b -> minecraft.setScreen(new ShopPointEditorScreen(location, fi, this))
+                b -> { pendingDeletePointIndex = -1; minecraft.setScreen(new ShopPointEditorScreen(location, fi, this)); }
             ).bounds(cx + 40, yPos + 2, 60, 20).build());
+            // В3: two-step confirmation before deleting a shop point
             this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.delete"),
-                b -> { location.removeShopPoint(fi); scrollOffsetPoints=Math.max(0,Math.min(scrollOffsetPoints,location.getShopPoints().size()-1)); rebuildWidgets(); }
+                isPendingDelPoint
+                    ? Component.translatable("wavedefense.button.confirm_delete")
+                    : Component.translatable("wavedefense.button.delete"),
+                b -> {
+                    if (isPendingDelPoint) {
+                        pendingDeletePointIndex = -1;
+                        location.removeShopPoint(fi);
+                        scrollOffsetPoints = Math.max(0, Math.min(scrollOffsetPoints, location.getShopPoints().size() - 1));
+                        rebuildWidgets();
+                    } else {
+                        pendingDeletePointIndex = fi;
+                        rebuildWidgets();
+                    }
+                }
             ).bounds(cx + 104, yPos + 2, 60, 20).build());
 
             // Іконки першого товару точки (попередній перегляд)
@@ -281,6 +307,11 @@ public class ShopEditorScreen extends Screen {
         final int BOTTOM_TOP = this.height - 32;
         GuiTheme.renderContentFrame(g, 8, MODE_BOT - 4, this.width - 8, BOTTOM_TOP + 4);
 
+        // Accent underline shows which mode tab is active
+        boolean isPointTab = location.isPointShopMode();
+        int activeTabX = isPointTab ? cx - 2 : cx - 106;
+        g.fill(activeTabX, 37, activeTabX + 100, 38, GuiTheme.ACCENT);
+
         // ── Прохід 1: прокручений контент зі scissor ─────────────────
         ScissorHelper.enable(0, MODE_BOT, this.width, Math.max(1, BOTTOM_TOP - MODE_BOT));
         for (var r : this.renderables) {
@@ -302,8 +333,8 @@ public class ShopEditorScreen extends Screen {
                 for (int j = 0; j < Math.min(4, stacks.size()); j++) {
                     ItemStack st = stacks.get(j);
                     int ix = cx - 140 + j * 20, iy = yPos + 24;
-                    g.fill(ix-1,iy-1,ix+17,iy+17,0xFF444444);
-                    g.fill(ix,iy,ix+16,iy+16,0xFF222222);
+                    g.fill(ix-1,iy-1,ix+17,iy+17,GuiTheme.BORDER);
+                    g.fill(ix,iy,ix+16,iy+16,GuiTheme.PANEL_DARK);
                     g.renderItem(st, ix, iy);
                     g.renderItemDecorations(this.font, st, ix, iy);
                     if (mouseX >= ix && mouseX < ix+16 && mouseY >= iy && mouseY < iy+16) {
@@ -330,8 +361,8 @@ public class ShopEditorScreen extends Screen {
                 for (int j = 0; j < Math.min(4, firstItems.size()); j++) {
                     ItemStack st = firstItems.get(j);
                     int ix = cx - 160 + j * 20, iy = yPos + 32;
-                    g.fill(ix-1,iy-1,ix+17,iy+17,0xFF444444);
-                    g.fill(ix,iy,ix+16,iy+16,0xFF222222);
+                    g.fill(ix-1,iy-1,ix+17,iy+17,GuiTheme.BORDER);
+                    g.fill(ix,iy,ix+16,iy+16,GuiTheme.PANEL_DARK);
                     g.renderItem(st, ix, iy);
                     g.renderItemDecorations(this.font, st, ix, iy);
                     if (mouseX >= ix && mouseX < ix+16 && mouseY >= iy && mouseY < iy+16) {

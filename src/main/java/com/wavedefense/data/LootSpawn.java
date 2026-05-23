@@ -20,30 +20,30 @@ public class LootSpawn {
      */
     public enum Trigger {
         // ── Загальні ─────────────────────────────────────────────────
-        WAVE_START     ("🌊 Початок хвилі",        true,  true,  false, "Лут спавниться на початку кожної хвилі"),
-        WAVE_END       ("✅ Кінець хвилі",          true,  true,  false, "Спавниться коли хвиля повністю завершена"),
-        TIMER_60       ("⏱ Кожні 60 сек",          true,  true,  false, "Спавниться раз на 60 секунд поки локація активна"),
-        TIMER_120      ("⏱ Кожні 2 хв",            true,  true,  false, "Спавниться раз на 2 хвилини"),
-        TIMER_300      ("⏱ Кожні 5 хв",            true,  true,  false, "Спавниться раз на 5 хвилин"),
-        PLAYER_JOIN    ("👤 Гравець приєднався",    true,  true,  false, "Кожного разу коли гравець входить на локацію"),
-        PLAYER_DEATH   ("💀 Смерть гравця",         true,  true,  false, "Кожного разу коли гравець гине на локації"),
+        WAVE_START     ("wavedefense.trigger.loot.wave_start",     true,  true,  false, "wavedefense.trigger.loot.wave_start.tip"),
+        WAVE_END       ("wavedefense.trigger.loot.wave_end",       true,  true,  false, "wavedefense.trigger.loot.wave_end.tip"),
+        TIMER_60       ("wavedefense.trigger.loot.timer_60",       true,  true,  false, "wavedefense.trigger.loot.timer_60.tip"),
+        TIMER_120      ("wavedefense.trigger.loot.timer_120",      true,  true,  false, "wavedefense.trigger.loot.timer_120.tip"),
+        TIMER_300      ("wavedefense.trigger.loot.timer_300",      true,  true,  false, "wavedefense.trigger.loot.timer_300.tip"),
+        PLAYER_JOIN    ("wavedefense.trigger.loot.player_join",    true,  true,  false, "wavedefense.trigger.loot.player_join.tip"),
+        PLAYER_DEATH   ("wavedefense.trigger.loot.player_death",   true,  true,  false, "wavedefense.trigger.loot.player_death.tip"),
 
         // ── PvE-специфічні ───────────────────────────────────────────
-        MOB_KILL       ("⚔ Вбивство моба",         true,  false, false, "Спавниться при кожному вбивстві моба на локації"),
-        HALF_MOBS_DEAD ("☠ Половина мобів загинула",true, false, false, "Коли загинуло ≥50% мобів поточної хвилі"),
-        LOCATION_START ("🚀 Старт локації",         true,  false, false, "Один раз при активації локації"),
-        LOCATION_END   ("🏆 Завершення локації",    true,  false, false, "Коли локацію пройдено (всі хвилі завершені)"),
-        WAVE_N         ("🌊 Хвиля N",               true,  false, true,  "Спавниться тільки на початку конкретної хвилі (N задається окремо)"),
-        MOBS_KILLED_N  ("⚔ Вбито N мобів",         true,  false, true,  "Коли на локації вбито ≥N мобів за сесію (N задається окремо)"),
+        MOB_KILL       ("wavedefense.trigger.loot.mob_kill",       true,  false, false, "wavedefense.trigger.loot.mob_kill.tip"),
+        HALF_MOBS_DEAD ("wavedefense.trigger.loot.half_mobs_dead", true,  false, false, "wavedefense.trigger.loot.half_mobs_dead.tip"),
+        LOCATION_START ("wavedefense.trigger.loot.location_start", true,  false, false, "wavedefense.trigger.loot.location_start.tip"),
+        LOCATION_END   ("wavedefense.trigger.loot.location_end",   true,  false, false, "wavedefense.trigger.loot.location_end.tip"),
+        WAVE_N         ("wavedefense.trigger.loot.wave_n",         true,  false, true,  "wavedefense.trigger.loot.wave_n.tip"),
+        MOBS_KILLED_N  ("wavedefense.trigger.loot.mobs_killed_n",  true,  false, true,  "wavedefense.trigger.loot.mobs_killed_n.tip"),
 
         // ── PvP-специфічні ───────────────────────────────────────────
-        ROUND_START    ("🔔 Початок раунду",        false, true,  false, "На початку кожного PvP раунду"),
-        ROUND_END      ("🏁 Кінець раунду",         false, true,  false, "Коли раунд завершується"),
-        BUY_PHASE      ("🛒 Фаза покупок",          false, true,  false, "На початку BUY фази між раундами"),
-        TEAM_WIPE      ("💣 Команда вибита",        false, true,  false, "Коли всю команду знищено в раунді"),
-        KILL_STREAK_3  ("🔥 3 фраги підряд",        false, true,  false, "Коли гравець набирає 3 вбивства поспіль"),
-        MATCH_START    ("🎯 Старт матчу",           false, true,  false, "Один раз на початку матчу"),
-        MATCH_END      ("🏆 Кінець матчу",          false, true,  false, "Коли матч завершується");
+        ROUND_START    ("wavedefense.trigger.loot.round_start",    false, true,  false, "wavedefense.trigger.loot.round_start.tip"),
+        ROUND_END      ("wavedefense.trigger.loot.round_end",      false, true,  false, "wavedefense.trigger.loot.round_end.tip"),
+        BUY_PHASE      ("wavedefense.trigger.loot.buy_phase",      false, true,  false, "wavedefense.trigger.loot.buy_phase.tip"),
+        TEAM_WIPE      ("wavedefense.trigger.loot.team_wipe",      false, true,  false, "wavedefense.trigger.loot.team_wipe.tip"),
+        KILL_STREAK_3  ("wavedefense.trigger.loot.kill_streak_3",  false, true,  false, "wavedefense.trigger.loot.kill_streak_3.tip"),
+        MATCH_START    ("wavedefense.trigger.loot.match_start",    false, true,  false, "wavedefense.trigger.loot.match_start.tip"),
+        MATCH_END      ("wavedefense.trigger.loot.match_end",      false, true,  false, "wavedefense.trigger.loot.match_end.tip");
 
         public final String  label;
         public final boolean pve;        // доступний у PvE

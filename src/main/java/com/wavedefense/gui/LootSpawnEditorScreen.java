@@ -9,6 +9,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
@@ -103,7 +104,7 @@ public class LootSpawnEditorScreen extends Screen {
 
             // Зведений рядок тригерів
             String trigStr = ls.getTriggers().stream()
-                    .map(t -> t.label)
+                    .map(t -> I18n.get(t.label))
                     .limit(2)
                     .collect(Collectors.joining(", "));
             if (ls.getTriggers().size() > 2) trigStr += "…";
@@ -363,7 +364,7 @@ public class LootSpawnEditorScreen extends Screen {
                     ? location.getLootSpawns().get(editingIndex).getTriggerValue(ft)
                     : editTriggerValues.getOrDefault(ft, 1)) + "]"
                 : "";
-            String lbl = (active ? "§a☑ " : "§7☐ ") + ft.label + valStr;
+            String lbl = (active ? "§a☑ " : "§7☐ ") + I18n.get(ft.label) + valStr;
             Button btn = Button.builder(
                 Component.literal(lbl),
                 b -> {
@@ -379,7 +380,7 @@ public class LootSpawnEditorScreen extends Screen {
                 }
             ).bounds(cx - btnW / 2, ty, btnW, LOOT_BTN_H).build();
             btn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                Component.literal("§7" + ft.tooltip + (ft.needsValue ? "\n§8Вкажи значення N (ціле число)" : ""))));
+                Component.literal("§7" + I18n.get(ft.tooltip) + (ft.needsValue ? "\n" + I18n.get("wavedefense.loot.trigger.needs_value_hint") : ""))));
             this.addRenderableWidget(btn);
             ty += LOOT_BTN_H + LOOT_BTN_GAP;
         }
@@ -392,9 +393,9 @@ public class LootSpawnEditorScreen extends Screen {
             ).bounds(cx - btnW / 2, sy, btnW, 14).build()).active = false;
             sy += 16;
             for (LootSpawn.Trigger vt : valueTriggers) {
-                String lbl = vt == LootSpawn.Trigger.WAVE_N      ? "§e🌊 §7Хвиля №:" :
-                             vt == LootSpawn.Trigger.MOBS_KILLED_N ? "§e⚔ §7Мінімум вбито мобів:" :
-                                                                      "§e⚙ §7N:";
+                String lbl = vt == LootSpawn.Trigger.WAVE_N      ? I18n.get("wavedefense.loot.trigger.value_wave_n") :
+                             vt == LootSpawn.Trigger.MOBS_KILLED_N ? I18n.get("wavedefense.loot.trigger.value_mobs_n") :
+                                                                      I18n.get("wavedefense.loot.trigger.value_generic_n");
                 this.addRenderableWidget(Button.builder(
                     Component.literal(lbl), b -> {}
                 ).bounds(cx - btnW / 2, sy, 200, 18).build()).active = false;

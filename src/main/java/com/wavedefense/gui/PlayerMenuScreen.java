@@ -80,13 +80,6 @@ public class PlayerMenuScreen extends ListEditorScreen<String> {
         this.addRenderableWidget(btn);
     }
 
-    // ─── Render hooks ──────────────────────────────────────────────────────
-
-    @Override
-    protected void renderHeader(GuiGraphics g, int mx, int my, float pt) {
-        g.drawCenteredString(this.font, this.title, this.width / 2, 15, 0xFFFFFF);
-    }
-
     // ─── Actions ───────────────────────────────────────────────────────────
 
     private void handleLocationClick(String name, boolean isPvp, Location loc) {

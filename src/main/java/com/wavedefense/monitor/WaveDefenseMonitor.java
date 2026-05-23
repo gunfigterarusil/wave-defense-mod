@@ -295,14 +295,14 @@ public class WaveDefenseMonitor {
     //  ALERT SYSTEM
     // ============================================================
     private void initializeDefaultAlertRules() {
-        // TPS alerts
+        // TPS alerts — В6: use argsSupplier so values are current when the alert fires
         alertRules.add(new AlertRule(
             "LOW_TPS_WARNING",
             "TPS below warning threshold",
             () -> getAverageTPS() < TPS_WARNING_THRESHOLD,
             AlertSeverity.WARNING,
             "Current TPS: %.1f (threshold: %.1f)",
-            getAverageTPS(), TPS_WARNING_THRESHOLD
+            () -> new Object[]{ getAverageTPS(), TPS_WARNING_THRESHOLD }
         ));
 
         alertRules.add(new AlertRule(
@@ -311,17 +311,17 @@ public class WaveDefenseMonitor {
             () -> getAverageTPS() < TPS_CRITICAL_THRESHOLD,
             AlertSeverity.CRITICAL,
             "Current TPS: %.1f (threshold: %.1f) - Server performance severely degraded!",
-            getAverageTPS(), TPS_CRITICAL_THRESHOLD
+            () -> new Object[]{ getAverageTPS(), TPS_CRITICAL_THRESHOLD }
         ));
 
-        // Memory alerts
+        // Memory alerts — В6: same dynamic-args pattern
         alertRules.add(new AlertRule(
             "HIGH_MEMORY_WARNING",
             "Memory usage above warning threshold",
             () -> getUsedMemoryMB() > MEMORY_WARNING_THRESHOLD_MB,
             AlertSeverity.WARNING,
             "Memory usage: %dMB / %dMB (threshold: %dMB)",
-            getUsedMemoryMB(), getMaxMemoryMB(), MEMORY_WARNING_THRESHOLD_MB
+            () -> new Object[]{ getUsedMemoryMB(), getMaxMemoryMB(), MEMORY_WARNING_THRESHOLD_MB }
         ));
 
         alertRules.add(new AlertRule(
@@ -330,7 +330,7 @@ public class WaveDefenseMonitor {
             () -> getUsedMemoryMB() > MEMORY_CRITICAL_THRESHOLD_MB,
             AlertSeverity.CRITICAL,
             "Memory usage: %dMB / %dMB (threshold: %dMB) - Risk of OutOfMemoryError!",
-            getUsedMemoryMB(), getMaxMemoryMB(), MEMORY_CRITICAL_THRESHOLD_MB
+            () -> new Object[]{ getUsedMemoryMB(), getMaxMemoryMB(), MEMORY_CRITICAL_THRESHOLD_MB }
         ));
 
         // Wave timeout alerts
@@ -1262,6 +1262,8 @@ public class WaveDefenseMonitor {
         private final AlertSeverity severity;
         private final String message;
         private final Object[] args;
+        // В6: optional supplier so args are computed at alert-fire time, not at init
+        private final java.util.function.Supplier<Object[]> argsSupplier;
 
         public AlertRule(String id, String description,
                         java.util.function.BooleanSupplier condition,
@@ -1272,6 +1274,21 @@ public class WaveDefenseMonitor {
             this.severity = severity;
             this.message = message;
             this.args = args;
+            this.argsSupplier = null;
+        }
+
+        /** Constructor that evaluates args dynamically at alert-fire time (В6). */
+        public AlertRule(String id, String description,
+                        java.util.function.BooleanSupplier condition,
+                        AlertSeverity severity, String message,
+                        java.util.function.Supplier<Object[]> argsSupplier) {
+            this.id = id;
+            this.description = description;
+            this.condition = condition;
+            this.severity = severity;
+            this.message = message;
+            this.args = null;
+            this.argsSupplier = argsSupplier;
         }
 
         public boolean evaluate() {
@@ -1282,7 +1299,8 @@ public class WaveDefenseMonitor {
         public String getDescription() { return description; }
         public AlertSeverity getSeverity() { return severity; }
         public String getMessage() { return message; }
-        public Object[] getArgs() { return args; }
+        /** Returns args evaluated at call time if a supplier was provided. */
+        public Object[] getArgs() { return argsSupplier != null ? argsSupplier.get() : args; }
     }
 
     /**

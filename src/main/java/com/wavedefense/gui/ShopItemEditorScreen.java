@@ -8,6 +8,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
@@ -243,8 +244,9 @@ public class ShopItemEditorScreen extends Screen {
         startY += 6;
         com.wavedefense.data.WaveTrigger avTrig = (itemIndex >= 0 && itemIndex < getSourceList().size())
                 ? getSourceList().get(itemIndex).getAvailabilityTrigger() : null;
-        String avTrigLbl = avTrig == null ? "§7☐ Тригер доступності: Завжди"
-                : "§a☑ Тригер: §e" + avTrig.label;
+        String avTrigLbl = avTrig == null
+                ? "§7☐ " + I18n.get("wavedefense.shop.availability.always_label")
+                : "§a☑ " + I18n.get("wavedefense.shop.availability.trigger_prefix") + " §e" + I18n.get(avTrig.label);
         this.addRenderableWidget(Button.builder(
                 Component.literal(avTrigLbl.length() > 42 ? avTrigLbl.substring(0, 40) + "…" : avTrigLbl),
                 b -> this.minecraft.setScreen(new ShopAvailabilityScreen(this, location, shopPoint, itemIndex))
@@ -271,7 +273,14 @@ public class ShopItemEditorScreen extends Screen {
 
     private void save() {
         List<ItemStack> finalItems = items.stream().filter(i -> !i.isEmpty()).collect(Collectors.toList());
-        if (finalItems.isEmpty()) return;
+        if (finalItems.isEmpty()) {
+            // В2: show error instead of silently ignoring the save
+            if (this.minecraft != null && this.minecraft.player != null) {
+                this.minecraft.player.displayClientMessage(
+                    net.minecraft.network.chat.Component.translatable("wavedefense.shop.error_no_items"), true);
+            }
+            return;
+        }
         try {
             // Читаємо з буферів (оновлюються setResponder, безпечні після rebuildWidgets)
             int buyPrice  = pendingBuyPrice  >= 0 ? pendingBuyPrice  : Integer.parseInt(buyPriceInput.getValue());

@@ -23,7 +23,7 @@ public class WaveImportScreen extends Screen {
     private static final int GAP   = 4;
 
     public WaveImportScreen(Location location, Screen parent) {
-        super(Component.literal("§b⬇ Імпорт хвиль → §e" + location.getName()));
+        super(Component.translatable("wavedefense.wave.import_title", location.getName()));
         this.location = location;
         this.parent = parent;
     }
@@ -109,7 +109,7 @@ public class WaveImportScreen extends Screen {
         this.renderBackground(g);
         g.drawCenteredString(this.font, this.title, this.width / 2, 12, 0xFFFFFF);
         g.drawCenteredString(this.font,
-            "§7Оберіть файл з §bwave_export/",
+            net.minecraft.client.resources.language.I18n.get("wavedefense.wave.import_hint"),
             this.width / 2, 24, 0x888888);
         super.render(g, mouseX, mouseY, partialTick);
     }

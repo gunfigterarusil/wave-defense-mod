@@ -207,8 +207,8 @@ public class WaveDefenseCommand {
             WaveDefenseMod.packetHandler.send(
                     PacketDistributor.PLAYER.with(() -> target),
                     new OpenMenuPacket(adminMode));
-            source.sendSuccess(() -> Component.literal(
-                    "§a✓ Відкрито меню для §e" + target.getGameProfile().getName()), false);
+            source.sendSuccess(() -> Component.translatable(
+                    "wavedefense.cmd.menu.opened", target.getGameProfile().getName()), false);
         }
         return players.size();
     }
@@ -229,9 +229,9 @@ public class WaveDefenseCommand {
         for (ServerPlayer target : players) {
             target.removeAllEffects();
             WaveDefenseMod.waveManager.addPlayerToLocation(target, location);
-            source.sendSuccess(() -> Component.literal(
-                    "§a✓ §e" + target.getGameProfile().getName()
-                    + " §aвідправлений на §6" + locationName), false);
+            source.sendSuccess(() -> Component.translatable(
+                    "wavedefense.cmd.location.teleport_ok",
+                    target.getGameProfile().getName(), locationName), false);
             count++;
         }
         return count;
@@ -248,18 +248,17 @@ public class WaveDefenseCommand {
             com.wavedefense.wave.PlayerWaveData data =
                 WaveDefenseMod.waveManager.getPlayerData(target.getUUID());
             if (data == null || data.getCurrentLocation() == null) {
-                source.sendFailure(Component.literal(
-                    "§e" + target.getGameProfile().getName()
-                    + " §cне знаходиться на жодній локації."));
+                source.sendFailure(Component.translatable(
+                    "wavedefense.cmd.location.not_in", target.getGameProfile().getName()));
                 continue;
             }
             String locName = data.getCurrentLocation().getName();
             WaveDefenseMod.waveManager.surrenderPlayer(target);
             target.displayClientMessage(
                 Component.translatable("wavedefense.auto.вас_примусово_виведено_з_локації_2ce3049e"), false);
-            source.sendSuccess(() -> Component.literal(
-                "§a✓ §e" + target.getGameProfile().getName()
-                + " §aвиведено з локації §6" + locName), true);
+            source.sendSuccess(() -> Component.translatable(
+                "wavedefense.cmd.location.kick_ok",
+                target.getGameProfile().getName(), locName), true);
             count++;
         }
         return count;
@@ -267,8 +266,9 @@ public class WaveDefenseCommand {
 
     private static int setLocationEntry(CommandSourceStack source, boolean allowed) {
         WaveGameRules.setLocationEntryAllowed(allowed);
-        String status = allowed ? "§aувімкнено" : "§cвимкнено";
-        source.sendSuccess(() -> Component.translatable("wavedefense.auto.вхід_на_локацію_value_cc2bf278", status), true);
+        source.sendSuccess(() -> Component.translatable(
+                allowed ? "wavedefense.cmd.location.entry_allowed"
+                        : "wavedefense.cmd.location.entry_denied"), true);
         return 1;
     }
 
@@ -313,7 +313,7 @@ public class WaveDefenseCommand {
         }
 
         source.sendSuccess(() -> Component.literal("§c═══════════════════════════════════════════════════════════════"), false);
-        source.sendSuccess(() -> Component.literal("§c  АКТИВНІ АЛЕРТИ (" + activeAlerts.size() + ")"), false);
+        source.sendSuccess(() -> Component.translatable("wavedefense.cmd.alerts.header", activeAlerts.size()), false);
         source.sendSuccess(() -> Component.literal("§c═══════════════════════════════════════════════════════════════"), false);
 
         for (WaveDefenseMonitor.Alert alert : activeAlerts) {
@@ -328,8 +328,8 @@ public class WaveDefenseCommand {
             source.sendSuccess(() -> Component.literal(
                 "  §7ID: " + alert.getRuleId()
             ), false);
-            source.sendSuccess(() -> Component.literal(
-                "  §7Час: " + java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss")
+            source.sendSuccess(() -> Component.translatable("wavedefense.cmd.alerts.time",
+                java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss")
                     .format(java.time.Instant.ofEpochMilli(alert.getTimestamp())
                         .atZone(java.time.ZoneId.systemDefault()))
             ), false);
@@ -360,41 +360,30 @@ public class WaveDefenseCommand {
         source.sendSuccess(() -> Component.literal("§e═══════════════════════════════════════════════════════════════"), false);
         source.sendSuccess(() -> Component.literal("§7"),
             false);
-        source.sendSuccess(() -> Component.literal(
-            "  §7Час роботи: §e" + monitor.formatDuration(monitor.getUptimeSeconds())
-        ), false);
-        source.sendSuccess(() -> Component.literal(
-            "  §7Активних локацій: §e" + monitor.getTotalActiveLocations()
-        ), false);
-        source.sendSuccess(() -> Component.literal(
-            "  §7Гравців онлайн: §e" + WaveDefenseMod.getServer().getPlayerList().getPlayers().size()
-        ), false);
-        source.sendSuccess(() -> Component.literal(
-            "  §7Активних мобів: §e" + monitor.getTotalActiveMobs()
-        ), false);
+        source.sendSuccess(() -> Component.translatable("wavedefense.cmd.stats.uptime",
+            monitor.formatDuration(monitor.getUptimeSeconds())), false);
+        source.sendSuccess(() -> Component.translatable("wavedefense.cmd.stats.active_locations",
+            monitor.getTotalActiveLocations()), false);
+        source.sendSuccess(() -> Component.translatable("wavedefense.cmd.stats.players_online",
+            WaveDefenseMod.getServer().getPlayerList().getPlayers().size()), false);
+        source.sendSuccess(() -> Component.translatable("wavedefense.cmd.stats.active_mobs",
+            monitor.getTotalActiveMobs()), false);
         source.sendSuccess(() -> Component.literal("§7"), false);
-        source.sendSuccess(() -> Component.literal(
-            "  §7Хвиль завершено: §e" + String.format("%,d", monitor.getTotalWavesCompleted())
-        ), false);
-        source.sendSuccess(() -> Component.literal(
-            "  §7Мобів знищено: §e" + String.format("%,d", monitor.getTotalMobsKilled())
-        ), false);
-        source.sendSuccess(() -> Component.literal(
-            "  §7Смертей гравців: §e" + String.format("%,d", monitor.getTotalPlayerDeaths())
-        ), false);
-        source.sendSuccess(() -> Component.literal(
-            "  §7PvP вбивств: §e" + String.format("%,d", monitor.getTotalPvpKills())
-        ), false);
-        source.sendSuccess(() -> Component.literal(
-            "  §7Поінтів видано: §e" + String.format("%,d", monitor.getTotalPointsAwarded())
-        ), false);
+        source.sendSuccess(() -> Component.translatable("wavedefense.cmd.stats.waves_completed",
+            String.format("%,d", monitor.getTotalWavesCompleted())), false);
+        source.sendSuccess(() -> Component.translatable("wavedefense.cmd.stats.mobs_killed",
+            String.format("%,d", monitor.getTotalMobsKilled())), false);
+        source.sendSuccess(() -> Component.translatable("wavedefense.cmd.stats.player_deaths",
+            String.format("%,d", monitor.getTotalPlayerDeaths())), false);
+        source.sendSuccess(() -> Component.translatable("wavedefense.cmd.stats.pvp_kills",
+            String.format("%,d", monitor.getTotalPvpKills())), false);
+        source.sendSuccess(() -> Component.translatable("wavedefense.cmd.stats.points_awarded",
+            String.format("%,d", monitor.getTotalPointsAwarded())), false);
         source.sendSuccess(() -> Component.literal("§7"), false);
-        source.sendSuccess(() -> Component.literal(
-            "  §7Середній TPS: §e" + String.format("%.1f", monitor.getAverageTPS())
-        ), false);
-        source.sendSuccess(() -> Component.literal(
-            "  §7Пам'ять: §e" + monitor.getUsedMemoryMB() + "MB / " + monitor.getMaxMemoryMB() + "MB"
-        ), false);
+        source.sendSuccess(() -> Component.translatable("wavedefense.cmd.stats.avg_tps",
+            String.format("%.1f", monitor.getAverageTPS())), false);
+        source.sendSuccess(() -> Component.translatable("wavedefense.cmd.stats.memory",
+            monitor.getUsedMemoryMB(), monitor.getMaxMemoryMB()), false);
         source.sendSuccess(() -> Component.literal("§e═══════════════════════════════════════════════════════════════"), false);
         return 1;
     }
@@ -415,21 +404,16 @@ public class WaveDefenseCommand {
         source.sendSuccess(() -> Component.translatable("wavedefense.auto.статистика_локації_value_14ece11a", locationName), false);
         source.sendSuccess(() -> Component.literal("§e═══════════════════════════════════════════════════════════════"), false);
         source.sendSuccess(() -> Component.literal("§7"), false);
-        source.sendSuccess(() -> Component.literal(
-            "  §7Хвиль завершено: §e" + history.getTotalWavesCompleted()
-        ), false);
-        source.sendSuccess(() -> Component.literal(
-            "  §7Мобів заспавнено: §e" + history.getTotalMobsSpawned()
-        ), false);
-        source.sendSuccess(() -> Component.literal(
-            "  §7Мобів знищено: §e" + history.getTotalMobsKilled()
-        ), false);
-        source.sendSuccess(() -> Component.literal(
-            "  §7Смертей гравців: §e" + history.getTotalPlayerDeaths()
-        ), false);
-        source.sendSuccess(() -> Component.literal(
-            "  §7Видано поінтів: §e" + String.format("%,d", history.getTotalPointsAwarded())
-        ), false);
+        source.sendSuccess(() -> Component.translatable("wavedefense.cmd.stats.waves_completed",
+            history.getTotalWavesCompleted()), false);
+        source.sendSuccess(() -> Component.translatable("wavedefense.cmd.stats.mobs_spawned",
+            history.getTotalMobsSpawned()), false);
+        source.sendSuccess(() -> Component.translatable("wavedefense.cmd.stats.mobs_killed",
+            history.getTotalMobsKilled()), false);
+        source.sendSuccess(() -> Component.translatable("wavedefense.cmd.stats.player_deaths",
+            history.getTotalPlayerDeaths()), false);
+        source.sendSuccess(() -> Component.translatable("wavedefense.cmd.stats.points_awarded",
+            String.format("%,d", history.getTotalPointsAwarded())), false);
         source.sendSuccess(() -> Component.literal("§7"), false);
 
         if (!history.getPlayerPoints().isEmpty()) {
@@ -439,9 +423,8 @@ public class WaveDefenseCommand {
                 .limit(5)
                 .forEach(entry -> {
                     String playerName = monitor.getPlayerName(entry.getKey());
-                    source.sendSuccess(() -> Component.literal(
-                        "    §e" + playerName + "§7: §6" + String.format("%,d", entry.getValue()) + " поінтів"
-                    ), false);
+                    source.sendSuccess(() -> Component.translatable("wavedefense.cmd.stats.top_player",
+                        playerName, String.format("%,d", entry.getValue())), false);
                 });
         }
 

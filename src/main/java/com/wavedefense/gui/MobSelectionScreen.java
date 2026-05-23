@@ -5,6 +5,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
@@ -25,8 +26,9 @@ import java.util.stream.Collectors;
 public class MobSelectionScreen extends ScrollableScreen {
 
     public enum MobCategory2 {
-        ALL("Всі"), FLYING("🦅 Летючі"), UNDEAD("💀 Мерці"),
-        CREATURE("🐾 Живі"), OTHER("❓ Інші");
+        ALL("wavedefense.mob.category.all"), FLYING("wavedefense.mob.category.flying"),
+        UNDEAD("wavedefense.mob.category.undead"), CREATURE("wavedefense.mob.category.creature"),
+        OTHER("wavedefense.mob.category.other");
         public final String label;
         MobCategory2(String l) { this.label = l; }
     }
@@ -136,7 +138,7 @@ public class MobSelectionScreen extends ScrollableScreen {
             boolean active = (cat == currentCategory);
             long cnt = (cat == MobCategory2.ALL) ? allMobs.size()
                     : allMobs.stream().filter(t -> matchesCategoryFor(t, cat)).count();
-            String lbl = (active ? "§e§l" : "§7") + cat.label + " §8(" + cnt + ")";
+            String lbl = (active ? "§e§l" : "§7") + I18n.get(cat.label) + " §8(" + cnt + ")";
             addStatic(Button.builder(
                     Component.literal(lbl),
                     b -> { currentCategory = c; scrollOffset = 0; applyFilter(); }
@@ -298,7 +300,7 @@ public class MobSelectionScreen extends ScrollableScreen {
     @Override
     protected void renderOverlay(GuiGraphics g, int mx, int my, float pt) {
         // Counter at bottom
-        String counter = "§7" + filteredMobs.size() + " мобів";
+        String counter = "§7" + filteredMobs.size() + " " + I18n.get("wavedefense.mob.count_suffix");
         if (!searchQuery.isEmpty()) counter += " §8(\"" + searchQuery + "\")";
         g.drawString(this.font, counter, PREVIEW_W + 4, this.height - 12, 0xAAAAAA);
     }

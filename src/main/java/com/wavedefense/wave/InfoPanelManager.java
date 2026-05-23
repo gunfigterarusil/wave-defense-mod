@@ -78,7 +78,7 @@ public class InfoPanelManager {
                 // Ensure session exists for panel tracking (even if location is idle)
                 LocationSession session = (s != null) ? s : ctx.getOrCreateSession(locName, loc);
                 boolean isActive = activeNames.contains(locName);
-                String text = isActive
+                Component text = isActive
                     ? buildSpawnPanelText(locName, loc, ips, session)
                     : buildIdlePanelText(locName, loc, ips);
                 updateOrCreateTextDisplayInSession(world, session, "spawn",
@@ -95,7 +95,7 @@ public class InfoPanelManager {
             for (int mi = 0; mi < mobSpawns.size(); mi++) {
                 String key = "mob_" + mi;
                 if (ips.isMobSpawnPanelEnabled()) {
-                    String text = buildMobSpawnPanelText(locName, loc, ips, mi, session);
+                    Component text = buildMobSpawnPanelText(locName, loc, ips, mi, session);
                     updateOrCreateTextDisplayInSession(world, session, key,
                         mobSpawns.get(mi).getPos(), ips.getMobSpawnOffsetY(), text, ips);
                 } else {
@@ -128,9 +128,9 @@ public class InfoPanelManager {
     //  Private — text builders
     // ════════════════════════════════════════════════════════════════════
 
-    private String buildSpawnPanelText(String locName, Location loc, InfoPanelSettings ips,
-                                       LocationSession s) {
-        StringBuilder sb = new StringBuilder();
+    private Component buildSpawnPanelText(String locName, Location loc, InfoPanelSettings ips,
+                                          LocationSession s) {
+        net.minecraft.network.chat.MutableComponent result = Component.empty();
         int curWave   = s != null ? s.currentWave : 1;
         int normalWaves  = (int) loc.getWaves().stream().filter(w -> !w.isTriggerEnabled()).count();
         int secretWaves  = (int) loc.getWaves().stream()
@@ -143,14 +143,15 @@ public class InfoPanelManager {
         int mobsLeft     = s != null ? s.spawnedMobs.size() : 0;
 
         if (ips.isShowWaveNumber())
-            sb.append("§e⚔ Хвиля §6").append(curWave).append("§e/§6").append(normalWaves).append("\n");
+            result.append(Component.translatable("wavedefense.panel.wave_line", curWave, normalWaves)).append("\n");
         if (ips.isShowMobsRemaining() && mobsLeft > 0)
-            sb.append("§c☠ Мобів: §f").append(mobsLeft).append("\n");
+            result.append(Component.translatable("wavedefense.panel.mobs_line", mobsLeft)).append("\n");
         if (ips.isShowWaveTimer()) {
             int wt = s != null ? s.waveTimerTicks : 0;
             if (wt > 0) {
                 int secsLeft = wt / 20;
-                if (secsLeft > 0) sb.append("§b⏱ До хвилі: §f").append(secsLeft).append("с\n");
+                if (secsLeft > 0)
+                    result.append(Component.translatable("wavedefense.panel.timer_line", secsLeft)).append("\n");
             }
         }
         if (ips.isShowFirstWaveTimer()) {
@@ -158,66 +159,65 @@ public class InfoPanelManager {
             int curW = s != null ? s.currentWave : 1;
             long startMs = s != null ? s.startTimerMs : 0L;
             if (lwt > 0 && curW == 1 && startMs == 0L) {
-                // wave timer running but no startTimer — show wave timer
                 int secsLeft = lwt / 20;
                 if (secsLeft > 0)
-                    sb.append("§a🕐 Перша хвиля: §f").append(secsLeft).append("с\n");
+                    result.append(Component.translatable("wavedefense.panel.first_wave_line", secsLeft)).append("\n");
             } else if (lwt > 0 && curW == 1 && startMs > 0L) {
                 int secsToStart = (int) Math.max(0, (startMs - System.currentTimeMillis()) / 1000);
                 if (secsToStart > 0)
-                    sb.append("§a🕐 Старт через: §f").append(secsToStart).append("с\n");
+                    result.append(Component.translatable("wavedefense.panel.start_in_line", secsToStart)).append("\n");
             } else if (lwt > 0 && curW == 1) {
                 int secsLeft = lwt / 20;
                 if (secsLeft > 0)
-                    sb.append("§a🕐 Перша хвиля: §f").append(secsLeft).append("с\n");
+                    result.append(Component.translatable("wavedefense.panel.first_wave_line", secsLeft)).append("\n");
             }
         }
         if (ips.isShowLobbyTimer() && s != null && s.startTimerMs > 0L) {
             long startMs    = s.startTimerMs;
             int secsToStart = (int) Math.max(0, (startMs - System.currentTimeMillis()) / 1000);
             if (secsToStart > 0)
-                sb.append("§e⏳ Лоббі: §f").append(secsToStart).append("с\n");
+                result.append(Component.translatable("wavedefense.panel.lobby_line", secsToStart)).append("\n");
         }
         if (ips.isShowPlayerCount())
-            sb.append("§a👥 Гравців: §f").append(playerCount).append("\n");
+            result.append(Component.translatable("wavedefense.panel.players_line", playerCount)).append("\n");
         if (ips.isShowSecretCount() && secretWaves > 0)
-            sb.append("§d🔮 Секретів: §f").append(secretWaves).append("\n");
+            result.append(Component.translatable("wavedefense.panel.secrets_line", secretWaves)).append("\n");
         if (ips.isShowShopSecrets() && shopSecrets > 0)
-            sb.append("§6🛒 Умовних товарів: §f").append(shopSecrets).append("\n");
+            result.append(Component.translatable("wavedefense.panel.shop_secrets_line", shopSecrets)).append("\n");
         if (ips.isShowPoints()) {
             int totalPts = ctx.getPlayersInLocation(locName).stream()
                 .mapToInt(p -> loc.getPlayerPoints(p.getUUID())).sum();
             if (totalPts > 0)
-                sb.append("§e💎 Поінти: §f").append(totalPts).append("\n");
+                result.append(Component.translatable("wavedefense.panel.points_line", totalPts)).append("\n");
         }
 
-        String result = sb.toString().trim();
-        return result.isEmpty() ? "§7" + loc.getName() : result;
+        return result.getString().isBlank() ? Component.literal("§7" + loc.getName()) : result;
     }
 
-    private String buildIdlePanelText(String locName, Location loc, InfoPanelSettings ips) {
-        StringBuilder sb = new StringBuilder();
+    private Component buildIdlePanelText(String locName, Location loc, InfoPanelSettings ips) {
         int normalWaves = (int) loc.getWaves().stream().filter(w -> !w.isTriggerEnabled()).count();
-        sb.append("§e§l").append(loc.getName()).append("\n");
-        if (normalWaves > 0) sb.append("§7Хвиль: §f").append(normalWaves).append("\n");
-        sb.append("§a▶ Готово до старту");
-        return sb.toString();
+        net.minecraft.network.chat.MutableComponent result = Component.literal("§e§l" + loc.getName() + "\n");
+        if (normalWaves > 0)
+            result.append(Component.translatable("wavedefense.panel.idle_waves", normalWaves)).append("\n");
+        result.append(Component.translatable("wavedefense.panel.idle_ready"));
+        return result;
     }
 
-    private String buildMobSpawnPanelText(String locName, Location loc,
-                                          InfoPanelSettings ips, int spawnIdx,
-                                          LocationSession s) {
-        StringBuilder sb = new StringBuilder();
+    private Component buildMobSpawnPanelText(String locName, Location loc,
+                                             InfoPanelSettings ips, int spawnIdx,
+                                             LocationSession s) {
+        net.minecraft.network.chat.MutableComponent result = Component.empty();
         int curWave    = s != null ? s.currentWave : 1;
         int normalWaves = loc.getTotalWaves();
 
         if (ips.isMobShowWaveNumber())
-            sb.append("§e").append(curWave).append("/").append(normalWaves).append("\n");
+            result.append(Component.literal("§e" + curWave + "/" + normalWaves)).append("\n");
         if (ips.isMobShowWaveTimer()) {
             int wt = s != null ? s.waveTimerTicks : 0;
             if (wt > 0) {
                 int secsLeft = wt / 20;
-                if (secsLeft > 0) sb.append("§b⏱ ").append(secsLeft).append("с");
+                if (secsLeft > 0)
+                    result.append(Component.translatable("wavedefense.panel.timer_line", secsLeft));
             }
         }
         if (ips.isMobShowMobCount()) {
@@ -233,11 +233,12 @@ public class InfoPanelManager {
                 }
                 if (wc != null) cnt = wc.getMobs().stream().mapToInt(m -> m.getCount()).sum();
             }
-            if (cnt > 0) sb.append("\n§c").append(cnt).append(" мобів");
+            if (cnt > 0)
+                result.append(Component.literal("\n")).append(
+                    Component.translatable("wavedefense.panel.mob_spawn_mobs", cnt));
         }
 
-        String result = sb.toString().trim();
-        return result.isEmpty() ? "§7►" : result;
+        return result.getString().isBlank() ? Component.literal("§7►") : result;
     }
 
     // ════════════════════════════════════════════════════════════════════
@@ -245,8 +246,9 @@ public class InfoPanelManager {
     // ════════════════════════════════════════════════════════════════════
 
     private void updateOrCreateTextDisplayInSession(ServerLevel world, LocationSession session,
-            String key, BlockPos blockPos, float offsetY, String text, InfoPanelSettings ips) {
+            String key, BlockPos blockPos, float offsetY, Component text, InfoPanelSettings ips) {
         if (world == null || blockPos == null) return;
+        if (!world.isLoaded(blockPos)) return; // don't spawn/update in unloaded chunks
         double x = blockPos.getX() + 0.5;
         double y = blockPos.getY() + offsetY;
         double z = blockPos.getZ() + 0.5;
@@ -289,12 +291,12 @@ public class InfoPanelManager {
     //  Private — TextDisplay appearance (NBT + reflection)
     // ════════════════════════════════════════════════════════════════════
 
-    private void applyTextDisplayNbt(Display.TextDisplay td, String text, InfoPanelSettings ips) {
+    private void applyTextDisplayNbt(Display.TextDisplay td, Component text, InfoPanelSettings ips) {
         setTextDisplayText(td, text);
         setBillboardViaReflection(td);
 
         CompoundTag nbt = new CompoundTag();
-        String json = Component.Serializer.toJson(Component.literal(text));
+        String json = Component.Serializer.toJson(text);
         nbt.putString("text", json);
         nbt.putString("billboard", "center");
         nbt.putFloat("shadow_strength", ips.isHasShadow() ? 1.0f : 0.0f);
@@ -325,8 +327,7 @@ public class InfoPanelManager {
     }
 
     @SuppressWarnings("unchecked")
-    private void setTextDisplayText(Display.TextDisplay td, String text) {
-        Component comp = Component.literal(text);
+    private void setTextDisplayText(Display.TextDisplay td, Component comp) {
         try {
             Class<?> cls = Display.TextDisplay.class;
             while (cls != null && cls != Object.class) {

@@ -7,6 +7,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 
 /**
@@ -108,11 +109,12 @@ public class ShopAvailabilityScreen extends Screen {
             String lbl;
             String tooltip;
             if (t == null) {
-                lbl     = isSel ? "§a§l▶ ☑ Завжди доступний" : "§7  ☐ Завжди доступний";
-                tooltip = "Товар відображається в магазині завжди";
+                String always = I18n.get("wavedefense.shop.availability.always_label");
+                lbl     = isSel ? "§a§l▶ ☑ " + always : "§7  ☐ " + always;
+                tooltip = I18n.get("wavedefense.shop.availability.always_tooltip");
             } else {
-                lbl     = (isSel ? "§a§l▶ ☑ " : "§7  ☐ ") + t.label;
-                tooltip = t.tooltip;
+                lbl     = (isSel ? "§a§l▶ ☑ " : "§7  ☐ ") + I18n.get(t.label);
+                tooltip = I18n.get(t.tooltip);
             }
             final WaveTrigger ft = t;
             Button btn = Button.builder(

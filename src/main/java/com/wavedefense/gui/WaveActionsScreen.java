@@ -28,6 +28,9 @@ public class WaveActionsScreen extends Screen {
     // Не кешуємо рядки в полях — обчислюємо в render() через I18n.get(),
     // щоб вони оновлювались при зміні мови без перевідкриття екрану.
     private final Map<Button, String> buttonTooltips = new HashMap<>();
+    private int storedBtnW = 200;
+    private int separatorY = -1;
+    private int contentTop = -1, contentBot = -1;
 
     public WaveActionsScreen() {
         super(Component.translatable("wavedefense.title.wave_actions"));
@@ -43,6 +46,7 @@ public class WaveActionsScreen extends Screen {
         int btnW = Math.min(260, Math.max(160, this.width / 2));
         int btnH = this.height < 200 ? 20 : 24;
         int gap  = this.height < 200 ? 5 : 8;
+        this.storedBtnW = btnW;
 
         Player player = minecraft.player;
         if (player == null) return;
@@ -50,6 +54,9 @@ public class WaveActionsScreen extends Screen {
         // ── Спектатор у PvP — кнопки "Вийти з PvP" і "Здатися" ────────────────
         if (player.isSpectator()) {
             int startY = this.height / 2 - 40;
+            this.contentTop = startY - 8;
+            this.contentBot = startY + btnH + gap + 4 + 24;
+            this.separatorY = -1;
             Button surrenderBtn = Button.builder(
                     Component.translatable("wavedefense.button.surrender_penalty"),
                     b -> { PacketHandler.sendToServer(new SurrenderPacket()); this.onClose(); }
@@ -78,6 +85,9 @@ public class WaveActionsScreen extends Screen {
     private void renderPvpMenu(int cx, int btnW, int btnH, int gap,
                                PlayerWaveData pd, Location location) {
         int startY = this.height / 2 - 70;
+        this.contentTop  = startY - 8;
+        this.contentBot  = startY + (btnH + gap) * 5 + btnH + 6;
+        this.separatorY  = startY + (btnH + gap) * 3 - gap / 2;
         int i = 0;
 
         // Магазин (PvP)
@@ -134,6 +144,9 @@ public class WaveActionsScreen extends Screen {
     private void renderPveMenu(int cx, int btnW, int btnH, int gap,
                                PlayerWaveData pd, Location location, Player player) {
         int startY = this.height / 2 - 60;
+        this.contentTop  = startY - 8;
+        this.contentBot  = startY + (btnH + gap) * 4 + btnH + 6;
+        this.separatorY  = startY + (btnH + gap) * 2 - gap / 2;
 
         boolean hasShop = location != null && (location.isPointShopMode()
             ? !location.getShopPoints().isEmpty()
@@ -173,19 +186,34 @@ public class WaveActionsScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(g);
+        GuiTheme.renderBackground(g, this.width, this.height);
         int cx   = this.width / 2;
         int topY = this.height / 2 - 90;
 
+        // Стилізований заголовок угорі екрану
+        GuiTheme.renderHeader(g, this.font, this.title, this.width);
+
+        // Рамка навколо блоку кнопок
+        if (contentTop >= 0 && contentBot > contentTop) {
+            GuiTheme.renderContentFrame(g,
+                cx - storedBtnW / 2 - 6, contentTop,
+                cx + storedBtnW / 2 + 6, contentBot);
+        }
+
+        // Роздільник між навігаційними та небезпечними кнопками
+        if (separatorY > 0) {
+            g.fill(cx - storedBtnW / 2, separatorY,
+                   cx + storedBtnW / 2, separatorY + 1, GuiTheme.BORDER);
+        }
+
         // Спектатор — простий оверлей
         if (minecraft.player != null && minecraft.player.isSpectator()) {
-            // Обчислюємо тут, а не в init(), щоб коректно оновлювалось при зміні мови
             String spectatorLabel = ClientPvpStateManager.getPhase().equals("WAITING")
                     ? I18n.get("wavedefense.pvp.waiting")
                     : I18n.get("wavedefense.pvp.spectator_dead");
-            g.drawCenteredString(this.font, I18n.get("wavedefense.pvp.menu_title"), cx, topY + 8, 0xFF5555);
-            g.drawCenteredString(this.font, spectatorLabel, cx, topY + 22, 0xAAAAAA);
-            g.drawCenteredString(this.font, I18n.get("wavedefense.pvp.spectator_hint"), cx, topY + 34, 0x888888);
+            g.drawCenteredString(this.font, I18n.get("wavedefense.pvp.menu_title"), cx, topY + 8, GuiTheme.STATUS_PVP);
+            g.drawCenteredString(this.font, spectatorLabel, cx, topY + 22, GuiTheme.TEXT_MUTED);
+            g.drawCenteredString(this.font, I18n.get("wavedefense.pvp.spectator_hint"), cx, topY + 34, GuiTheme.TEXT_MUTED);
             super.render(g, mouseX, mouseY, partialTick);
             return;
         }
@@ -196,26 +224,26 @@ public class WaveActionsScreen extends Screen {
         int round      = ClientPvpStateManager.getCurrentRound();
         int total      = ClientPvpStateManager.getTotalRounds();
         String pvpStatusLine;
-        if ("BUY".equals(phase))        pvpStatusLine = I18n.get("wavedefense.pvp.buy_phase", timerSec, round, total);
+        if ("BUY".equals(phase))         pvpStatusLine = I18n.get("wavedefense.pvp.buy_phase", timerSec, round, total);
         else if ("ACTIVE".equals(phase)) pvpStatusLine = I18n.get("wavedefense.pvp.round_active", round, total);
         else if ("WAITING".equals(phase)) pvpStatusLine = I18n.get("wavedefense.pvp.waiting");
-        else if (!phase.isEmpty())       pvpStatusLine = I18n.get("wavedefense.pvp.match_ended");
-        else                             pvpStatusLine = "";
+        else if (!phase.isEmpty())        pvpStatusLine = I18n.get("wavedefense.pvp.match_ended");
+        else                              pvpStatusLine = "";
 
         if (!pvpStatusLine.isEmpty()) {
             String loc = ClientPvpStateManager.getLocation();
-            g.drawCenteredString(this.font, "§c§l⚔ PvP — §r§f" + loc, cx, topY, 0xFF5555);
-            g.drawCenteredString(this.font, pvpStatusLine, cx, topY + 12, 0xFFFFFF);
+            g.drawCenteredString(this.font, "§c§l⚔ PvP — §r§f" + loc, cx, topY, GuiTheme.TEXT);
+            g.drawCenteredString(this.font, pvpStatusLine, cx, topY + 12, GuiTheme.TEXT);
 
             // Рахунок команд
             Map<String, Integer> wins = ClientPvpStateManager.getTeamWins();
             if (!wins.isEmpty()) {
                 StringBuilder sb = new StringBuilder(I18n.get("wavedefense.pvp.score_prefix"));
                 wins.forEach((t, w) -> sb.append("§e").append(t).append("§7:§a").append(w).append("  "));
-                g.drawCenteredString(this.font, sb.toString().trim(), cx, topY + 24, 0xFFFFFF);
+                g.drawCenteredString(this.font, sb.toString().trim(), cx, topY + 24, GuiTheme.TEXT);
             }
         } else {
-            g.drawCenteredString(this.font, I18n.get("wavedefense.menu.title_pve"), cx, topY + 8, 0xFFFFFF);
+            g.drawCenteredString(this.font, I18n.get("wavedefense.menu.title_pve"), cx, topY + 8, GuiTheme.TEXT);
         }
 
         // Tooltips при наведенні на кнопки
