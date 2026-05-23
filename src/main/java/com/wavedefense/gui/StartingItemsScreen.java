@@ -109,8 +109,8 @@ public class StartingItemsScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(g);
-        g.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
+        GuiTheme.renderBackground(g, this.width, this.height);
+        g.drawCenteredString(this.font, this.title, this.width / 2, 10, GuiTheme.TEXT);
 
         int cx = this.width / 2;
         int startY = 60;
@@ -133,6 +133,7 @@ public class StartingItemsScreen extends Screen {
                     && w.getY() + w.getHeight() > listTop && w.getY() < listBot)
                 w.render(g, mouseX, mouseY, partialTick);
         }
+        g.flush();
         ScissorHelper.disable();
 
         // Статичні widgets (header/footer) поза scissor

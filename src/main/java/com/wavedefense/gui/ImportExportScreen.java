@@ -145,8 +145,8 @@ public class ImportExportScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
-        this.renderBackground(g);
-        g.drawCenteredString(this.font, Component.translatable("wavedefense.import_export.title"), this.width / 2, 10, 0xFFFFFF);
+        GuiTheme.renderBackground(g, this.width, this.height);
+        g.drawCenteredString(this.font, Component.translatable("wavedefense.import_export.title"), this.width / 2, 10, GuiTheme.TEXT);
         if (!statusMsg.isEmpty())
             g.drawCenteredString(this.font, statusMsg, this.width / 2, this.height - 44, 0xFFFFFF);
         g.drawString(this.font, Component.translatable("wavedefense.import_export.path_hint"),
@@ -160,6 +160,7 @@ public class ImportExportScreen extends Screen {
                     && w.getY() + w.getHeight() > listTop && w.getY() < listBot)
                 w.render(g, mouseX, mouseY, partial);
         }
+        g.flush();
         ScissorHelper.disable();
         // Static footer (Назад кнопка)
         for (var r : this.renderables) {

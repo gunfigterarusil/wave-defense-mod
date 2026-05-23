@@ -135,8 +135,8 @@ public class WaveImportTargetScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(g);
-        g.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
+        GuiTheme.renderBackground(g, this.width, this.height);
+        g.drawCenteredString(this.font, this.title, this.width / 2, 10, GuiTheme.TEXT);
         g.drawCenteredString(this.font, Component.translatable("wavedefense.wave.import_insert_mode"), this.width / 2, 22, 0xAAAAAA);
 
         // Роздільник між загальними і порядковими

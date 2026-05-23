@@ -68,8 +68,8 @@ public class ShopImportTargetScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(g);
-        g.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
+        GuiTheme.renderBackground(g, this.width, this.height);
+        g.drawCenteredString(this.font, this.title, this.width / 2, 10, GuiTheme.TEXT);
         g.drawCenteredString(this.font, Component.translatable("wavedefense.shop.import_file", fileName), this.width / 2, 24, 0xFFFFFF);
         super.render(g, mouseX, mouseY, partialTick);
     }

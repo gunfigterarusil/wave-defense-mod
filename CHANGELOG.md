@@ -1,5 +1,68 @@
 # Changelog
 
+## [0.2.45.1] - 2026-05-23
+
+### Fixed — GuiTheme migration: all screens uniformly themed
+
+The remaining 14 GUI screens still using `this.renderBackground()` (vanilla stone dirt panel)
+were migrated to `GuiTheme.renderBackground()`. Main title colors changed from hardcoded
+`0xFFFFFF` to `GuiTheme.TEXT` (`0xFFE7F5FF`). Every `ScissorHelper.disable()` call is now
+preceded by `g.flush()` to prevent Minecraft's batched text renderer from bleeding deferred
+glyphs across scissor boundaries.
+
+Migrated screens:
+`WaveSpawnEditorScreen`, `WaveMobEditScreen`, `RewardsConfigScreen`,
+`PvpScoreboardScreen` (+flush), `StartingItemsScreen` (+flush),
+`WaveImportScreen`, `WaveImportTargetScreen`, `WaveExportScreen`,
+`ShopImportScreen`, `ShopImportTargetScreen`, `ShopPointSelectExportScreen`,
+`WaveMobSettingsScreen`, `PvpTeamSelectScreen`, `LocationInfoScreen`.
+
+Combined with the 11 screens migrated in 0.2.45, `GuiTheme.renderBackground` is now
+used consistently across all ~25 screens in the mod.
+
+---
+
+### Fixed — Timer and death loot/wave triggers never fired
+
+`LootSpawn.Trigger.TIMER_60 / TIMER_120 / TIMER_300` and `WaveTrigger.TIMER_60 / TIMER_120 / TIMER_300`
+had no dispatch points — the timers in `LocationSession` were serialized but never incremented.
+
+**Added in `LocationSession.tick()`** (fires once the lobby countdown ends, `startTimerMs == 0`):
+
+| Threshold | Loot trigger dispatched | Wave trigger dispatched |
+|-----------|------------------------|------------------------|
+| 1 200 ticks (60 s) | `TIMER_60` | `TIMER_60` |
+| 2 400 ticks (120 s) | `TIMER_120` | `TIMER_120` |
+| 6 000 ticks (300 s) | `TIMER_300` | `TIMER_300` |
+
+`TriggerEvaluator.tickTimerCustomForLocation()` was already implemented (per-wave-index
+counters under `waveTriggerWaveCounters` with `"tc_N"` keys) but was never called.
+Now called every tick from `LocationSession.tick()`.
+
+`LootSpawn.Trigger.PLAYER_DEATH` was only dispatched on PvP death.
+Added dispatch in `WaveManager.onPvePlayerDeath()` before `playerData.remove()`.
+
+---
+
+### Fixed — Trigger-wave mob off-by-one in `WaveManager.onMobKilled`
+
+`onMobKilled` resolved the trigger wave config with `waveIndex > 0` and `get(waveIndex - 1)`,
+which skipped index 0 (the most common case) and applied a 1-based offset to a 0-based list.
+Corrected to `waveIndex >= 0 && waveIndex < waves.size()` and `get(waveIndex)`.
+The erroneous `fireWaveTriggerForLocation` call (which starts a new location, not spawns mobs)
+was replaced with a debug log to avoid an infinite mob-spawn loop.
+
+---
+
+### Removed — `docs/archive/`
+
+Deleted 18 stale files (markdown summaries and prototype Java files) left by previous
+agent sessions. Translation audit confirmed: all 151 `wavedefense.auto.*` keys in source
+code have matching entries in every language file; 6 orphaned keys remain in the JSON files
+(harmless).
+
+---
+
 ## [0.2.45] - 2026-05-23
 
 ### Added — UI design system & screen theming

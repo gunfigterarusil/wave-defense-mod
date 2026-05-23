@@ -591,10 +591,13 @@ public class LocationEditorScreen extends Screen {
 
         // ── Крок 1: прокручений контент через scissor [CLIP_TOP..CLIP_BOT] ──
         // Статичні widgets (PvE/PvP toggle, таби, нижні кнопки) у scissor не рендеряться.
+        // Y-range filter: рендеримо лише widgets що перетинаються з clip-зоною (як у ScrollableScreen).
         ScissorHelper.enable(0, CLIP_TOP, this.width, Math.max(1, CLIP_BOT - CLIP_TOP));
         for (var r : this.renderables) {
             if (r instanceof net.minecraft.client.gui.components.AbstractWidget w) {
-                if (!staticWidgets.contains(w)) {
+                if (!staticWidgets.contains(w)
+                        && w.getY() + w.getHeight() > CLIP_TOP
+                        && w.getY() < CLIP_BOT) {
                     w.render(graphics, mouseX, mouseY, partialTick);
                 }
             }
@@ -616,6 +619,9 @@ public class LocationEditorScreen extends Screen {
                     net.minecraft.network.chat.Component.translatable("wavedefense.section.portal"),
                     lx, ySectionPortal, panelW);
         }
+        // Flush deferred text batch BEFORE disabling scissor so text doesn't bleed
+        // into the next pass when a different render type triggers an auto-flush.
+        graphics.flush();
         ScissorHelper.disable();
 
         // ── Крок 2: статична зона ВГОРІ (заголовок + PvE/PvP toggle + таби) ──
@@ -627,6 +633,7 @@ public class LocationEditorScreen extends Screen {
                 w.render(graphics, mouseX, mouseY, partialTick);
             }
         }
+        graphics.flush();
         ScissorHelper.disable();
 
         // ── Крок 3: статична зона ВНИЗУ (Зберегти / Назад / Закрити) ─────
@@ -637,7 +644,17 @@ public class LocationEditorScreen extends Screen {
                 w.render(graphics, mouseX, mouseY, partialTick);
             }
         }
+        graphics.flush();
         ScissorHelper.disable();
+
+        // ── Scrollbar (поза scissor, завжди видима) ──────────────────────────
+        if (currentTab == 0) {
+            GuiTheme.scrollBar(graphics, this.width - 8, CLIP_TOP, CLIP_BOT,
+                    basicScrollOffset, basicContentHeight, CLIP_BOT - CLIP_TOP);
+        } else if (currentTab == 4) {
+            GuiTheme.scrollBar(graphics, this.width - 8, CLIP_TOP, CLIP_BOT,
+                    specialScrollOffset, specialContentHeight, CLIP_BOT - CLIP_TOP);
+        }
 
         // Tooltips (після всіх renders)
         this.renderables.forEach(r -> {

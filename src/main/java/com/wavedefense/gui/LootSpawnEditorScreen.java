@@ -527,9 +527,9 @@ public class LootSpawnEditorScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(g);
+        GuiTheme.renderBackground(g, this.width, this.height);
         int cx = this.width / 2;
-        g.drawCenteredString(this.font, this.title, cx, 10, 0xFFFFFF);
+        g.drawCenteredString(this.font, this.title, cx, 10, GuiTheme.TEXT);
 
         // ── Визначаємо межі scissor для поточного режиму ─────────────
         // Список завжди між заголовком (~28) і нижньою кнопкою (height-30)
@@ -553,6 +553,7 @@ public class LootSpawnEditorScreen extends Screen {
                             && w.getY() < lootTrigScrollBot)
                         w.render(g, mouseX, mouseY, partialTick);
                 }
+                g.flush();
                 ScissorHelper.disable();
             }
             // Статичні після scissor (per-trigger налаштування + Готово)
@@ -574,6 +575,7 @@ public class LootSpawnEditorScreen extends Screen {
                         && w.getY() + w.getHeight() > listTop && w.getY() < listBot)
                     w.render(g, mouseX, mouseY, partialTick);
             }
+            g.flush();
             ScissorHelper.disable();
             for (var r : this.renderables) {
                 if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
@@ -596,8 +598,8 @@ public class LootSpawnEditorScreen extends Screen {
                 int iconY = baseY;  // точно на Y кнопки "вибрати"
 
                 // Фон слоту поверх кнопки
-                g.fill(iconX - 1, iconY - 1, iconX + 17, iconY + 17, 0xFF555555);
-                g.fill(iconX, iconY, iconX + 16, iconY + 16, 0xFF1A1A1A);
+                g.fill(iconX - 1, iconY - 1, iconX + 17, iconY + 17, GuiTheme.BORDER);
+                g.fill(iconX, iconY, iconX + 16, iconY + 16, GuiTheme.PANEL_DARK);
                 g.renderItem(item, iconX, iconY);
                 g.renderItemDecorations(this.font, item, iconX, iconY);
 
@@ -625,6 +627,7 @@ public class LootSpawnEditorScreen extends Screen {
                     g.renderItemDecorations(this.font, items.get(j), ix, iconY);
                 }
             }
+            g.flush();
             ScissorHelper.disable();
             // Tooltips поза scissor
             for (int i = 0; i < Math.min(PER_PAGE, spawns.size()); i++) {

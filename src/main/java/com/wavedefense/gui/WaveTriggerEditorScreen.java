@@ -336,8 +336,8 @@ public class WaveTriggerEditorScreen extends Screen {
     // ── RENDER ────────────────────────────────────────────────────────────
     @Override
     public void render(GuiGraphics g, int mx, int my, float pt) {
-        this.renderBackground(g);
-        g.drawCenteredString(this.font, Component.translatable("wavedefense.wave.trigger_title", waveIndex + 1), this.width / 2, 8, 0xFFFFFF);
+        GuiTheme.renderBackground(g, this.width, this.height);
+        g.drawCenteredString(this.font, Component.translatable("wavedefense.wave.trigger_title", waveIndex + 1), this.width / 2, 8, GuiTheme.TEXT);
 
         if (!wave.isTriggerEnabled() || scrollTop >= scrollBot) {
             super.render(g, mx, my, pt);
@@ -350,6 +350,7 @@ public class WaveTriggerEditorScreen extends Screen {
         // 2) Scissor: список тригерів
         ScissorHelper.enable(0, scrollTop, this.width, scrollBot - scrollTop);
         renderWidgetsBand(g, mx, my, pt, scrollTop, scrollBot);
+        g.flush();
         ScissorHelper.disable();
 
         // 3) Статичні елементи ПІСЛЯ списку

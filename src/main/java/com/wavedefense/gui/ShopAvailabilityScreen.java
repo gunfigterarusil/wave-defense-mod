@@ -189,8 +189,8 @@ public class ShopAvailabilityScreen extends Screen {
     // ── RENDER ────────────────────────────────────────────────────────
     @Override
     public void render(GuiGraphics g, int mx, int my, float pt) {
-        this.renderBackground(g);
-        g.drawCenteredString(this.font, Component.translatable("wavedefense.shop.availability_title"), this.width / 2, 14, 0xFFFFFF);
+        GuiTheme.renderBackground(g, this.width, this.height);
+        g.drawCenteredString(this.font, Component.translatable("wavedefense.shop.availability_title"), this.width / 2, 14, GuiTheme.TEXT);
 
         // Статичні до списку
         for (var r : this.renderables) {
@@ -205,6 +205,7 @@ public class ShopAvailabilityScreen extends Screen {
                         && w.getY() + w.getHeight() > scrollTop && w.getY() < scrollBot)
                     w.render(g, mx, my, pt);
             }
+            g.flush();
             ScissorHelper.disable();
         }
         // Статичні після списку (кнопки Зберегти/Скасувати)

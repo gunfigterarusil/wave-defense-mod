@@ -943,10 +943,12 @@ public class PvpLocationEditorScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(g);
-        g.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFF5555);
+        GuiTheme.renderBackground(g, this.width, this.height);
+        g.drawCenteredString(this.font, this.title, this.width / 2, 10, GuiTheme.STATUS_PVP);
         // Scissor: вміст вкладки між таблою (48) і нижніми кнопками (height-32)
         int listTop = 48, listBot = this.height - 32;
+        GuiTheme.renderContentFrame(g, 8, listTop - 4, this.width - 8, listBot + 4);
+        g.flush(); // flush title text before enabling scissor
         ScissorHelper.enable(0, listTop, this.width, Math.max(1, listBot - listTop));
         for (var r : this.renderables) {
             if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
@@ -954,6 +956,7 @@ public class PvpLocationEditorScreen extends Screen {
                     && w.getY() + w.getHeight() > listTop && w.getY() < listBot)
                 w.render(g, mouseX, mouseY, partialTick);
         }
+        g.flush();
         ScissorHelper.disable();
         // Static: вкладки (top) та кнопки Зберегти/Назад (bottom) — поверх контенту
         ScissorHelper.enable(0, 0, this.width, listTop);
@@ -962,6 +965,7 @@ public class PvpLocationEditorScreen extends Screen {
                     && staticWidgets.contains(w) && w.getY() < listTop)
                 w.render(g, mouseX, mouseY, partialTick);
         }
+        g.flush();
         ScissorHelper.disable();
         ScissorHelper.enable(0, listBot, this.width, this.height - listBot);
         for (var r : this.renderables) {
@@ -969,7 +973,16 @@ public class PvpLocationEditorScreen extends Screen {
                     && staticWidgets.contains(w) && w.getY() >= listBot)
                 w.render(g, mouseX, mouseY, partialTick);
         }
+        g.flush();
         ScissorHelper.disable();
+        // Scrollbar (поза scissor, завжди видима) — для вкладок з прокруткою
+        if (currentTab == 1 || currentTab == 4) {
+            int maxScroll = getRulesMaxScroll();
+            if (maxScroll > 0) {
+                GuiTheme.scrollBar(g, this.width - 8, listTop, listBot,
+                        rulesScrollOffset, maxScroll + (listBot - listTop), listBot - listTop);
+            }
+        }
         // Tooltips
         this.renderables.forEach(r -> {
             if (r instanceof net.minecraft.client.gui.components.Button btn

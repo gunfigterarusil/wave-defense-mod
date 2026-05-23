@@ -1,4 +1,4 @@
-# Wave Defense Mod - v0.2.45
+# Wave Defense Mod - v0.2.45.1
 
 Wave Defense is a PvE/PvP Forge mod for **Minecraft 1.20.1** and **Java 17**.
 It lets server owners build configurable arena locations with mob waves, team PvP,
@@ -8,7 +8,7 @@ shops, loot events, portals, boundaries, HUD panels, and in-game admin editors.
 
 ## Status
 
-Version `0.2.45` — UI design system applied to all main screens; loot trigger dispatch completed.
+Version `0.2.45.1` — GuiTheme migration completed across all screens; timer/death loot triggers wired; trigger mob off-by-one fixed.
 
 Completed in this workspace:
 
@@ -24,11 +24,11 @@ Completed in this workspace:
 - **Layout fixes**: Import/Export header overlap, Completion Rewards item frame padding, tooltip black-box bug, LocationEditor footer overlap, mob spawn scroll Y offset, PvP mode unlock button.
 - **Config screen**: In-game configuration via Mods menu → Wave Defense → Config (all `wavedefense-common.toml` settings, five tabs, saves on close).
 - **UI design**: `GuiTheme` extended with 7 constants + 5 helpers; all 9 main screens and HUD use consistent theme (colors, cards, progress bars, section dividers, badges).
-- **Loot triggers**: 7 of 20 `LootSpawn.Trigger` values (`LOCATION_START`, `WAVE_START`, `WAVE_N`, `WAVE_END`, `LOCATION_END`, `MOB_KILL`, `MOBS_KILLED_N`, `HALF_MOBS_DEAD`) now have runtime dispatch points.
+- **Loot triggers**: 11 of 20 `LootSpawn.Trigger` values now have runtime dispatch points — added `PLAYER_DEATH` (PvE), `TIMER_60`, `TIMER_120`, `TIMER_300` alongside the previous 7. `TIMER_CUSTOM` wave trigger also wired via `tickTimerCustomForLocation()`.
+- **GuiTheme** applied uniformly to all ~25 GUI screens: `GuiTheme.renderBackground`, title color `GuiTheme.TEXT`, `g.flush()` before every `ScissorHelper.disable()` — eliminates deferred-text scissor bleed.
 
 Still to do:
 
-- Clean generated notes, old summaries, corrupted files, and root-level prototype files.
 - Run full in-game testing for PvE waves and 2+ player PvP sessions.
 
 ---
@@ -36,7 +36,7 @@ Still to do:
 ## Installation
 
 1. Install Forge `1.20.1` (`47.2.0+` recommended).
-2. Copy the built `wavedefense-0.2.45.jar` into the `mods/` folder.
+2. Copy the built `wavedefense-0.2.45.1.jar` into the `mods/` folder.
 3. Start the client or dedicated server.
 
 ---
@@ -275,20 +275,6 @@ $env:Path="$env:JAVA_HOME\bin;$env:Path"
 
 ---
 
-## Cleanup Notes
-
-The repository currently contains older implementation summaries, generated build/run
-artifacts, root-level prototype files, and at least one corrupted Java file. Those should
-be cleaned in a separate pass after gameplay and GUI behavior are stable.
-
-Known cleanup candidates:
-
-- root-level summary markdown files that are no longer useful;
-- root-level prototype Java files outside `src/main/java`;
-- `src/main/java/com/wavedefense/audit/WaveDefenseAuditLog.java.corrupted`;
-- stale generated files in `build/` and `run/` if they were accidentally included in source control.
-
----
 
 ## License
 

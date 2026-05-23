@@ -248,14 +248,15 @@ public class ShopPointEditorScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
-        this.renderBackground(g);
+        GuiTheme.renderBackground(g, this.width, this.height);
         int cx = this.width / 2;
-        g.drawCenteredString(this.font, this.title, cx, 10, 0xFFFFFF);
+        GuiTheme.renderHeader(g, this.font, this.title, this.width);
 
         // clipTop = де починається список товарів (динамічно, не хардкодований)
         int clipTop = listStartY - 2;
         int clipBot = this.height - 32;
 
+        GuiTheme.renderContentFrame(g, 8, clipTop - 4, this.width - 8, clipBot + 4);
         ScissorHelper.enable(0, clipTop, this.width, Math.max(1, clipBot - clipTop));
         for (var r : this.renderables) {
             if (r instanceof net.minecraft.client.gui.components.AbstractWidget w) {
@@ -275,11 +276,12 @@ public class ShopPointEditorScreen extends Screen {
             for (int j = 0; j < Math.min(4, stacks.size()); j++) {
                 ItemStack st = stacks.get(j);
                 int ix = cx - 155 + j * 20; // лівіше щоб не накладатись
-                g.fill(ix-1,iy-1,ix+17,iy+17,0xFF444444);
-                g.fill(ix,iy,ix+16,iy+16,0xFF222222);
+                g.fill(ix-1,iy-1,ix+17,iy+17,GuiTheme.BORDER);
+                g.fill(ix,iy,ix+16,iy+16,GuiTheme.PANEL_DARK);
                 g.renderItem(st, ix, iy);
                 g.renderItemDecorations(this.font, st, ix, iy);
                 if (mouseX>=ix&&mouseX<ix+16&&mouseY>=iy&&mouseY<iy+16) {
+                    g.flush(); // flush renderItemDecorations text before disabling scissor
                     ScissorHelper.disable();
                     g.renderTooltip(this.font, st, mouseX, mouseY);
                     ScissorHelper.enable(0,clipTop,this.width,Math.max(1,clipBot-clipTop));
@@ -287,15 +289,26 @@ public class ShopPointEditorScreen extends Screen {
             }
         }
 
+        g.flush();
         ScissorHelper.disable();
 
-        // Static header + footer
+        // Pass 2: статичний header (назва, позиція, радіус, кнопки "Додати")
+        ScissorHelper.enable(0, 0, this.width, clipTop);
         for (var r : this.renderables) {
-            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w) {
-                if (w.getY() < clipTop || w.getY() >= clipBot)
-                    w.render(g, mouseX, mouseY, partial);
-            }
+            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w && w.getY() < clipTop)
+                w.render(g, mouseX, mouseY, partial);
         }
+        g.flush();
+        ScissorHelper.disable();
+
+        // Pass 3: статичний footer (Save / Cancel)
+        ScissorHelper.enable(0, clipBot, this.width, this.height - clipBot);
+        for (var r : this.renderables) {
+            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w && w.getY() >= clipBot)
+                w.render(g, mouseX, mouseY, partial);
+        }
+        g.flush();
+        ScissorHelper.disable();
     }
 
     @Override

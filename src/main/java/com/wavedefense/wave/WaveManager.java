@@ -462,13 +462,13 @@ public class WaveManager {
                         // Extract wave index from key (format: "trigger_N")
                         try {
                             int waveIndex = Integer.parseInt(triggerKey.substring("trigger_".length()));
-                            // Find the corresponding wave config and fire trigger
+                            // Trigger mob keys use 0-based waveIndex ("trigger_0", "trigger_1", …)
                             Location loc = WaveDefenseMod.locationManager.getLocation(locationName);
-                            if (loc != null && waveIndex > 0 && waveIndex <= loc.getWaves().size()) {
-                                WaveConfig waveConfig = loc.getWaves().get(waveIndex - 1);
+                            if (loc != null && waveIndex >= 0 && waveIndex < loc.getWaves().size()) {
+                                WaveConfig waveConfig = loc.getWaves().get(waveIndex);
                                 if (waveConfig.isTriggerEnabled()) {
-                                    // Fire the trigger for this wave
-                                    fireWaveTriggerForLocation(locationName, waveConfig.getTriggerType());
+                                    // Notify that all trigger-wave mobs are dead (e.g. log, future hooks)
+                                    debugLog("All trigger mobs dead for wave " + waveIndex + " (" + waveConfig.getTriggerType() + ") in '" + locationName + "'");
                                 }
                             }
                         } catch (Exception e) {
@@ -516,6 +516,7 @@ public class WaveManager {
         Location location = data.getCurrentLocation();
         String locName = location.getName();
         triggerEval.fireWaveTriggerForPlayer(this, victim, WaveTrigger.PLAYER_DEATH);
+        fireLootTriggerByName(locName, LootSpawn.Trigger.PLAYER_DEATH);
 
         playerData.remove(playerId);
         invalidatePlayersCache();

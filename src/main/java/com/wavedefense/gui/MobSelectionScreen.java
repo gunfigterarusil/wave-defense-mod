@@ -253,7 +253,7 @@ public class MobSelectionScreen extends ScrollableScreen {
 
     @Override
     public void render(GuiGraphics g, int mx, int my, float pt) {
-        this.renderBackground(g);
+        GuiTheme.renderBackground(g, this.width, this.height);
         previewAngle = (previewAngle + 0.5f) % 360f;
         renderMobPreview(g, mx, my);
 
@@ -271,6 +271,7 @@ public class MobSelectionScreen extends ScrollableScreen {
                 w.render(g, mx, my, pt);
         }
         renderContentExtra(g, mx, my, pt);
+        g.flush();
         ScissorHelper.disable();
 
         // Pass 2: header static widgets
@@ -279,6 +280,7 @@ public class MobSelectionScreen extends ScrollableScreen {
             if (r instanceof net.minecraft.client.gui.components.AbstractWidget w && staticWidgets.contains(w) && w.getY() < clipTop)
                 w.render(g, mx, my, pt);
         }
+        g.flush();
         ScissorHelper.disable();
 
         // Pass 3: footer static widgets
@@ -287,6 +289,7 @@ public class MobSelectionScreen extends ScrollableScreen {
             if (r instanceof net.minecraft.client.gui.components.AbstractWidget w && staticWidgets.contains(w) && w.getY() >= clipBot)
                 w.render(g, mx, my, pt);
         }
+        g.flush();
         ScissorHelper.disable();
 
         renderOverlay(g, mx, my, pt);
@@ -294,7 +297,7 @@ public class MobSelectionScreen extends ScrollableScreen {
 
     @Override
     protected void renderHeader(GuiGraphics g, int mx, int my, float pt) {
-        g.drawCenteredString(this.font, this.title, this.width / 2, 8, 0xFFFFFF);
+        g.drawCenteredString(this.font, this.title, this.width / 2, 8, GuiTheme.TEXT);
     }
 
     @Override

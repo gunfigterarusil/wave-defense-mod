@@ -114,7 +114,7 @@ public class HudEditScreen extends Screen {
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
         // Напівпрозорий фон
-        this.renderBackground(g);
+        GuiTheme.renderBackground(g, this.width, this.height);
 
         // Заголовок
         g.drawCenteredString(this.font, this.title, this.width / 2, 8, 0xFFFFFF);

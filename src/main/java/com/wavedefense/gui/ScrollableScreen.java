@@ -125,6 +125,7 @@ public abstract class ScrollableScreen extends Screen {
                 w.render(g, mx, my, pt);
         }
         renderContentExtra(g, mx, my, pt);
+        g.flush(); // flush deferred text before scissor change to prevent bleed
         ScissorHelper.disable();
 
         // Прохід 2: header-віджети
@@ -133,6 +134,7 @@ public abstract class ScrollableScreen extends Screen {
             if (r instanceof AbstractWidget w && staticWidgets.contains(w) && w.getY() < clipTop)
                 w.render(g, mx, my, pt);
         }
+        g.flush();
         ScissorHelper.disable();
 
         // Прохід 3: footer-віджети
@@ -141,6 +143,7 @@ public abstract class ScrollableScreen extends Screen {
             if (r instanceof AbstractWidget w && staticWidgets.contains(w) && w.getY() >= clipBot)
                 w.render(g, mx, my, pt);
         }
+        g.flush();
         ScissorHelper.disable();
 
         renderOverlay(g, mx, my, pt);

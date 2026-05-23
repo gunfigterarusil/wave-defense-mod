@@ -105,8 +105,8 @@ public class ShopImportScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(g);
-        g.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
+        GuiTheme.renderBackground(g, this.width, this.height);
+        g.drawCenteredString(this.font, this.title, this.width / 2, 10, GuiTheme.TEXT);
         g.drawCenteredString(this.font, Component.translatable("wavedefense.shop.import_pick_file"), this.width / 2, 22, 0xAAAAAA);
         String modeLabel = isPointMode ? I18n.get("wavedefense.shop.import_mode_point") : I18n.get("wavedefense.shop.import_mode_global");
         g.drawCenteredString(this.font, modeLabel, this.width / 2, 32, 0xFFFFFF);

@@ -128,8 +128,8 @@ public class WaveMobSettingsScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(graphics);
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
+        GuiTheme.renderBackground(graphics, this.width, this.height);
+        graphics.drawCenteredString(this.font, this.title, this.width / 2, 10, GuiTheme.TEXT);
         super.render(graphics, mouseX, mouseY, partialTick);
     }
 

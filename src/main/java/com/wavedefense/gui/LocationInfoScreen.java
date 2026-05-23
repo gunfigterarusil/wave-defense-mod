@@ -28,7 +28,7 @@ public class LocationInfoScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(graphics);
+        GuiTheme.renderBackground(graphics, this.width, this.height);
 
         int centerX = this.width / 2;
         int startY = 30;

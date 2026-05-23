@@ -274,16 +274,17 @@ public class MobEffectsEditorScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
-        this.renderBackground(g);
+        GuiTheme.renderBackground(g, this.width, this.height);
         int cx = this.width / 2;
-        g.drawCenteredString(this.font, this.title, cx, 10, 0xFFFFFF);
+        g.drawCenteredString(this.font, this.title, cx, 10, GuiTheme.TEXT);
         // Роздільник між двома панелями
-        g.fill(cx, 24, cx + 1, this.height - 28, 0xFF444444);
+        g.fill(cx, 24, cx + 1, this.height - 28, GuiTheme.BORDER);
 
         // Scissor: обрізаємо прокручувану зону, щоб елементи не накладались на нижні контролери
         int clipBot = this.height - 62;
         ScissorHelper.enable(0, 24, this.width, Math.max(1, clipBot - 24));
         ScissorHelper.renderBand(this.renderables, g, mouseX, mouseY, partial, 0, clipBot);
+        g.flush();
         ScissorHelper.disable();
 
         // Нижня зона: поля вводу та кнопки — рендер без scissor

@@ -41,7 +41,7 @@ public class PvpScoreboardScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(g);
+        GuiTheme.renderBackground(g, this.width, this.height);
         int cx = this.width / 2;
 
         String phase       = ClientPvpStateManager.getPhase();
@@ -57,7 +57,7 @@ public class PvpScoreboardScreen extends Screen {
         if (isBuy) title = String.format(I18n.get("wavedefense.pvp.buy_phase"), timerSec, currentRound, totalRounds);
         else if (isActive) title = String.format(I18n.get("wavedefense.pvp.round_active"), currentRound, totalRounds);
         else title = I18n.get("wavedefense.pvp.waiting");
-        g.drawCenteredString(this.font, title, cx, 12, 0xFFFFFF);
+        g.drawCenteredString(this.font, title, cx, 12, GuiTheme.TEXT);
 
         // Перемоги команд
         Map<String, Integer> wins = ClientPvpStateManager.getTeamWins();
@@ -124,6 +124,7 @@ public class PvpScoreboardScreen extends Screen {
             y += 4;
         }
 
+        g.flush();
         ScissorHelper.disable();
 
         super.render(g, mouseX, mouseY, partialTick);

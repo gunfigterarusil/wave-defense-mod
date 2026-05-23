@@ -368,13 +368,16 @@ public class ShopItemEditorScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(g);
-        g.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
+        GuiTheme.renderBackground(g, this.width, this.height);
+        g.drawCenteredString(this.font, this.title, this.width / 2, 10, GuiTheme.TEXT);
+        g.fill(this.width / 2 - 42, 21, this.width / 2 + 42, 22, GuiTheme.ACCENT);
 
         // Scissor: вміст між заголовком (26) і нижніми кнопками (height-28)
         int clipBot = this.height - 28;
+        GuiTheme.renderContentFrame(g, 8, CLIP_TOP - 4, this.width - 8, clipBot + 4);
         ScissorHelper.enable(0, CLIP_TOP, this.width, Math.max(1, clipBot - CLIP_TOP));
         super.render(g, mouseX, mouseY, partialTick);
+        g.flush();
         ScissorHelper.disable();
 
         // Re-render нижні кнопки поверх scissor
@@ -392,13 +395,13 @@ public class ShopItemEditorScreen extends Screen {
         int slotsLeft = cx2 - totalSlotsW / 2;
         int iconY = iconRowY; // встановлено в init() // startY(30) + label(14) = 44, саме тут розміщено іконки
         ItemStack tooltipItem = null;
-        ScissorHelper.enable(0, CLIP_TOP, this.width, Math.max(1, clipBot - CLIP_TOP));
+        ScissorHelper.enable(0, CLIP_TOP, this.width, Math.max(1, clipBot - CLIP_TOP)); // second pass: item icons
         for (int i = 0; i < 4; i++) {
             int xPos = slotsLeft + i * (dynSlotW2 + SLOT_GAP);
             ItemStack item = items.get(i);
             int iconX = xPos + (dynSlotW2 - 16) / 2;
-            g.fill(iconX - 1, iconY - 1, iconX + 17, iconY + 17, 0xFF555555);
-            g.fill(iconX,     iconY,     iconX + 16, iconY + 16, 0xFF222222);
+            g.fill(iconX - 1, iconY - 1, iconX + 17, iconY + 17, GuiTheme.BORDER);
+            g.fill(iconX,     iconY,     iconX + 16, iconY + 16, GuiTheme.PANEL_DARK);
             g.renderItem(item, iconX, iconY);
             g.renderItemDecorations(this.font, item, iconX, iconY);
             if (!item.isEmpty() && mouseY >= CLIP_TOP && mouseY <= clipBot
@@ -406,6 +409,7 @@ public class ShopItemEditorScreen extends Screen {
                 tooltipItem = item;
             }
         }
+        g.flush();
         ScissorHelper.disable();
         if (tooltipItem != null) g.renderTooltip(this.font, tooltipItem, mouseX, mouseY);
     }

@@ -273,8 +273,8 @@ public class WaveMobEditScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(g);
-        g.drawCenteredString(this.font, this.title, this.width / 2, 12, 0xFFFFFF);
+        GuiTheme.renderBackground(g, this.width, this.height);
+        g.drawCenteredString(this.font, this.title, this.width / 2, 12, GuiTheme.TEXT);
 
         // Рендер іконок спорядження
         renderEquipmentIcons(g, mouseX, mouseY);

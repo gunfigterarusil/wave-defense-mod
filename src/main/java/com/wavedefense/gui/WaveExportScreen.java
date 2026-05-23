@@ -117,8 +117,8 @@ public class WaveExportScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(g);
-        g.drawCenteredString(this.font, this.title, this.width / 2, 16, 0xFFFFFF);
+        GuiTheme.renderBackground(g, this.width, this.height);
+        g.drawCenteredString(this.font, this.title, this.width / 2, 16, GuiTheme.TEXT);
         g.drawCenteredString(this.font,
             I18n.get("wavedefense.wave.export_hint"),
             this.width / 2, 28, 0x888888);

@@ -208,7 +208,7 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
 
     @Override
     protected void renderHeader(GuiGraphics g, int mx, int my, float pt) {
-        g.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
+        g.drawCenteredString(this.font, this.title, this.width / 2, 10, GuiTheme.TEXT);
     }
 
     @Override
@@ -224,8 +224,8 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
             for (int j = 0; j < Math.min(4, items.size()); j++) {
                 int ix = cx - 156 + j * 22;
                 int iy = yPos + 20;
-                g.fill(ix - 1, iy - 1, ix + 17, iy + 17, 0xFF444444);
-                g.fill(ix, iy, ix + 16, iy + 16, 0xFF222222);
+                g.fill(ix - 1, iy - 1, ix + 17, iy + 17, GuiTheme.BORDER);
+                g.fill(ix, iy, ix + 16, iy + 16, GuiTheme.PANEL_DARK);
                 g.renderItem(items.get(j), ix, iy);
                 g.renderItemDecorations(this.font, items.get(j), ix, iy);
                 if (mx >= ix && mx < ix + 16 && my >= iy && my < iy + 16) {
@@ -241,9 +241,9 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
 
     /** Режим редагування — повністю окремий рендер без scissor. */
     private void renderEditMode(GuiGraphics g, int mx, int my, float pt) {
-        this.renderBackground(g);
+        GuiTheme.renderBackground(g, this.width, this.height);
         int cx   = this.width / 2;
-        g.drawCenteredString(this.font, this.title, cx, 10, 0xFFFFFF);
+        g.drawCenteredString(this.font, this.title, cx, 10, GuiTheme.TEXT);
 
         int iconY        = 51;
         int totalSlotsW  = 4 * SLOT_W + 3 * SLOT_GAP;
@@ -253,9 +253,9 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
             int xPos  = slotsLeft + i * (SLOT_W + SLOT_GAP);
             ItemStack item = editItems.get(i);
             g.fill(xPos + (SLOT_W - 18) / 2 - 1, iconY - 1,
-                   xPos + (SLOT_W - 18) / 2 + 19, iconY + 17, 0xFF555555);
+                   xPos + (SLOT_W - 18) / 2 + 19, iconY + 17, GuiTheme.BORDER);
             g.fill(xPos + (SLOT_W - 18) / 2, iconY,
-                   xPos + (SLOT_W - 18) / 2 + 18, iconY + 16, 0xFF222222);
+                   xPos + (SLOT_W - 18) / 2 + 18, iconY + 16, GuiTheme.PANEL_DARK);
             int iconX = xPos + (SLOT_W - 16) / 2;
             g.renderItem(item, iconX, iconY);
             g.renderItemDecorations(this.font, item, iconX, iconY);

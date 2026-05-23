@@ -59,8 +59,8 @@ public class ShopPointSelectExportScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(g);
-        g.drawCenteredString(this.font, this.title, this.width / 2, 14, 0xFFFFFF);
+        GuiTheme.renderBackground(g, this.width, this.height);
+        g.drawCenteredString(this.font, this.title, this.width / 2, 14, GuiTheme.TEXT);
         g.drawCenteredString(this.font, Component.translatable("wavedefense.shop.export_pick_point"), this.width / 2, 26, 0xAAAAAA);
         super.render(g, mouseX, mouseY, partialTick);
     }

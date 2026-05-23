@@ -164,8 +164,8 @@ public class RewardsConfigScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(graphics);
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, 12, 0xFFFFFF);
+        GuiTheme.renderBackground(graphics, this.width, this.height);
+        graphics.drawCenteredString(this.font, this.title, this.width / 2, 12, GuiTheme.TEXT);
 
         // Показуємо поточний ефект якщо вибраний
         if (effectInput != null && !effectInput.getValue().isEmpty()) {

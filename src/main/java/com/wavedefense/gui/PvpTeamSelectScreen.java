@@ -219,7 +219,7 @@ public class PvpTeamSelectScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(graphics);
+        GuiTheme.renderBackground(graphics, this.width, this.height);
         int titleColor = switch (location.getPvpMode()) {
             case BATTLE_ROYALE -> 0xFF5555;
             case DEATHMATCH -> 0xFFAA33;

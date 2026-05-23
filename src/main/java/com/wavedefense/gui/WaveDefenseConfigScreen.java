@@ -412,17 +412,17 @@ public class WaveDefenseConfigScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mx, int my, float pt) {
-        this.renderBackground(g);
+        GuiTheme.renderBackground(g, this.width, this.height);
         int cx = this.width / 2;
 
         // Title
-        g.drawCenteredString(this.font, this.title, cx, 8, 0xFFFFFF);
+        g.drawCenteredString(this.font, this.title, cx, 8, GuiTheme.TEXT);
 
         // Separator below tabs
-        g.fill(cx - 165, 42, cx + 165, 43, 0xFF555555);
+        g.fill(cx - 165, 42, cx + 165, 43, GuiTheme.BORDER);
 
         // Separator above footer
-        g.fill(cx - 165, this.height - 30, cx + 165, this.height - 29, 0xFF555555);
+        g.fill(cx - 165, this.height - 30, cx + 165, this.height - 29, GuiTheme.BORDER);
 
         super.render(g, mx, my, pt);
     }

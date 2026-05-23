@@ -316,7 +316,7 @@ public class ShopEditorScreen extends Screen {
         ScissorHelper.enable(0, MODE_BOT, this.width, Math.max(1, BOTTOM_TOP - MODE_BOT));
         for (var r : this.renderables) {
             if (r instanceof net.minecraft.client.gui.components.AbstractWidget w) {
-                if (w.getY() >= MODE_BOT && w.getY() < BOTTOM_TOP)
+                if (w.getY() + w.getHeight() > MODE_BOT && w.getY() < BOTTOM_TOP)
                     w.render(g, mouseX, mouseY, partial);
             }
         }
@@ -338,6 +338,7 @@ public class ShopEditorScreen extends Screen {
                     g.renderItem(st, ix, iy);
                     g.renderItemDecorations(this.font, st, ix, iy);
                     if (mouseX >= ix && mouseX < ix+16 && mouseY >= iy && mouseY < iy+16) {
+                        g.flush(); // flush renderItemDecorations text before disabling scissor
                         ScissorHelper.disable();
                         g.renderTooltip(this.font, st, mouseX, mouseY);
                         ScissorHelper.enable(0, MODE_BOT, this.width, Math.max(1, BOTTOM_TOP - MODE_BOT));
@@ -366,6 +367,7 @@ public class ShopEditorScreen extends Screen {
                     g.renderItem(st, ix, iy);
                     g.renderItemDecorations(this.font, st, ix, iy);
                     if (mouseX >= ix && mouseX < ix+16 && mouseY >= iy && mouseY < iy+16) {
+                        g.flush(); // flush renderItemDecorations text before disabling scissor
                         ScissorHelper.disable();
                         g.renderTooltip(this.font, st, mouseX, mouseY);
                         ScissorHelper.enable(0, MODE_BOT, this.width, Math.max(1, BOTTOM_TOP - MODE_BOT));
@@ -373,6 +375,7 @@ public class ShopEditorScreen extends Screen {
                 }
             }
         }
+        g.flush();
         ScissorHelper.disable();
 
         // V3: Scrollbar indicator
@@ -390,6 +393,7 @@ public class ShopEditorScreen extends Screen {
             if (r instanceof net.minecraft.client.gui.components.AbstractWidget w && w.getY() < MODE_BOT)
                 w.render(g, mouseX, mouseY, partial);
         }
+        g.flush();
         ScissorHelper.disable();
 
         // ── Прохід 3: нижня статична зона (Зберегти / Exp / Imp) ─────
@@ -398,6 +402,7 @@ public class ShopEditorScreen extends Screen {
             if (r instanceof net.minecraft.client.gui.components.AbstractWidget w && w.getY() >= BOTTOM_TOP)
                 w.render(g, mouseX, mouseY, partial);
         }
+        g.flush();
         ScissorHelper.disable();
     }
 
