@@ -1,0 +1,8 @@
+{
+  "data": {
+    "gear_tag": "dodge_stat"
+  },
+  "id": "force_soul_tag_dodge_stat",
+  "serializer": "force_soul_tag",
+  "weight": 1000
+}

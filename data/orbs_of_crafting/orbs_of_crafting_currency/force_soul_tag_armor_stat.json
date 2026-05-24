@@ -1,0 +1,23 @@
+{
+  "always_do_item_mods": [
+    {
+      "id": "force_soul_tag_armor_stat",
+      "weight": 1
+    }
+  ],
+  "id": "force_soul_tag_armor_stat",
+  "item_id": "mmorpg:currency/force_soul_tag_armor_stat",
+  "item_type_requirement": [
+    "is_soul"
+  ],
+  "pick_one_item_mod": [],
+  "potential": {
+    "needs_potential": true,
+    "potential_cost": 0
+  },
+  "rar": "uncommon",
+  "req": [
+    "is_single_item"
+  ],
+  "weight": 0
+}

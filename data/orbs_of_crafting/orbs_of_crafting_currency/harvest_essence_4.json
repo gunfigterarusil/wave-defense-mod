@@ -1,0 +1,29 @@
+{
+  "always_do_item_mods": [],
+  "id": "harvest_essence_4",
+  "item_id": "mmorpg:currency/harvest_essence_4",
+  "item_type_requirement": [
+    "is_gear"
+  ],
+  "pick_one_item_mod": [
+    {
+      "id": "destroy_item",
+      "weight": 15
+    },
+    {
+      "id": "upgrade_specific_rar_legendary",
+      "weight": 85
+    }
+  ],
+  "potential": {
+    "needs_potential": true,
+    "potential_cost": 1
+  },
+  "rar": "legendary",
+  "req": [
+    "is_not_corrupted",
+    "not_crafted_gear",
+    "has_affix_legendary"
+  ],
+  "weight": 5
+}

@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "b": {
+      "item": "minecraft:glass_bottle"
+    },
+    "t": {
+      "item": "minecraft:bookshelf"
+    },
+    "v": {
+      "item": "mmorpg:stone/0"
+    }
+  },
+  "pattern": [
+    "vvv",
+    "vtv",
+    "vbv"
+  ],
+  "result": {
+    "item": "mmorpg:potions/reset_points_spell"
+  },
+  "show_notification": true
+}

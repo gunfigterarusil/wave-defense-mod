@@ -155,6 +155,8 @@ public class MobSpawnManager {
             mob.getPersistentData().putString("location", locationName);
             mob.getPersistentData().putInt("points", waveMob.getPointsPerKill());
             applyMobEquipment(mob, waveMob);
+            com.wavedefense.compat.MineAndSlashCompat.applyToMob(
+                mob, WaveDefenseMod.locationManager.getLocation(locationName));
             world.addFreshEntity(mob);
             return mob;
         } catch (Exception e) {

@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "H": {
+      "item": "minecraft:iron_ingot"
+    },
+    "X": {
+      "item": "mmorpg:stone/2"
+    },
+    "Y": {
+      "item": "minecraft:gold_ingot"
+    }
+  },
+  "pattern": [
+    "YYY",
+    "XHX",
+    "XXX"
+  ],
+  "result": {
+    "item": "mmorpg:map_creator"
+  },
+  "show_notification": true
+}

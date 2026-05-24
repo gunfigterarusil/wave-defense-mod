@@ -1,0 +1,9 @@
+{
+  "data": {
+    "finder": "SPECIFIC_RARITY",
+    "target_rar": "mythic"
+  },
+  "id": "upgrade_specific_rar_mythic",
+  "serializer": "upgrade_affix_rarity",
+  "weight": 1000
+}

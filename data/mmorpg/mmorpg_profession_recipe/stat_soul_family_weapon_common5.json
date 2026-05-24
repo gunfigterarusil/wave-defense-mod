@@ -1,0 +1,26 @@
+{
+  "exp": 250,
+  "id": "stat_soul_family_weapon_common5",
+  "mats": [
+    {
+      "type": "ITEM",
+      "id": "mmorpg:material/mining/5",
+      "num": 6
+    },
+    {
+      "type": "ITEM",
+      "id": "mmorpg:stone/0",
+      "num": 6
+    },
+    {
+      "type": "ITEM",
+      "id": "minecraft:iron_sword",
+      "num": 1
+    }
+  ],
+  "profession": "gear_crafting",
+  "result": "mmorpg:stat_soul/family/weapon/common",
+  "result_num": 1,
+  "set_tier_nbt": true,
+  "tier": 5
+}

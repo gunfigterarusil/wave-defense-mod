@@ -1,0 +1,12 @@
+{
+  "data": {
+    "finder_data": {
+      "finder": "RANDOM_AFFIX",
+      "target_rar": ""
+    },
+    "result_rar": "mythic"
+  },
+  "id": "reroll_random_affix_to_mythic",
+  "serializer": "reroll_affix",
+  "weight": 1000
+}

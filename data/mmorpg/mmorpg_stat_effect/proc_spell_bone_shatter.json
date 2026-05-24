@@ -1,0 +1,9 @@
+{
+  "id": "proc_spell_bone_shatter",
+  "pos": "TARGET",
+  "ser": "proc_spell",
+  "source": "Source",
+  "spellId": "bone_shatter",
+  "target": "Target",
+  "use_resource_costs": true
+}

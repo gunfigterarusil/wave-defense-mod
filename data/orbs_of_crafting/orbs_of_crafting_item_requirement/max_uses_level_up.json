@@ -1,0 +1,9 @@
+{
+  "data": {
+    "max_uses": 5,
+    "use_id": "level_up"
+  },
+  "id": "max_uses_level_up",
+  "serializer": "max_uses",
+  "weight": 1000
+}

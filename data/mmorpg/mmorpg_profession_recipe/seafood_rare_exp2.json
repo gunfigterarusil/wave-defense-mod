@@ -1,0 +1,26 @@
+{
+  "exp": 100,
+  "id": "seafood_rare_exp2",
+  "mats": [
+    {
+      "type": "ITEM",
+      "id": "mmorpg:material/fishing/2",
+      "num": 5
+    },
+    {
+      "type": "ITEM",
+      "id": "mmorpg:stone/2",
+      "num": 10
+    },
+    {
+      "type": "ITEM",
+      "id": "minecraft:tropical_fish",
+      "num": 1
+    }
+  ],
+  "profession": "cooking",
+  "result": "mmorpg:seafood/rare_exp",
+  "result_num": 1,
+  "set_tier_nbt": true,
+  "tier": 2
+}

@@ -1,0 +1,17 @@
+{
+  "affected": "Players",
+  "id": "prophecy_weak",
+  "map_resist": "Physical",
+  "map_resist_bonus_needed": 0,
+  "prophecy_type": "curse",
+  "req": "prophecy",
+  "stats": [
+    {
+      "type": "FLAT",
+      "max": 1.0,
+      "min": 1.0,
+      "stat": "cursed_by_weak"
+    }
+  ],
+  "weight": 1000
+}

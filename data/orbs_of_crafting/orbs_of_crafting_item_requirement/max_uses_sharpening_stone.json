@@ -1,0 +1,9 @@
+{
+  "data": {
+    "max_uses": 1,
+    "use_id": "sharpening_stone"
+  },
+  "id": "max_uses_sharpening_stone",
+  "serializer": "max_uses",
+  "weight": 1000
+}

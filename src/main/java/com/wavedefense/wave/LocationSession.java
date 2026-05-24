@@ -26,6 +26,12 @@ import java.util.concurrent.ConcurrentHashMap;
 public class LocationSession {
 
     public final String   locationName;
+    /**
+     * @deprecated Always {@code null} after deserialization — use
+     * {@code WaveDefenseMod.locationManager.getLocation(locationName)} instead.
+     * Retained to avoid breaking the constructor signature.
+     */
+    @Deprecated
     public final Location config;
 
     // ── Wave state ────────────────────────────────────────────────────
@@ -36,7 +42,17 @@ public class LocationSession {
     public int  timer60          = 0;
     public int  timer120         = 0;
     public int  timer300         = 0;
+    /** @deprecated Serialized for NBT compatibility but never written during gameplay (tickTimerCustomForLocation uses waveTriggerWaveCounters). */
+    @Deprecated
     public int  timerCustom      = 0;
+    /**
+     * Grace-period countdown ticks when all players left mid-wave (PvE only).
+     * -1 = inactive; > 0 = counting down; reaches 0 → session ends cleanly.
+     * Not persisted — resets to -1 on server reload (safe: session re-syncs).
+     */
+    public int  graceTicksRemaining = -1;
+    /** Default grace period: 30 seconds = 600 ticks. */
+    public static final int GRACE_TICKS = 600;
     public GameStats stats       = null;
 
     // ── Mob tracking ─────────────────────────────────────────────────
@@ -203,22 +219,43 @@ public class LocationSession {
             return;
         }
 
+        // ── Grace period: all players left mid-wave (PvE only) ───────────
+        // Counts down; if nobody rejoins → clean shutdown.
+        // Cancelled by SessionManager.addPlayer() when a player rejoins.
+        if (graceTicksRemaining > 0) {
+            graceTicksRemaining--;
+            // Announce at 30 s, 20 s, 10 s, 5 s, 3 s, 1 s intervals
+            int secsLeft = graceTicksRemaining / 20;
+            boolean shouldAnnounce = graceTicksRemaining % 200 == 0  // every 10 s
+                    || (secsLeft <= 5 && graceTicksRemaining % 20 == 0); // every 1 s in last 5 s
+            if (shouldAnnounce && graceTicksRemaining > 0) {
+                wm.broadcastToLocation(locationName,
+                    net.minecraft.network.chat.Component.translatable(
+                        "wavedefense.msg.grace_closing", secsLeft));
+            }
+            if (graceTicksRemaining == 0) {
+                wm.endSessionForLocation(locationName);
+            }
+            return;
+        }
+
         // ── Dead mob cleanup (every 40 ticks ≈ 2 seconds) ────────────────
-        // Removes mobs that died outside onMobKilled() (void, /kill, fire…)
+        // Removes mobs that died outside onMobKilled() (void, /kill, fire, unloaded chunk…)
         // so their wave does not stall forever.
+        // Searches ALL loaded dimensions, not just the first player's level.
         if (tickCount % 40 == 0 && !spawnedMobs.isEmpty()) {
-            java.util.List<net.minecraft.server.level.ServerPlayer> alivePlayers =
-                wm.getPlayersInLocation(locationName);
-            if (!alivePlayers.isEmpty()) {
-                net.minecraft.server.level.ServerLevel world = alivePlayers.get(0).serverLevel();
+            net.minecraft.server.MinecraftServer srv = com.wavedefense.WaveDefenseMod.getServer();
+            if (srv != null) {
                 int cleaned = 0;
                 java.util.Iterator<UUID> it = spawnedMobs.iterator();
                 while (it.hasNext()) {
-                    net.minecraft.world.entity.Entity e = world.getEntity(it.next());
-                    if (e == null || !e.isAlive()) {
-                        it.remove();
-                        cleaned++;
+                    UUID uuid = it.next();
+                    boolean alive = false;
+                    for (net.minecraft.server.level.ServerLevel lvl : srv.getAllLevels()) {
+                        net.minecraft.world.entity.Entity e = lvl.getEntity(uuid);
+                        if (e != null && e.isAlive()) { alive = true; break; }
                     }
+                    if (!alive) { it.remove(); cleaned++; }
                 }
                 if (cleaned > 0) mobsKilled += cleaned;
             }

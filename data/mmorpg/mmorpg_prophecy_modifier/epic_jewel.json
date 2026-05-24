@@ -1,0 +1,9 @@
+{
+  "cost_multi": 2.0,
+  "data": "epic",
+  "id": "epic_jewel",
+  "lvl_req": 25,
+  "modifier_type": "JEWEL_RARITY",
+  "tier_req": 20,
+  "weight": 1000
+}

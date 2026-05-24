@@ -1,0 +1,8 @@
+{
+  "action": "X_AS_BONUS_Y_ELEMENT_DAMAGE",
+  "id": "ele_as_extra_flat",
+  "max_multi": 100.0,
+  "min_multi": 0.0,
+  "name": "Plus %1$s as Extra %2$s",
+  "priority": 2
+}

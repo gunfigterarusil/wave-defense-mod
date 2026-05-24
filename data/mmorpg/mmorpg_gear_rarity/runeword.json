@@ -1,0 +1,70 @@
+{
+  "type": "RUNED",
+  "affix_rarity_weight": 1000,
+  "announce_in_chat": false,
+  "base_stat_percents": {
+    "max": 100,
+    "min": 0
+  },
+  "can_have_runewords": true,
+  "drops_uber_frags": false,
+  "favor_loot_multi": 1.0,
+  "favor_needed": 0,
+  "favor_per_hour": 0,
+  "guid": "runeword",
+  "higher_rar": "",
+  "is_unique_item": false,
+  "item_model_data_num": -1,
+  "item_tier": 10,
+  "item_tier_power": 2.0,
+  "item_value_multi": 2.0,
+  "lootable_gear_tier": "HIGH",
+  "map_lives": 5,
+  "map_resist_req": 50,
+  "map_tiers": {
+    "max": 100,
+    "min": 0
+  },
+  "map_xp_multi": 1.0,
+  "max_gems": 0,
+  "max_runes": 10,
+  "min_affixes": 0,
+  "min_lvl": 15,
+  "min_map_rarity_to_drop": "common",
+  "omens": {
+    "affixes": {
+      "max": 3,
+      "min": 2
+    },
+    "normal": {
+      "max": 2,
+      "min": 1
+    },
+    "runed": {
+      "max": 3,
+      "min": 1
+    },
+    "specific_slots": {
+      "max": 3,
+      "min": 2
+    },
+    "stat_multi": 1.0,
+    "unique": {
+      "max": 2,
+      "min": 1
+    }
+  },
+  "pot": {
+    "total": 30
+  },
+  "sockets": {
+    "max": 6,
+    "min": 2
+  },
+  "stat_percents": {
+    "max": 0,
+    "min": 0
+  },
+  "text_format": "YELLOW",
+  "weight": 150
+}

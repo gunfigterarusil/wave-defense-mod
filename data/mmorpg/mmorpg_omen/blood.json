@@ -1,0 +1,23 @@
+{
+  "affix_types": [
+    "chaos_stat",
+    "jewel_corruption"
+  ],
+  "id": "blood",
+  "lvl_req": 0.3,
+  "mods": [
+    {
+      "type": "PERCENT",
+      "max": 20.0,
+      "min": 5.0,
+      "stat": "health"
+    },
+    {
+      "type": "PERCENT",
+      "max": 10.0,
+      "min": 5.0,
+      "stat": "strength"
+    }
+  ],
+  "weight": 1000
+}

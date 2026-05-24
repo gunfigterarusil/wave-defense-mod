@@ -1,0 +1,6 @@
+{
+  "id": "increment_uses_level_up",
+  "serializer": "increment_uses",
+  "use_key": "level_up",
+  "weight": 1000
+}

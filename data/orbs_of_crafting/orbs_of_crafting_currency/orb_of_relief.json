@@ -1,0 +1,30 @@
+{
+  "always_do_item_mods": [
+    {
+      "id": "upgrade_lowest_affix",
+      "weight": 1
+    },
+    {
+      "id": "increment_uses_relief",
+      "weight": 1
+    }
+  ],
+  "id": "orb_of_relief",
+  "item_id": "mmorpg:currency/orb_of_relief",
+  "item_type_requirement": [
+    "is_gear"
+  ],
+  "pick_one_item_mod": [],
+  "potential": {
+    "needs_potential": true,
+    "potential_cost": 1
+  },
+  "rar": "epic",
+  "req": [
+    "is_not_corrupted",
+    "has_affixes",
+    "has_affix_of_rar_or_lower_epic",
+    "max_uses_relief"
+  ],
+  "weight": 250
+}

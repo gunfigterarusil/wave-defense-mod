@@ -1,0 +1,21 @@
+{
+  "exp": 100,
+  "id": "currency_sharpening_stone_00",
+  "mats": [
+    {
+      "type": "ITEM",
+      "id": "mmorpg:material/mining/0",
+      "num": 3
+    },
+    {
+      "type": "ITEM",
+      "id": "minecraft:coal",
+      "num": 1
+    }
+  ],
+  "profession": "gear_crafting",
+  "result": "mmorpg:currency/sharpening_stone_0",
+  "result_num": 1,
+  "set_tier_nbt": true,
+  "tier": 0
+}

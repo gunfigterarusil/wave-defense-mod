@@ -1,0 +1,28 @@
+{
+  "always_do_item_mods": [],
+  "id": "socket_adder",
+  "item_id": "mmorpg:currency/socket_adder",
+  "item_type_requirement": [
+    "is_gear"
+  ],
+  "pick_one_item_mod": [
+    {
+      "id": "add_socket",
+      "weight": 50
+    },
+    {
+      "id": "do_nothing",
+      "weight": 50
+    }
+  ],
+  "potential": {
+    "needs_potential": true,
+    "potential_cost": 10
+  },
+  "rar": "rare",
+  "req": [
+    "is_not_corrupted",
+    "can_add_sockets"
+  ],
+  "weight": 1000
+}

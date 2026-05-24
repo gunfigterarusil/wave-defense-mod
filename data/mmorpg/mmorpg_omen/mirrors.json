@@ -1,0 +1,17 @@
+{
+  "affix_types": [
+    "chaos_stat",
+    "jewel_corruption"
+  ],
+  "id": "mirrors",
+  "lvl_req": 0.3,
+  "mods": [
+    {
+      "type": "FLAT",
+      "max": 10.0,
+      "min": 5.0,
+      "stat": "dmg_reduction"
+    }
+  ],
+  "weight": 1000
+}

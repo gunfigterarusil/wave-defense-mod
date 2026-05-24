@@ -1,0 +1,27 @@
+{
+  "always_do_item_mods": [],
+  "id": "chaos_orb",
+  "item_id": "mmorpg:currency/chaos_orb",
+  "item_type_requirement": [
+    "is_gear"
+  ],
+  "pick_one_item_mod": [
+    {
+      "id": "corrupt_gear",
+      "weight": 75
+    },
+    {
+      "id": "destroy_item",
+      "weight": 25
+    }
+  ],
+  "potential": {
+    "needs_potential": true,
+    "potential_cost": 0
+  },
+  "rar": "unique",
+  "req": [
+    "is_not_corrupted"
+  ],
+  "weight": 1000
+}

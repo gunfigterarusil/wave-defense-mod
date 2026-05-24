@@ -1,0 +1,6 @@
+{
+  "id": "attack_type_is_bonus_dmg",
+  "ser": "string_matches",
+  "string_id": "bonus_dmg",
+  "string_key": "attack_type"
+}

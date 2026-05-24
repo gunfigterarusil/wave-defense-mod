@@ -1,0 +1,33 @@
+{
+  "always_do_item_mods": [
+    {
+      "id": "increment_uses_sure_jewel_up",
+      "weight": 1
+    }
+  ],
+  "id": "jewel_sure_upgrade",
+  "item_id": "mmorpg:currency/jewel_sure_upgrade",
+  "item_type_requirement": [
+    "is_jewel"
+  ],
+  "pick_one_item_mod": [
+    {
+      "id": "upgrade_jewel_affix_rarity",
+      "weight": 90
+    },
+    {
+      "id": "do_nothing",
+      "weight": 10
+    }
+  ],
+  "potential": {
+    "needs_potential": true,
+    "potential_cost": 10
+  },
+  "rar": "mythic",
+  "req": [
+    "is_not_corrupted",
+    "max_uses_sure_jewel_up"
+  ],
+  "weight": 10
+}

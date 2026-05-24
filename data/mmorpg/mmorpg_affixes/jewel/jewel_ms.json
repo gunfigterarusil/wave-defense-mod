@@ -1,0 +1,28 @@
+{
+  "type": "jewel",
+  "eye_aura_req": "",
+  "guid": "jewel_ms",
+  "one_of_a_kind": "",
+  "only_one_per_item": true,
+  "requirements": {
+    "tag_requirements": [
+      {
+        "type": "GearSlot",
+        "excluded": [],
+        "included": [
+          "any_jewel"
+        ],
+        "req_type": "INCLUDES_ANY"
+      }
+    ]
+  },
+  "stats": [
+    {
+      "type": "PERCENT",
+      "max": 5.0,
+      "min": 1.0,
+      "stat": "magic_shield"
+    }
+  ],
+  "weight": 1000
+}

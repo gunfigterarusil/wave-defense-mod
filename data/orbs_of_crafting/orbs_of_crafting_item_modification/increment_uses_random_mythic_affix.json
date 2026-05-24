@@ -1,0 +1,6 @@
+{
+  "id": "increment_uses_random_mythic_affix",
+  "serializer": "increment_uses",
+  "use_key": "random_mythic_affix",
+  "weight": 1000
+}

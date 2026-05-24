@@ -1,0 +1,28 @@
+{
+  "always_do_item_mods": [],
+  "id": "affix_tier_up_down",
+  "item_id": "mmorpg:currency/affix_tier_up_down",
+  "item_type_requirement": [
+    "is_gear"
+  ],
+  "pick_one_item_mod": [
+    {
+      "id": "upgrade_random_affix",
+      "weight": 60
+    },
+    {
+      "id": "downgrade_random_affix",
+      "weight": 40
+    }
+  ],
+  "potential": {
+    "needs_potential": true,
+    "potential_cost": 5
+  },
+  "rar": "rare",
+  "req": [
+    "is_not_corrupted",
+    "has_affixes"
+  ],
+  "weight": 1000
+}

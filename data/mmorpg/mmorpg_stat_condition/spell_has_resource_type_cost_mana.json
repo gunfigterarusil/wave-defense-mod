@@ -1,0 +1,5 @@
+{
+  "type": "mana",
+  "id": "spell_has_resource_type_cost_mana",
+  "ser": "spell_has_resource_type_cost"
+}

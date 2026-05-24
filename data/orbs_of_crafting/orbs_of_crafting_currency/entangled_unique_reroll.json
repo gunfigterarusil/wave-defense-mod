@@ -1,0 +1,28 @@
+{
+  "always_do_item_mods": [],
+  "id": "entangled_unique_reroll",
+  "item_id": "mmorpg:currency/entangled_unique_reroll",
+  "item_type_requirement": [
+    "is_gear"
+  ],
+  "pick_one_item_mod": [
+    {
+      "id": "add_10_perc_unique_stats",
+      "weight": 30
+    },
+    {
+      "id": "corrupt_gear_no_affix",
+      "weight": 70
+    }
+  ],
+  "potential": {
+    "needs_potential": true,
+    "potential_cost": 0
+  },
+  "rar": "legendary",
+  "req": [
+    "is_not_corrupted",
+    "is_unique"
+  ],
+  "weight": 50
+}

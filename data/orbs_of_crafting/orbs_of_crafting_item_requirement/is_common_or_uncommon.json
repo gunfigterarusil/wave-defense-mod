@@ -1,0 +1,11 @@
+{
+  "data": {
+    "requirements": [
+      "is_common",
+      "is_uncommon"
+    ]
+  },
+  "id": "is_common_or_uncommon",
+  "serializer": "is_any",
+  "weight": 1000
+}

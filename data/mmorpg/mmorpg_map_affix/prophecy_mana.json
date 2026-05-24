@@ -1,0 +1,17 @@
+{
+  "affected": "Players",
+  "id": "prophecy_mana",
+  "map_resist": "Physical",
+  "map_resist_bonus_needed": 0,
+  "prophecy_type": "less_resource",
+  "req": "prophecy",
+  "stats": [
+    {
+      "type": "PERCENT",
+      "max": -25.0,
+      "min": -25.0,
+      "stat": "mana"
+    }
+  ],
+  "weight": 1000
+}

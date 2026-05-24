@@ -1,0 +1,9 @@
+{
+  "id": "proc_spell_blood_explosion",
+  "pos": "TARGET",
+  "ser": "proc_spell",
+  "source": "Source",
+  "spellId": "blood_explosion",
+  "target": "Target",
+  "use_resource_costs": true
+}

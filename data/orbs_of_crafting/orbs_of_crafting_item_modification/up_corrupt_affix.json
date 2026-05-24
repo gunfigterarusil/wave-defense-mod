@@ -1,0 +1,9 @@
+{
+  "data": {
+    "finder": "RANDOM_AFFIX",
+    "target_rar": ""
+  },
+  "id": "up_corrupt_affix",
+  "serializer": "upgrade_corrupt_affix_rarity",
+  "weight": 1000
+}

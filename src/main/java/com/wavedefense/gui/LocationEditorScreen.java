@@ -64,6 +64,8 @@ public class LocationEditorScreen extends Screen {
     private EditBox particleCountInput = null;
     private EditBox particleSpeedInput = null;
     private EditBox particleIntervalInput = null;
+    /** Non-null while waiting for mode-switch confirmation (prevents accidental PvE↔PvP switches). */
+    private LocationMode pendingMode = null;
 
     public LocationEditorScreen(Location location, Screen parent) {
         super(Component.translatable("wavedefense.title.location_editor").append(": ").append(location.getName()));
@@ -88,13 +90,31 @@ public class LocationEditorScreen extends Screen {
         boolean isPve = location.getMode() == LocationMode.PVE;
 
         addStatic(Button.builder(
-                ((isPve) ? Component.translatable("wavedefense.auto.pve_мобів_хвилі_8b812f4e") : Component.translatable("wavedefense.auto.pve_084743fc")),
-                button -> { location.setMode(LocationMode.PVE); rebuildWidgets(); }
+                isPve ? Component.translatable("wavedefense.auto.pve_мобів_хвилі_8b812f4e")
+                      : (pendingMode == LocationMode.PVE
+                            ? Component.literal("§e⚠ ").append(Component.translatable("wavedefense.button.confirm"))
+                            : Component.translatable("wavedefense.auto.pve_084743fc")),
+                button -> {
+                    if (!isPve) {
+                        if (pendingMode == LocationMode.PVE) { pendingMode = null; location.setMode(LocationMode.PVE); }
+                        else { pendingMode = LocationMode.PVE; }
+                        rebuildWidgets();
+                    }
+                }
         ).bounds(cx - 105, 25, 100, 20).build());
 
         addStatic(Button.builder(
-                ((!isPve) ? Component.translatable("wavedefense.auto.pvp_гравці_vs_гравці_610d2647") : Component.translatable("wavedefense.auto.pvp_f44347cd")),
-                button -> { location.setMode(LocationMode.PVP); rebuildWidgets(); }
+                !isPve ? Component.translatable("wavedefense.auto.pvp_гравці_vs_гравці_610d2647")
+                       : (pendingMode == LocationMode.PVP
+                             ? Component.literal("§e⚠ ").append(Component.translatable("wavedefense.button.confirm"))
+                             : Component.translatable("wavedefense.auto.pvp_f44347cd")),
+                button -> {
+                    if (isPve) {
+                        if (pendingMode == LocationMode.PVP) { pendingMode = null; location.setMode(LocationMode.PVP); }
+                        else { pendingMode = LocationMode.PVP; }
+                        rebuildWidgets();
+                    }
+                }
         ).bounds(cx + 5, 25, 100, 20).build());
 
         // ── Кнопка адмін-меню ───────────────────────────────────────────────
@@ -111,10 +131,16 @@ public class LocationEditorScreen extends Screen {
                     Component.translatable("wavedefense.button.open_pvp_editor"),
                     b -> this.minecraft.setScreen(new PvpLocationEditorScreen(location, this))
             ).bounds(cx - 120, 60, 240, 22).build());
-            // Явна кнопка повернення до PvE (N18: тестер не бачив маленьку сіру кнопку зверху)
+            // Явна кнопка повернення до PvE — вимагає підтвердження (pendingMode guard)
             addStatic(Button.builder(
-                    Component.literal("§a← ").append(Component.translatable("wavedefense.auto.pve_мобів_хвилі_8b812f4e")),
-                    b -> { location.setMode(LocationMode.PVE); rebuildWidgets(); }
+                    pendingMode == LocationMode.PVE
+                        ? Component.literal("§e⚠ ").append(Component.translatable("wavedefense.button.confirm"))
+                        : Component.literal("§a← ").append(Component.translatable("wavedefense.auto.pve_мобів_хвилі_8b812f4e")),
+                    b -> {
+                        if (pendingMode == LocationMode.PVE) { pendingMode = null; location.setMode(LocationMode.PVE); }
+                        else { pendingMode = LocationMode.PVE; }
+                        rebuildWidgets();
+                    }
             ).bounds(cx - 120, 88, 240, 18).build());
             // U7: Кнопка Save і Back у PvP-гілці (раніше Back була відсутня)
             addStatic(Button.builder(
@@ -699,6 +725,11 @@ public class LocationEditorScreen extends Screen {
         y = initZoneSection(lx, panelW, y);
         y = initPortalSection(lx, panelW, y);
         y = initInfoPanelsSection(lx, panelW, y);
+        // Mine and Slash section: only meaningful for PvE locations (mob waves)
+        if (com.wavedefense.compat.MineAndSlashCompat.isLoaded()
+                && location.getMode() == LocationMode.PVE) {
+            y = initMineAndSlashSection(lx, panelW, y);
+        }
 
         specialContentHeight = (y + specialScrollOffset) - startY + 20;
     }
@@ -1320,6 +1351,145 @@ public class LocationEditorScreen extends Screen {
             ).bounds(lx, y, panelW, 11).build()).active = false;
             y += 14;
         }
+        return y;
+    }
+
+    // ── Секція: Mine and Slash compat (показується лише якщо мод завантажено) ─
+    private int initMineAndSlashSection(int lx, int panelW, int y) {
+        y += 12;
+        // Section header
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.section.mine_and_slash"), b -> {}
+        ).bounds(lx, y, panelW, 14).build()).active = false;
+        y += 18;
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.mas.loaded_hint"), b -> {}
+        ).bounds(lx, y, panelW, 12).build()).active = false;
+        y += 16;
+
+        // ── Mob Level ────────────────────────────────────────────────────
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.mas.level"), b -> {}
+        ).bounds(lx, y, 196, 16).build()).active = false;
+        {
+            EditBox box = new EditBox(this.font, lx + 200, y, 60, 16, Component.literal("0"));
+            box.setMaxLength(3);
+            box.setValue(String.valueOf(location.getMasLevel()));
+            box.setResponder(s -> {
+                try { location.setMasLevel(Integer.parseInt(s.trim())); }
+                catch (NumberFormatException ignored) {}
+            });
+            this.addRenderableWidget(box);
+        }
+        y += 20;
+
+        // ── XP Bonus ─────────────────────────────────────────────────────
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.mas.xp_bonus"), b -> {}
+        ).bounds(lx, y, 196, 16).build()).active = false;
+        {
+            EditBox box = new EditBox(this.font, lx + 200, y, 60, 16, Component.literal("0"));
+            box.setMaxLength(5);
+            box.setValue(String.valueOf(location.getMasXpBonus()));
+            box.setResponder(s -> {
+                try { location.setMasXpBonus(Integer.parseInt(s.trim())); }
+                catch (NumberFormatException ignored) {}
+            });
+            this.addRenderableWidget(box);
+        }
+        y += 20;
+
+        // ── Resistances header ────────────────────────────────────────────
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.mas.resists_header"), b -> {}
+        ).bounds(lx, y, panelW, 12).build()).active = false;
+        y += 16;
+
+        // Fire
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.mas.fire_resist"), b -> {}
+        ).bounds(lx, y, 196, 14).build()).active = false;
+        {
+            EditBox box = new EditBox(this.font, lx + 200, y, 60, 14, Component.literal("0"));
+            box.setMaxLength(4);
+            box.setValue(String.valueOf(location.getMasFireResist()));
+            box.setResponder(s -> {
+                try { location.setMasFireResist(Integer.parseInt(s.trim())); }
+                catch (NumberFormatException ignored) {}
+            });
+            this.addRenderableWidget(box);
+        }
+        y += 18;
+
+        // Water
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.mas.water_resist"), b -> {}
+        ).bounds(lx, y, 196, 14).build()).active = false;
+        {
+            EditBox box = new EditBox(this.font, lx + 200, y, 60, 14, Component.literal("0"));
+            box.setMaxLength(4);
+            box.setValue(String.valueOf(location.getMasWaterResist()));
+            box.setResponder(s -> {
+                try { location.setMasWaterResist(Integer.parseInt(s.trim())); }
+                catch (NumberFormatException ignored) {}
+            });
+            this.addRenderableWidget(box);
+        }
+        y += 18;
+
+        // Lightning
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.mas.lightning_resist"), b -> {}
+        ).bounds(lx, y, 196, 14).build()).active = false;
+        {
+            EditBox box = new EditBox(this.font, lx + 200, y, 60, 14, Component.literal("0"));
+            box.setMaxLength(4);
+            box.setValue(String.valueOf(location.getMasLightningResist()));
+            box.setResponder(s -> {
+                try { location.setMasLightningResist(Integer.parseInt(s.trim())); }
+                catch (NumberFormatException ignored) {}
+            });
+            this.addRenderableWidget(box);
+        }
+        y += 18;
+
+        // Chaos
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.mas.chaos_resist"), b -> {}
+        ).bounds(lx, y, 196, 14).build()).active = false;
+        {
+            EditBox box = new EditBox(this.font, lx + 200, y, 60, 14, Component.literal("0"));
+            box.setMaxLength(4);
+            box.setValue(String.valueOf(location.getMasChaosResist()));
+            box.setResponder(s -> {
+                try { location.setMasChaosResist(Integer.parseInt(s.trim())); }
+                catch (NumberFormatException ignored) {}
+            });
+            this.addRenderableWidget(box);
+        }
+        y += 18;
+
+        // Physical
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.mas.physical_resist"), b -> {}
+        ).bounds(lx, y, 196, 14).build()).active = false;
+        {
+            EditBox box = new EditBox(this.font, lx + 200, y, 60, 14, Component.literal("0"));
+            box.setMaxLength(4);
+            box.setValue(String.valueOf(location.getMasPhysicalResist()));
+            box.setResponder(s -> {
+                try { location.setMasPhysicalResist(Integer.parseInt(s.trim())); }
+                catch (NumberFormatException ignored) {}
+            });
+            this.addRenderableWidget(box);
+        }
+        y += 18;
+
+        // Hint
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.mas.hint"), b -> {}
+        ).bounds(lx, y, panelW, 11).build()).active = false;
+        y += 14;
         return y;
     }
 

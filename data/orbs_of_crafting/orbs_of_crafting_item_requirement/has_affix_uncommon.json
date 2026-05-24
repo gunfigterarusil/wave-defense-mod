@@ -1,0 +1,8 @@
+{
+  "data": {
+    "rar": "uncommon"
+  },
+  "id": "has_affix_uncommon",
+  "serializer": "has_affix_of_rar",
+  "weight": 1000
+}

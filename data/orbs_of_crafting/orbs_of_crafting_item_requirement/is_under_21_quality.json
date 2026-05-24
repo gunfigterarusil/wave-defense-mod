@@ -1,0 +1,8 @@
+{
+  "data": {
+    "max_quality": 21
+  },
+  "id": "is_under_21_quality",
+  "serializer": "is_under_quality",
+  "weight": 1000
+}

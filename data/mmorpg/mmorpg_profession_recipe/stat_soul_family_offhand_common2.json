@@ -1,0 +1,26 @@
+{
+  "exp": 250,
+  "id": "stat_soul_family_offhand_common2",
+  "mats": [
+    {
+      "type": "ITEM",
+      "id": "mmorpg:material/mining/2",
+      "num": 3
+    },
+    {
+      "type": "ITEM",
+      "id": "mmorpg:stone/0",
+      "num": 4
+    },
+    {
+      "type": "ITEM",
+      "id": "minecraft:shield",
+      "num": 1
+    }
+  ],
+  "profession": "gear_crafting",
+  "result": "mmorpg:stat_soul/family/offhand/common",
+  "result_num": 1,
+  "set_tier_nbt": true,
+  "tier": 2
+}

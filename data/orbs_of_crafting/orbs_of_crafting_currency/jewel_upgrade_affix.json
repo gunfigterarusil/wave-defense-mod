@@ -1,0 +1,27 @@
+{
+  "always_do_item_mods": [],
+  "id": "jewel_upgrade_affix",
+  "item_id": "mmorpg:currency/jewel_upgrade_affix",
+  "item_type_requirement": [
+    "is_jewel"
+  ],
+  "pick_one_item_mod": [
+    {
+      "id": "upgrade_jewel_affix_rarity",
+      "weight": 85
+    },
+    {
+      "id": "destroy_item",
+      "weight": 15
+    }
+  ],
+  "potential": {
+    "needs_potential": true,
+    "potential_cost": 3
+  },
+  "rar": "epic",
+  "req": [
+    "is_not_corrupted"
+  ],
+  "weight": 250
+}

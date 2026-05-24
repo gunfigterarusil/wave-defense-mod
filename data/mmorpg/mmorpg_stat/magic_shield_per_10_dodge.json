@@ -1,0 +1,15 @@
+{
+  "data": {
+    "add_to": "magic_shield",
+    "adder_stat": "dodge",
+    "base": 0.0,
+    "ele": "Physical",
+    "id": "magic_shield_per_10_dodge",
+    "max": 1.0E8,
+    "min": 0.0,
+    "per_amount": 10,
+    "perc": true,
+    "scale": "NONE"
+  },
+  "ser": "more_x_per_y"
+}

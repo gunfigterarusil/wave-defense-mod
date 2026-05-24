@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "X": {
+      "item": "minecraft:gold_ingot"
+    },
+    "Y": {
+      "item": "minecraft:stick"
+    }
+  },
+  "pattern": [
+    "XXX",
+    "XXX",
+    " Y "
+  ],
+  "result": {
+    "count": 3,
+    "item": "mmorpg:currency/extract_gem"
+  },
+  "show_notification": true
+}

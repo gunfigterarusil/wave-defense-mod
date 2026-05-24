@@ -1,0 +1,28 @@
+{
+  "always_do_item_mods": [],
+  "id": "up_corrupt_affix",
+  "item_id": "mmorpg:currency/up_corrupt_affix",
+  "item_type_requirement": [
+    "is_gear",
+    "is_jewel"
+  ],
+  "pick_one_item_mod": [
+    {
+      "id": "up_corrupt_affix",
+      "weight": 90
+    },
+    {
+      "id": "destroy_item",
+      "weight": 10
+    }
+  ],
+  "potential": {
+    "needs_potential": true,
+    "potential_cost": 0
+  },
+  "rar": "epic",
+  "req": [
+    "has_corrupt_affixes"
+  ],
+  "weight": 1000
+}

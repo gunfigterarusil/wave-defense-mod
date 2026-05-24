@@ -1,0 +1,16 @@
+{
+  "can_dual_wield": false,
+  "damage_validity_check": {
+    "contains_in_dmg_id": [
+      "trident",
+      "player"
+    ],
+    "source_check": "ANY",
+    "tag_and_id_check": "MATCH_ANY",
+    "valid_proj_dmg_id": []
+  },
+  "id": "trident",
+  "isProjectile": false,
+  "range": "OPTIONALLY_RANGED",
+  "style": "STR"
+}

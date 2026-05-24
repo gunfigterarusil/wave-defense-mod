@@ -1,0 +1,16 @@
+{
+  "id": "_flat_damage_number_add_stat_percent",
+  "layer": "flat_damage",
+  "modification": "ADD",
+  "number_modifiers": [
+    {
+      "type": "SPELL_DAMAGE_EFFECTIVENESS_MULTI"
+    }
+  ],
+  "number_provider": {
+    "type": "STAT_PERCENT",
+    "calc": "mana"
+  },
+  "number_to_modify": "number",
+  "ser": "modify_stat_layer"
+}

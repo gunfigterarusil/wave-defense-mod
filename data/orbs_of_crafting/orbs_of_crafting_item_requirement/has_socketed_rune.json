@@ -1,0 +1,6 @@
+{
+  "type": "RUNE",
+  "id": "has_socketed_rune",
+  "serializer": "has_socket_of_type",
+  "weight": 1000
+}

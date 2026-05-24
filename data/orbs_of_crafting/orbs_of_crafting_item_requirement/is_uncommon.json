@@ -1,0 +1,8 @@
+{
+  "data": {
+    "rarity": "uncommon"
+  },
+  "id": "is_uncommon",
+  "serializer": "is_rarity",
+  "weight": 1000
+}

@@ -1,0 +1,26 @@
+{
+  "exp": 100,
+  "id": "buff_potion_mythic_str3",
+  "mats": [
+    {
+      "type": "ITEM",
+      "id": "mmorpg:material/farming/3",
+      "num": 5
+    },
+    {
+      "type": "ITEM",
+      "id": "mmorpg:stone/5",
+      "num": 10
+    },
+    {
+      "type": "ITEM",
+      "id": "minecraft:gold_ingot",
+      "num": 1
+    }
+  ],
+  "profession": "alchemy",
+  "result": "mmorpg:buff_potion/mythic_str",
+  "result_num": 1,
+  "set_tier_nbt": true,
+  "tier": 3
+}

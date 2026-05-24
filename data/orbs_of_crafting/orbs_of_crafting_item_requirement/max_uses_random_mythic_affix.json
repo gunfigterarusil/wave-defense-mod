@@ -1,0 +1,9 @@
+{
+  "data": {
+    "max_uses": 1,
+    "use_id": "random_mythic_affix"
+  },
+  "id": "max_uses_random_mythic_affix",
+  "serializer": "max_uses",
+  "weight": 1000
+}

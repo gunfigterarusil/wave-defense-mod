@@ -1,0 +1,9 @@
+{
+  "data": {
+    "finder": "SPECIFIC_RARITY",
+    "target_rar": "common"
+  },
+  "id": "upgrade_specific_rar_common",
+  "serializer": "upgrade_affix_rarity",
+  "weight": 1000
+}

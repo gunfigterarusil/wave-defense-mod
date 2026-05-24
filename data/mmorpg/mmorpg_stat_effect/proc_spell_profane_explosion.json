@@ -1,0 +1,9 @@
+{
+  "id": "proc_spell_profane_explosion",
+  "pos": "TARGET",
+  "ser": "proc_spell",
+  "source": "Source",
+  "spellId": "profane_explosion",
+  "target": "Target",
+  "use_resource_costs": true
+}

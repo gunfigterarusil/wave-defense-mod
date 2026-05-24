@@ -1,0 +1,24 @@
+{
+  "always_do_item_mods": [
+    {
+      "id": "reroll_random_affix",
+      "weight": 1
+    }
+  ],
+  "id": "affix_common_reroll",
+  "item_id": "mmorpg:currency/affix_common_reroll",
+  "item_type_requirement": [
+    "is_gear"
+  ],
+  "pick_one_item_mod": [],
+  "potential": {
+    "needs_potential": true,
+    "potential_cost": 10
+  },
+  "rar": "rare",
+  "req": [
+    "is_not_corrupted",
+    "has_affixes"
+  ],
+  "weight": 1000
+}

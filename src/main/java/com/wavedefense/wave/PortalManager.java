@@ -145,6 +145,10 @@ public class PortalManager {
     // ════════════════════════════════════════════════════════════════════
 
     private void spawnPortalAtRandom(Location loc) {
+        // Guard: do not spawn a second portal while one is already active
+        LocationSession existingS = ctx.getSession(loc.getName());
+        if (existingS != null && existingS.portalPosition != null) return;
+
         if (WaveDefenseMod.getServer() == null) return;
         ServerLevel world = (ServerLevel)
             WaveDefenseMod.getServer().getLevel(Level.OVERWORLD);

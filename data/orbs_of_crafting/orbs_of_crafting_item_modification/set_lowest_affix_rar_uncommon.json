@@ -1,0 +1,12 @@
+{
+  "data": {
+    "finder_data": {
+      "finder": "LOWEST_RARITY_AFFIX",
+      "target_rar": ""
+    },
+    "rar": "uncommon"
+  },
+  "id": "set_lowest_affix_rar_uncommon",
+  "serializer": "set_affix_rarity",
+  "weight": 1000
+}

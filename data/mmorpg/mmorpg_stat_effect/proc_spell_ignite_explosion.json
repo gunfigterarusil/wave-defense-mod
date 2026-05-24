@@ -1,0 +1,9 @@
+{
+  "id": "proc_spell_ignite_explosion",
+  "pos": "TARGET",
+  "ser": "proc_spell",
+  "source": "Source",
+  "spellId": "ignite_explosion",
+  "target": "Target",
+  "use_resource_costs": true
+}

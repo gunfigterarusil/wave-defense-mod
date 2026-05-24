@@ -1,0 +1,15 @@
+{
+  "type": "STAT",
+  "icon": "mmorpg:textures/gui/spells/icons/test_self_damage_spell.png",
+  "id": "test_self_damage_spell",
+  "is_entry": false,
+  "max_lvls": 16,
+  "stats": [
+    {
+      "type": "FLAT",
+      "scale_to_lvl": false,
+      "stat": "learn_test_self_damage_spell",
+      "v1": 1.0
+    }
+  ]
+}

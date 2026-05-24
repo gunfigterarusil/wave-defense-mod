@@ -1,0 +1,9 @@
+These are all default registry entries of this type.
+This registry is modify-able through datapacks.
+fast_mobs
+high_health
+high_knockback
+knockback_immune
+periodic_invis
+periodic_levitate
+periodic_speedy_mobs

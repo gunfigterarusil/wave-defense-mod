@@ -1,0 +1,30 @@
+{
+  "always_do_item_mods": [
+    {
+      "id": "increment_uses_level_up",
+      "weight": 1
+    }
+  ],
+  "id": "level_up_orb",
+  "item_id": "mmorpg:currency/level_up_orb",
+  "item_type_requirement": [
+    "is_gear"
+  ],
+  "pick_one_item_mod": [
+    {
+      "id": "add_gear_level",
+      "weight": 1
+    }
+  ],
+  "potential": {
+    "needs_potential": true,
+    "potential_cost": 5
+  },
+  "rar": "uncommon",
+  "req": [
+    "is_not_corrupted",
+    "lvl_not_max",
+    "max_uses_level_up"
+  ],
+  "weight": 1000
+}

@@ -1,0 +1,28 @@
+{
+  "always_do_item_mods": [],
+  "id": "unique_reroll",
+  "item_id": "mmorpg:currency/unique_reroll",
+  "item_type_requirement": [
+    "is_gear"
+  ],
+  "pick_one_item_mod": [
+    {
+      "id": "add_5_perc_unique_stats",
+      "weight": 60
+    },
+    {
+      "id": "reduce_5_perc_unique_stats",
+      "weight": 40
+    }
+  ],
+  "potential": {
+    "needs_potential": true,
+    "potential_cost": 10
+  },
+  "rar": "rare",
+  "req": [
+    "is_not_corrupted",
+    "is_unique"
+  ],
+  "weight": 50
+}

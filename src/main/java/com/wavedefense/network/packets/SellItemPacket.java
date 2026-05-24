@@ -69,30 +69,40 @@ public class SellItemPacket {
             ShopItem shopItem = sourceList.get(packet.itemIndex);
             if (!shopItem.canSell()) return;
 
-            // Підраховуємо скільки кожного ТИПУ предмета потрібно
-            // Порівнюємо тільки за Item (без NBT) — щоб арбуз з будь-якими тегами приймався
+            // Підраховуємо скільки кожного типу предмета потрібно
             Map<Item, Integer> requiredCounts = new HashMap<>();
             for (ItemStack required : shopItem.getItems()) {
                 requiredCounts.merge(required.getItem(), required.getCount(), Integer::sum);
             }
 
-            // Перевіряємо наявність у гравця (лише за типом предмету, без NBT)
+            // Перевіряємо наявність у гравця.
+            // Якщо requireNbtMatch=true — рахуємо лише слоти що проходять matchesNbtForSale()
+            // (важливо для модів з NBT-важкими предметами: TACZ, кастомні зброя/броня тощо).
+            // Якщо requireNbtMatch=false (типово) — поведінка без змін: будь-який предмет того типу.
             for (Map.Entry<Item, Integer> entry : requiredCounts.entrySet()) {
-                int inInventory = player.getInventory().countItem(entry.getKey());
+                int inInventory = 0;
+                for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+                    ItemStack slot = player.getInventory().getItem(i);
+                    if (!slot.isEmpty() && slot.getItem() == entry.getKey()
+                            && shopItem.matchesNbtForSale(slot)) {
+                        inInventory += slot.getCount();
+                    }
+                }
                 if (inInventory < entry.getValue()) {
-                    // Не вистачає предметів — відмовляємо
+                    player.displayClientMessage(
+                        net.minecraft.network.chat.Component.translatable("wavedefense.msg.not_enough_items"), false);
                     return;
                 }
             }
 
-            // Забираємо предмети (лише за типом, без перевірки NBT)
+            // Забираємо предмети з урахуванням NBT-перевірки
             for (Map.Entry<Item, Integer> entry : requiredCounts.entrySet()) {
                 int toRemove = entry.getValue();
                 Item targetItem = entry.getKey();
-                // Проходимо інвентар і видаляємо потрібну кількість
                 for (int i = 0; i < player.getInventory().getContainerSize() && toRemove > 0; i++) {
                     ItemStack slot = player.getInventory().getItem(i);
-                    if (!slot.isEmpty() && slot.getItem() == targetItem) {
+                    if (!slot.isEmpty() && slot.getItem() == targetItem
+                            && shopItem.matchesNbtForSale(slot)) {
                         int removeFromSlot = Math.min(slot.getCount(), toRemove);
                         slot.shrink(removeFromSlot);
                         toRemove -= removeFromSlot;

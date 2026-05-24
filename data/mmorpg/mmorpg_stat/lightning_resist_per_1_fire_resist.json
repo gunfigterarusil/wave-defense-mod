@@ -1,0 +1,15 @@
+{
+  "data": {
+    "add_to": "lightning_resist",
+    "adder_stat": "fire_resist",
+    "base": 0.0,
+    "ele": "Physical",
+    "id": "lightning_resist_per_1_fire_resist",
+    "max": 1.0E8,
+    "min": 0.0,
+    "per_amount": 1,
+    "perc": true,
+    "scale": "NONE"
+  },
+  "ser": "more_x_per_y"
+}

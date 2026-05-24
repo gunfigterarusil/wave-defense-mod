@@ -1,0 +1,26 @@
+{
+  "exp": 100,
+  "id": "seafood_mythic_exp1",
+  "mats": [
+    {
+      "type": "ITEM",
+      "id": "mmorpg:material/fishing/1",
+      "num": 5
+    },
+    {
+      "type": "ITEM",
+      "id": "mmorpg:stone/5",
+      "num": 10
+    },
+    {
+      "type": "ITEM",
+      "id": "minecraft:tropical_fish",
+      "num": 1
+    }
+  ],
+  "profession": "cooking",
+  "result": "mmorpg:seafood/mythic_exp",
+  "result_num": 1,
+  "set_tier_nbt": true,
+  "tier": 1
+}

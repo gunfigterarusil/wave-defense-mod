@@ -1,0 +1,12 @@
+{
+  "id": "_damage_suppression_number_reduce_specific_number",
+  "layer": "damage_suppression",
+  "modification": "REDUCE",
+  "number_modifiers": [],
+  "number_provider": {
+    "type": "SPECIFIC_NUMBER",
+    "calc": "50"
+  },
+  "number_to_modify": "number",
+  "ser": "modify_stat_layer"
+}

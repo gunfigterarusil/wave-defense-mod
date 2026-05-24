@@ -1,0 +1,38 @@
+{
+  "id": "nature_wrath",
+  "runes": [
+    "bri",
+    "mos",
+    "und",
+    "ita"
+  ],
+  "slots": [
+    "necklace"
+  ],
+  "stats": [
+    {
+      "type": "FLAT",
+      "max": 2.0,
+      "min": 1.0,
+      "stat": "plus_lvl_lightning_spells"
+    },
+    {
+      "type": "FLAT",
+      "max": 2.0,
+      "min": 1.0,
+      "stat": "plus_lvl_cold_spells"
+    },
+    {
+      "type": "FLAT",
+      "max": -10.0,
+      "min": -25.0,
+      "stat": "fire_resist"
+    },
+    {
+      "type": "PERCENT",
+      "max": 25.0,
+      "min": 10.0,
+      "stat": "mana"
+    }
+  ]
+}

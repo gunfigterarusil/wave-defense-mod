@@ -1,0 +1,26 @@
+{
+  "exp": 100,
+  "id": "food_legendary_energy1",
+  "mats": [
+    {
+      "type": "ITEM",
+      "id": "mmorpg:material/meat/1",
+      "num": 5
+    },
+    {
+      "type": "ITEM",
+      "id": "mmorpg:stone/4",
+      "num": 10
+    },
+    {
+      "type": "ITEM",
+      "id": "minecraft:cooked_rabbit",
+      "num": 1
+    }
+  ],
+  "profession": "cooking",
+  "result": "mmorpg:food/legendary_energy",
+  "result_num": 1,
+  "set_tier_nbt": true,
+  "tier": 1
+}

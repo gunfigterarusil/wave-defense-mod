@@ -1,5 +1,156 @@
 # Changelog
 
+## [0.2.46] - 2026-05-24
+
+### Added — Mine and Slash optional compatibility (mmorpg mod v6.1.0+)
+
+Added a soft dependency on Mine and Slash (`mod ID: mmorpg`, v6.1.0+).
+When the mod is present, a new section appears at the bottom of the **PvE location Special tab**
+with per-location overrides for the MnS stat system:
+
+| Field | MnS API call | Default |
+|-------|-------------|---------|
+| **Mob Level** | `EntityData.setLevel(int)` | 0 = MnS default |
+| **XP Drop Bonus %** | `addExactStat(…, "bonus_exp", value, PERCENT)` | 0 = no bonus |
+| **Fire Resist** | `addExactStat(…, "fire_resist", value, FLAT)` | 0 = no override |
+| **Water Resist** | `addExactStat(…, "water_resist", value, FLAT)` | 0 = no override |
+| **Lightning Resist** | `addExactStat(…, "lightning_resist", value, FLAT)` | 0 = no override |
+| **Chaos Resist** | `addExactStat(…, "chaos_resist", value, FLAT)` | 0 = no override |
+| **Physical Resist** | `addExactStat(…, "physical_resist", value, FLAT)` | 0 = no override |
+
+**Implementation details:**
+- Pure reflection — no compile-time dependency on MnS; the mod builds and runs correctly without MnS present.
+- Two-phase initialization: Phase-1 resolves `EntityData` class methods once on first use; Phase-2 resolves `addExactStat` and `ModType` enum constants from the first concrete `CustomExactStats` instance encountered.
+- Both phases are synchronized, idempotent, and wrapped in try/catch — any reflection failure logs a `WARN` and silently becomes a no-op.
+- `hasAnyConfig()` fast-path: if all 7 MnS fields are 0, `applyToMob()` returns immediately with zero overhead.
+- Applied in `MobSpawnManager.trySpawn()` after `applyMobEquipment()` and before `world.addFreshEntity()`.
+- GUI section is shown **only** when MnS is detected **and** the location is in PvE mode (mob waves only exist in PvE).
+- NBT saved sparsely (only non-zero fields written); fully backward-compatible with existing location files.
+- `mods.toml` declares `mmorpg` as `mandatory=false`, `versionRange="[6.1.0,)"`.
+- 11 new translation keys added to all 8 language files (see table below).
+
+---
+
+### Fixed — P1: Two missing translation keys in 6 language files
+
+`wavedefense.msg.no_spawn_set` and `wavedefense.msg.value_out_of_range` existed in `en_us.json`
+and `uk_ua.json` but were absent from `de_de`, `fr_fr`, `es_es`, `pl_pl`, `pt_br`, and `zh_cn`.
+Players on those languages saw the raw translation key instead of text. Both keys added to all 6 files.
+
+---
+
+### Fixed — P1: `LocationManager.saveToFile()` — double serialization + non-atomic write
+
+`save()` was called twice per save (once for the main file, once for the backup), performing
+a full NBT graph traversal twice unnecessarily. Worse, a server crash between the two writes
+could leave both files in an inconsistent state.
+
+**New write pattern (atomic):**
+1. Serialize NBT **once** → `data`.
+2. Write `data` to `.tmp` file.
+3. If the main file exists, rename it to `.bak`.
+4. Rename `.tmp` → main file.
+
+Either both files are consistent after the operation, or neither was written.
+
+---
+
+### Fixed — P1: PvP↔PvE mode switch without confirmation
+
+Clicking the mode-toggle button in `LocationEditorScreen` previously switched the mode
+immediately, risking accidental configuration corruption. Now requires a two-click confirmation:
+
+- **First click**: button label changes to `"§e⚠ Підтвердити?"`, `pendingMode` is set.
+- **Second click** on the same button: mode switch is applied and `pendingMode` is cleared.
+- **Any other action**: `pendingMode` resets to `null` — the switch is cancelled.
+
+---
+
+### Fixed — P2: `WaveContext.broadcastToLocation` — preferred `Component` overload added
+
+```java
+// New preferred overload — message localises on the client side
+public void broadcastToLocation(String locationName, Component component)
+
+// Old overload kept for compatibility, now @Deprecated
+@Deprecated
+public void broadcastToLocation(String locationName, String message)
+```
+
+All existing call sites already use `Component.translatable()` — no call-site changes required.
+
+---
+
+### Fixed — Grace period when the last player leaves mid-wave
+
+When the last player in a PvE session surrenders while a wave is active, the session now enters
+a **30-second grace period** (`graceTicksRemaining = 600 ticks`) instead of immediately
+despawning all mobs and closing the session.
+
+- Countdown broadcasts every 10 s and every second in the final 5 s.
+- If a player rejoins during grace, the timer is cancelled and the wave continues normally.
+- New keys: `wavedefense.msg.grace_closing`, `wavedefense.msg.grace_cancelled`.
+
+---
+
+### Fixed — Dead mob sweep covers all dimensions
+
+The periodic dead-mob cleanup in `LocationSession.tick()` previously searched only the Overworld
+(`Level.OVERWORLD`). Mobs in the Nether, End, or custom dimensions were never cleaned up, causing
+waves to stall if a mob somehow ended up in another dimension.
+
+Fixed by iterating `server.getAllLevels()` instead of using a hardcoded dimension key.
+
+---
+
+### Fixed — `PortalManager` double-spawn guard
+
+Portal penalty mobs could be spawned more than once per tick if `openPortal()` was invoked
+before the previous spawn had been fully registered. Added a `portalSpawnPending` flag — set
+before spawning, cleared after `addFreshEntity()`. Subsequent calls while a spawn is in flight
+are ignored.
+
+---
+
+### Fixed — `SellItemPacket` NBT-aware item matching
+
+`PlayerShopScreen.sell()` previously matched items with `ItemStack.isSameItem()`, which ignores
+NBT data. Two items with the same base type but different enchantments or custom names could
+be swapped. Now uses `matchesNbtForSale()`: same item type **and** matching NBT (or both having
+no NBT). The sell button is enabled only when the player's held item passes this check.
+
+---
+
+### Dead code — `@Deprecated` annotations (P3)
+
+`LocationSession.config` (`public final Location`) and `LocationSession.timerCustom` are now
+`@Deprecated` with explanatory Javadoc. Neither field is read anywhere in runtime code:
+- `config` is always `null` (passed as `null` in every constructor call).
+- `timerCustom` is serialized/deserialized but never mutated during gameplay.
+
+---
+
+### New translation keys (all 8 language files)
+
+| Key | Purpose |
+|-----|---------|
+| `wavedefense.msg.grace_closing` | Grace period countdown broadcast |
+| `wavedefense.msg.grace_cancelled` | Grace cancelled when a player rejoins |
+| `wavedefense.msg.not_enough_items` | Sell check: not enough matching items in inventory |
+| `wavedefense.section.mine_and_slash` | MnS section header in location editor |
+| `wavedefense.mas.loaded_hint` | Confirmation that MnS was detected at runtime |
+| `wavedefense.mas.level` | Mob level field label |
+| `wavedefense.mas.xp_bonus` | XP drop bonus % field label |
+| `wavedefense.mas.resists_header` | Elemental resistances group header |
+| `wavedefense.mas.fire_resist` | Fire resistance field label |
+| `wavedefense.mas.water_resist` | Water resistance field label |
+| `wavedefense.mas.lightning_resist` | Lightning resistance field label |
+| `wavedefense.mas.chaos_resist` | Chaos resistance field label |
+| `wavedefense.mas.physical_resist` | Physical resistance field label |
+| `wavedefense.mas.hint` | MnS section bottom info hint |
+
+---
+
 ## [0.2.45.1] - 2026-05-23
 
 ### Fixed — GuiTheme migration: all screens uniformly themed

@@ -1,0 +1,11 @@
+{
+  "data": {
+    "finder_data": {
+      "finder": "RANDOM_AFFIX",
+      "target_rar": ""
+    }
+  },
+  "id": "downgrade_random_affix",
+  "serializer": "downgrade_affix_rarity",
+  "weight": 1000
+}

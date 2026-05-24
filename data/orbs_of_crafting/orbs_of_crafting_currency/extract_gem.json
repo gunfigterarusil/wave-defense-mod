@@ -1,0 +1,23 @@
+{
+  "always_do_item_mods": [
+    {
+      "id": "extract_gem",
+      "weight": 1
+    }
+  ],
+  "id": "extract_gem",
+  "item_id": "mmorpg:currency/extract_gem",
+  "item_type_requirement": [
+    "is_gear"
+  ],
+  "pick_one_item_mod": [],
+  "potential": {
+    "needs_potential": true,
+    "potential_cost": 0
+  },
+  "rar": "uncommon",
+  "req": [
+    "has_socketed_gem"
+  ],
+  "weight": 1000
+}

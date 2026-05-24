@@ -1,0 +1,86 @@
+{
+  "attached": {
+    "entity_components": {
+      "default_entity_name": [
+        {
+          "acts": [
+            {
+              "type": "damage",
+              "map": {
+                "element": "Physical",
+                "value_calculation": "pet_basic"
+              }
+            }
+          ],
+          "en_preds": [],
+          "ifs": [
+            {
+              "type": "on_hit",
+              "map": {}
+            }
+          ],
+          "targets": [
+            {
+              "type": "target",
+              "map": {}
+            }
+          ]
+        }
+      ]
+    },
+    "on_cast": []
+  },
+  "cast_animation": {
+    "id": "steady_cast"
+  },
+  "cast_finish_animation": {
+    "id": "cast_finish"
+  },
+  "config": {
+    "aggro_radius": 10,
+    "cast_time_ticks": 0,
+    "castingWeapon": "ANY_WEAPON",
+    "charge_name": "",
+    "charge_regen": 0,
+    "charges": 0,
+    "cooldown_ticks": 1,
+    "ene_cost": {
+      "max": 2.25,
+      "min": 3.0
+    },
+    "imbues": 0,
+    "mana_cost": {
+      "max": 0.0,
+      "min": 0.0
+    },
+    "slows_when_casting": true,
+    "style": "int",
+    "summonType": "NONE",
+    "summon_basic_atk": "",
+    "swing_arm": true,
+    "tags": {
+      "tags": [
+        "summon",
+        "magic",
+        "damage",
+        "physical"
+      ]
+    },
+    "times_to_cast": 1,
+    "tracking_radius": 5,
+    "tracks": "enemies",
+    "use_support_gems_from": "summon_fire_golem"
+  },
+  "default_lvl": 1,
+  "disabled_dims": [],
+  "effect_tip": "",
+  "identifier": "fire_golem_basic",
+  "loc_name": "Fire Golem Attack",
+  "lvl_based_on_spell": "",
+  "manual_tip": true,
+  "max_lvl": 1,
+  "min_lvl": 1,
+  "show_other_spell_tooltip": "",
+  "statsForSkillGem": [],
+  "weight": 1000
+}

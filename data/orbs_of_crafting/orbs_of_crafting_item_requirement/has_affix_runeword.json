@@ -1,0 +1,8 @@
+{
+  "data": {
+    "rar": "runeword"
+  },
+  "id": "has_affix_runeword",
+  "serializer": "has_affix_of_rar",
+  "weight": 1000
+}

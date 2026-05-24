@@ -1,0 +1,11 @@
+{
+  "data": {
+    "add_quality": {
+      "max": 1,
+      "min": 1
+    }
+  },
+  "id": "add_gear_quality",
+  "serializer": "add_quality",
+  "weight": 1000
+}

@@ -1,0 +1,6 @@
+{
+  "type": "RUNE",
+  "id": "extract_rune",
+  "serializer": "extract_socket",
+  "weight": 1000
+}

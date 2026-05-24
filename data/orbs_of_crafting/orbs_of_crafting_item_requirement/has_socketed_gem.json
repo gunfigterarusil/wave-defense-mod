@@ -1,0 +1,6 @@
+{
+  "type": "GEM",
+  "id": "has_socketed_gem",
+  "serializer": "has_socket_of_type",
+  "weight": 1000
+}

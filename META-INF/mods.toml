@@ -1,0 +1,52 @@
+modLoader = "javafml" #mandatory
+loaderVersion = "[36,)"
+license = "All rights reserved"
+issueTrackerURL = "https://github.com/RobertSkalko/Mine-And-Slash-Rework/issues"
+[[mods]]
+modId = "mmorpg"
+version = "6.1.15"
+displayName = "Mine and Slash"
+displayURL = "https://www.curseforge.com/minecraft/mc-mods/mine-and-slash-reloaded"
+logoFile = "icon.png"
+credits = ""
+authors = "mcrobertx22"
+description = '''
+Turns Minecraft into a hack and slash RPG!
+'''
+# A dependency - use the . to indicate dependency for a specific modid. Dependencies are optional.
+[[dependencies.mmorpg]]
+modId = "forge"
+mandatory = true
+versionRange = "[36,)"
+ordering = "NONE"
+side = "BOTH"
+[[dependencies.mmorpg]]
+modId = "minecraft"
+mandatory = true
+versionRange = "[1.20,)"
+ordering = "NONE"
+side = "BOTH"
+[[dependencies.mmorpg]]
+modId = "library_of_exile"
+mandatory = true
+versionRange = "[1.6.9,)"
+ordering = "NONE"
+side = "BOTH"
+[[dependencies.mmorpg]]
+modId = "orbs_of_crafting"
+mandatory = true
+versionRange = "[1.0.2,)"
+ordering = "NONE"
+side = "BOTH"
+[[dependencies.mmorpg]]
+modId = "curios"
+mandatory = true
+versionRange = "[0,)"
+ordering = "NONE"
+side = "BOTH"
+[[dependencies.mmorpg]]
+modId = "playeranimator"
+mandatory = true
+versionRange = "[0,)"
+ordering = "NONE"
+side = "BOTH"

@@ -1,0 +1,8 @@
+{
+  "action": "CONVERT_PERCENT",
+  "id": "damage_conversion",
+  "max_multi": 100.0,
+  "min_multi": 0.0,
+  "name": "%1$s to %2$s Conversion",
+  "priority": 1
+}

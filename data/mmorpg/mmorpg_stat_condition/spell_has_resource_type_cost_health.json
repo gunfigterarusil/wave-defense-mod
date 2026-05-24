@@ -1,0 +1,5 @@
+{
+  "type": "health",
+  "id": "spell_has_resource_type_cost_health",
+  "ser": "spell_has_resource_type_cost"
+}

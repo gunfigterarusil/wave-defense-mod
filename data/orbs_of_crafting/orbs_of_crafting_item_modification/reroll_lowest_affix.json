@@ -1,0 +1,12 @@
+{
+  "data": {
+    "finder_data": {
+      "finder": "LOWEST_RARITY_AFFIX",
+      "target_rar": ""
+    },
+    "result_rar": "random"
+  },
+  "id": "reroll_lowest_affix",
+  "serializer": "reroll_affix",
+  "weight": 1000
+}

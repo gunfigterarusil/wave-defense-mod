@@ -1,0 +1,31 @@
+{
+  "always_do_item_mods": [
+    {
+      "id": "reroll_random_affix_to_mythic",
+      "weight": 1
+    },
+    {
+      "id": "increment_uses_random_mythic_affix",
+      "weight": 1
+    }
+  ],
+  "id": "affix_random_mythic_reroll",
+  "item_id": "mmorpg:currency/affix_random_mythic_reroll",
+  "item_type_requirement": [
+    "is_gear"
+  ],
+  "pick_one_item_mod": [],
+  "potential": {
+    "needs_potential": true,
+    "potential_cost": 25
+  },
+  "rar": "mythic",
+  "req": [
+    "is_not_corrupted",
+    "has_affixes",
+    "not_crafted_gear",
+    "is_mythic",
+    "max_uses_random_mythic_affix"
+  ],
+  "weight": 10
+}

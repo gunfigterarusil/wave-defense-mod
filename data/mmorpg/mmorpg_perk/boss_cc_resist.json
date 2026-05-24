@@ -1,0 +1,15 @@
+{
+  "type": "STAT",
+  "icon": "mmorpg:textures/gui/spells/icons/boss_cc_resist.png",
+  "id": "boss_cc_resist",
+  "is_entry": false,
+  "max_lvls": 16,
+  "stats": [
+    {
+      "type": "FLAT",
+      "scale_to_lvl": false,
+      "stat": "learn_boss_cc_resist",
+      "v1": 1.0
+    }
+  ]
+}

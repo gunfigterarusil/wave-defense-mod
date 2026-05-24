@@ -1,0 +1,27 @@
+{
+  "always_do_item_mods": [],
+  "id": "jewel_corrupt",
+  "item_id": "mmorpg:currency/jewel_corrupt",
+  "item_type_requirement": [
+    "is_jewel"
+  ],
+  "pick_one_item_mod": [
+    {
+      "id": "jewel_corrupt",
+      "weight": 50
+    },
+    {
+      "id": "destroy_item",
+      "weight": 50
+    }
+  ],
+  "potential": {
+    "needs_potential": true,
+    "potential_cost": 0
+  },
+  "rar": "unique",
+  "req": [
+    "is_not_corrupted"
+  ],
+  "weight": 250
+}

@@ -1,0 +1,26 @@
+{
+  "exp": 100,
+  "id": "food_rare_energy3",
+  "mats": [
+    {
+      "type": "ITEM",
+      "id": "mmorpg:material/meat/3",
+      "num": 5
+    },
+    {
+      "type": "ITEM",
+      "id": "mmorpg:stone/2",
+      "num": 10
+    },
+    {
+      "type": "ITEM",
+      "id": "minecraft:cooked_rabbit",
+      "num": 1
+    }
+  ],
+  "profession": "cooking",
+  "result": "mmorpg:food/rare_energy",
+  "result_num": 1,
+  "set_tier_nbt": true,
+  "tier": 3
+}

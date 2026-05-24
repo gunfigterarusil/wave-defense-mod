@@ -79,10 +79,17 @@ public class LocationManager {
     public void saveToFile() {
         try {
             dataFile.getParentFile().mkdirs();
-            NbtIo.writeCompressed(save(), dataFile);
-            // Зберігаємо .bak копію для відновлення при пошкодженні основного файлу
+            // Serialize once, then write atomically: .tmp → main, current main → .bak
+            CompoundTag data = save();
+            File tmpFile = new File(dataFile.getAbsolutePath() + ".tmp");
+            NbtIo.writeCompressed(data, tmpFile);
             File bakFile = new File(dataFile.getAbsolutePath() + ".bak");
-            NbtIo.writeCompressed(save(), bakFile);
+            if (dataFile.exists()) {
+                //noinspection ResultOfMethodCallIgnored
+                dataFile.renameTo(bakFile);
+            }
+            //noinspection ResultOfMethodCallIgnored
+            tmpFile.renameTo(dataFile);
         } catch (IOException e) {
             WaveDefenseMod.LOGGER.error("Could not save location data", e);
         }

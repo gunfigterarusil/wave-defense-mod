@@ -1,0 +1,24 @@
+{
+  "always_do_item_mods": [
+    {
+      "id": "add_gear_quality",
+      "weight": 1
+    }
+  ],
+  "id": "orb_of_quality",
+  "item_id": "mmorpg:currency/orb_of_quality",
+  "item_type_requirement": [
+    "is_gear"
+  ],
+  "pick_one_item_mod": [],
+  "potential": {
+    "needs_potential": true,
+    "potential_cost": 0
+  },
+  "rar": "uncommon",
+  "req": [
+    "is_not_corrupted",
+    "is_under_20_quality"
+  ],
+  "weight": 1000
+}

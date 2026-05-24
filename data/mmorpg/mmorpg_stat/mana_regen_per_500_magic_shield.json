@@ -1,0 +1,15 @@
+{
+  "data": {
+    "add_to": "mana_regen",
+    "adder_stat": "magic_shield",
+    "base": 0.0,
+    "ele": "Physical",
+    "id": "mana_regen_per_500_magic_shield",
+    "max": 1.0E8,
+    "min": 0.0,
+    "per_amount": 500,
+    "perc": true,
+    "scale": "NONE"
+  },
+  "ser": "more_x_per_y"
+}

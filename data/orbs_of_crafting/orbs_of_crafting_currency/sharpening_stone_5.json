@@ -1,0 +1,28 @@
+{
+  "always_do_item_mods": [
+    {
+      "id": "sharpening_stone_quality_5",
+      "weight": 1
+    },
+    {
+      "id": "increment_uses_sharpening_stone",
+      "weight": 1
+    }
+  ],
+  "id": "sharpening_stone_5",
+  "item_id": "mmorpg:currency/sharpening_stone_5",
+  "item_type_requirement": [
+    "is_gear"
+  ],
+  "pick_one_item_mod": [],
+  "potential": {
+    "needs_potential": true,
+    "potential_cost": 0
+  },
+  "rar": "mythic",
+  "req": [
+    "is_not_corrupted",
+    "max_uses_sharpening_stone"
+  ],
+  "weight": 0
+}

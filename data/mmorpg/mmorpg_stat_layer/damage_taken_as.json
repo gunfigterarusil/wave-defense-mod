@@ -1,0 +1,8 @@
+{
+  "action": "DAMAGE_TAKEN_AS",
+  "id": "damage_taken_as",
+  "max_multi": 100.0,
+  "min_multi": 0.0,
+  "name": "%1$s Taken as %2$s",
+  "priority": 99
+}

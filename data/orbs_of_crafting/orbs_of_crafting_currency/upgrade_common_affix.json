@@ -1,0 +1,24 @@
+{
+  "always_do_item_mods": [
+    {
+      "id": "upgrade_specific_rar_common",
+      "weight": 1
+    }
+  ],
+  "id": "upgrade_common_affix",
+  "item_id": "mmorpg:currency/upgrade_common_affix",
+  "item_type_requirement": [
+    "is_gear"
+  ],
+  "pick_one_item_mod": [],
+  "potential": {
+    "needs_potential": true,
+    "potential_cost": 3
+  },
+  "rar": "rare",
+  "req": [
+    "is_not_corrupted",
+    "has_affix_common"
+  ],
+  "weight": 1000
+}

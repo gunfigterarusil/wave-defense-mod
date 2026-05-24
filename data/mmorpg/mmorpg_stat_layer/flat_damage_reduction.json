@@ -1,0 +1,8 @@
+{
+  "action": "ADD",
+  "id": "flat_damage_reduction",
+  "max_multi": 1.0E8,
+  "min_multi": -1000.0,
+  "name": "Flat Damage Reduction",
+  "priority": 200
+}

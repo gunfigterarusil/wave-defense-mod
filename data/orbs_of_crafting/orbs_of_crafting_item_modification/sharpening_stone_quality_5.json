@@ -1,0 +1,11 @@
+{
+  "data": {
+    "add_quality": {
+      "max": 12,
+      "min": 12
+    }
+  },
+  "id": "sharpening_stone_quality_5",
+  "serializer": "add_quality",
+  "weight": 1000
+}

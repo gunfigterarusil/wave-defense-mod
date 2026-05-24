@@ -1,0 +1,26 @@
+{
+  "exp": 100,
+  "id": "food_uncommon_life0",
+  "mats": [
+    {
+      "type": "ITEM",
+      "id": "mmorpg:material/meat/0",
+      "num": 5
+    },
+    {
+      "type": "ITEM",
+      "id": "mmorpg:stone/1",
+      "num": 10
+    },
+    {
+      "type": "ITEM",
+      "id": "minecraft:cooked_beef",
+      "num": 1
+    }
+  ],
+  "profession": "cooking",
+  "result": "mmorpg:food/uncommon_life",
+  "result_num": 1,
+  "set_tier_nbt": true,
+  "tier": 0
+}

@@ -1,0 +1,9 @@
+{
+  "data": {
+    "max_uses": 5,
+    "use_id": "relief"
+  },
+  "id": "max_uses_relief",
+  "serializer": "max_uses",
+  "weight": 1000
+}

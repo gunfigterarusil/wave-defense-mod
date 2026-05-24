@@ -18,17 +18,24 @@ PvE features:
 - Wave-defense locations: configurable mobs, equipment, potion effects, spawn points,
   starting items, completion rewards, points per kill, wave scaling.
 - Shop system: global or per-point mode, multiple items per entry, buy/sell prices,
-  availability triggers, import/export.
+  NBT-aware sell matching, availability triggers, import/export.
 - Loot spawn points with configurable triggers.
 - Auto-activation zone, location boundary (timer/damage/teleport/surrender modes),
   portal system for penalty waves, info panel TextDisplays.
 - HUD overlay: wave counter, timer, mob count, points, teammates.
+- 30-second grace period when the last player leaves mid-wave.
 
 PvP features:
 - Standard rounds (buy phase → countdown → active → round end).
 - Deathmatch: unlimited respawns, victory by kill target.
 - Battle Royale: random spawn, shrinking border, border damage and particles.
 - Team spawns, auto-balance, friendly fire, scoreboard nametag hiding, per-round points.
+- PvP↔PvE mode switch requires two-click confirmation (no accidental resets).
+
+Mine and Slash compatibility (optional, mmorpg mod v6.1.0+):
+- When Mine and Slash is installed, each PvE location gains extra fields:
+  mob level, XP drop bonus, and 5 elemental resistances (fire/water/lightning/chaos/physical).
+- Fully optional — the mod works normally without Mine and Slash.
 
 Languages: EN · UK · DE · FR · ES · PL · PT-BR · ZH-CN
 
@@ -52,5 +59,12 @@ displayURL="https://github.com/gunfigterarusil/wave-defense-mod"
     modId="minecraft"
     mandatory=true
     versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.wavedefense]]
+    modId="mmorpg"
+    mandatory=false
+    versionRange="[6.1.0,)"
     ordering="NONE"
     side="BOTH"

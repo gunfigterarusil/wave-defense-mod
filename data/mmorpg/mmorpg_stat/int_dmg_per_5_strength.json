@@ -1,0 +1,15 @@
+{
+  "data": {
+    "add_to": "int_dmg",
+    "adder_stat": "strength",
+    "base": 0.0,
+    "ele": "Physical",
+    "id": "int_dmg_per_5_strength",
+    "max": 1.0E8,
+    "min": 0.0,
+    "per_amount": 5,
+    "perc": true,
+    "scale": "NONE"
+  },
+  "ser": "more_x_per_y"
+}

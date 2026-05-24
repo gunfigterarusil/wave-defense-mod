@@ -1,0 +1,5 @@
+{
+  "id": "affix_number_reroll",
+  "serializer": "reroll_affix_numbers",
+  "weight": 1000
+}

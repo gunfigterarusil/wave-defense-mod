@@ -1,0 +1,8 @@
+{
+  "data": {
+    "gear_tag": "magic_shield_stat"
+  },
+  "id": "force_soul_tag_magic_shield_stat",
+  "serializer": "force_soul_tag",
+  "weight": 1000
+}

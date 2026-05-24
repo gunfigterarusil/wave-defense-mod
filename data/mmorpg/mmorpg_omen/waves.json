@@ -1,0 +1,23 @@
+{
+  "affix_types": [
+    "chaos_stat",
+    "jewel_corruption"
+  ],
+  "id": "waves",
+  "lvl_req": 0.2,
+  "mods": [
+    {
+      "type": "FLAT",
+      "max": 20.0,
+      "min": 5.0,
+      "stat": "all_water_damage"
+    },
+    {
+      "type": "FLAT",
+      "max": 5.0,
+      "min": 1.0,
+      "stat": "max_water_resist"
+    }
+  ],
+  "weight": 1000
+}

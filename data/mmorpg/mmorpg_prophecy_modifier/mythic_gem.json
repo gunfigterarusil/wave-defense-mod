@@ -1,0 +1,9 @@
+{
+  "cost_multi": 4.0,
+  "data": "mythic",
+  "id": "mythic_gem",
+  "lvl_req": 50,
+  "modifier_type": "SKILL_GEM_RARITY",
+  "tier_req": 50,
+  "weight": 100
+}

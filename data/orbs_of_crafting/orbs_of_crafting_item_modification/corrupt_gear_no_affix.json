@@ -1,0 +1,8 @@
+{
+  "data": {
+    "adds_affixes": false
+  },
+  "id": "corrupt_gear_no_affix",
+  "serializer": "corrupt_gear",
+  "weight": 1000
+}

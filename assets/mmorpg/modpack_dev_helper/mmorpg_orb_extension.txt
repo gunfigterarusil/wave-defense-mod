@@ -1,0 +1,11 @@
+These are all default registry entries of this type.
+This registry is modify-able through datapacks.
+entangled_affix_upgrade
+entangled_potential
+entangled_quality
+entangled_unique_reroll
+harvest_essence_0
+harvest_essence_1
+harvest_essence_2
+harvest_essence_3
+harvest_essence_4

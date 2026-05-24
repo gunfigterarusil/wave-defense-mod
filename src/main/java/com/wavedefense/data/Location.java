@@ -147,6 +147,16 @@ public class Location {
     // ── Lock state ──────────────────────────────────────────────────────
     boolean locked = false;  // persistent: prevents new players from entering when true
 
+    // ── Mine and Slash optional compatibility (mmorpg mod) ─────────────
+    // All values default to 0 = "do not override; use MnS defaults"
+    int masLevel          = 0;  // mob level in MnS system (0 = MnS default)
+    int masXpBonus        = 0;  // bonus_exp PERCENT modifier added to mob (0 = no bonus)
+    int masFireResist     = 0;  // fire_resist FLAT modifier (0 = no override)
+    int masWaterResist    = 0;  // water_resist FLAT modifier
+    int masLightningResist= 0;  // lightning_resist FLAT modifier
+    int masChaosResist    = 0;  // chaos_resist FLAT modifier
+    int masPhysicalResist = 0;  // physical_resist FLAT modifier
+
     // Таймер до запуску локації (для інфо-панелі над зоною входу, відображається в InfoPanel)
     // — це вже є як zoneActivationTimeSec, використовуємо його для відображення
 
@@ -502,4 +512,20 @@ public class Location {
     public String getGameMode() {
         return enforceGameMode ? "SURVIVAL" : "DEFAULT";
     }
+
+    // ── Mine and Slash compat ──────────────────────────────────────────
+    public int  getMasLevel()                { return masLevel; }
+    public void setMasLevel(int v)           { this.masLevel = Math.max(0, v); }
+    public int  getMasXpBonus()              { return masXpBonus; }
+    public void setMasXpBonus(int v)         { this.masXpBonus = Math.max(0, v); }
+    public int  getMasFireResist()           { return masFireResist; }
+    public void setMasFireResist(int v)      { this.masFireResist = Math.max(0, v); }
+    public int  getMasWaterResist()          { return masWaterResist; }
+    public void setMasWaterResist(int v)     { this.masWaterResist = Math.max(0, v); }
+    public int  getMasLightningResist()      { return masLightningResist; }
+    public void setMasLightningResist(int v) { this.masLightningResist = Math.max(0, v); }
+    public int  getMasChaosResist()          { return masChaosResist; }
+    public void setMasChaosResist(int v)     { this.masChaosResist = Math.max(0, v); }
+    public int  getMasPhysicalResist()       { return masPhysicalResist; }
+    public void setMasPhysicalResist(int v)  { this.masPhysicalResist = Math.max(0, v); }
 }

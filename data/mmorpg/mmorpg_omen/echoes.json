@@ -1,0 +1,23 @@
+{
+  "affix_types": [
+    "chaos_stat",
+    "jewel_corruption"
+  ],
+  "id": "echoes",
+  "lvl_req": 0.3,
+  "mods": [
+    {
+      "type": "PERCENT",
+      "max": 25.0,
+      "min": 5.0,
+      "stat": "mana"
+    },
+    {
+      "type": "PERCENT",
+      "max": 5.0,
+      "min": 1.0,
+      "stat": "intelligence"
+    }
+  ],
+  "weight": 1000
+}

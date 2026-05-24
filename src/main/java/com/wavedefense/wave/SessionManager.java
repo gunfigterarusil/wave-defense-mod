@@ -48,6 +48,17 @@ public class SessionManager {
             return;
         }
 
+        // Cancel grace period if this location is waiting for a rejoin
+        LocationSession existingSess = ctx.getSession(location.getName());
+        if (existingSess != null && existingSess.graceTicksRemaining >= 0) {
+            existingSess.graceTicksRemaining = -1;
+            // Inform the rejoining player; others will get the broadcast below
+            player.displayClientMessage(
+                net.minecraft.network.chat.Component.translatable("wavedefense.msg.grace_cancelled"), false);
+            wm.broadcastToLocation(location.getName(),
+                net.minecraft.network.chat.Component.translatable("wavedefense.msg.grace_cancelled"));
+        }
+
         // Н4: validate wave config before letting the first player in
         WaveConfigValidator validator = new WaveConfigValidator(location);
         if (!validator.validate()) {
@@ -209,10 +220,18 @@ public class SessionManager {
                     .anyMatch(d -> d.getCurrentLocation() != null
                                && d.getCurrentLocation().getName().equals(locName));
                 if (!anyLeft) {
-                    // Всі гравці вийшли — видаляємо spawned-мобів зі світу
-                    despawnSessionMobs(locName);
-                    ctx.removeSession(locName);
-                    wm.pvpMgr.clearLocation(locName);
+                    LocationSession sess = ctx.getSession(locName);
+                    // PvE mid-wave: start grace period instead of immediate shutdown.
+                    // Players have 30 s to rejoin; grace is cancelled in addPlayer().
+                    if (sess != null && sess.waveActive && !locRef.isPvp()) {
+                        sess.graceTicksRemaining = LocationSession.GRACE_TICKS;
+                        // No players present yet — first announcement fires from tick() at 10 s mark.
+                    } else {
+                        // PvP, or PvE not in an active wave (lobby/between waves) → shutdown immediately
+                        despawnSessionMobs(locName);
+                        ctx.removeSession(locName);
+                        wm.pvpMgr.clearLocation(locName);
+                    }
                 } else {
                     wm.pvpMgr.rebalancePvpTeams(wm, locRef, playerId);
                     for (ServerPlayer p : wm.getPlayersInLocation(locName)) wm.syncPlayerData(p);

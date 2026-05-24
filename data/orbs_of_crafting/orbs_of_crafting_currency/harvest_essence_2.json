@@ -1,0 +1,29 @@
+{
+  "always_do_item_mods": [],
+  "id": "harvest_essence_2",
+  "item_id": "mmorpg:currency/harvest_essence_2",
+  "item_type_requirement": [
+    "is_gear"
+  ],
+  "pick_one_item_mod": [
+    {
+      "id": "destroy_item",
+      "weight": 15
+    },
+    {
+      "id": "upgrade_specific_rar_rare",
+      "weight": 85
+    }
+  ],
+  "potential": {
+    "needs_potential": true,
+    "potential_cost": 1
+  },
+  "rar": "rare",
+  "req": [
+    "is_not_corrupted",
+    "not_crafted_gear",
+    "has_affix_rare"
+  ],
+  "weight": 5
+}

@@ -1,0 +1,5 @@
+{
+  "id": "map_rarity_upgrade",
+  "serializer": "upgrade_map_rarity",
+  "weight": 1000
+}

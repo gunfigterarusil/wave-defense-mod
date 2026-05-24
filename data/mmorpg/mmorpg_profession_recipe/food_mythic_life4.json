@@ -1,0 +1,26 @@
+{
+  "exp": 100,
+  "id": "food_mythic_life4",
+  "mats": [
+    {
+      "type": "ITEM",
+      "id": "mmorpg:material/meat/4",
+      "num": 5
+    },
+    {
+      "type": "ITEM",
+      "id": "mmorpg:stone/5",
+      "num": 10
+    },
+    {
+      "type": "ITEM",
+      "id": "minecraft:cooked_beef",
+      "num": 1
+    }
+  ],
+  "profession": "cooking",
+  "result": "mmorpg:food/mythic_life",
+  "result_num": 1,
+  "set_tier_nbt": true,
+  "tier": 4
+}

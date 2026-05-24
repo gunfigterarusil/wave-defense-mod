@@ -1,0 +1,5 @@
+{
+  "type": "magic_shield",
+  "id": "spell_has_resource_type_cost_magic_shield",
+  "ser": "spell_has_resource_type_cost"
+}

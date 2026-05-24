@@ -1,0 +1,17 @@
+{
+  "affected": "Players",
+  "id": "water_minus_res",
+  "map_resist": "Physical",
+  "map_resist_bonus_needed": 0,
+  "prophecy_type": "",
+  "req": "",
+  "stats": [
+    {
+      "type": "FLAT",
+      "max": -15.0,
+      "min": -3.0,
+      "stat": "max_water_resist"
+    }
+  ],
+  "weight": 1000
+}

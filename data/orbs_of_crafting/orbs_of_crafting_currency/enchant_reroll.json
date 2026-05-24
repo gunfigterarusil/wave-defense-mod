@@ -1,0 +1,24 @@
+{
+  "always_do_item_mods": [
+    {
+      "id": "reroll_infusion",
+      "weight": 1
+    }
+  ],
+  "id": "enchant_reroll",
+  "item_id": "mmorpg:currency/enchant_reroll",
+  "item_type_requirement": [
+    "is_gear"
+  ],
+  "pick_one_item_mod": [],
+  "potential": {
+    "needs_potential": true,
+    "potential_cost": 1
+  },
+  "rar": "uncommon",
+  "req": [
+    "is_not_corrupted",
+    "has_infusion"
+  ],
+  "weight": 250
+}

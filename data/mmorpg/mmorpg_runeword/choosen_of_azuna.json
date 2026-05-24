@@ -1,0 +1,37 @@
+{
+  "id": "choosen_of_azuna",
+  "runes": [
+    "mos",
+    "nos",
+    "ita"
+  ],
+  "slots": [
+    "ring"
+  ],
+  "stats": [
+    {
+      "type": "FLAT",
+      "max": 5.0,
+      "min": 3.0,
+      "stat": "intelligence"
+    },
+    {
+      "type": "FLAT",
+      "max": 5.0,
+      "min": 3.0,
+      "stat": "strength"
+    },
+    {
+      "type": "FLAT",
+      "max": 5.0,
+      "min": 3.0,
+      "stat": "dexterity"
+    },
+    {
+      "type": "FLAT",
+      "max": 20.0,
+      "min": 5.0,
+      "stat": "total_damage"
+    }
+  ]
+}

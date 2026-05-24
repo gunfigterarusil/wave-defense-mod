@@ -1,0 +1,8 @@
+{
+  "data": {
+    "add_levels": 1
+  },
+  "id": "add_gear_level",
+  "serializer": "add_level",
+  "weight": 1000
+}

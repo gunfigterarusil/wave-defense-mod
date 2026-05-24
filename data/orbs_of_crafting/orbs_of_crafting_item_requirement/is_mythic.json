@@ -1,0 +1,8 @@
+{
+  "data": {
+    "rarity": "mythic"
+  },
+  "id": "is_mythic",
+  "serializer": "is_rarity",
+  "weight": 1000
+}

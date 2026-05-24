@@ -1,4 +1,4 @@
-# Wave Defense Mod - v0.2.45.1
+# Wave Defense Mod - v0.2.46
 
 Wave Defense is a PvE/PvP Forge mod for **Minecraft 1.20.1** and **Java 17**.
 It lets server owners build configurable arena locations with mob waves, team PvP,
@@ -8,17 +8,18 @@ shops, loot events, portals, boundaries, HUD panels, and in-game admin editors.
 
 ## Status
 
-Version `0.2.45.1` — GuiTheme migration completed across all screens; timer/death loot triggers wired; trigger mob off-by-one fixed.
+Version `0.2.46` — Mine and Slash optional compatibility added; grace period on player leave; atomic save; PvP↔PvE confirmation guard; multi-dimension mob sweep; NBT-aware sell check; missing translations fixed.
 
 Completed in this workspace:
 
 - **Architecture**: Decomposed `WaveManager` (3 748 lines) into 11 focused sub-managers; `LocationSession` value object; `ListEditorScreen<T>` base class; `CoordinateInputField` compound widget; `LocationSerializer` / `NbtHelper` data layer.
-- **PvE runtime**: Fixed `totalWaves` persistence, `victoryLingerTicks` countdown, dead-mob cleanup, `waveStartMobCount` inflation, `PlayerBackup` restore (armor/offhand/effects). Activated `waveEffect`, `pointsReward`, `completionCommand`, `firstWaveDelaySec`.
-- **PvP runtime**: Fixed premature `ENDED` state, `dmTeamKills` accumulation, BR simultaneous death draw, BR environment death tracking, rebalance during BUY phase, double-point award, PvP teammates HUD sync.
-- **Networking**: `SellItemPacket` now carries `shopPointIndex`; all server responses use `Component.translatable()`.
-- **Data safety**: `LocationManager` writes a `.bak` copy on save; restores from backup on corrupt primary file.
-- **Spawn correctness**: Mob dimension fixed (no longer tied to player's current dimension); unloaded-chunk guard prevents stalled waves.
-- **i18n**: Full localization — 224 keys per language, 8 language files (EN · UK · DE · FR · ES · PL · PT-BR · ZH-CN), zero hardcoded player-visible strings.
+- **PvE runtime**: Fixed `totalWaves` persistence, `victoryLingerTicks` countdown, dead-mob cleanup, `waveStartMobCount` inflation, `PlayerBackup` restore (armor/offhand/effects). Activated `waveEffect`, `pointsReward`, `completionCommand`, `firstWaveDelaySec`. Grace period (30 s) when last player leaves mid-wave.
+- **PvP runtime**: Fixed premature `ENDED` state, `dmTeamKills` accumulation, BR simultaneous death draw, BR environment death tracking, rebalance during BUY phase, double-point award, PvP teammates HUD sync. PvP↔PvE mode switch now requires two-click confirmation.
+- **Networking**: `SellItemPacket` now carries `shopPointIndex` and uses NBT-aware item matching; all server responses use `Component.translatable()`.
+- **Data safety**: `LocationManager.saveToFile()` uses atomic `.tmp`→rename pattern; one serialization pass; `.bak` preserved. Restores from backup on corrupt primary file.
+- **Spawn correctness**: Mob dimension fixed (no longer tied to player's current dimension); unloaded-chunk guard prevents stalled waves; dead-mob sweep covers all dimensions via `getAllLevels()`; portal double-spawn guard.
+- **Mine and Slash compat** (`mmorpg` mod v6.1.0+, optional): per-location mob level, XP bonus %, and 5 elemental resistances configured in the PvE location editor. Pure reflection — zero compile-time dependency, zero overhead when MnS is absent.
+- **i18n**: Full localization — keys per language, 8 language files (EN · UK · DE · FR · ES · PL · PT-BR · ZH-CN), zero hardcoded player-visible strings; missing `no_spawn_set` / `value_out_of_range` keys added to 6 lang files; 14 new MnS + grace keys added to all 8.
 - **§ corruption fix**: All `?[color]` substitutions and `\\u00A7x` literal-escape auto-keys corrected across all 8 lang files and 3 Java GUI files.
 - **GUI audit (52 screens)**: Scissor clipping, scroll behavior, hidden-widget click filtering, two-click delete confirmations (waves, rewards, PvP spawns), Cancel buttons, per-slot loot "from hand" buttons, stable effect-picker width, standardized button heights.
 - **Layout fixes**: Import/Export header overlap, Completion Rewards item frame padding, tooltip black-box bug, LocationEditor footer overlap, mob spawn scroll Y offset, PvP mode unlock button.
@@ -27,17 +28,14 @@ Completed in this workspace:
 - **Loot triggers**: 11 of 20 `LootSpawn.Trigger` values now have runtime dispatch points — added `PLAYER_DEATH` (PvE), `TIMER_60`, `TIMER_120`, `TIMER_300` alongside the previous 7. `TIMER_CUSTOM` wave trigger also wired via `tickTimerCustomForLocation()`.
 - **GuiTheme** applied uniformly to all ~25 GUI screens: `GuiTheme.renderBackground`, title color `GuiTheme.TEXT`, `g.flush()` before every `ScissorHelper.disable()` — eliminates deferred-text scissor bleed.
 
-Still to do:
-
-- Run full in-game testing for PvE waves and 2+ player PvP sessions.
-
 ---
 
 ## Installation
 
 1. Install Forge `1.20.1` (`47.2.0+` recommended).
-2. Copy the built `wavedefense-0.2.45.1.jar` into the `mods/` folder.
-3. Start the client or dedicated server.
+2. Copy the built `wavedefense-0.2.46.jar` into the `mods/` folder.
+3. **Optional**: install Mine and Slash (`mmorpg` mod, v6.1.0+) to unlock per-location mob level / XP / resistance settings.
+4. Start the client or dedicated server.
 
 ---
 
@@ -67,6 +65,25 @@ Still to do:
 - Optional location boundary with timer, damage, teleport-back, or instant surrender modes.
 - Optional portal system for penalty waves.
 - TextDisplay info panels for wave, timer, mob count, players, and points.
+- 30-second grace period when the last player leaves mid-wave — wave resumes if someone rejoins.
+
+### Mine and Slash compatibility (optional)
+
+When Mine and Slash (`mmorpg` mod, v6.1.0+) is installed, each PvE location gains extra
+per-location settings in the Special tab of the location editor:
+
+| Setting | Effect |
+|---------|--------|
+| **Mob Level** | Sets the MnS level of every mob spawned in this location |
+| **XP Drop Bonus %** | Adds a PERCENT `bonus_exp` modifier to every spawned mob |
+| **Fire Resist** | Adds a FLAT `fire_resist` modifier |
+| **Water Resist** | Adds a FLAT `water_resist` modifier |
+| **Lightning Resist** | Adds a FLAT `lightning_resist` modifier |
+| **Chaos Resist** | Adds a FLAT `chaos_resist` modifier |
+| **Physical Resist** | Adds a FLAT `physical_resist` modifier |
+
+All values default to `0` (no override — MnS uses its own defaults).  
+The section is hidden entirely when Mine and Slash is not installed.
 
 ### PvP Modes
 

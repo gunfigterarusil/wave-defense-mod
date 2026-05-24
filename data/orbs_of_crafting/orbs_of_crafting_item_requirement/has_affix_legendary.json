@@ -1,0 +1,8 @@
+{
+  "data": {
+    "rar": "legendary"
+  },
+  "id": "has_affix_legendary",
+  "serializer": "has_affix_of_rar",
+  "weight": 1000
+}

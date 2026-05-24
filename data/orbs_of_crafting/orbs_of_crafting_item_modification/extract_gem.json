@@ -1,0 +1,6 @@
+{
+  "type": "GEM",
+  "id": "extract_gem",
+  "serializer": "extract_socket",
+  "weight": 1000
+}

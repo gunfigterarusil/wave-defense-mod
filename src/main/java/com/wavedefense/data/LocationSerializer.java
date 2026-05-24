@@ -140,6 +140,15 @@ public final class LocationSerializer {
         // ── Lock state ────────────────────────────────────────────────────
         tag.putBoolean("locked", loc.locked);
 
+        // ── Mine and Slash compat ─────────────────────────────────────────
+        if (loc.masLevel          > 0) tag.putInt("masLevel",           loc.masLevel);
+        if (loc.masXpBonus        > 0) tag.putInt("masXpBonus",         loc.masXpBonus);
+        if (loc.masFireResist     > 0) tag.putInt("masFireResist",      loc.masFireResist);
+        if (loc.masWaterResist    > 0) tag.putInt("masWaterResist",     loc.masWaterResist);
+        if (loc.masLightningResist> 0) tag.putInt("masLightningResist", loc.masLightningResist);
+        if (loc.masChaosResist    > 0) tag.putInt("masChaosResist",     loc.masChaosResist);
+        if (loc.masPhysicalResist > 0) tag.putInt("masPhysicalResist",  loc.masPhysicalResist);
+
         // ── playerPoints ─────────────────────────────────────────────────
         CompoundTag pointsTag = new CompoundTag();
         for (java.util.Map.Entry<java.util.UUID, Integer> e : loc.playerPoints.entrySet())
@@ -292,6 +301,15 @@ public final class LocationSerializer {
 
         // ── Lock state ────────────────────────────────────────────────────
         if (tag.contains("locked")) loc.locked = tag.getBoolean("locked");
+
+        // ── Mine and Slash compat ─────────────────────────────────────────
+        loc.masLevel           = NbtHelper.getInt(tag, "masLevel",           0);
+        loc.masXpBonus         = NbtHelper.getInt(tag, "masXpBonus",         0);
+        loc.masFireResist      = NbtHelper.getInt(tag, "masFireResist",      0);
+        loc.masWaterResist     = NbtHelper.getInt(tag, "masWaterResist",     0);
+        loc.masLightningResist = NbtHelper.getInt(tag, "masLightningResist", 0);
+        loc.masChaosResist     = NbtHelper.getInt(tag, "masChaosResist",     0);
+        loc.masPhysicalResist  = NbtHelper.getInt(tag, "masPhysicalResist",  0);
 
         // ── playerPoints ─────────────────────────────────────────────────
         if (tag.contains("playerPoints")) {

@@ -93,10 +93,20 @@ public class WaveContext {
         return list;
     }
 
-    /** Розсилає повідомлення всім у локації. */
-    public void broadcastToLocation(String locationName, String message) {
+    /** Розсилає повідомлення всім у локації (Component — preferred overload). */
+    public void broadcastToLocation(String locationName, net.minecraft.network.chat.Component component) {
         for (ServerPlayer p : getPlayersInLocation(locationName))
-            p.displayClientMessage(net.minecraft.network.chat.Component.literal(message), false);
+            p.displayClientMessage(component, false);
+    }
+
+    /**
+     * Розсилає вже-перекладений рядок всім у локації.
+     * @deprecated Використовуй {@link #broadcastToLocation(String, net.minecraft.network.chat.Component)}
+     *             з {@code Component.translatable()} щоб повідомлення локалізувалось на стороні клієнта.
+     */
+    @Deprecated
+    public void broadcastToLocation(String locationName, String message) {
+        broadcastToLocation(locationName, net.minecraft.network.chat.Component.literal(message));
     }
 
     /** Записує нещодавно спрацьований event-triggered тригер у сесію. */

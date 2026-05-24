@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "X": {
+      "item": "mmorpg:currency/entangled_affix_upgrade"
+    },
+    "Y": {
+      "item": "mmorpg:stone/4"
+    }
+  },
+  "pattern": [
+    "YYY",
+    "YXY",
+    "YYY"
+  ],
+  "result": {
+    "item": "mmorpg:currency/harvest_essence_3"
+  },
+  "show_notification": true
+}

@@ -1,0 +1,6 @@
+{
+  "id": "increment_uses_sharpening_stone",
+  "serializer": "increment_uses",
+  "use_key": "sharpening_stone",
+  "weight": 1000
+}

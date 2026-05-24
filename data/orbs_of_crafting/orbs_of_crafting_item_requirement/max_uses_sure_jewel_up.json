@@ -1,0 +1,9 @@
+{
+  "data": {
+    "max_uses": 3,
+    "use_id": "sure_jewel_up"
+  },
+  "id": "max_uses_sure_jewel_up",
+  "serializer": "max_uses",
+  "weight": 1000
+}

@@ -1,0 +1,15 @@
+These are all default registry entries of this type.
+This registry is modify-able through datapacks.
+additive_damage
+crit_damage
+damage_conversion
+damage_reduction
+damage_suppression
+damage_taken_as
+dot_dmg_multi
+double_damage
+ele_as_extra_flat
+elemental_mitigation
+flat_damage
+flat_damage_reduction
+physical_mitigation

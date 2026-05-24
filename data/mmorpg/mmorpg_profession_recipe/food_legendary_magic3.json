@@ -1,0 +1,26 @@
+{
+  "exp": 100,
+  "id": "food_legendary_magic3",
+  "mats": [
+    {
+      "type": "ITEM",
+      "id": "mmorpg:material/meat/3",
+      "num": 5
+    },
+    {
+      "type": "ITEM",
+      "id": "mmorpg:stone/4",
+      "num": 10
+    },
+    {
+      "type": "ITEM",
+      "id": "minecraft:cooked_mutton",
+      "num": 1
+    }
+  ],
+  "profession": "cooking",
+  "result": "mmorpg:food/legendary_magic",
+  "result_num": 1,
+  "set_tier_nbt": true,
+  "tier": 3
+}

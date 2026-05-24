@@ -1,0 +1,8 @@
+{
+  "data": {
+    "add_sockets": 1
+  },
+  "id": "add_socket",
+  "serializer": "add_socket",
+  "weight": 1000
+}
