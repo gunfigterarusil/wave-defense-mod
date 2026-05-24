@@ -521,7 +521,7 @@ public class LocationSession {
         tag.putInt("timer60", timer60);
         tag.putInt("timer120", timer120);
         tag.putInt("timer300", timer300);
-        tag.putInt("timerCustom", timerCustom);
+        // timerCustom intentionally NOT saved — field is deprecated/dead (tickTimerCustomForLocation uses waveTriggerWaveCounters)
         if (stats != null) {
             tag.put("stats", stats.save());
         }
@@ -591,7 +591,7 @@ public class LocationSession {
         sess.timer60 = tag.getInt("timer60");
         sess.timer120 = tag.getInt("timer120");
         sess.timer300 = tag.getInt("timer300");
-        sess.timerCustom = tag.getInt("timerCustom");
+        // timerCustom intentionally NOT loaded — field is deprecated/dead
         if (tag.contains("stats")) {
             sess.stats = GameStats.load(tag.getCompound("stats"));
         }

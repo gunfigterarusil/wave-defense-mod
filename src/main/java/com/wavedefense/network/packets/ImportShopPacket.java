@@ -50,7 +50,13 @@ public class ImportShopPacket {
                 return;
             }
             try {
-                File file = new File(ExportShopPacket.getShopExportDir(), pkt.fileName + ".nbt");
+                File shopDir = ExportShopPacket.getShopExportDir();
+                File file = new File(shopDir, pkt.fileName + ".nbt");
+                // Path traversal guard: reject filenames that escape the export directory.
+                if (!file.getCanonicalPath().startsWith(shopDir.getCanonicalPath())) {
+                    WaveDefenseMod.LOGGER.warn("[WaveDefense] Rejected path-traversal shop import attempt by {}: {}", player.getName().getString(), pkt.fileName);
+                    return;
+                }
                 if (!file.exists()) {
                     player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.auto.файл_не_знайдено_value_e8d8c6cc", pkt.fileName + ".nbt"), false);
                     return;

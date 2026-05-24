@@ -202,9 +202,8 @@ public class AdminMenuScreen extends ListEditorScreen<String> {
         pendingDeleteName = null;
         PacketHandler.sendToServer(new DeleteLocationPacket(name));
         PacketHandler.sendToServer(new RequestLocationDataPacket());
-        if (scrollOffset > 0 && scrollOffset >= locationNames.size() - 1) {
-            scrollOffset = Math.max(0, locationNames.size() - 2);
-        }
+        // After deletion the list shrinks by 1; clamp scrollOffset so the last item stays visible.
+        if (scrollOffset > 0) scrollOffset = Math.max(0, scrollOffset - 1);
         net.minecraft.client.Minecraft.getInstance().tell(() -> {
             this.locationNames = ClientLocationManager.getAllLocationNames();
             this.rebuildWidgets();

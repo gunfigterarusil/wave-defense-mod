@@ -499,24 +499,24 @@ public class PvpLocationEditorScreen extends Screen {
     }
 
     private void saveAllRules() {
-        try {
-            if (minPlayersInput != null)        location.setPvpMinPlayers(Integer.parseInt(minPlayersInput.getValue()));
-            if (killPointsInput != null)        location.setPvpKillPoints(Math.max(0, Integer.parseInt(killPointsInput.getValue())));
-            if (deathPenaltyInput != null)      location.setPvpDeathPenalty(Math.max(0, Integer.parseInt(deathPenaltyInput.getValue())));
-            if (totalRoundsInput != null)       location.setPvpTotalRounds(Math.max(1, Integer.parseInt(totalRoundsInput.getValue())));
-            if (buyTimeInput != null)           location.setPvpBuyTime(Math.max(5, Integer.parseInt(buyTimeInput.getValue())));
-            if (pvpStartingPointsInput != null) location.setStartingPoints(Math.max(0, Integer.parseInt(pvpStartingPointsInput.getValue())));
-            if (roundStartDelayInput != null)   location.setPvpRoundStartDelay(Math.max(0, Integer.parseInt(roundStartDelayInput.getValue())));
-            if (roundStartPointsInput != null)  location.setPvpRoundStartPoints(Math.max(0, Integer.parseInt(roundStartPointsInput.getValue())));
-            if (winPointsInput != null)         location.setPvpWinPoints(Math.max(0, Integer.parseInt(winPointsInput.getValue())));
-            if (losePointsInput != null)        location.setPvpLosePoints(Math.max(0, Integer.parseInt(losePointsInput.getValue())));
-            if (dmKillsToWinInput != null)      location.setDmKillsToWin(Math.max(1, Integer.parseInt(dmKillsToWinInput.getValue())));
-            if (brBorderRadiusInput != null)    location.setBrBorderRadius(Math.max(10, Integer.parseInt(brBorderRadiusInput.getValue())));
-            if (brShrinkIntervalInput != null)  location.setBrShrinkIntervalSec(Math.max(1, Integer.parseInt(brShrinkIntervalInput.getValue())));
-            if (brBorderParticleInput != null && !brBorderParticleInput.getValue().isBlank())
-                location.setBrBorderParticle(brBorderParticleInput.getValue().trim());
-            if (brBorderDamageAmtInput != null) location.setBrBorderDamageAmt(Math.max(0f, Float.parseFloat(brBorderDamageAmtInput.getValue())));
-        } catch (NumberFormatException ignored) {}
+        // Each field has its own try-catch so a single invalid input does not
+        // silently discard all remaining field saves.
+        if (minPlayersInput != null)        try { location.setPvpMinPlayers(Integer.parseInt(minPlayersInput.getValue())); } catch (NumberFormatException ignored) {}
+        if (killPointsInput != null)        try { location.setPvpKillPoints(Math.max(0, Integer.parseInt(killPointsInput.getValue()))); } catch (NumberFormatException ignored) {}
+        if (deathPenaltyInput != null)      try { location.setPvpDeathPenalty(Math.max(0, Integer.parseInt(deathPenaltyInput.getValue()))); } catch (NumberFormatException ignored) {}
+        if (totalRoundsInput != null)       try { location.setPvpTotalRounds(Math.max(1, Integer.parseInt(totalRoundsInput.getValue()))); } catch (NumberFormatException ignored) {}
+        if (buyTimeInput != null)           try { location.setPvpBuyTime(Math.max(5, Integer.parseInt(buyTimeInput.getValue()))); } catch (NumberFormatException ignored) {}
+        if (pvpStartingPointsInput != null) try { location.setStartingPoints(Math.max(0, Integer.parseInt(pvpStartingPointsInput.getValue()))); } catch (NumberFormatException ignored) {}
+        if (roundStartDelayInput != null)   try { location.setPvpRoundStartDelay(Math.max(0, Integer.parseInt(roundStartDelayInput.getValue()))); } catch (NumberFormatException ignored) {}
+        if (roundStartPointsInput != null)  try { location.setPvpRoundStartPoints(Math.max(0, Integer.parseInt(roundStartPointsInput.getValue()))); } catch (NumberFormatException ignored) {}
+        if (winPointsInput != null)         try { location.setPvpWinPoints(Math.max(0, Integer.parseInt(winPointsInput.getValue()))); } catch (NumberFormatException ignored) {}
+        if (losePointsInput != null)        try { location.setPvpLosePoints(Math.max(0, Integer.parseInt(losePointsInput.getValue()))); } catch (NumberFormatException ignored) {}
+        if (dmKillsToWinInput != null)      try { location.setDmKillsToWin(Math.max(1, Integer.parseInt(dmKillsToWinInput.getValue()))); } catch (NumberFormatException ignored) {}
+        if (brBorderRadiusInput != null)    try { location.setBrBorderRadius(Math.max(10, Integer.parseInt(brBorderRadiusInput.getValue()))); } catch (NumberFormatException ignored) {}
+        if (brShrinkIntervalInput != null)  try { location.setBrShrinkIntervalSec(Math.max(1, Integer.parseInt(brShrinkIntervalInput.getValue()))); } catch (NumberFormatException ignored) {}
+        if (brBorderParticleInput != null && !brBorderParticleInput.getValue().isBlank())
+            location.setBrBorderParticle(brBorderParticleInput.getValue().trim());
+        if (brBorderDamageAmtInput != null) try { location.setBrBorderDamageAmt(Math.max(0f, Float.parseFloat(brBorderDamageAmtInput.getValue()))); } catch (NumberFormatException ignored) {}
     }
 
 

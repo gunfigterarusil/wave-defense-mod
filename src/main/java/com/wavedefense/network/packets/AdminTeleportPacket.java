@@ -35,7 +35,13 @@ public class AdminTeleportPacket {
             if (sender == null || !sender.hasPermissions(2)) return;
 
             Location location = WaveDefenseMod.locationManager.getLocation(packet.locationName);
-            if (location == null || location.getPlayerSpawn() == null) {
+            if (location == null) {
+                sender.displayClientMessage(
+                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.location_invalid"), true);
+                return;
+            }
+            // PvP locations require a team spawn point; PvE locations require a player spawn.
+            if (!location.isPvp() && location.getPlayerSpawn() == null) {
                 sender.displayClientMessage(
                     net.minecraft.network.chat.Component.translatable("wavedefense.msg.location_invalid"), true);
                 return;
@@ -50,7 +56,12 @@ public class AdminTeleportPacket {
             }
 
             target.removeAllEffects();
-            WaveDefenseMod.waveManager.addPlayerToLocation(target, location);
+            if (location.isPvp()) {
+                // Use spawn index 0 (first team) for admin-forced teleport.
+                WaveDefenseMod.waveManager.addPlayerToPvpLocation(target, location, 0);
+            } else {
+                WaveDefenseMod.waveManager.addPlayerToLocation(target, location);
+            }
         });
         ctx.get().setPacketHandled(true);
     }

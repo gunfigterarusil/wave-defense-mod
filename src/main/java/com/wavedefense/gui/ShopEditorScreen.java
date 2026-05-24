@@ -146,7 +146,7 @@ public class ShopEditorScreen extends Screen {
                     if (isPendingDelShop) {
                         pendingDeleteShopIndex = -1;
                         location.removeShopItem(fi);
-                        scrollOffsetGlobal = Math.max(0, Math.min(scrollOffsetGlobal, location.getShopItems().size() - 1));
+                        scrollOffsetGlobal = Math.max(0, Math.min(scrollOffsetGlobal, Math.max(0, location.getShopItems().size() - ITEMS_PER_PAGE)));
                         rebuildWidgets();
                     } else {
                         pendingDeleteShopIndex = fi;

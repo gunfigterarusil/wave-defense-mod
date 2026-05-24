@@ -22,7 +22,7 @@ public class RequestWaveExportListPacket {
     public static void handle(RequestWaveExportListPacket p, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
-            if (player == null) return;
+            if (player == null || !player.hasPermissions(2)) return;
             File dir = new File(WaveDefenseMod.getServer()
                 .getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).toFile(),
                 "wavedefense/wave_export");

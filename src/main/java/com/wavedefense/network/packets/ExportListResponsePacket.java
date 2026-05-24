@@ -16,15 +16,19 @@ public class ExportListResponsePacket {
 
     public ExportListResponsePacket(List<String> names) { this.names = names; }
 
+    /** Max name length: 256 chars — matches readUtf limit in decode. */
+    private static final int MAX_NAME_LENGTH = 256;
+
     public static void encode(ExportListResponsePacket pkt, FriendlyByteBuf buf) {
         buf.writeInt(pkt.names.size());
-        for (String n : pkt.names) buf.writeUtf(n);
+        // Truncate at MAX_NAME_LENGTH to match the decode limit and prevent DecoderException.
+        for (String n : pkt.names) buf.writeUtf(n.length() > MAX_NAME_LENGTH ? n.substring(0, MAX_NAME_LENGTH) : n);
     }
 
     public static ExportListResponsePacket decode(FriendlyByteBuf buf) {
         int size = buf.readInt();
         List<String> names = new ArrayList<>(size);
-        for (int i = 0; i < size; i++) names.add(buf.readUtf(64));
+        for (int i = 0; i < size; i++) names.add(buf.readUtf(MAX_NAME_LENGTH));
         return new ExportListResponsePacket(names);
     }
 

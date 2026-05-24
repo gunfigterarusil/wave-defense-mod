@@ -97,14 +97,25 @@ public class LocationManager {
 
     public void loadLocations() { load(); }
 
-    /** Load locations from a CompoundTag (used by backup restore). */
+    /**
+     * Load locations from a CompoundTag and immediately persist to disk.
+     * Used by the backup-restore flow so the recovered data is saved right away.
+     */
     public void loadFromTag(CompoundTag tag) {
+        deserializeLocations(tag);
+        saveToFile();
+    }
+
+    /**
+     * Deserializes locations from a CompoundTag into the in-memory list.
+     * Does NOT write to disk — callers that need persistence call {@link #saveToFile()} separately.
+     */
+    private void deserializeLocations(CompoundTag tag) {
         locations.clear();
         ListTag locationsList = tag.getList("locations", 10);
         for (int i = 0; i < locationsList.size(); i++) {
             locations.add(Location.load(locationsList.getCompound(i)));
         }
-        saveToFile();
     }
 
     private void load() {
@@ -113,7 +124,8 @@ public class LocationManager {
         }
         try {
             CompoundTag data = NbtIo.readCompressed(dataFile);
-            loadFromTag(data);
+            // Normal startup: just deserialize, do NOT rewrite the file needlessly
+            deserializeLocations(data);
         } catch (IOException e) {
             WaveDefenseMod.LOGGER.error("[WaveDefense] Primary data file corrupt: {}", e.getMessage());
             // Спробуємо відновити з .bak копії
@@ -122,6 +134,7 @@ public class LocationManager {
                 try {
                     WaveDefenseMod.LOGGER.warn("[WaveDefense] Attempting to restore from backup file...");
                     CompoundTag bakData = NbtIo.readCompressed(bakFile);
+                    // Backup restore: deserialize AND save so the primary file is repaired
                     loadFromTag(bakData);
                     WaveDefenseMod.LOGGER.info("[WaveDefense] Successfully restored {} location(s) from backup.",
                         locations.size());

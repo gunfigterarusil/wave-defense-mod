@@ -278,11 +278,23 @@ public class WaveAutoScaler {
     public static WaveAutoScaler load(CompoundTag tag) {
         double initialDifficulty = tag.contains("currentDifficulty") ? tag.getDouble("currentDifficulty") : BASE_DIFFICULTY;
         WaveAutoScaler scaler = new WaveAutoScaler(initialDifficulty);
-        scaler.smoothedDifficulty = tag.getDouble("smoothedDifficulty");
+        scaler.smoothedDifficulty = tag.contains("smoothedDifficulty") ? tag.getDouble("smoothedDifficulty") : initialDifficulty;
         scaler.consecutiveIncreases = tag.getInt("consecutiveIncreases");
         scaler.consecutiveDecreases = tag.getInt("consecutiveDecreases");
         scaler.currentWaveNumber = tag.getInt("currentWaveNumber");
         return scaler;
+    }
+
+    /**
+     * Завантажує стан із NBT безпосередньо у поточний об'єкт (in-place).
+     * Використовується коли поле {@code autoScaler} є final і не може бути перепризначене.
+     */
+    public void loadFrom(CompoundTag tag) {
+        if (tag.contains("currentDifficulty"))  this.currentDifficulty  = clamp(tag.getDouble("currentDifficulty"), MIN_DIFFICULTY, MAX_DIFFICULTY);
+        if (tag.contains("smoothedDifficulty")) this.smoothedDifficulty = tag.getDouble("smoothedDifficulty");
+        if (tag.contains("consecutiveIncreases")) this.consecutiveIncreases = tag.getInt("consecutiveIncreases");
+        if (tag.contains("consecutiveDecreases")) this.consecutiveDecreases = tag.getInt("consecutiveDecreases");
+        if (tag.contains("currentWaveNumber")) this.currentWaveNumber = tag.getInt("currentWaveNumber");
     }
 
     // ---- getters ----

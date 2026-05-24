@@ -256,8 +256,10 @@ public class MobEffectsEditorScreen extends Screen {
             if (delta > 0 && effectScrollOffset > 0) { effectScrollOffset--; rebuildWidgets(); }
             else if (delta < 0 && effectScrollOffset + effectVisibleMax < filteredEffects.size()) { effectScrollOffset++; rebuildWidgets(); }
         } else {
+            int panelH2 = this.height - 60;
+            int activeVisibleMax2 = Math.max(2, (panelH2 - 100) / ACTIVE_ROW_H);
             if (delta > 0 && activeScrollOffset > 0) { activeScrollOffset--; rebuildWidgets(); }
-            else if (delta < 0) { activeScrollOffset++; rebuildWidgets(); }
+            else if (delta < 0 && activeScrollOffset + activeVisibleMax2 < effects.size()) { activeScrollOffset++; rebuildWidgets(); }
         }
         return true;
     }

@@ -39,7 +39,8 @@ public class MobSpawnManager {
         if (players.isEmpty()) return false;
 
         if (WaveDefenseMod.getServer() == null) return false;
-        ServerLevel world = WaveDefenseMod.getServer().getLevel(net.minecraft.world.level.Level.OVERWORLD);
+        // Spawn mobs in the same dimension as the players, not hardcoded Overworld.
+        ServerLevel world = players.get(0).serverLevel();
         if (world == null) return false;
         LocationSession sess = ctx.getOrCreateSession(locationName, location);
         Set<UUID> spawnedMobs = sess.spawnedMobs;

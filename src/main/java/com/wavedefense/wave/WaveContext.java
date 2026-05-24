@@ -121,15 +121,6 @@ public class WaveContext {
         return s != null && s.wasRecentlyFired(trigger, LocationSession.RECENTLY_FIRED_WINDOW_MS);
     }
 
-    /**
-     * @deprecated Використовуйте {@link #removeSession(String)} — він очищає всі поля сесії.
-     *             Залишений тимчасово для сумісності зі старим кодом.
-     */
-    @Deprecated
-    public void clearLocationState(String locationName) {
-        removeSession(locationName);
-    }
-
     // ─────────────────────────────────────────────────────────────────
     //  Save/Load for backup system
     // ─────────────────────────────────────────────────────────────────

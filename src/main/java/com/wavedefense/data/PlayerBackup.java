@@ -6,8 +6,10 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraftforge.registries.ForgeRegistries;
 
 import java.io.*;
 import java.nio.file.*;
@@ -271,8 +273,10 @@ public class PlayerBackup {
             int totalExp = json.get("totalExp").getAsInt();
 
             JsonObject gm = json.getAsJsonObject("gameMode");
+            // byName(String) can return null for unrecognised names — use fallback overload.
             GameModeSnapshot gameMode = new GameModeSnapshot(
-                net.minecraft.world.level.GameType.byName(gm.get("mode").getAsString())
+                net.minecraft.world.level.GameType.byName(gm.get("mode").getAsString(),
+                    net.minecraft.world.level.GameType.SURVIVAL)
             );
 
             List<EffectSnapshot> effects = deserializeEffects(json.getAsJsonArray("effects"));
@@ -342,7 +346,7 @@ public class PlayerBackup {
         }
 
         net.minecraft.world.level.GameType toGameType() {
-            return net.minecraft.world.level.GameType.byName(mode);
+            return net.minecraft.world.level.GameType.byName(mode, net.minecraft.world.level.GameType.SURVIVAL);
         }
     }
 
@@ -355,7 +359,13 @@ public class PlayerBackup {
         final boolean showIcon;
 
         EffectSnapshot(net.minecraft.world.effect.MobEffectInstance instance) {
-            this.effect = net.minecraft.core.registries.BuiltInRegistries.MOB_EFFECT.getKey(instance.getEffect()).toString();
+            // ForgeRegistries covers both vanilla and modded effects.
+            // BuiltInRegistries only covers vanilla — fall back to it just in case.
+            ResourceLocation key = ForgeRegistries.MOB_EFFECTS.getKey(instance.getEffect());
+            if (key == null) {
+                key = net.minecraft.core.registries.BuiltInRegistries.MOB_EFFECT.getKey(instance.getEffect());
+            }
+            this.effect = key != null ? key.toString() : "minecraft:speed"; // safe fallback
             this.duration = instance.getDuration();
             this.amplifier = instance.getAmplifier();
             this.ambient = instance.isAmbient();

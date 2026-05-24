@@ -366,15 +366,13 @@ public class TriggerEvaluator {
                 return mobs.size() <= orig / 5;
             }
             case TIMER_60:  case TIMER_120: case TIMER_300:
-                // Для AND умов: перевіряємо час від старту локації
-                {
-                    long startMs = s != null ? s.startTimerMs : 0L;
-                    long elapsed = (System.currentTimeMillis() - startMs) / 1000;
-                    if (trigger == WaveTrigger.TIMER_60)  return elapsed >= 60;
-                    if (trigger == WaveTrigger.TIMER_120) return elapsed >= 120;
-                    if (trigger == WaveTrigger.TIMER_300) return elapsed >= 300;
-                    return false;
-                }
+                // AND condition: use session tick counters (accurate in-game time).
+                // startTimerMs is 0 before lobby start which would make elapsed always >= 60.
+                if (s == null) return false;
+                if (trigger == WaveTrigger.TIMER_60)  return s.timer60  >= 1200;
+                if (trigger == WaveTrigger.TIMER_120) return s.timer120 >= 2400;
+                if (trigger == WaveTrigger.TIMER_300) return s.timer300 >= 6000;
+                return false;
             case PLAYER_JOIN:
                 return actor != null || ctx.wasRecentlyFired(locName, WaveTrigger.PLAYER_JOIN);
             case PLAYER_DEATH:

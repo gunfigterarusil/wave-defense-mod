@@ -75,8 +75,11 @@ public class InfoPanelManager {
 
             // ── Панель на точці спавну гравців ─────────────────────────────
             if (ips.isSpawnPanelEnabled() && loc.getPlayerSpawn() != null) {
-                // Ensure session exists for panel tracking (even if location is idle)
-                LocationSession session = (s != null) ? s : ctx.getOrCreateSession(locName, loc);
+                // Only update panel when there is an active session.
+                // Do NOT call getOrCreateSession — that would create ghost sessions for every
+                // configured location, polluting waveCtx.sessions and corrupting timer counters.
+                LocationSession session = s;
+                if (session == null) continue;
                 boolean isActive = activeNames.contains(locName);
                 Component text = isActive
                     ? buildSpawnPanelText(locName, loc, ips, session)
@@ -91,7 +94,8 @@ public class InfoPanelManager {
 
             // ── Панелі на точках спавну мобів ──────────────────────────────
             List<MobSpawnPoint> mobSpawns = loc.getMobSpawns();
-            LocationSession session = (s != null) ? s : ctx.getOrCreateSession(locName, loc);
+            LocationSession session = s; // never create a session just for panel display
+            if (session == null) continue; // no active session → skip mob-spawn panels
             for (int mi = 0; mi < mobSpawns.size(); mi++) {
                 String key = "mob_" + mi;
                 if (ips.isMobSpawnPanelEnabled()) {

@@ -50,7 +50,9 @@ public class SessionManager {
 
         // Cancel grace period if this location is waiting for a rejoin
         LocationSession existingSess = ctx.getSession(location.getName());
-        if (existingSess != null && existingSess.graceTicksRemaining >= 0) {
+        // Use > 0 (not >= 0): grace period only active when countdown is running (> 0).
+        // At exactly 0 the session is already being torn down — don't cancel it.
+        if (existingSess != null && existingSess.graceTicksRemaining > 0) {
             existingSess.graceTicksRemaining = -1;
             // Inform the rejoining player; others will get the broadcast below
             player.displayClientMessage(
@@ -275,6 +277,7 @@ public class SessionManager {
                 if (d.getCurrentLocation() != null && d.getCurrentLocation().getName().equals(locationName)) {
                     loc.addPoints(d.getPlayerUUID(), pts);
                     if (d.getPlayerUUID() != null) {
+                        if (WaveDefenseMod.getServer() == null) { endSession(locationName, Component.translatable("wavedefense.msg.all_waves_complete"), true, wm); return; }
                         ServerPlayer rp = WaveDefenseMod.getServer().getPlayerList().getPlayer(d.getPlayerUUID());
                         if (rp != null) wm.syncPlayerData(rp);
                     }

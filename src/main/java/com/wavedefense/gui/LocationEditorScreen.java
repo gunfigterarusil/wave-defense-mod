@@ -3,8 +3,8 @@ package com.wavedefense.gui;
 import com.wavedefense.data.Location;
 import com.wavedefense.data.InfoPanelSettings;
 import com.wavedefense.data.LocationMode;
-import com.wavedefense.data.ShopPoint;
 import com.wavedefense.gui.AdminMenuScreen;
+import com.wavedefense.gui.TooltipHelper;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.UpdateLocationPacket;
 import net.minecraft.client.gui.GuiGraphics;
@@ -13,8 +13,6 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import com.wavedefense.data.WaveTrigger;
-import com.wavedefense.gui.TooltipHelper;
 
 public class LocationEditorScreen extends Screen {
 
@@ -388,7 +386,9 @@ public class LocationEditorScreen extends Screen {
     private void switchTab(int tab) {
         // parseAllInputsToLocation() буде викликано автоматично з rebuildWidgets()
         this.currentTab = tab;
-        this.basicScrollOffset = 0; // скидаємо скрол при зміні вкладки
+        this.basicScrollOffset = 0;   // скидаємо скрол Basic-вкладки при перемиканні
+        this.specialScrollOffset = 0; // скидаємо скрол Special-вкладки при перемиканні
+        this.pendingMode = null;       // скасовуємо незавершене двоклікове підтвердження
         this.rebuildWidgets();
     }
 

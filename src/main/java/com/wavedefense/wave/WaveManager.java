@@ -51,6 +51,7 @@ public class WaveManager {
     public final MobSpawnManager mobSpawnMgr;
     public final WaveAutoScaler autoScaler;
     public final InfoPanelManager infoPanelMgr;
+    public final ZoneActivationManager zoneMgr;
 
     public final Map<UUID, Integer> leaveCountdownTicks;
     public final Map<UUID, Long> reEntryCooldowns;
@@ -69,6 +70,7 @@ public class WaveManager {
         this.mobSpawnMgr = new MobSpawnManager(waveCtx);
         this.autoScaler = new WaveAutoScaler();
         this.infoPanelMgr = new InfoPanelManager(waveCtx);
+        this.zoneMgr = new ZoneActivationManager(waveCtx);
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -274,6 +276,7 @@ public class WaveManager {
     }
 
     public void fireLootTriggerByName(String locationName, com.wavedefense.data.LootSpawn.Trigger trigger) {
+        if (WaveDefenseMod.locationManager == null) return;
         Location loc = WaveDefenseMod.locationManager.getLocation(locationName);
         if (loc == null || WaveDefenseMod.getServer() == null) return;
         // Resolve the correct dimension from the players currently in this location
@@ -289,6 +292,7 @@ public class WaveManager {
     public void fireLootTriggerByNameWithValue(String locationName,
                                                com.wavedefense.data.LootSpawn.Trigger trigger,
                                                int value) {
+        if (WaveDefenseMod.locationManager == null) return;
         Location loc = WaveDefenseMod.locationManager.getLocation(locationName);
         if (loc == null || WaveDefenseMod.getServer() == null) return;
         List<net.minecraft.server.level.ServerPlayer> inLoc = getPlayersInLocation(locationName);
@@ -306,6 +310,7 @@ public class WaveManager {
         boundaryMgr.tick(this);
         triggerEval.tick(this);
         pvpMgr.tick(this);
+        zoneMgr.tick(this);
         brManager.tick(this);
         portalMgr.tick(this);
 
@@ -495,8 +500,11 @@ public class WaveManager {
         }
 
         // Also check trigger mob lists for untracked mobs (safety check)
+        // If we find it here, it was a trigger mob not in spawnedMobs — count the kill.
         for (Map.Entry<String, Set<UUID>> entry : sess.triggerMobs.entrySet()) {
-            entry.getValue().remove(mobUuid);
+            if (entry.getValue().remove(mobUuid)) {
+                sess.mobsKilled++;
+            }
         }
     }
 
@@ -689,9 +697,9 @@ public class WaveManager {
         if (tag.contains("triggerCooldowns")) {
             triggerEval.load(tag.getCompound("triggerCooldowns"));
         }
-        // Auto scaler state
+        // Auto scaler state — use loadFrom() to update the final field in-place
         if (tag.contains("autoScaler")) {
-            autoScaler.load(tag.getCompound("autoScaler"));
+            autoScaler.loadFrom(tag.getCompound("autoScaler"));
         }
         // Tick counter
         waveCtx.tickCounter = tag.getInt("tickCounter");

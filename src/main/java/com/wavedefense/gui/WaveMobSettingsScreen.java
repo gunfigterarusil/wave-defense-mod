@@ -100,20 +100,22 @@ public class WaveMobSettingsScreen extends Screen {
     }
 
     private void save() {
-        try {
-            int count = Integer.parseInt(countInput.getValue());
-            int growth = Integer.parseInt(growthInput.getValue());
-            int chance = Math.min(100, Math.max(1, Integer.parseInt(chanceInput.getValue())));
-            int points = Integer.parseInt(pointsInput.getValue());
+        // Clamp each field individually so a partially-typed value doesn't abort the whole save.
+        int count  = parseIntSafe(countInput.getValue(),  mob.getCount());
+        int growth = parseIntSafe(growthInput.getValue(), mob.getGrowthPerWave());
+        int chance = Math.min(100, Math.max(1, parseIntSafe(chanceInput.getValue(), mob.getSpawnChance())));
+        int points = parseIntSafe(pointsInput.getValue(), mob.getPointsPerKill());
 
-            mob.setCount(count);
-            mob.setGrowthPerWave(growth);
-            mob.setSpawnChance(chance);
-            mob.setPointsPerKill(points);
+        mob.setCount(Math.max(1, count));
+        mob.setGrowthPerWave(Math.max(0, growth));
+        mob.setSpawnChance(chance);
+        mob.setPointsPerKill(Math.max(0, points));
 
-            this.minecraft.setScreen(parentScreen);
-        } catch (NumberFormatException e) {
-        }
+        this.minecraft.setScreen(parentScreen);
+    }
+
+    private static int parseIntSafe(String value, int fallback) {
+        try { return Integer.parseInt(value.trim()); } catch (NumberFormatException e) { return fallback; }
     }
 
     @Override

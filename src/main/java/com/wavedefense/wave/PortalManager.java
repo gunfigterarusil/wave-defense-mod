@@ -302,8 +302,11 @@ public class PortalManager {
             broadcastNearPortal(portalPos, loc.getName(),
                 Component.translatable("wavedefense.portal.penalty_wave", loc.getName()));
             if (wi >= 0 && wi < loc.getWaves().size()) {
-                spawnWaveAroundPos(wm, loc.getWaves().get(wi), loc, world, portalPos, 8,
-                    new HashSet<>());
+                // Track spawned mobs so closePortalIfGraceExpired() can discard them
+                Set<UUID> spawnedNow = new HashSet<>();
+                spawnWaveAroundPos(wm, loc.getWaves().get(wi), loc, world, portalPos, 8, spawnedNow);
+                s.portalPenaltyMobs.clear();
+                s.portalPenaltyMobs.addAll(spawnedNow);
             }
         }
     }
@@ -333,7 +336,10 @@ public class PortalManager {
                     wm.applyMobEquipment(mob, waveMob);
                     world.addFreshEntity(mob);
                     if (trackSet != null) trackSet.add(mob.getUUID());
-                } catch (Exception ignored) {}
+                } catch (Exception e) {
+                    WaveDefenseMod.LOGGER.warn("[WaveDefense] Portal mob spawn failed for '{}' at {}: {}",
+                        et.getDescriptionId(), sp, e.getMessage());
+                }
             }
         }
     }

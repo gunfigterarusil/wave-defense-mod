@@ -139,23 +139,22 @@ public class WaveConfig {
         tag.putInt("activateFromWave", activateFromWave);
         tag.putBoolean("oneTimeOnly", oneTimeOnly);
 
-        // Trigger fields
+        // Trigger fields — always saved so that disabling and re-enabling a trigger
+        // doesn't lose the configured type, cooldown, and AND conditions.
         tag.putBoolean("triggerEnabled", triggerEnabled);
-        if (triggerEnabled) {
-            tag.putString("triggerType", triggerType.name());
-            tag.putString("cooldownMode", cooldownMode.name());
-            tag.putInt("cooldownValue", cooldownValue);
-            if (!triggerCustomItemId.isEmpty()) tag.putString("triggerCustomItemId", triggerCustomItemId);
-            tag.putInt("triggerCustomValue", triggerCustomValue);
-            if (!extraTriggers.isEmpty()) {
-                net.minecraft.nbt.ListTag etList = new net.minecraft.nbt.ListTag();
-                for (WaveTrigger t : extraTriggers) {
-                    net.minecraft.nbt.CompoundTag et = new net.minecraft.nbt.CompoundTag();
-                    et.putString("t", t.name());
-                    etList.add(et);
-                }
-                tag.put("extraTriggers", etList);
+        tag.putString("triggerType", triggerType.name());
+        tag.putString("cooldownMode", cooldownMode.name());
+        tag.putInt("cooldownValue", cooldownValue);
+        if (!triggerCustomItemId.isEmpty()) tag.putString("triggerCustomItemId", triggerCustomItemId);
+        tag.putInt("triggerCustomValue", triggerCustomValue);
+        if (!extraTriggers.isEmpty()) {
+            net.minecraft.nbt.ListTag etList = new net.minecraft.nbt.ListTag();
+            for (WaveTrigger t : extraTriggers) {
+                net.minecraft.nbt.CompoundTag et = new net.minecraft.nbt.CompoundTag();
+                et.putString("t", t.name());
+                etList.add(et);
             }
+            tag.put("extraTriggers", etList);
         }
         return tag;
     }
@@ -177,20 +176,19 @@ public class WaveConfig {
         config.activateFromWave = tag.contains("activateFromWave") ? tag.getInt("activateFromWave") : 0;
         config.oneTimeOnly = tag.contains("oneTimeOnly") && tag.getBoolean("oneTimeOnly");
 
-        // Trigger fields
+        // Trigger fields — always loaded regardless of triggerEnabled so that
+        // disabling and re-enabling a trigger restores the full configuration.
         config.triggerEnabled = tag.contains("triggerEnabled") && tag.getBoolean("triggerEnabled");
-        if (config.triggerEnabled) {
-            try { config.triggerType = WaveTrigger.valueOf(tag.getString("triggerType")); } catch (Exception ignored) {}
-            try { config.cooldownMode = CooldownMode.valueOf(tag.getString("cooldownMode")); } catch (Exception ignored) {}
-            config.cooldownValue = tag.contains("cooldownValue") ? tag.getInt("cooldownValue") : 0;
-            config.triggerCustomItemId = tag.contains("triggerCustomItemId") ? tag.getString("triggerCustomItemId") : "";
-            config.triggerCustomValue  = tag.contains("triggerCustomValue")  ? tag.getInt("triggerCustomValue")  : 60;
-            if (tag.contains("extraTriggers")) {
-                net.minecraft.nbt.ListTag etList = tag.getList("extraTriggers", 10);
-                for (int i = 0; i < etList.size(); i++) {
-                    try { config.extraTriggers.add(WaveTrigger.valueOf(etList.getCompound(i).getString("t"))); }
-                    catch (Exception ignored) {}
-                }
+        try { config.triggerType = WaveTrigger.valueOf(tag.getString("triggerType")); } catch (Exception ignored) {}
+        try { config.cooldownMode = CooldownMode.valueOf(tag.getString("cooldownMode")); } catch (Exception ignored) {}
+        config.cooldownValue = tag.contains("cooldownValue") ? tag.getInt("cooldownValue") : 0;
+        config.triggerCustomItemId = tag.contains("triggerCustomItemId") ? tag.getString("triggerCustomItemId") : "";
+        config.triggerCustomValue  = tag.contains("triggerCustomValue")  ? tag.getInt("triggerCustomValue")  : 60;
+        if (tag.contains("extraTriggers")) {
+            net.minecraft.nbt.ListTag etList = tag.getList("extraTriggers", 10);
+            for (int i = 0; i < etList.size(); i++) {
+                try { config.extraTriggers.add(WaveTrigger.valueOf(etList.getCompound(i).getString("t"))); }
+                catch (Exception ignored) {}
             }
         }
 

@@ -34,6 +34,12 @@ public class PvpRoundManager {
     /** Kill streak counter: UUID → consecutive kills without dying */
     private final Map<UUID, Integer> pvpKillStreaks = new ConcurrentHashMap<>();
 
+    /**
+     * Tracks victims whose death-penalty was already deducted by {@link #onPlayerKilledPlayer}.
+     * Prevents double-deduction when {@link #onPvpPlayerDeath} fires for the same death event.
+     */
+    private final Set<UUID> pvpPenaltyDeducted = ConcurrentHashMap.newKeySet();
+
     public PvpRoundManager(WaveContext ctx) {
         this.ctx = ctx;
     }
@@ -252,6 +258,8 @@ public class PvpRoundManager {
 
         int kill = location.getPvpKillPoints();
         location.addPoints(killer.getUUID(), kill);
+        // Mark penalty as handled here so onPvpPlayerDeath doesn't deduct it again.
+        pvpPenaltyDeducted.add(victim.getUUID());
         location.removePoints(victim.getUUID(), location.getPvpDeathPenalty());
 
         // Kill streak
@@ -357,7 +365,10 @@ public class PvpRoundManager {
         wm.fireLootTriggerByName(location.getName(), LootSpawn.Trigger.PLAYER_DEATH);
 
         if (state != null && state.getPhase() == PvpRoundState.Phase.ACTIVE) {
-            location.removePoints(player.getUUID(), location.getPvpDeathPenalty());
+            // Only deduct death-penalty if onPlayerKilledPlayer hasn't already done it.
+            if (!pvpPenaltyDeducted.remove(player.getUUID())) {
+                location.removePoints(player.getUUID(), location.getPvpDeathPenalty());
+            }
 
             if (location.isDeathmatch()) {
                 pvpPendingRespawn.add(player.getUUID());
@@ -459,7 +470,13 @@ public class PvpRoundManager {
             state.removePlayer(playerId);
             String winner = state.checkRoundWinner();
             if (winner != null && state.getPhase() == PvpRoundState.Phase.ACTIVE) {
-                endRound(wm, locRef, state, winner);
+                // Use the state-machine path (setPendingWinner + delay) instead of
+                // calling endRound() directly, which skips the ROUND_END_DELAY phase.
+                state.setPendingWinner(winner);
+                state.startRoundEndDelay(5);
+                wm.broadcastToLocation(locRef.getName(),
+                    Component.translatable("wavedefense.msg.pvp_team_wins_round", winner));
+                broadcastPvpSync(wm, locRef);
             } else {
                 updatePvpEnemyCounts(locRef, state);
                 broadcastPvpSync(wm, locRef);
@@ -511,6 +528,7 @@ public class PvpRoundManager {
         if (bigCount - smallCount < 2) return;
 
         UUID toMove = teamPlayers.get(bigTeam).get(0);
+        if (WaveDefenseMod.getServer() == null) return;
         ServerPlayer sp = WaveDefenseMod.getServer().getPlayerList().getPlayer(toMove);
         if (sp == null) return;
 

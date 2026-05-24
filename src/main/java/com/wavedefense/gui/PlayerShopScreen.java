@@ -174,7 +174,7 @@ public class PlayerShopScreen extends ScrollableScreen {
                     ? Math.max(1, (itemsPerPage + getTileCols() - 1) / getTileCols())
                     : itemsPerPage;
             addStatic(Button.builder(Component.literal("▼"),
-                    b -> { scrollOffset = Math.min(filteredIndices.size() - itemsPerPage, scrollOffset + 1); rebuildWidgets(); }
+                    b -> { scrollOffset = Math.min(Math.max(0, filteredIndices.size() - itemsPerPage), scrollOffset + 1); rebuildWidgets(); }
             ).bounds(scrollRight, startY + (visibleRows - 1) * stepH, 18, 18).build());
         }
 

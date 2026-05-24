@@ -1,4 +1,4 @@
-# Wave Defense Mod - v0.2.46
+# Wave Defense Mod - v0.2.47
 
 Wave Defense is a PvE/PvP Forge mod for **Minecraft 1.20.1** and **Java 17**.
 It lets server owners build configurable arena locations with mob waves, team PvP,
@@ -8,7 +8,7 @@ shops, loot events, portals, boundaries, HUD panels, and in-game admin editors.
 
 ## Status
 
-Version `0.2.46` — Mine and Slash optional compatibility added; grace period on player leave; atomic save; PvP↔PvE confirmation guard; multi-dimension mob sweep; NBT-aware sell check; missing translations fixed.
+Version `0.2.47` — Deep audit pass: 12 HIGH + 16 MED bugs fixed across all layers. Key fixes: ZoneActivationManager now ticking, mob dimension fixed, WaveAutoScaler state now persists, PlayerBackup safe for modded effects/gamemodes, double PvP death-penalty fixed, path traversal guards added, TIMER triggers use correct baseline, idle info-panel sessions eliminated.
 
 Completed in this workspace:
 

@@ -1,5 +1,49 @@
 # Changelog
 
+## [0.2.47] - 2026-05-24
+
+### Fixed — Critical runtime bugs (second audit pass)
+
+**Wave runtime:**
+- **HIGH** `WaveAutoScaler.load()` return value was discarded → difficulty scaling always reset to defaults after server reload. Fixed by adding `WaveAutoScaler.loadFrom(CompoundTag)` instance method that applies state in-place to the existing `final` field.
+- **HIGH** `ZoneActivationManager` was never instantiated or ticked → auto-activate zone feature (countdown, particles, player entry) was silently non-functional. Fixed by adding `zoneMgr` field + `zoneMgr.tick(this)` in `WaveManager.onServerTick()`.
+- **HIGH** `MobSpawnManager` spawned mobs in the Overworld regardless of the location's actual dimension → waves never appeared for Nether / End arenas. Fixed: use `players.get(0).serverLevel()`.
+- **HIGH** `WaveManager.fireLootTriggerByName/WithValue` accessed `locationManager` without null-guard → NPE on every mob death during world reload. Fixed.
+- **HIGH** `SessionManager.triggerVictory` called `getServer().getPlayerList()` without null-guard → potential NPE during server shutdown mid-game. Fixed.
+- **MED** Grace-period cancel used `>= 0` instead of `> 0` → a player rejoining on the exact tick the grace expired could attempt to cancel an already-expiring session. Fixed.
+- **MED** Trigger-mob kills (mobs not in `spawnedMobs`) were not counted in `mobsKilled` → `MOBS_KILLED_N` loot triggers fired late. Fixed.
+- **MED** `TIMER_60/120/300` AND-conditions computed elapsed from `startTimerMs` which is `0L` before lobby start (always ≥ 60 immediately after lobby expires). Now uses session tick counters `timer60/120/300`. Fixed.
+- **MED** `InfoPanelManager.tick()` called `getOrCreateSession()` for every location with panels → ghost sessions created for idle locations, corrupting timer counters for real joins. Fixed: only update panels when an active session exists.
+
+**PvP / Network:**
+- **HIGH** `PvpRoundManager.onPlayerKilledPlayer` AND `onPvpPlayerDeath` both deducted `pvpDeathPenalty` from victims → double point penalty in all PvP modes. Fixed via `pvpPenaltyDeducted` tracking set.
+- **HIGH** `onPlayerLeave` called `endRound()` directly, bypassing the `ROUND_END_DELAY` phase → state machine skipped, broadcast delayed, `currentRound` could increment twice. Fixed: use `setPendingWinner + startRoundEndDelay(5)` path.
+- **MED** Missing `getServer()` null-guard in `rebalancePvpTeams`. Fixed.
+- **MED** Path traversal: `ImportLocationPacket` and `ImportShopPacket` accepted client-supplied filenames without canonical-path validation → potential server-side file read outside export directory. Fixed with `getCanonicalPath()` check.
+- **MED** `ExportListResponsePacket` encoded names with unlimited `writeUtf` but decoded with `readUtf(64)` → `DecoderException` (client disconnect) on names > 64 chars. Fixed: both now use 256.
+- **MED** `AdminTeleportPacket` used PvE join path (`addPlayerToLocation`) for PvP locations → bypassed team assignment. Fixed: check `location.isPvp()` and call `addPlayerToPvpLocation`.
+- **MED** `RequestWaveExportListPacket` lacked permission check → any authenticated client could list server export filenames. Fixed: added `hasPermissions(2)`.
+
+**Data layer:**
+- **HIGH** `PlayerBackup.loadFromFile()`: `GameType.byName(String)` returns `null` for unrecognised values → NPE in `GameModeSnapshot` constructor, silently discarding the backup. Fixed: use `byName(str, SURVIVAL)` fallback.
+- **HIGH** `PlayerBackup`: `BuiltInRegistries.MOB_EFFECT.getKey()` returns `null` for modded potion effects → NPE during backup creation, whole backup lost. Fixed: use `ForgeRegistries.MOB_EFFECTS` with BuiltIn as fallback.
+- **MED** `WaveConfig` saved trigger fields only when `triggerEnabled=true` → disabling a trigger, saving, and re-enabling lost all configured type/cooldown/AND conditions. Fixed: always save trigger fields.
+
+**GUI:**
+- **HIGH** `MobEffectsEditorScreen.mouseScrolled()` had no upper-bound guard on left-panel scroll → `IndexOutOfBoundsException` possible after element deletion. Fixed.
+- **HIGH** `PlayerShopScreen` scroll-down button computed `filteredIndices.size() - itemsPerPage` without clamping to 0 → negative `scrollOffset` → `IndexOutOfBoundsException`. Fixed.
+- **HIGH** `PvpLocationEditorScreen.saveAllRules()` wrapped all 15 field parses in one `try-catch` → a single invalid input silently discarded all remaining fields. Fixed: individual try-catch per field.
+- **MED** `LocationEditorScreen.switchTab()` didn't reset `specialScrollOffset` → Special tab re-opened at stale scroll position after mode change. Fixed.
+- **MED** `LocationEditorScreen.switchTab()` didn't clear `pendingMode` → two-click PvP↔PvE confirmation guard survived tab switches, weakening its safety purpose. Fixed.
+- **MED** `AdminMenuScreen.deleteLocation()` scroll clamp was off-by-one → after deleting the last visible item the list could appear empty. Fixed.
+- **MED** `ShopEditorScreen` clamped `scrollOffsetGlobal` to `size - 1` instead of `size - ITEMS_PER_PAGE` → allowed scrolling to nearly-blank list. Fixed.
+- **MED** `WaveMobSettingsScreen.save()` caught `NumberFormatException` silently, leaving the screen open with no feedback. Fixed: clamp each field to its current value as fallback.
+
+**Low-priority cleanup:**
+- `LocationSession.timerCustom` was saved/loaded but never written during gameplay (dead serialisation). Removed from save/load.
+
+---
+
 ## [0.2.46] - 2026-05-24
 
 ### Added — Mine and Slash optional compatibility (mmorpg mod v6.1.0+)

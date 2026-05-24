@@ -25,7 +25,13 @@ public class ImportLocationPacket {
             ServerPlayer player = ctx.get().getSender();
             if (player == null || !player.hasPermissions(2)) return;
             try {
-                File file = new File(ExportLocationPacket.getExportDir(), pkt.fileName + ".nbt");
+                File exportDir = ExportLocationPacket.getExportDir();
+                File file = new File(exportDir, pkt.fileName + ".nbt");
+                // Path traversal guard: reject filenames that escape the export directory.
+                if (!file.getCanonicalPath().startsWith(exportDir.getCanonicalPath())) {
+                    WaveDefenseMod.LOGGER.warn("[WaveDefense] Rejected path-traversal import attempt by {}: {}", player.getName().getString(), pkt.fileName);
+                    return;
+                }
                 if (!file.exists()) {
                     player.displayClientMessage(
                         net.minecraft.network.chat.Component.translatable("wavedefense.msg.import_not_found", pkt.fileName), false);
