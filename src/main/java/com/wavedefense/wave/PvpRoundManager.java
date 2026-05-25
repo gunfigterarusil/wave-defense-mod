@@ -464,7 +464,20 @@ public class PvpRoundManager {
         net.minecraft.server.MinecraftServer srv = WaveDefenseMod.getServer();
         if (srv != null) {
             ServerPlayer leavingPlayer = srv.getPlayerList().getPlayer(playerId);
-            if (leavingPlayer != null) removeFromScoreboardTeam(leavingPlayer);
+            if (leavingPlayer != null) {
+                removeFromScoreboardTeam(leavingPlayer);
+                // M-1 fix: clear the CtP/KotH HUD overlay for the player who just left.
+                // endPvpMatch() already sends a clear packet to all remaining players, but
+                // when a single player surrenders mid-match the match doesn't end — only
+                // that specific player needs their overlay cleared.
+                if (locRef.isObjectiveMode()) {
+                    com.wavedefense.network.PacketHandler.sendToPlayer(leavingPlayer,
+                        new com.wavedefense.network.packets.SyncCtpStatePacket(
+                            "", new java.util.LinkedHashMap<>(), new java.util.LinkedHashMap<>(),
+                            new java.util.LinkedHashMap<>(), new java.util.LinkedHashMap<>(),
+                            new java.util.LinkedHashMap<>(), 0, 0));
+                }
+            }
         }
         LocationSession _s = ctx.getSession(locName);
         PvpRoundState state = _s != null ? _s.pvpState : null;

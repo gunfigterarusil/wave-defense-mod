@@ -37,6 +37,9 @@ public class RequestLeaderboardPacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer sender = ctx.get().getSender();
             if (sender == null || WaveDefenseMod.leaderboardManager == null) return;
+            // G1 fix: rate-limit leaderboard requests to once per 2 s
+            if (!com.wavedefense.network.PacketRateLimiter.allow(
+                    sender.getUUID(), RequestLeaderboardPacket.class, 2_000L)) return;
             List<LeaderboardRecord> records = WaveDefenseMod.leaderboardManager.getTop10(p.locationName, p.modeKey);
             PacketHandler.sendToPlayer(sender, new LeaderboardDataPacket(p.locationName, p.modeKey, records));
         });

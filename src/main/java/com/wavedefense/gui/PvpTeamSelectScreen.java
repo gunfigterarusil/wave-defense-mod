@@ -57,7 +57,7 @@ public class PvpTeamSelectScreen extends Screen {
             ).bounds(cx - 80, y, 160, 24).build());
         } else {
             addModeSummary(cx, y);
-            y += 34;
+            y += 52; // A3 fix: addModeSummary now has 3 rows (was 2), +18px
             addTeamCards(y);
         }
 
@@ -76,6 +76,9 @@ public class PvpTeamSelectScreen extends Screen {
             : Component.translatable("wavedefense.pvp.team_select.team_rule");
         addLabel(cx - 160, y, 320, Component.translatable("wavedefense.auto.u00a7e_u00a7l_99162931").append(mode));
         addLabel(cx - 160, y + 18, 320, Component.translatable("wavedefense.auto.u00a77_d0a4b613").append(rule));
+        // A3 fix: show minimum player requirement so players know when the match will start
+        addLabel(cx - 160, y + 34, 320,
+            Component.translatable("wavedefense.pvp.team_select.min_players", location.getPvpMinPlayers()));
     }
 
     private void addTeamCards(int startY) {

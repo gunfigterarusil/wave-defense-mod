@@ -1,5 +1,68 @@
 # Changelog
 
+## [0.2.51] - 2026-05-25
+
+### Fixed — Server stability, UX clarity, and DoS hardening (7 fixes)
+
+**Server-tick crash isolation (D3)**
+`EventHandler.onServerTick()` called `waveManager.tick()` with no error boundary — a single
+NPE anywhere in `BattleRoyaleManager`, `CapturePointManager`, `PvpRoundManager`, etc. would
+propagate uncaught through Forge's tick loop and crash the entire server.
+Wrapped the call in `try/catch(Exception)` + `LOGGER.error` so the offending tick is skipped
+and the server continues running; the full stacktrace appears in the log for diagnosis.
+
+**Keybinding conflict — Leave Location moved from L to G (K1)**
+`L` is Minecraft 1.20.1's default Advancements hotkey.  With both bindings active, pressing
+`L` simultaneously opened the Advancements screen and sent the leave-location C→S packet,
+causing unexpected location exits mid-wave.  `leaveLocationKey` now defaults to `G` (not
+bound in vanilla or any mainstream mod).  Existing players can re-bind in Controls settings.
+
+**Import confirmation dialog — prevents accidental data loss (F6)**
+Clicking a file name in `ImportExportScreen`'s import list sent `ImportLocationPacket`
+immediately, with no indication that the named location's existing data would be overwritten.
+A two-step banner now appears first:
+`⚠ Перезаписати <name>? Дані будуть втрачені! | ✔ Підтвердити | ✕ Скасувати`
+The packet fires only after explicit confirmation; Скасувати clears the banner.
+
+**LocationInfoScreen wired up in player menu (A2/C1)**
+`LocationInfoScreen.java` existed but was never opened from anywhere — effectively dead code.
+Added a compact `§bℹ` button (22 px) to the right of every location row in `PlayerMenuScreen`.
+Clicking it opens the read-only info panel showing wave count, mob types, shop availability,
+and inventory mode.  The main join button shrinks by 25 px to make room; PvP locations with
+no spawn points still show the inactive "not ready" badge as before.
+
+**Surrender button visually distinct from Exit PvP (B4)**
+In the active PvP action menu both "Вийти з PvP" (yellow `§e🚪`) and "Здатися" looked
+identical in the prior build — same plain-text styling, no consequence hint.  The Surrender
+button now uses the `surrender_penalty` lang key — `§c🏳 Здатися (з пенальті)` — rendered
+in red with an explicit penalty note, making the difference immediately legible before clicking.
+
+**Minimum player count shown in team-select screen (A3)**
+`PvpTeamSelectScreen` displayed mode and kill-target rules but never told the player how many
+participants are required to trigger match start.  A third info row now appears below the rules
+line: `§8Мін. гравців: §7N` where N comes from `location.getPvpMinPlayers()`.
+New key `wavedefense.pvp.team_select.min_players` added to all 8 language files.
+Team-card grid start Y adjusted +18 px to accommodate the extra row.
+
+**C→S packet rate limiter — DoS protection (G1)**
+No server-side rate limiting existed for C→S packets.  A malicious client (or a macro) could
+flood expensive server-side operations indefinitely via `TeleportPacket`, `SurrenderPacket`,
+`ExitPvpPacket`, `LeaveLocationPacket`, and `RequestLeaderboardPacket`.
+New `network/PacketRateLimiter.java` — a thread-safe per-player per-packet-type timestamp
+map (`ConcurrentHashMap`) with configurable per-type cooldowns:
+
+| Packet | Cooldown |
+|--------|---------|
+| `TeleportPacket` | 3 s |
+| `SurrenderPacket` / `ExitPvpPacket` | 10 s |
+| `LeaveLocationPacket` | 5 s |
+| `RequestLeaderboardPacket` | 2 s |
+
+Excess packets are silently dropped server-side.
+`PacketRateLimiter.evictPlayer()` is called on `PlayerLoggedOutEvent` to keep map size bounded.
+
+---
+
 ## [0.2.50] - 2026-05-25
 
 ### Fixed — CtP / KotH / Leaderboard audit pass (12 bugs + 6 lang keys)

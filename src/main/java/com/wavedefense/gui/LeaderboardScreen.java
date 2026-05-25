@@ -138,19 +138,41 @@ public class LeaderboardScreen extends Screen {
     }
 
     private void buildModeTabs(int cx) {
-        int tabW  = 62;
+        // M-2 fix: only show mode tabs that are relevant to the selected location's mode.
+        // PvE tab is hidden for PvP locations; all PvP sub-mode tabs are hidden for PvE
+        // locations. When the location data is unavailable on the client, all 6 tabs show.
+        com.wavedefense.data.Location loc = ClientLocationManager.getLocation(selectedLocation);
+
+        java.util.List<Integer> visible = new java.util.ArrayList<>();
+        for (int i = 0; i < MODE_KEYS.length; i++) {
+            if (loc == null || isTabRelevant(i, loc)) visible.add(i);
+        }
+
+        // If current selectedMode is no longer visible, reset to first visible tab
+        if (!visible.isEmpty() && !visible.contains(selectedMode)) {
+            selectedMode = visible.get(0);
+        }
+
+        int tabW   = 62;
         int tabGap = 2;
-        int totalW = MODE_KEYS.length * tabW + (MODE_KEYS.length - 1) * tabGap;
+        int totalW = visible.size() * tabW + (visible.size() - 1) * tabGap;
         int startX = cx - totalW / 2;
 
-        for (int i = 0; i < MODE_KEYS.length; i++) {
-            final int idx = i;
-            boolean sel = (selectedMode == i);
+        for (int vi = 0; vi < visible.size(); vi++) {
+            final int idx = visible.get(vi);
+            boolean sel = (selectedMode == idx);
             this.addRenderableWidget(Button.builder(
-                    Component.literal(sel ? "§a§l" + MODE_LABELS[i] : "§7" + MODE_LABELS[i]),
+                    Component.literal(sel ? "§a§l" + MODE_LABELS[idx] : "§7" + MODE_LABELS[idx]),
                     b -> { selectedMode = idx; rebuildWidgets(); requestData(); }
-            ).bounds(startX + i * (tabW + tabGap), 52, tabW, 16).build());
+            ).bounds(startX + vi * (tabW + tabGap), 52, tabW, 16).build());
         }
+    }
+
+    /** Returns true when tab index {@code i} is relevant for the given location. */
+    private static boolean isTabRelevant(int i, com.wavedefense.data.Location loc) {
+        if (loc == null) return true;
+        if (i == 0) return !loc.isPvp();   // PvE tab only for PvE locations
+        return loc.isPvp();                // all PvP sub-mode tabs only for PvP locations
     }
 
     private void requestData() {

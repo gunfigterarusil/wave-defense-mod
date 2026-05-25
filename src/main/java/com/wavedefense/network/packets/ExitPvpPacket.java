@@ -23,9 +23,11 @@ public class ExitPvpPacket {
     public static void handle(ExitPvpPacket p, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
-            if (player != null) {
-                WaveDefenseMod.waveManager.exitPvpLocation(player);
-            }
+            if (player == null) return;
+            // G1 fix: rate-limit exit to once per 10 s
+            if (!com.wavedefense.network.PacketRateLimiter.allow(
+                    player.getUUID(), ExitPvpPacket.class, 10_000L)) return;
+            WaveDefenseMod.waveManager.exitPvpLocation(player);
         });
         ctx.get().setPacketHandled(true);
     }

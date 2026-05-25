@@ -22,9 +22,11 @@ public class SurrenderPacket {
     public static void handle(SurrenderPacket packet, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
-            if (player != null) {
-                WaveDefenseMod.waveManager.surrenderPlayer(player);
-            }
+            if (player == null) return;
+            // G1 fix: rate-limit surrender to once per 10 s to prevent exploit/spam
+            if (!com.wavedefense.network.PacketRateLimiter.allow(
+                    player.getUUID(), SurrenderPacket.class, 10_000L)) return;
+            WaveDefenseMod.waveManager.surrenderPlayer(player);
         });
         ctx.get().setPacketHandled(true);
     }

@@ -23,6 +23,8 @@ public class ImportExportScreen extends Screen {
     private final Screen parent;
     private EditBox importNameInput;
     private String statusMsg = "";
+    /** F6 fix: file that awaits confirmation before import (null = none pending). */
+    private String pendingImportFile = null;
 
     // Список доступних .nbt файлів (отримується з сервера)
     private List<String> availableExports = new java.util.ArrayList<>();
@@ -97,6 +99,32 @@ public class ImportExportScreen extends Screen {
         ).bounds(cx - 160, y, 200, 18).build());
         y += 22;
 
+        // ── F6 fix: confirmation banner if a file is pending import ────────
+        if (pendingImportFile != null) {
+            final String pf = pendingImportFile;
+            // Warning row
+            this.addRenderableWidget(Button.builder(
+                Component.literal("§e⚠ Перезаписати §c" + pf + "§e? Дані будуть втрачені!"),
+                b -> {}
+            ).bounds(lx, y, 300, 14).build()).active = false;
+            y += 18;
+            // Confirm button
+            this.addRenderableWidget(Button.builder(
+                Component.literal("§c✔ Підтвердити"),
+                b -> {
+                    PacketHandler.sendToServer(new ImportLocationPacket(pf));
+                    statusMsg = "§7Імпортую §e" + pf + "§7...";
+                    pendingImportFile = null;
+                    rebuildWidgets();
+                }
+            ).bounds(lx, y, 145, 18).build());
+            this.addRenderableWidget(Button.builder(
+                Component.literal("§7✕ Скасувати"),
+                b -> { pendingImportFile = null; rebuildWidgets(); }
+            ).bounds(lx + 155, y, 145, 18).build());
+            y += 24;
+        }
+
         // Список файлів для імпорту
         int visibleFrom = scrollOffset;
         int visibleTo = Math.min(scrollOffset + LIST_PER_PAGE, availableExports.size());
@@ -106,8 +134,8 @@ public class ImportExportScreen extends Screen {
             this.addRenderableWidget(Button.builder(
                 Component.literal("§b📥 " + fname),
                 b -> {
-                    PacketHandler.sendToServer(new ImportLocationPacket(fn));
-                    statusMsg = "§7Імпортую §e" + fn + "§7...";
+                    // F6 fix: require confirmation before import (prevents accidental overwrite)
+                    pendingImportFile = fn;
                     rebuildWidgets();
                 }
             ).bounds(lx, y, 300, 18).build());

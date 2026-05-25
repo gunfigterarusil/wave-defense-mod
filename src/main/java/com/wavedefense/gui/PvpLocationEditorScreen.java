@@ -80,6 +80,16 @@ public class PvpLocationEditorScreen extends Screen {
         this.parent = parent;
     }
 
+    // H-2 fix: flush all EditBox values to the Location model before every widget rebuild.
+    // Without this, typed values (e.g. ctpScoreToWinInput) are lost whenever a toggle button
+    // or tab switch calls rebuildWidgets() — the new EditBox is re-populated from the model,
+    // silently discarding whatever the admin typed.
+    @Override
+    public void rebuildWidgets() {
+        saveAllRules();
+        super.rebuildWidgets();
+    }
+
     @Override
     protected void init() {
         super.init();

@@ -24,6 +24,8 @@ import net.minecraftforge.fml.common.Mod;
  *     - FriendlyFire ON: не відображаються взагалі
  */
 import com.wavedefense.gui.AdminMenuScreen;
+import com.wavedefense.gui.ClientCtpStateManager;
+import com.wavedefense.gui.ClientLeaderboardCache;
 import com.wavedefense.gui.PlayerHUD;
 import com.wavedefense.gui.PlayerMenuScreen;
 import com.wavedefense.gui.WaveActionsScreen;
@@ -44,6 +46,10 @@ public class ClientEventHandler {
         // Reset flag when player disconnects so the next login triggers a fresh sync.
         if (mc.player == null || mc.level == null) {
             initialSyncSent = false;
+            // H-3 fix: clear client-side CtP/KotH and leaderboard caches on disconnect
+            // so stale overlay data doesn't bleed into the next login session.
+            ClientCtpStateManager.reset();
+            ClientLeaderboardCache.reset();
             return;
         }
 

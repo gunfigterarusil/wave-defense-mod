@@ -84,12 +84,26 @@ public class PlayerMenuScreen extends ListEditorScreen<String> {
         String label = badge + name + (isPvp && !pvpReady
                 ? " §c(" + I18n.get("wavedefense.label.pvp_not_ready") + ")" : "");
 
+        // A2/C1 fix: reserve 26px on the right for an ℹ info button
+        int infoW  = 22;
+        int infoGap = 3;
+        int mainW  = btnW - infoW - infoGap;
+
         Button btn = Button.builder(
                 Component.literal(label),
                 button -> handleLocationClick(name, isPvp, loc)
-        ).bounds(cx - btnW / 2, y, btnW, getRowHeight() - 2).build();
+        ).bounds(cx - btnW / 2, y, mainW, getRowHeight() - 2).build();
         btn.active = pvpReady;
         this.addRenderableWidget(btn);
+
+        // Info button — always active; opens LocationInfoScreen (read-only)
+        if (loc != null) {
+            final Location locFinal = loc;
+            this.addRenderableWidget(Button.builder(
+                    Component.literal("§bℹ"),
+                    button -> this.minecraft.setScreen(new LocationInfoScreen(locFinal, this))
+            ).bounds(cx - btnW / 2 + mainW + infoGap, y, infoW, getRowHeight() - 2).build());
+        }
     }
 
     // ─── Actions ───────────────────────────────────────────────────────────

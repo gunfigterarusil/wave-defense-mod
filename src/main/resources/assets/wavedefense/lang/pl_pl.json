@@ -289,6 +289,7 @@
   "wavedefense.pvp.team_select.no_teams": "No PvP teams are configured.",
   "wavedefense.pvp.team_select.card": "%s%s §8| spawn %d r%d",
   "wavedefense.pvp.team_select.team_fallback": "Team %d",
+  "wavedefense.pvp.team_select.min_players": "§8Min. graczy wymaganych: §7%d",
   "wavedefense.auto.error_checking_permissions_95395bbb": "§cError checking permissions",
   "wavedefense.auto.error_could_not_get_player_id_a342866a": "§cError: could not get player ID",
   "wavedefense.auto.please_wait_before_performing_an_b83e618e": "§c⚠ Please wait before performing another destructive action",

@@ -1,4 +1,4 @@
-# Wave Defense Mod - v0.2.50
+# Wave Defense Mod - v0.2.51
 
 Wave Defense is a PvE/PvP Forge mod for **Minecraft 1.20.1** and **Java 17**.
 It lets server owners build configurable arena locations with mob waves, team PvP,
@@ -8,14 +8,21 @@ shops, loot events, portals, boundaries, HUD panels, and in-game admin editors.
 
 ## Status
 
-Version `0.2.50` — Post-release audit pass for the CtP/KotH/Leaderboard feature set (v0.2.49).
-Fixes: capture radius is now a 2D cylinder (horizontal only); HUD progress bars use the
-server-supplied capture-time denominator; panel height accounts for active progress bars; long
-point names truncated in HUD; leaderboard podium colors corrected (gold/silver/bronze); player
-name truncation in leaderboard table; mouse-scroll on the location selector; blank-location guard
-in `LeaderboardScreen`; particle-grid y-advance in `CapturePointEditorScreen`; inline empty-name
-error in point editor; dead `mode == null` branch removed; no-capture-points warning in
-`PvpLocationEditorScreen`. Six new translation keys added to all 8 language files.
+Version `0.2.51` — Server stability, UX clarity, and security hardening pass.
+
+**v0.2.51 fixes (7):**
+- Server tick wrapped in `try/catch` — one sub-manager exception can no longer crash the whole server.
+- Leave Location keybind moved from `L` (conflicts with vanilla Advancements) to `G`.
+- Location import now requires explicit two-click confirmation to prevent accidental overwrites.
+- `LocationInfoScreen` wired up via a new `ℹ` button on every location row in the player menu.
+- Surrender button in PvP menu now shows in red with "(з пенальті)" — visually distinct from "Exit PvP".
+- Team-select screen now shows the minimum player count required to start the match.
+- C→S packet rate limiter added (`PacketRateLimiter`) — protects against flood/DoS on 5 key packets.
+
+**v0.2.50 fixes (12):** CtP/KotH/Leaderboard audit — capture radius cylinder fix, HUD bar denominator,
+panel height, name truncation, podium colors, mouse-scroll location selector, blank-location guard,
+particle-grid y-advance, inline empty-name error, dead code removal, no-capture-points warning.
+Six translation keys added to all 8 language files.
 
 Completed in this workspace:
 
@@ -40,7 +47,7 @@ Completed in this workspace:
 ## Installation
 
 1. Install Forge `1.20.1` (`47.2.0+` recommended).
-2. Copy the built `wavedefense-0.2.50.jar` into the `mods/` folder.
+2. Copy the built `wavedefense-0.2.51.jar` into the `mods/` folder.
 3. **Optional**: install Mine and Slash (`mmorpg` mod, v6.1.0+) to unlock per-location mob level / XP / resistance settings.
 4. Start the client or dedicated server.
 
@@ -52,7 +59,7 @@ Completed in this workspace:
 | --- | --- |
 | `V` | Open the main Wave Defense menu |
 | `B` | Open the shop directly |
-| `L` | Leave the current location |
+| `G` | Leave the current location |
 
 ---
 

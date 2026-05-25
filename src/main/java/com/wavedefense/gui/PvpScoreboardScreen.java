@@ -6,6 +6,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 
+import com.wavedefense.gui.ClientCtpStateManager;
 import com.wavedefense.gui.ScissorHelper;
 
 import java.util.*;
@@ -66,6 +67,36 @@ public class PvpScoreboardScreen extends Screen {
             String winsText = String.format(I18n.get("wavedefense.pvp.team_wins"), e.getKey(), e.getValue());
             g.drawCenteredString(this.font, winsText, cx, wy, 0xFFFFFF);
             wy += 10;
+        }
+
+        // M-5 fix: show CtP/KotH objective scores when active
+        if (ClientCtpStateManager.isActive()) {
+            Map<String, Integer> objScores = ClientCtpStateManager.getObjectiveScore();
+            int scoreToWin = ClientCtpStateManager.getScoreToWin();
+            if (!objScores.isEmpty()) {
+                wy += 3;
+                // Divider line
+                g.fill(cx - 180, wy, cx + 180, wy + 1, 0xFF444466);
+                wy += 3;
+                for (Map.Entry<String, Integer> e : objScores.entrySet()) {
+                    String scoreText = scoreToWin > 0
+                        ? String.format("§b%s§7: §f%d §7/ §e%d", e.getKey(), e.getValue(), scoreToWin)
+                        : String.format("§b%s§7: §f%d", e.getKey(), e.getValue());
+                    g.drawCenteredString(this.font, scoreText, cx, wy, 0xFFFFFF);
+                    wy += 10;
+                }
+                // Timer if in timer mode
+                int ticksLeft = ClientCtpStateManager.getRoundTicksLeft();
+                if (ticksLeft > 0) {
+                    int totalSec = ticksLeft / 20;
+                    int min = totalSec / 60;
+                    int sec  = totalSec % 60;
+                    String timerText = String.format("§c⏱ %d:%02d", min, sec);
+                    g.drawCenteredString(this.font, timerText, cx, wy, 0xFFFFFF);
+                    wy += 10;
+                }
+                wy += 2;
+            }
         }
 
         // Групуємо гравців за командами

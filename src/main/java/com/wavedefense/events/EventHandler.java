@@ -28,7 +28,13 @@ public class EventHandler {
     @SubscribeEvent
     public void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase == TickEvent.Phase.END) {
-            WaveDefenseMod.waveManager.tick();
+            // D3 fix: wrap tick in try/catch so a single sub-manager exception
+            // cannot crash the entire server — log and skip the offending tick.
+            try {
+                WaveDefenseMod.waveManager.tick();
+            } catch (Exception e) {
+                WaveDefenseMod.LOGGER.error("[WaveDefense] Uncaught exception in server tick — skipping this tick", e);
+            }
         }
     }
 
@@ -143,6 +149,8 @@ public class EventHandler {
         if (data != null && data.getCurrentLocation() != null) {
             WaveDefenseMod.waveManager.surrenderPlayer(player);
         }
+        // G1 fix: free rate-limiter entries for this player to avoid unbounded map growth
+        com.wavedefense.network.PacketRateLimiter.evictPlayer(player.getUUID());
     }
 
     @SubscribeEvent

@@ -27,7 +27,8 @@ public class KeyBindings {
     /** B — відкрити магазин напряму (без меню) */
     public static KeyMapping openShopKey;
 
-    /** L — вийти з поточної локації (працює як «Здатися» без штрафу) */
+    /** G — вийти з поточної локації (працює як «Здатися» без штрафу).
+     *  K1 fix: changed from L (conflicts with vanilla Advancements) to G. */
     public static KeyMapping leaveLocationKey;
 
     @SubscribeEvent
@@ -54,7 +55,7 @@ public class KeyBindings {
                 "key.wavedefense.leavelocation",
                 KeyConflictContext.IN_GAME,
                 InputConstants.Type.KEYSYM,
-                GLFW.GLFW_KEY_L,
+                GLFW.GLFW_KEY_G,  // K1 fix: was GLFW_KEY_L (conflicts with vanilla Advancements)
                 CATEGORY
         );
         event.register(leaveLocationKey);

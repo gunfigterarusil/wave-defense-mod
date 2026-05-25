@@ -101,13 +101,32 @@ public class WaveManager {
     // ──────────────────────────────────────────────────────────────────────
 
     public void teleportToSafeSpawn(ServerPlayer player, BlockPos pos, int radius) {
-        // Safe spawn logic - for now just teleport
-        player.teleportTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
+        // H-1 fix: apply scatter radius so all players don't stack on the same block.
+        // Uses sqrt(rand)*radius for a uniform-area distribution inside the circle.
+        if (radius > 0) {
+            double angle = Math.random() * 2 * Math.PI;
+            double dist  = Math.sqrt(Math.random()) * radius;
+            player.teleportTo(pos.getX() + 0.5 + dist * Math.cos(angle),
+                              pos.getY(),
+                              pos.getZ() + 0.5 + dist * Math.sin(angle));
+        } else {
+            player.teleportTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
+        }
     }
 
     public void teleportToSpawnPoint(ServerPlayer player, PvpSpawnPoint spawnPoint) {
-        if (spawnPoint != null) {
-            player.teleportTo(spawnPoint.getPos().getX() + 0.5, spawnPoint.getPos().getY(), spawnPoint.getPos().getZ() + 0.5);
+        if (spawnPoint == null) return;
+        int radius = spawnPoint.getSpawnRadius();
+        BlockPos pos = spawnPoint.getPos();
+        // H-1 fix: respect per-spawn-point radius (same formula as teleportToSafeSpawn)
+        if (radius > 0) {
+            double angle = Math.random() * 2 * Math.PI;
+            double dist  = Math.sqrt(Math.random()) * radius;
+            player.teleportTo(pos.getX() + 0.5 + dist * Math.cos(angle),
+                              pos.getY(),
+                              pos.getZ() + 0.5 + dist * Math.sin(angle));
+        } else {
+            player.teleportTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
         }
     }
 

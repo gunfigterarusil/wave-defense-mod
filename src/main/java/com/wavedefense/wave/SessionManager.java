@@ -272,6 +272,9 @@ public class SessionManager {
             return;
         }
 
+        // H-4 fix: increment the all-time session counter so totalSessionsCompleted is accurate
+        loc.incrementSessionsCompleted();
+
         // Нагорода за завершення локації (поінти)
         int pts = loc.getCompletionPointsReward();
         if (pts > 0) {
@@ -394,16 +397,19 @@ public class SessionManager {
         Location locCd = WaveDefenseMod.locationManager.getLocation(locationName);
         int cdSec = locCd != null ? locCd.getReEntryCooldownSec() : 0;
 
+        // H-5 fix: cache server reference once — getServer() may return null during shutdown
+        net.minecraft.server.MinecraftServer _endSrv = WaveDefenseMod.getServer();
+
         // Збираємо онлайн-гравців для очищення тімейт-панелі
         List<ServerPlayer> onlinePlayers = new ArrayList<>();
         for (UUID pid : playersToRemove) {
-            ServerPlayer sp = WaveDefenseMod.getServer().getPlayerList().getPlayer(pid);
+            ServerPlayer sp = _endSrv != null ? _endSrv.getPlayerList().getPlayer(pid) : null;
             if (sp != null) onlinePlayers.add(sp);
         }
         wm.clearTeammatesForAll(onlinePlayers);
 
         for (UUID playerId : playersToRemove) {
-            ServerPlayer player = WaveDefenseMod.getServer().getPlayerList().getPlayer(playerId);
+            ServerPlayer player = _endSrv != null ? _endSrv.getPlayerList().getPlayer(playerId) : null;
             // Встановлюємо КД незалежно від того чи гравець онлайн
             if (cdSec > 0) ctx.reEntryCooldowns.put(playerId, System.currentTimeMillis() + cdSec * 1000L);
             if (player != null) {

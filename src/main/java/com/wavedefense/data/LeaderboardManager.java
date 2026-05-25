@@ -49,8 +49,24 @@ public class LeaderboardManager {
         if (locationName == null || modeKey == null || record == null) return;
         List<LeaderboardRecord> list = getOrCreate(locationName, modeKey);
         list.add(record);
-        list.sort((a, b) -> Integer.compare(b.primaryScore, a.primaryScore));
+        sortRecords(list);
         if (list.size() > MAX_ENTRIES) list.subList(MAX_ENTRIES, list.size()).clear();
+    }
+
+    /**
+     * M-3 fix: stable sort with three-level tie-breaking.
+     * 1) primaryScore descending (higher is better)
+     * 2) durationSec ascending   (faster completion is better)
+     * 3) timestamp descending    (more recent record wins ties)
+     */
+    private static void sortRecords(List<LeaderboardRecord> list) {
+        list.sort((a, b) -> {
+            int cmp = Integer.compare(b.primaryScore, a.primaryScore);
+            if (cmp != 0) return cmp;
+            cmp = Integer.compare(a.durationSec, b.durationSec);
+            if (cmp != 0) return cmp;
+            return Long.compare(b.timestamp, a.timestamp);
+        });
     }
 
     /** Returns the top-10 list for the given location/mode (may be empty, never null). */
@@ -148,8 +164,8 @@ public class LeaderboardManager {
                 for (int i = 0; i < listTag.size(); i++) {
                     list.add(LeaderboardRecord.load(listTag.getCompound(i)));
                 }
-                // L-5 fix: re-sort after load (guards against manual edits / version migration)
-                list.sort((a, b) -> Integer.compare(b.primaryScore, a.primaryScore));
+                // M-3 fix: re-sort with stable comparator after load
+                sortRecords(list);
                 if (list.size() > MAX_ENTRIES) list.subList(MAX_ENTRIES, list.size()).clear();
             }
         }

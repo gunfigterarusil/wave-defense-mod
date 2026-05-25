@@ -21,6 +21,9 @@ public class LeaveLocationPacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
+            // G1 fix: rate-limit leave to once per 5 s (keybind can fire rapidly)
+            if (!com.wavedefense.network.PacketRateLimiter.allow(
+                    player.getUUID(), LeaveLocationPacket.class, 5_000L)) return;
             com.wavedefense.wave.PlayerWaveData data = WaveDefenseMod.waveManager.getPlayerData(player.getUUID());
             if (data == null || data.getCurrentLocation() == null) return;
             // exitPvpLocation вже є — він universally виконує surrender без пенальті

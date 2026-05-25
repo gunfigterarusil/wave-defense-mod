@@ -126,9 +126,10 @@ public class WaveActionsScreen extends Screen {
         this.addRenderableWidget(exitBtn);
         buttonTooltips.put(exitBtn, I18n.get("wavedefense.tooltip.exit_pvp"));
 
-        // Здатися (з пенальті)
+        // Здатися (з пенальті) — B4 fix: use surrender_penalty key (red + "(з пенальті)" label)
+        // to visually distinguish from "Вийти з PvP" (no penalty, yellow).
         Button surrenderBtn = Button.builder(
-            Component.translatable("wavedefense.button.surrender"),
+            Component.translatable("wavedefense.button.surrender_penalty"),
             b -> { PacketHandler.sendToServer(new SurrenderPacket()); this.onClose(); }
         ).bounds(cx - btnW / 2, startY + (btnH + gap) * i++, btnW, btnH).build();
         this.addRenderableWidget(surrenderBtn);

@@ -237,9 +237,13 @@ public class HudOverlay {
         // Timer (if in timer mode)
         if (roundTicksLeft > 0) {
             int totalSec = roundTicksLeft / 20;
-            int min = totalSec / 60;
+            int hrs = totalSec / 3600;
+            int min = (totalSec % 3600) / 60;
             int sec = totalSec % 60;
-            String timerLine = "§c⏱ " + String.format("%d:%02d", min, sec);
+            // M-6 fix: show hours component when round duration exceeds 59 minutes
+            String timerLine = "§c⏱ " + (hrs > 0
+                ? String.format("%d:%02d:%02d", hrs, min, sec)
+                : String.format("%d:%02d", min, sec));
             g.drawString(mc.font, timerLine, panelX + padX, y, GuiTheme.WARN);
         }
 

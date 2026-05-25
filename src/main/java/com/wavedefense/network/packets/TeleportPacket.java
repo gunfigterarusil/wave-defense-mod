@@ -37,6 +37,9 @@ public class TeleportPacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
+            // G1 fix: rate-limit join/team-select to once per 3 s to prevent spam
+            if (!com.wavedefense.network.PacketRateLimiter.allow(
+                    player.getUUID(), TeleportPacket.class, 3_000L)) return;
 
             if (packet.locationName.equals("surrender")) {
                 WaveDefenseMod.waveManager.surrenderPlayer(player);
