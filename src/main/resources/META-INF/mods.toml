@@ -29,8 +29,19 @@ PvP features:
 - Standard rounds (buy phase → countdown → active → round end).
 - Deathmatch: unlimited respawns, victory by kill target.
 - Battle Royale: random spawn, shrinking border, border damage and particles.
+- Capture the Point (CtP): teams capture and hold multiple named points; score per
+  second per owned point; first-to-score or timer-based win condition.
+- King of the Hill (KotH): same mechanic on a single contested hill point.
+- Capture points: in-game editor per location, configurable radius, capture time,
+  particles; contested-point freeze when both teams stand on a point simultaneously.
 - Team spawns, auto-balance, friendly fire, scoreboard nametag hiding, per-round points.
 - PvP↔PvE mode switch requires two-click confirmation (no accidental resets).
+
+Persistent Leaderboard:
+- Per-location, per-mode top-10 records (PvE: waves + score; DM/BR: kills + KD;
+  CtP/KotH: objective score + kills).
+- Leaderboard button in the player main menu (visible when outside any active location).
+- Data persists in <world>/data/wavedefense_leaderboards.dat across server restarts.
 
 Mine and Slash compatibility (optional, mmorpg mod v6.1.0+):
 - When Mine and Slash is installed, each PvE location gains extra fields:

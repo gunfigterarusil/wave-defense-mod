@@ -1,5 +1,162 @@
 # Changelog
 
+## [0.2.50] - 2026-05-25
+
+### Fixed — CtP / KotH / Leaderboard audit pass (12 bugs + 6 lang keys)
+
+**Capture radius — cylinder, not sphere (M-10)**
+`CapturePointManager.isInRadius()` used 3D sphere distance (`dx²+dy²+dz²`), so a player
+standing on a cliff one block above or below the point never contributed to capture progress.
+Changed to horizontal-only 2D cylinder check (`dx²+dz²`), matching the expected tower-defence
+feel where only X/Z distance matters.
+
+**`captureTimeTicks` sent to client for accurate HUD progress bar (H-3)**
+The client-side HUD progress bar divided capture progress by the hardcoded constant 200 ticks.
+If an admin configured a non-default capture time (e.g. 5 s = 100 ticks), the bar always showed
+50% at max progress instead of 100%.
+Fix: `CapturePointManager.sendSync()` now builds a `Map<String, Integer> captureTimeTicks`
+(pointId → `captureTimeSec × 20`) and includes it as the new 4th field of `SyncCtpStatePacket`.
+`ClientCtpStateManager` caches the map; `HudOverlay` reads it as the denominator.
+`SyncCtpStatePacket` updated: 8-arg constructor, `"capTicks"` NBT key, null-case decode
+updated to 8 args. `PvpRoundManager` blank clear-packet updated to match (8 args).
+
+**HUD panel height accounts for active progress bars (M-3)**
+The CtP/KotH overlay panel height was calculated using only text rows, ignoring that each
+actively-capturing point renders an extra 6-pixel progress bar below its text row.
+Fixed: `panelH` now adds `activeProgressBars × 6` where `activeProgressBars` is the count of
+points with non-zero capture progress.
+
+**Long capture point names truncated in HUD (L-4)**
+Point names longer than 12 characters overflowed the HUD overlay panel.
+Fixed: names are clamped to 12 chars with `"…"` suffix before rendering.
+
+**`LeaderboardScreen` podium colors corrected (L-2)**
+Rank 1 was rendered in `§6` (dark gold/orange) and rank 3 in `§e` (bright yellow).
+Fixed to: rank 1 = `§e` (bright gold), rank 2 = `§7` (silver), rank 3 = `§6` (bronze/dark gold).
+
+**`LeaderboardScreen` player names truncated to 14 chars (M-6)**
+Long player names overflowed the player column in the leaderboard table.
+Fixed: `MAX_NAME_DISPLAY = 14` with `"…"` suffix.
+
+**`LeaderboardScreen` location selector supports mouse scroll (L-3)**
+The location button row had no `mouseScrolled()` override, so players with many locations
+could only reach locations not fitting the first row by clicking the ▲/▼ arrows.
+Fixed: `mouseScrolled()` increments/decrements `locScrollOffset` and calls `rebuildWidgets()`.
+
+**`LeaderboardScreen` empty/blank location names filtered (H-7)**
+`ClientLocationManager.getAllLocationNames()` can return null or blank-string entries for
+locations not yet synced to the client. These produced empty tabs and triggered a null location
+request to the server.
+Fixed: `init()` filters out null/blank names; when the filtered list is empty the screen shows
+the `wavedefense.leaderboard.no_locations` message instead of an empty button row. All location
+request / tab-building paths guard on empty list.
+
+**`CapturePointEditorScreen` particle grid y-advance corrected (M-9)**
+The y-advance after the particle preset button grid used `(PARTICLE_IDS.length / 4 + 1) * 20 + 4`,
+producing an extra 20-pixel gap for an 8-item × 4-per-row grid (exactly 2 rows; `+1` was wrong).
+Fixed to `(PARTICLE_IDS.length / 4) * 20 + 4`.
+
+**`CapturePointEditorScreen` shows inline error on empty name (L-1)**
+Clicking Save with a blank point name silently discarded the save. Players had no feedback.
+Fixed: `savePoint()` sets `saveError` string when the name is empty; `render()` draws it in
+`§c` red above the Save button. Uses new key `wavedefense.capture_point.error_name_empty`.
+
+**`PvpLocationEditorScreen` dead `mode == null` branch removed (L-9)**
+`initModeAndRulesTab()` had `if (mode == STANDARD || mode == null)` — `getPvpMode()` never
+returns null (enum field has a default), so the null branch was dead code. Removed.
+
+**`PvpLocationEditorScreen` warns when no capture points configured (M-7)**
+Switching to CtP or KotH mode with zero capture points defined would start a round with nothing
+to capture. A non-interactive `§c⚠` warning button now appears in the Points tab when the
+capture point list is empty, using key `wavedefense.pvp.warning.no_capture_points`.
+
+**Six new translation keys added to all 8 language files (EN · UK · DE · FR · ES · PL · PT-BR · ZH-CN)**
+
+| Key | Purpose |
+|-----|---------|
+| `wavedefense.capture_point.error_name_empty` | Inline error when saving a point with no name |
+| `wavedefense.msg.pvp_draw` | Chat message when a PvP round ends in a draw |
+| `wavedefense.msg.ctp_no_points` | Server warning when CtP/KotH round starts with 0 points |
+| `wavedefense.msg.point_contested` | Chat message when a capture point becomes contested |
+| `wavedefense.leaderboard.no_locations` | Placeholder text when leaderboard has no locations |
+| `wavedefense.pvp.warning.no_capture_points` | Editor warning: no capture points defined |
+
+---
+
+## [0.2.49] - 2026-05-25
+
+### Added — Capture the Point, King of the Hill, and Persistent Leaderboard
+
+**New game modes:**
+- **Capture the Point (CtP)** — teams compete to capture and hold multiple named points; score
+  accumulates per point owned per second; first team to reach `scoreToWin` wins (or highest score
+  at timer end in timer mode).
+- **King of the Hill (KotH)** — same mechanic with a single contested hill point; configurable
+  score-to-win or timer-based round.
+- Both modes share configurable `scoreToWin`, `scorePerSec`, `roundDurationSec`, and a
+  `firstToScore` toggle.
+- Contested behaviour: capture progress freezes when both teams stand on a point simultaneously.
+
+**Capture point management:**
+- New `CapturePoint` data class: UUID id, display name, `BlockPos`, capture radius, capture
+  time (sec), particle type + count.
+- `CapturePointEditorScreen` — in-game editor (list + edit modes) for adding, removing, and
+  configuring capture points per location.
+- `PvpLocationEditorScreen` now shows a conditional "Points" tab (tab 6) when mode is CtP or KotH.
+- `LocationSerializer` / `Location` updated to persist all CtP/KotH fields.
+
+**Server-side game logic:**
+- `CapturePointManager` — new sub-manager ticked from `WaveManager`; handles player detection,
+  signed capture progress, point flipping, score ticks, win conditions, and particle spawning.
+- `PvpRoundManager` — new `declareObjectiveWinner()` path; skips "one team alive" check for
+  objective modes; records leaderboard entries on match end.
+- `PvpRoundState` — new fields: `pointOwners`, `captureProgress`, `objectiveScore`,
+  `roundDurationTicks`; new helpers `initCapturePoints`, `checkObjectiveWinner`, `getLeadingTeam`.
+
+**Persistent Leaderboard:**
+- `LeaderboardRecord` — stores player UUID, name, primary score, secondary score, duration, timestamp.
+- `LeaderboardManager` — persists `<world>/data/wavedefense_leaderboards.dat`; per-location
+  per-mode top-10 lists; atomic file write.
+- `WaveDefenseMod` — initialises `LeaderboardManager` on server start, saves on server stop.
+- `SessionManager` — records PvE leaderboard entry in `triggerVictory()` (waves + score + time).
+- `PvpRoundManager.endPvpMatch()` — records DM/Standard/BR/CtP/KotH entries with kills and
+  objective score.
+
+**Networking (3 new packets, protocol → v8):**
+- `SyncCtpStatePacket` (S→C) — sent every 20 ticks: point owners, display names, signed capture
+  progress, team objective scores, scoreToWin, roundTicksLeft.
+- `RequestLeaderboardPacket` (C→S) — client requests top-10 for a given location + mode key.
+- `LeaderboardDataPacket` (S→C) — server responds with up to 10 `LeaderboardRecord` entries.
+
+**Client UI:**
+- `ClientCtpStateManager` — client-side mirror of active CtP/KotH state, updated by packet.
+- `ClientLeaderboardCache` — stores the last leaderboard response for screen rendering.
+- `HudOverlay` — new right-side CtP/KotH overlay: per-point ownership + capture progress bars,
+  separator, team scores (n/scoreToWin), countdown timer in timer mode.
+- `LeaderboardScreen` — full leaderboard UI: location selector, 6 mode tabs (PvE / Standard /
+  DM / BR / Capture / KotH), paginated top-10 table with rank/player/score/secondary/time/date
+  columns; accessible from `PlayerMenuScreen` when outside any active location.
+- `PlayerMenuScreen` — added "🏆 Рейтинг" (Leaderboard) button, hidden when inside a location.
+
+**Localisation:**
+- ~35 new translation keys added to all 8 lang files (en_us, uk_ua, de_de, fr_fr, es_es, pl_pl,
+  pt_br, zh_cn): mode names, editor labels, HUD strings, chat messages, leaderboard table headers.
+
+---
+
+## [0.2.48] - 2026-05-25
+
+### Fixed — Verification-pass bugs (6 additional fixes)
+
+- **HIGH** `ZoneActivationManager.tick()` accessed `WaveDefenseMod.locationManager` without a null-guard → NPE on every server tick during early startup before `LocationManager` is initialized. Fixed: added `if (WaveDefenseMod.locationManager == null) return;` after the existing `getServer()` guard.
+- **HIGH** `PvpRoundManager.pvpPenaltyDeducted` was never cleared between rounds (`startActiveRound()` cleared `pvpKillStreaks` and `pvpPendingRespawn` but omitted `pvpPenaltyDeducted`) → a UUID left in the set from round N would silently suppress the death-penalty deduction for that player's first non-PvP-kill death in round N+1. Fixed: added `pvpPenaltyDeducted.clear()` in `startActiveRound()`.
+- **MED** `PvpLocationEditorScreen.saveSharedSettings()` wrapped all 8 field parses in a single `try-catch` → one unparseable field silently discarded all remaining fields (boundary radius, leave timer, damage, portal timers, victory linger, re-entry cooldown). Fixed: individual try-catch per field, matching the pattern already applied to `saveAllRules()` in v0.2.47.
+- **MED** `ShopEditorScreen`: point-deletion clamped `scrollOffsetPoints` to `size - 1` instead of `Math.max(0, size - POINTS_PER_PAGE)` → after deleting a point with more than one page, the scroll offset could exceed the last valid page, showing a blank list. Fixed.
+- **LOW** `MineAndSlashCompat.initPhase1()` resolved `EntityData.get()` via reflection but never verified the method is actually static → `mGet.invoke(null, mob)` would throw a silent `IllegalArgumentException` if a future MnS version changes `get()` to an instance method. Fixed: added `Modifier.isStatic(mGet.getModifiers())` check that fails init with a clear log message.
+- **COSMETIC** `MobEffectsEditorScreen.init()` had a stray double semicolon `super.init();;`. Removed.
+
+---
+
 ## [0.2.47] - 2026-05-24
 
 ### Fixed — Critical runtime bugs (second audit pass)

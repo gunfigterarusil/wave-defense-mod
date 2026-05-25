@@ -1,8 +1,0 @@
-{
-  "id": "sandstone",
-  "possible_bosses": [
-    "minecraft:iron_golem"
-  ],
-  "size": 2,
-  "weight": 1000
-}

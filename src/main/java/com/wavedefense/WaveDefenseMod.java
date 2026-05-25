@@ -2,6 +2,7 @@ package com.wavedefense;
 
 import com.wavedefense.commands.WaveDefenseCommand;
 import com.wavedefense.config.WaveDefenseConfig;
+import com.wavedefense.data.LeaderboardManager;
 import com.wavedefense.data.LocationManager;
 import com.wavedefense.events.EventHandler;
 import com.wavedefense.events.KeyBindings;
@@ -33,6 +34,7 @@ public class WaveDefenseMod {
 
     private static MinecraftServer serverInstance;
     public static LocationManager locationManager;
+    public static LeaderboardManager leaderboardManager;
     public static WaveManager waveManager;
     public static PacketHandler packetHandler;
 
@@ -54,6 +56,8 @@ public class WaveDefenseMod {
     public void onServerStarting(ServerStartingEvent event) {
         serverInstance = event.getServer();
         locationManager = new LocationManager(serverInstance);
+        leaderboardManager = new LeaderboardManager(serverInstance);
+        leaderboardManager.loadFromFile();
     }
 
     @SubscribeEvent
@@ -61,6 +65,10 @@ public class WaveDefenseMod {
         if (locationManager != null) {
             locationManager.saveToFile();
             LOGGER.info("[WaveDefense] Location data saved on server stop.");
+        }
+        if (leaderboardManager != null) {
+            leaderboardManager.saveToFile();
+            LOGGER.info("[WaveDefense] Leaderboard data saved on server stop.");
         }
     }
 

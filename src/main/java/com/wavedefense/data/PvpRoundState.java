@@ -5,6 +5,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Стан PvP сесії для однієї локації.
@@ -55,6 +56,106 @@ public class PvpRoundState {
         if (aliveThisRound.size() == 1) return aliveThisRound.iterator().next();
         if (aliveThisRound.isEmpty()) return null;
         return null;
+    }
+
+    // ── Capture the Point / King of the Hill ────────────────────────────
+    /** pointId → owning teamName (null = neutral) */
+    private final Map<String, String>  pointOwners       = new LinkedHashMap<>();
+    /** pointId → signed capture-tick progress (magnitude 0..capTicks).
+     *  The sign convention is determined by {@code pointCapturingTeam}:
+     *  positive = {@code pointCapturingTeam[id]} is advancing,
+     *  negative = opponent is neutralising that team's progress. */
+    private final Map<String, Integer> captureProgress   = new LinkedHashMap<>();
+    /** pointId → which team "owns" the positive direction on this point.
+     *  Set the first time a team starts capturing from neutral; cleared
+     *  when the point is captured or progress returns to 0. */
+    private final Map<String, String>  pointCapturingTeam = new LinkedHashMap<>();
+    /** teamName → accumulated objective score */
+    private final Map<String, Integer> objectiveScore    = new LinkedHashMap<>();
+    /** Ticks remaining in timer-mode round (0 when over) */
+    private int roundDurationTicks = 0;
+    /** epoch-ms when the first ACTIVE round of this match began (for leaderboard duration). */
+    private long matchStartMs = 0L;
+
+    /**
+     * Initialises capture-point tracking for a new active round.
+     * @param points         the capture point definitions from the location
+     * @param roundDurationSec  round duration in seconds (ignored in first-to-score mode; still stored)
+     */
+    public void initCapturePoints(List<CapturePoint> points, int roundDurationSec) {
+        pointOwners.clear();
+        captureProgress.clear();
+        pointCapturingTeam.clear();
+        objectiveScore.clear();
+        for (CapturePoint cp : points) {
+            pointOwners.put(cp.getId(), null);     // neutral
+            captureProgress.put(cp.getId(), 0);
+        }
+        roundDurationTicks = roundDurationSec * 20;
+    }
+
+    public Map<String, String>  getPointOwners()       { return pointOwners; }
+    public Map<String, Integer> getCaptureProgress()   { return captureProgress; }
+    public Map<String, String>  getPointCapturingTeam(){ return pointCapturingTeam; }
+    public Map<String, Integer> getObjectiveScore()    { return objectiveScore; }
+    public int  getRoundDurationTicks()                { return roundDurationTicks; }
+    public void setRoundDurationTicks(int t)           { this.roundDurationTicks = t; }
+    public long getMatchStartMs()                      { return matchStartMs; }
+    public void setMatchStartMs(long t)                { this.matchStartMs = t; }
+
+    public String getPointOwner(String pointId) { return pointOwners.get(pointId); }
+
+    /**
+     * Advances capture progress for the given point toward {@code capTicks} for {@code team}.
+     * Progress is signed: positive = capturer is team "team1", negative = team "team2".
+     * When the magnitude reaches {@code capTicks} the point flips ownership.
+     *
+     * @param pointId   capture point id
+     * @param delta     +1 or -1 per tick (sign encodes which side is advancing)
+     * @param capTicks  captureTimeSec * 20
+     * @param team      the team currently standing on the point uncontested
+     * @return the new owner team name if the point just flipped, null otherwise
+     */
+    public String advanceCaptureProgress(String pointId, int delta, int capTicks, String team) {
+        int current = captureProgress.getOrDefault(pointId, 0);
+        current += delta;
+        if (Math.abs(current) >= capTicks) {
+            pointOwners.put(pointId, team);
+            captureProgress.put(pointId, 0);
+            return team;
+        }
+        captureProgress.put(pointId, current);
+        return null;
+    }
+
+    public void addObjectiveScore(String teamName, int amount) {
+        if (teamName == null) return;
+        objectiveScore.merge(teamName, amount, Integer::sum);
+    }
+
+    public int getObjectiveScore(String teamName) {
+        return teamName == null ? 0 : objectiveScore.getOrDefault(teamName, 0);
+    }
+
+    /** Returns the winning team if any team has reached {@code scoreToWin}, else null. */
+    public String checkObjectiveWinner(int scoreToWin) {
+        for (Map.Entry<String, Integer> e : objectiveScore.entrySet()) {
+            if (e.getValue() >= scoreToWin) return e.getKey();
+        }
+        return null;
+    }
+
+    /** Returns the team with the highest objective score (for timer-end mode). null if tie/empty. */
+    public String getLeadingTeam() {
+        if (objectiveScore.isEmpty()) return null;
+        String leader = null;
+        int best = -1;
+        boolean tie = false;
+        for (Map.Entry<String, Integer> e : objectiveScore.entrySet()) {
+            if (e.getValue() > best) { best = e.getValue(); leader = e.getKey(); tie = false; }
+            else if (e.getValue() == best) { tie = true; }
+        }
+        return tie ? null : leader;
     }
 
     // Переможець очікує підтвердження (під час ROUND_END_DELAY)
@@ -128,6 +229,8 @@ public class PvpRoundState {
         recentAttackers.clear();
         // H1 fix: reset DM kill counters so they don't carry over from previous rounds
         dmTeamKills.clear();
+        // C-1 fix: record match start time on the very first round only
+        if (matchStartMs == 0L) matchStartMs = System.currentTimeMillis();
     }
 
     public boolean isAllRoundsDone() { return currentRound >= totalRounds; }
@@ -230,6 +333,33 @@ public class PvpRoundState {
             dmKillsTag.putInt(entry.getKey(), entry.getValue());
         }
         tag.put("dmTeamKills", dmKillsTag);
+        // Save CtP/KotH state
+        tag.putLong("matchStartMs", matchStartMs);
+        if (!pointCapturingTeam.isEmpty()) {
+            CompoundTag capTeamTag = new CompoundTag();
+            for (Map.Entry<String, String> e : pointCapturingTeam.entrySet()) {
+                capTeamTag.putString(e.getKey(), e.getValue());
+            }
+            tag.put("pointCapturingTeam", capTeamTag);
+        }
+        if (!objectiveScore.isEmpty()) {
+            CompoundTag objTag = new CompoundTag();
+            for (Map.Entry<String, Integer> e : objectiveScore.entrySet()) objTag.putInt(e.getKey(), e.getValue());
+            tag.put("objectiveScore", objTag);
+        }
+        if (!pointOwners.isEmpty()) {
+            CompoundTag ownTag = new CompoundTag();
+            for (Map.Entry<String, String> e : pointOwners.entrySet()) {
+                ownTag.putString(e.getKey(), e.getValue() != null ? e.getValue() : "");
+            }
+            tag.put("pointOwners", ownTag);
+        }
+        if (!captureProgress.isEmpty()) {
+            CompoundTag progTag = new CompoundTag();
+            for (Map.Entry<String, Integer> e : captureProgress.entrySet()) progTag.putInt(e.getKey(), e.getValue());
+            tag.put("captureProgress", progTag);
+        }
+        tag.putInt("roundDurationTicks", roundDurationTicks);
         return tag;
     }
 
@@ -241,7 +371,8 @@ public class PvpRoundState {
             tag.getInt("totalRounds"),
             tag.getInt("buyTime")
         );
-        state.phase = Phase.valueOf(tag.getString("phase"));
+        try { state.phase = Phase.valueOf(tag.getString("phase")); }
+        catch (IllegalArgumentException ignored) { state.phase = Phase.WAITING; }
         state.currentRound = tag.getInt("currentRound");
         state.roundStartDelay = tag.getInt("roundStartDelay");
         state.timerTicks = tag.getInt("timerTicks");
@@ -279,6 +410,30 @@ public class PvpRoundState {
                 state.dmTeamKills.put(key, dmKillsTag.getInt(key));
             }
         }
+        // Load CtP/KotH state
+        state.matchStartMs = NbtHelper.getLong(tag, "matchStartMs", 0L);
+        if (tag.contains("pointCapturingTeam")) {
+            CompoundTag capTeamTag = tag.getCompound("pointCapturingTeam");
+            for (String key : capTeamTag.getAllKeys()) {
+                state.pointCapturingTeam.put(key, capTeamTag.getString(key));
+            }
+        }
+        if (tag.contains("objectiveScore")) {
+            CompoundTag objTag = tag.getCompound("objectiveScore");
+            for (String key : objTag.getAllKeys()) state.objectiveScore.put(key, objTag.getInt(key));
+        }
+        if (tag.contains("pointOwners")) {
+            CompoundTag ownTag = tag.getCompound("pointOwners");
+            for (String key : ownTag.getAllKeys()) {
+                String val = ownTag.getString(key);
+                state.pointOwners.put(key, val.isEmpty() ? null : val);
+            }
+        }
+        if (tag.contains("captureProgress")) {
+            CompoundTag progTag = tag.getCompound("captureProgress");
+            for (String key : progTag.getAllKeys()) state.captureProgress.put(key, progTag.getInt(key));
+        }
+        state.roundDurationTicks = NbtHelper.getInt(tag, "roundDurationTicks", 0);
         return state;
     }
 }

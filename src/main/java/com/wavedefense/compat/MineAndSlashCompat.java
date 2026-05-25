@@ -99,6 +99,9 @@ public final class MineAndSlashCompat {
             Class<?> cls = Class.forName(
                 "com.robertx22.mine_and_slash.capability.entity.EntityData");
             mGet       = cls.getMethod("get", net.minecraft.world.entity.LivingEntity.class);
+            if (!java.lang.reflect.Modifier.isStatic(mGet.getModifiers())) {
+                throw new IllegalStateException("EntityData.get() is not static in this MnS version");
+            }
             mSetLevel  = cls.getMethod("setLevel", int.class);
             mGetCustom = cls.getMethod("getCustomExactStats");
             mRecalc    = cls.getMethod("recalcStats_DONT_CALL");

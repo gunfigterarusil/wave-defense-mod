@@ -1,9 +1,0 @@
-{
-  "data": {
-    "finder": "SPECIFIC_RARITY",
-    "target_rar": "legendary"
-  },
-  "id": "upgrade_specific_rar_legendary",
-  "serializer": "upgrade_affix_rarity",
-  "weight": 1000
-}

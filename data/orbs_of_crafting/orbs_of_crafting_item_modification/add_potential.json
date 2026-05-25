@@ -1,8 +1,0 @@
-{
-  "data": {
-    "add_potential": 25
-  },
-  "id": "add_potential",
-  "serializer": "add_potential",
-  "weight": 1000
-}

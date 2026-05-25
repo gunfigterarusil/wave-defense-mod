@@ -43,6 +43,7 @@ public class ZoneActivationManager {
      */
     public void tick(WaveManager wm) {
         if (WaveDefenseMod.getServer() == null) return;
+        if (WaveDefenseMod.locationManager == null) return;
 
         for (Location location : WaveDefenseMod.locationManager.getAllLocations()) {
             if (!location.isAutoActivate() || location.isPvp()) continue;

@@ -233,7 +233,7 @@ public class ShopEditorScreen extends Screen {
                     if (isPendingDelPoint) {
                         pendingDeletePointIndex = -1;
                         location.removeShopPoint(fi);
-                        scrollOffsetPoints = Math.max(0, Math.min(scrollOffsetPoints, location.getShopPoints().size() - 1));
+                        scrollOffsetPoints = Math.max(0, Math.min(scrollOffsetPoints, Math.max(0, location.getShopPoints().size() - POINTS_PER_PAGE)));
                         rebuildWidgets();
                     } else {
                         pendingDeletePointIndex = fi;

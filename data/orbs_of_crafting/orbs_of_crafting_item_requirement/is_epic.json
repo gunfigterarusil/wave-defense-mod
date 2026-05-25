@@ -1,8 +1,0 @@
-{
-  "data": {
-    "rarity": "epic"
-  },
-  "id": "is_epic",
-  "serializer": "is_rarity",
-  "weight": 1000
-}

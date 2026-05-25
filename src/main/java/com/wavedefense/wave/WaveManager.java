@@ -52,6 +52,7 @@ public class WaveManager {
     public final WaveAutoScaler autoScaler;
     public final InfoPanelManager infoPanelMgr;
     public final ZoneActivationManager zoneMgr;
+    public final CapturePointManager captureMgr;
 
     public final Map<UUID, Integer> leaveCountdownTicks;
     public final Map<UUID, Long> reEntryCooldowns;
@@ -71,6 +72,7 @@ public class WaveManager {
         this.autoScaler = new WaveAutoScaler();
         this.infoPanelMgr = new InfoPanelManager(waveCtx);
         this.zoneMgr = new ZoneActivationManager(waveCtx);
+        this.captureMgr = new CapturePointManager(waveCtx);
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -310,6 +312,7 @@ public class WaveManager {
         boundaryMgr.tick(this);
         triggerEval.tick(this);
         pvpMgr.tick(this);
+        captureMgr.tick(this);
         zoneMgr.tick(this);
         brManager.tick(this);
         portalMgr.tick(this);

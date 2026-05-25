@@ -1,8 +1,0 @@
-{
-  "id": "spell_has_tag_not_affected_by_cast_speed_is_false",
-  "is": false,
-  "ser": "spell_has_tag",
-  "tag": {
-    "id": "not_affected_by_cast_speed"
-  }
-}

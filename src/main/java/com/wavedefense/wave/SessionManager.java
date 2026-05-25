@@ -2,6 +2,8 @@ package com.wavedefense.wave;
 
 import com.wavedefense.WaveDefenseMod;
 import com.wavedefense.data.GameStats;
+import com.wavedefense.data.LeaderboardManager;
+import com.wavedefense.data.LeaderboardRecord;
 import com.wavedefense.data.Location;
 import com.wavedefense.data.PlayerBackup;
 import com.wavedefense.wave.PlayerWaveData;
@@ -287,6 +289,32 @@ public class SessionManager {
 
         // Fire LOCATION_END loot trigger before the victory screen
         wm.fireLootTriggerByName(locationName, com.wavedefense.data.LootSpawn.Trigger.LOCATION_END);
+
+        // ── Leaderboard: record PvE session results ───────────────────────
+        if (WaveDefenseMod.leaderboardManager != null) {
+            LocationSession sess = ctx.getSession(locationName);
+            int wavesCompleted = sess != null ? sess.currentWave : loc.getWaves().size();
+            // gameStartMs is set when the lobby ends and wave 1 begins (fix H-5: was using
+            // startTimerMs which stores future lobby-end time, understating duration by lobbyLen)
+            int durationSec = (sess != null && sess.gameStartMs > 0)
+                ? Math.max(0, (int)((System.currentTimeMillis() - sess.gameStartMs) / 1000)) : 0;
+            for (Map.Entry<UUID, PlayerWaveData> entry : ctx.playerData.entrySet()) {
+                if (entry.getValue().getCurrentLocation() == null) continue;
+                if (!entry.getValue().getCurrentLocation().getName().equals(locationName)) continue;
+                UUID pid = entry.getKey();
+                int points = loc.getPlayerPoints(pid);
+                String pname = "Unknown";
+                net.minecraft.server.MinecraftServer srv = WaveDefenseMod.getServer();
+                if (srv != null) {
+                    net.minecraft.server.level.ServerPlayer sp = srv.getPlayerList().getPlayer(pid);
+                    if (sp != null) pname = sp.getName().getString();
+                }
+                WaveDefenseMod.leaderboardManager.addRecord(locationName,
+                    LeaderboardManager.MODE_PVE,
+                    new LeaderboardRecord(pid, pname, points, wavesCompleted, durationSec));
+            }
+            WaveDefenseMod.leaderboardManager.saveToFile();
+        }
 
         if (loc.isVictoryScreenEnabled() && loc.getVictoryLingerTimeSec() > 0) {
             // Відображаємо title "ПЕРЕМОГА" всім гравцям на локації

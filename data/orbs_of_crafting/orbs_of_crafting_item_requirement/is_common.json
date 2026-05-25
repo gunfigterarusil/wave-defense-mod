@@ -1,8 +1,0 @@
-{
-  "data": {
-    "rarity": "common"
-  },
-  "id": "is_common",
-  "serializer": "is_rarity",
-  "weight": 1000
-}

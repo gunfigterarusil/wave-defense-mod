@@ -16,7 +16,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class PacketHandler {
-    private static final String PROTOCOL_VERSION = "7";
+    private static final String PROTOCOL_VERSION = "8";
     public static final SimpleChannel INSTANCE = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(WaveDefenseMod.MODID, "main"),
             () -> PROTOCOL_VERSION,
@@ -61,6 +61,11 @@ public class PacketHandler {
         c2s(ImportWavePacket.class, ImportWavePacket::encode, ImportWavePacket::decode, ImportWavePacket::handle);
         s2c(WaveExportListPacket.class, WaveExportListPacket::encode, WaveExportListPacket::decode, WaveExportListPacket::handle);
         c2s(RequestWaveExportListPacket.class, RequestWaveExportListPacket::encode, RequestWaveExportListPacket::decode, RequestWaveExportListPacket::handle);
+
+        // CtP / KotH + Leaderboard packets
+        s2c(SyncCtpStatePacket.class, SyncCtpStatePacket::encode, SyncCtpStatePacket::decode, SyncCtpStatePacket::handle);
+        c2s(RequestLeaderboardPacket.class, RequestLeaderboardPacket::encode, RequestLeaderboardPacket::decode, RequestLeaderboardPacket::handle);
+        s2c(LeaderboardDataPacket.class, LeaderboardDataPacket::encode, LeaderboardDataPacket::decode, LeaderboardDataPacket::handle);
 
         WaveDefenseMod.LOGGER.info("Network packets registered");
     }

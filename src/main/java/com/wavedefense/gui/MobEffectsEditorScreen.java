@@ -55,7 +55,7 @@ public class MobEffectsEditorScreen extends Screen {
 
     @Override
     protected void init() {
-        super.init();;
+        super.init();
         int cx = this.width / 2;
         int panelH = this.height - 60;
 

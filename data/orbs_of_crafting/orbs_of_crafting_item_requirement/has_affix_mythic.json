@@ -1,8 +1,0 @@
-{
-  "data": {
-    "rar": "mythic"
-  },
-  "id": "has_affix_mythic",
-  "serializer": "has_affix_of_rar",
-  "weight": 1000
-}

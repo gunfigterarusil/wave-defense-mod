@@ -1,6 +1,0 @@
-{
-  "id": "increment_uses_relief",
-  "serializer": "increment_uses",
-  "use_key": "relief",
-  "weight": 1000
-}

@@ -37,7 +37,9 @@ public class LocationSession {
     // ── Wave state ────────────────────────────────────────────────────
     public int  currentWave      = 1;
     public int  waveTimerTicks   = 0;
-    public long startTimerMs     = 0L;   // 0 = таймер не активний; >0 = epoch-ms коли стартує хвиля
+    public long startTimerMs     = 0L;   // 0 = таймер не активний; >0 = epoch-ms коли закінчується лобі
+    /** epoch-ms when the game (first wave) actually started. 0 = not yet started / unknown. */
+    public long gameStartMs      = 0L;
     public int  victoryLingerTicks = 0;
     public int  timer60          = 0;
     public int  timer120         = 0;
@@ -297,6 +299,7 @@ public class LocationSession {
             if (now >= startTimerMs) {
                 // Час лоббі вийшов — застосовуємо firstWaveDelaySec перед 1-ю хвилею
                 startTimerMs = 0L;
+                if (gameStartMs == 0L) gameStartMs = System.currentTimeMillis();
                 int firstDelay = location.getFirstWaveDelaySec();
                 if (firstDelay > 0 && currentWave == 1) {
                     waveTimerTicks = firstDelay * 20; // use wave-between timer to add delay
@@ -517,6 +520,7 @@ public class LocationSession {
         tag.putInt("currentWave", currentWave);
         tag.putInt("waveTimerTicks", waveTimerTicks);
         tag.putLong("startTimerMs", startTimerMs);
+        tag.putLong("gameStartMs", gameStartMs);
         tag.putInt("victoryLingerTicks", victoryLingerTicks);
         tag.putInt("timer60", timer60);
         tag.putInt("timer120", timer120);
@@ -587,6 +591,7 @@ public class LocationSession {
         sess.currentWave = tag.getInt("currentWave");
         sess.waveTimerTicks = tag.getInt("waveTimerTicks");
         sess.startTimerMs = tag.getLong("startTimerMs");
+        sess.gameStartMs  = tag.contains("gameStartMs") ? tag.getLong("gameStartMs") : 0L;
         sess.victoryLingerTicks = tag.getInt("victoryLingerTicks");
         sess.timer60 = tag.getInt("timer60");
         sess.timer120 = tag.getInt("timer120");

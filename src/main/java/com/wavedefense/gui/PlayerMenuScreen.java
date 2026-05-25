@@ -9,6 +9,8 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 
+import com.wavedefense.wave.PlayerWaveData;
+
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -55,6 +57,16 @@ public class PlayerMenuScreen extends ListEditorScreen<String> {
                 getStartY() + (Math.max(1, getItemsPerPage()) - 1) * getRowHeight(), 20, 20);
 
         // ── Footer (static) ───────────────────────────────────────────
+        // Show leaderboard button only when player is not inside any location
+        PlayerWaveData pd = ClientPlayerDataManager.getPlayerData();
+        boolean notInLocation = (pd == null || pd.getCurrentLocation() == null);
+        if (notInLocation) {
+            addStatic(Button.builder(
+                    Component.translatable("wavedefense.leaderboard.button"),
+                    button -> this.minecraft.setScreen(new LeaderboardScreen(this))
+            ).bounds(cx - 55 - 78, this.height - 28, 73, 20).build());
+        }
+
         addStatic(Button.builder(
                 Component.translatable("wavedefense.button.close"), button -> this.onClose()
         ).bounds(cx - 55, this.height - 28, 110, 20).build());

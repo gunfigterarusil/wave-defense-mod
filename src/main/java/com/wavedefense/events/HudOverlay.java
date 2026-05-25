@@ -3,6 +3,7 @@ package com.wavedefense.events;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.wavedefense.WaveDefenseMod;
 import com.wavedefense.data.Location;
+import com.wavedefense.gui.ClientCtpStateManager;
 import com.wavedefense.gui.ClientPlayerDataManager;
 import com.wavedefense.gui.GuiTheme;
 import com.wavedefense.gui.HudLayout;
@@ -146,6 +147,100 @@ public class HudOverlay {
                          : mobsLeft > 1 ? GuiTheme.WARN
                          : GuiTheme.DANGER;
             drawLine(graphics, mc, mobLine, blockX, estimatedW, curY, 0xAA000000, mobColor);
+        }
+
+        RenderSystem.disableBlend();
+
+        // ── CtP / KotH objective overlay ─────────────────────────────
+        if (ClientCtpStateManager.isActive()) {
+            renderCtpOverlay(graphics, mc, screenW, screenH);
+        }
+    }
+
+    /** Renders the CtP / KotH HUD panel on the right side of the screen. */
+    private static void renderCtpOverlay(GuiGraphics g, net.minecraft.client.Minecraft mc,
+                                          int screenW, int screenH) {
+        java.util.Map<String, String>  owners    = ClientCtpStateManager.getPointOwners();
+        java.util.Map<String, String>  names     = ClientCtpStateManager.getPointNames();
+        java.util.Map<String, Integer> capTicks  = ClientCtpStateManager.getCaptureTimeTicks(); // H-3
+        java.util.Map<String, Integer> progress  = ClientCtpStateManager.getCaptureProgress();
+        java.util.Map<String, Integer> scores    = ClientCtpStateManager.getObjectiveScore();
+        int scoreToWin      = ClientCtpStateManager.getScoreToWin();
+        int roundTicksLeft  = ClientCtpStateManager.getRoundTicksLeft();
+
+        int lineH  = mc.font.lineHeight;
+        int padX   = 5;
+        int panelW = 140;
+        int panelX = screenW - panelW - 5;
+        int panelY = 48;
+
+        // M-3: panel height must account for progress bars (each non-zero progress adds 4px bar + 2px gap)
+        int activeProgressBars = (int) progress.values().stream().filter(v -> v != 0).count();
+        int textRows = 1 + owners.size() + 1 + scores.size() + (roundTicksLeft > 0 ? 1 : 0); // title + points + separator + scores + timer
+        int panelH = textRows * (lineH + 3) + activeProgressBars * 6 + 8;
+
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+
+        GuiTheme.panel(g, panelX - 2, panelY - 2, panelX + panelW + 2, panelY + panelH + 2);
+
+        int y = panelY + 3;
+
+        // Title row
+        g.drawString(mc.font, "§b§l" + I18n.get("wavedefense.ctp.hud.title"), panelX + padX, y, GuiTheme.ACCENT);
+        y += lineH + 3;
+
+        // Per-point ownership + progress bar
+        for (java.util.Map.Entry<String, String> e : owners.entrySet()) {
+            String pointId = e.getKey();
+            String owner   = e.getValue();
+            int prog       = progress.getOrDefault(pointId, 0);
+
+            // L-4: truncate long display names to fit in 140px panel
+            String rawLabel = names.getOrDefault(pointId, pointId.substring(0, Math.min(8, pointId.length())));
+            String pointLabel = rawLabel.length() > 12 ? rawLabel.substring(0, 11) + "…" : rawLabel;
+            String ownerLabel = owner != null ? "§a" + owner : "§7---";
+            String display = "§7" + pointLabel + ": " + ownerLabel;
+            g.drawString(mc.font, display, panelX + padX, y, GuiTheme.TEXT_MUTED);
+            y += lineH + 1;
+
+            // Progress bar — H-3: use server-supplied capTicks as denominator
+            if (prog != 0) {
+                int cap = capTicks.getOrDefault(pointId, 200);
+                float frac = cap > 0 ? Math.min(1f, (float) Math.abs(prog) / cap) : 0f;
+                int barW = panelW - padX * 2;
+                int barColor = prog > 0 ? 0xFF4488FF : 0xFFFF4444;
+                g.fill(panelX + padX, y, panelX + padX + (int)(barW * frac), y + 2, barColor);
+                g.fill(panelX + padX, y, panelX + padX + barW, y + 2, 0x40FFFFFF);
+                y += 4 + 2;
+            } else {
+                y += 2;
+            }
+        }
+
+        // Separator
+        g.fill(panelX + padX, y, panelX + panelW - padX, y + 1, 0x60AAAAAA);
+        y += 4;
+
+        // Team scores
+        for (java.util.Map.Entry<String, Integer> e : scores.entrySet()) {
+            String line;
+            if (scoreToWin > 0) {
+                line = "§e" + e.getKey() + "§7: §f" + e.getValue() + "§8/§7" + scoreToWin;
+            } else {
+                line = "§e" + e.getKey() + "§7: §f" + e.getValue();
+            }
+            g.drawString(mc.font, line, panelX + padX, y, GuiTheme.TEXT);
+            y += lineH + 3;
+        }
+
+        // Timer (if in timer mode)
+        if (roundTicksLeft > 0) {
+            int totalSec = roundTicksLeft / 20;
+            int min = totalSec / 60;
+            int sec = totalSec % 60;
+            String timerLine = "§c⏱ " + String.format("%d:%02d", min, sec);
+            g.drawString(mc.font, timerLine, panelX + padX, y, GuiTheme.WARN);
         }
 
         RenderSystem.disableBlend();

@@ -1,9 +1,0 @@
-{
-  "data": {
-    "finder": "SPECIFIC_RARITY",
-    "target_rar": "epic"
-  },
-  "id": "upgrade_specific_rar_epic",
-  "serializer": "upgrade_affix_rarity",
-  "weight": 1000
-}

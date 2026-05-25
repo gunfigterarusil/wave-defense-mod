@@ -48,6 +48,10 @@ public class PvpLocationEditorScreen extends Screen {
     private EditBox roundStartPointsInput;
     private EditBox winPointsInput;
     private EditBox losePointsInput;
+    // CtP / KotH fields
+    private EditBox ctpScoreToWinInput;
+    private EditBox ctpScorePerSecInput;
+    private EditBox ctpRoundDurationInput;
     private EditBox boundaryRadiusInput;
     private EditBox leaveTimerInput;
     private EditBox boundaryDamageInput;
@@ -81,19 +85,33 @@ public class PvpLocationEditorScreen extends Screen {
         super.init();
         int cx = this.width / 2;
 
-        // Вкладки — 4 по 80px, відцентровані
-        int tabW = 70, tabGap = 3;
-        int totalTabW = 5 * tabW + 4 * tabGap;
-        int tabX = cx - totalTabW / 2;
+        // Вкладки — динамічна ширина залежно від режиму
+        int tabGap = 3;
 
         staticWidgets.clear();
-        String[] tabs = {"wavedefense.pvp.editor.tab.teams", "wavedefense.pvp.editor.tab.rules", "wavedefense.pvp.editor.tab.shop", "wavedefense.pvp.editor.tab.loot", "wavedefense.pvp.editor.tab.common"};
+        boolean hasPointsTab = location.isObjectiveMode();
+        int numTabs = hasPointsTab ? 6 : 5;
+        int tabW = numTabs > 5 ? 60 : 70;
+        int totalTabW = numTabs * tabW + (numTabs - 1) * tabGap;
+        int tabX2 = cx - totalTabW / 2;
+        if (currentTab >= numTabs) currentTab = 0;
+
+        java.util.List<String> tabList = new java.util.ArrayList<>(java.util.Arrays.asList(
+            "wavedefense.pvp.editor.tab.teams",
+            "wavedefense.pvp.editor.tab.rules",
+            "wavedefense.pvp.editor.tab.shop",
+            "wavedefense.pvp.editor.tab.loot",
+            "wavedefense.pvp.editor.tab.common"
+        ));
+        if (hasPointsTab) tabList.add("wavedefense.pvp.editor.tab.points");
+        String[] tabs = tabList.toArray(new String[0]);
+
         for (int i = 0; i < tabs.length; i++) {
             final int ti = i;
             addStatic(Button.builder(
                     Component.literal(currentTab == i ? "§a§l▶ " : "§7▶ ").append(Component.translatable(tabs[i])),
                     button -> { currentTab = ti; scrollOffset = 0; rulesScrollOffset = 0; rebuildWidgets(); }
-            ).bounds(tabX + i * (tabW + tabGap), 25, tabW, 20).build());
+            ).bounds(tabX2 + i * (tabW + tabGap), 25, tabW, 20).build());
         }
 
         int startY = 52;
@@ -104,6 +122,7 @@ public class PvpLocationEditorScreen extends Screen {
             case 2 -> initShopTab(cx, startY);
             case 3 -> initLootTab(cx, startY);
             case 4 -> initCommonLocationTab(cx, startY - rulesScrollOffset);
+            case 5 -> initPointsTab(cx, startY - rulesScrollOffset);
         }
 
         // Нижня панель
@@ -243,10 +262,12 @@ public class PvpLocationEditorScreen extends Screen {
         String[] modeLabels = {
             "⚔ " + net.minecraft.client.resources.language.I18n.get("wavedefense.pvp.mode.standard"),
             "⚡ " + net.minecraft.client.resources.language.I18n.get("wavedefense.pvp.mode.deathmatch"),
-            "👑 " + net.minecraft.client.resources.language.I18n.get("wavedefense.pvp.mode.battle_royale")
+            "👑 " + net.minecraft.client.resources.language.I18n.get("wavedefense.pvp.mode.battle_royale"),
+            "🚩 " + net.minecraft.client.resources.language.I18n.get("wavedefense.pvp.mode.capture_the_point"),
+            "⛰ " + net.minecraft.client.resources.language.I18n.get("wavedefense.pvp.mode.king_of_the_hill")
         };
         com.wavedefense.data.Location.PvpMode[] modes = com.wavedefense.data.Location.PvpMode.values();
-        int mBtnW = 100, mBtnGap = 5;
+        int mBtnW = 82, mBtnGap = 4;
         int mStartX = cx - (modes.length * mBtnW + (modes.length - 1) * mBtnGap) / 2;
         for (int mi = 0; mi < modes.length; mi++) {
             final com.wavedefense.data.Location.PvpMode fm = modes[mi];
@@ -260,12 +281,16 @@ public class PvpLocationEditorScreen extends Screen {
 
         y = initCommonRulesSection(cx, y);
 
-        if (mode == com.wavedefense.data.Location.PvpMode.STANDARD || mode == null)
+        // L-9: removed dead `mode == null` branch; getPvpMode() never returns null
+        if (mode == com.wavedefense.data.Location.PvpMode.STANDARD)
             y = initStandardSection(cx, y);
         else if (mode == com.wavedefense.data.Location.PvpMode.DEATHMATCH)
             y = initDeathmatchSection(cx, y);
         else if (mode == com.wavedefense.data.Location.PvpMode.BATTLE_ROYALE)
             y = initBattleRoyaleSection(cx, y);
+        else if (mode == com.wavedefense.data.Location.PvpMode.CAPTURE_THE_POINT
+                || mode == com.wavedefense.data.Location.PvpMode.KING_OF_THE_HILL)
+            y = initObjectiveRulesSection(cx, y);
 
         y += 4;
         this.addRenderableWidget(Button.builder(
@@ -498,6 +523,90 @@ public class PvpLocationEditorScreen extends Screen {
         return y;
     }
 
+    // ── Секція: Objective (CtP / KotH) ───────────────────────────────────
+    private int initObjectiveRulesSection(int cx, int y) {
+        boolean isCtp = location.getPvpMode() == com.wavedefense.data.Location.PvpMode.CAPTURE_THE_POINT;
+        String modeTitle = isCtp
+            ? net.minecraft.client.resources.language.I18n.get("wavedefense.pvp.mode.capture_the_point")
+            : net.minecraft.client.resources.language.I18n.get("wavedefense.pvp.mode.king_of_the_hill");
+        this.addRenderableWidget(Button.builder(
+            Component.literal(modeTitle), b -> {}
+        ).bounds(cx - 160, y, 320, 14).build()).active = false;
+        y += 18;
+
+        // Score to win
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.ctp.score_to_win"), b -> {}
+        ).bounds(cx - 160, y, 150, 18).build()).active = false;
+        ctpScoreToWinInput = new EditBox(this.font, cx - 5, y, 60, 18, Component.literal("200"));
+        ctpScoreToWinInput.setValue(String.valueOf(location.getObjectiveScoreToWin()));
+        ctpScoreToWinInput.setMaxLength(6);
+        this.addRenderableWidget(ctpScoreToWinInput);
+        y += 24;
+
+        // Score per second
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.ctp.score_per_sec"), b -> {}
+        ).bounds(cx - 160, y, 150, 18).build()).active = false;
+        ctpScorePerSecInput = new EditBox(this.font, cx - 5, y, 60, 18, Component.literal("1"));
+        ctpScorePerSecInput.setValue(String.valueOf(location.getObjectiveScorePerSec()));
+        ctpScorePerSecInput.setMaxLength(3);
+        this.addRenderableWidget(ctpScorePerSecInput);
+        y += 24;
+
+        // Win mode toggle
+        boolean firstToScore = location.isObjectiveFirstToScore();
+        this.addRenderableWidget(Button.builder(
+            Component.translatable(firstToScore
+                ? "wavedefense.ctp.win_mode.first" : "wavedefense.ctp.win_mode.timer"),
+            b -> {
+                if (isCtp) location.setCtpFirstToScore(!location.isCtpFirstToScore());
+                else        location.setKothFirstToScore(!location.isKothFirstToScore());
+                rebuildWidgets();
+            }
+        ).bounds(cx - 160, y, 320, 18).build());
+        y += 24;
+
+        // Round duration (only shown in timer mode)
+        if (!firstToScore) {
+            this.addRenderableWidget(Button.builder(
+                Component.translatable("wavedefense.ctp.round_duration"), b -> {}
+            ).bounds(cx - 160, y, 200, 18).build()).active = false;
+            ctpRoundDurationInput = new EditBox(this.font, cx + 46, y, 60, 18, Component.literal("300"));
+            ctpRoundDurationInput.setValue(String.valueOf(location.getObjectiveRoundDurationSec()));
+            ctpRoundDurationInput.setMaxLength(5);
+            this.addRenderableWidget(ctpRoundDurationInput);
+            y += 24;
+        }
+        y += 4;
+        return y;
+    }
+
+    // ── Вкладка: Точки (CtP / KotH) ──────────────────────────────────────
+    private void initPointsTab(int cx, int y) {
+        int pts = location.getCapturePoints().size();
+        this.addRenderableWidget(Button.builder(
+            Component.literal("§7" + pts + " point(s) configured"), b -> {}
+        ).bounds(cx - 160, y, 320, 14).build()).active = false;
+        y += 20;
+
+        // M-7: warn admin when no capture points are configured yet
+        if (pts == 0) {
+            this.addRenderableWidget(Button.builder(
+                Component.literal("§c⚠ " + net.minecraft.client.resources.language.I18n.get(
+                    "wavedefense.pvp.warning.no_capture_points")), b -> {}
+            ).bounds(cx - 160, y, 320, 18).build()).active = false;
+            y += 22;
+        }
+
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.capture_point.editor.open"),
+            b -> this.minecraft.setScreen(new CapturePointEditorScreen(location, this))
+        ).bounds(cx - 110, y, 220, 22).build());
+        y += 30;
+        rulesContentHeight = y + rulesScrollOffset - 52;
+    }
+
     private void saveAllRules() {
         // Each field has its own try-catch so a single invalid input does not
         // silently discard all remaining field saves.
@@ -517,6 +626,20 @@ public class PvpLocationEditorScreen extends Screen {
         if (brBorderParticleInput != null && !brBorderParticleInput.getValue().isBlank())
             location.setBrBorderParticle(brBorderParticleInput.getValue().trim());
         if (brBorderDamageAmtInput != null) try { location.setBrBorderDamageAmt(Math.max(0f, Float.parseFloat(brBorderDamageAmtInput.getValue()))); } catch (NumberFormatException ignored) {}
+        // CtP / KotH objective settings
+        boolean isCtp2 = location.getPvpMode() == com.wavedefense.data.Location.PvpMode.CAPTURE_THE_POINT;
+        if (ctpScoreToWinInput != null)    try {
+            int v = Math.max(1, Integer.parseInt(ctpScoreToWinInput.getValue()));
+            if (isCtp2) location.setCtpScoreToWin(v); else location.setKothScoreToWin(v);
+        } catch (NumberFormatException ignored) {}
+        if (ctpScorePerSecInput != null)   try {
+            int v = Math.max(1, Integer.parseInt(ctpScorePerSecInput.getValue()));
+            if (isCtp2) location.setCtpScorePerSec(v); else location.setKothScorePerSec(v);
+        } catch (NumberFormatException ignored) {}
+        if (ctpRoundDurationInput != null) try {
+            int v = Math.max(30, Integer.parseInt(ctpRoundDurationInput.getValue()));
+            if (isCtp2) location.setCtpRoundDurationSec(v); else location.setKothRoundDurationSec(v);
+        } catch (NumberFormatException ignored) {}
     }
 
 
@@ -856,24 +979,38 @@ public class PvpLocationEditorScreen extends Screen {
     }
 
     private void saveSharedSettings() {
-        try {
-            if (boundaryRadiusInput != null)
-                location.setLocationBoundaryRadius(Integer.parseInt(boundaryRadiusInput.getValue().trim()));
-            if (leaveTimerInput != null)
-                location.setLocationLeaveTimerSec(Integer.parseInt(leaveTimerInput.getValue().trim()));
-            if (boundaryDamageInput != null)
-                location.setBoundaryDamagePerSec(Float.parseFloat(boundaryDamageInput.getValue().trim()));
-            if (portalPenaltyTimerInput != null)
-                location.setPortalPenaltyTimerSec(Integer.parseInt(portalPenaltyTimerInput.getValue().trim()));
-            if (portalRespawnTimerInput != null)
-                location.setPortalRespawnTimerSec(Integer.parseInt(portalRespawnTimerInput.getValue().trim()));
-            if (portalOpenAfterStartInput != null)
-                location.setPortalOpenAfterStartSec(Integer.parseInt(portalOpenAfterStartInput.getValue().trim()));
-            if (victoryLingerInput != null)
-                location.setVictoryLingerTimeSec(Integer.parseInt(victoryLingerInput.getValue().trim()));
-            if (reEntryCooldownInput != null)
-                location.setReEntryCooldownSec(Integer.parseInt(reEntryCooldownInput.getValue().trim()));
-        } catch (NumberFormatException ignored) {}
+        if (boundaryRadiusInput != null) {
+            try { location.setLocationBoundaryRadius(Integer.parseInt(boundaryRadiusInput.getValue().trim())); }
+            catch (NumberFormatException ignored) {}
+        }
+        if (leaveTimerInput != null) {
+            try { location.setLocationLeaveTimerSec(Integer.parseInt(leaveTimerInput.getValue().trim())); }
+            catch (NumberFormatException ignored) {}
+        }
+        if (boundaryDamageInput != null) {
+            try { location.setBoundaryDamagePerSec(Float.parseFloat(boundaryDamageInput.getValue().trim())); }
+            catch (NumberFormatException ignored) {}
+        }
+        if (portalPenaltyTimerInput != null) {
+            try { location.setPortalPenaltyTimerSec(Integer.parseInt(portalPenaltyTimerInput.getValue().trim())); }
+            catch (NumberFormatException ignored) {}
+        }
+        if (portalRespawnTimerInput != null) {
+            try { location.setPortalRespawnTimerSec(Integer.parseInt(portalRespawnTimerInput.getValue().trim())); }
+            catch (NumberFormatException ignored) {}
+        }
+        if (portalOpenAfterStartInput != null) {
+            try { location.setPortalOpenAfterStartSec(Integer.parseInt(portalOpenAfterStartInput.getValue().trim())); }
+            catch (NumberFormatException ignored) {}
+        }
+        if (victoryLingerInput != null) {
+            try { location.setVictoryLingerTimeSec(Integer.parseInt(victoryLingerInput.getValue().trim())); }
+            catch (NumberFormatException ignored) {}
+        }
+        if (reEntryCooldownInput != null) {
+            try { location.setReEntryCooldownSec(Integer.parseInt(reEntryCooldownInput.getValue().trim())); }
+            catch (NumberFormatException ignored) {}
+        }
     }
 
     private void saveChanges() {
@@ -914,7 +1051,7 @@ public class PvpLocationEditorScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        if (currentTab == 1 || currentTab == 4) { // scrollable tabs
+        if (currentTab == 1 || currentTab == 4 || currentTab == 5) { // scrollable tabs
             int listTop = 48, listBot = this.height - 32;
             if (mouseY < listTop || mouseY > listBot) return super.mouseScrolled(mouseX, mouseY, delta);
             int step = 18;
@@ -976,7 +1113,7 @@ public class PvpLocationEditorScreen extends Screen {
         g.flush();
         ScissorHelper.disable();
         // Scrollbar (поза scissor, завжди видима) — для вкладок з прокруткою
-        if (currentTab == 1 || currentTab == 4) {
+        if (currentTab == 1 || currentTab == 4 || currentTab == 5) {
             int maxScroll = getRulesMaxScroll();
             if (maxScroll > 0) {
                 GuiTheme.scrollBar(g, this.width - 8, listTop, listBot,

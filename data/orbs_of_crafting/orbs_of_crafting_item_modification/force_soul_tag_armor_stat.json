@@ -1,8 +1,0 @@
-{
-  "data": {
-    "gear_tag": "armor_stat"
-  },
-  "id": "force_soul_tag_armor_stat",
-  "serializer": "force_soul_tag",
-  "weight": 1000
-}

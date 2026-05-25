@@ -48,7 +48,7 @@ public class Location {
     int pvpWinPoints    = 0;      // поінти переможній команді за раунд
     int pvpLosePoints   = 0;      // поінти команді що програла за раунд
     // ── PvP підрежим ─────────────────────────────────────────────────────
-    public enum PvpMode { STANDARD, DEATHMATCH, BATTLE_ROYALE }
+    public enum PvpMode { STANDARD, DEATHMATCH, BATTLE_ROYALE, CAPTURE_THE_POINT, KING_OF_THE_HILL }
     PvpMode pvpMode = PvpMode.STANDARD;
 
     // ── Battle Royale налаштування ────────────────────────────────────
@@ -60,6 +60,17 @@ public class Location {
     float   brBorderDamageAmt     = 1.0f;
 
     int     dmKillsToWin  = 10;          // Deathmatch: вбивств для перемоги у раунді
+
+    // ── Capture the Point / King of the Hill ─────────────────────────────
+    List<CapturePoint> capturePoints    = new ArrayList<>();
+    int  ctpScoreToWin      = 200;
+    int  ctpScorePerSec     = 1;
+    boolean ctpFirstToScore = true;    // true = first team to scoreToWin wins; false = timer
+    int  ctpRoundDurationSec = 300;
+    int  kothScoreToWin     = 300;
+    int  kothScorePerSec    = 1;
+    boolean kothFirstToScore = true;
+    int  kothRoundDurationSec = 300;
     boolean pvpWaitEffect = true;       // ефекти slowness+blindness на очікування (замість spectator)
     boolean pvpTeamAutoBalance = true;  // автобаланс команд при вході/виході
     boolean enforceGameMode = true;     // примусовий gamemode в локації
@@ -438,6 +449,49 @@ public class Location {
     public void    setPvpMode(PvpMode m)         { this.pvpMode = m != null ? m : PvpMode.STANDARD; }
     public boolean isDeathmatch()                { return getPvpMode() == PvpMode.DEATHMATCH; }
     public boolean isBattleRoyale()              { return getPvpMode() == PvpMode.BATTLE_ROYALE; }
+    public boolean isCtpMode()                   { return getPvpMode() == PvpMode.CAPTURE_THE_POINT; }
+    public boolean isKothMode()                  { return getPvpMode() == PvpMode.KING_OF_THE_HILL; }
+    public boolean isObjectiveMode()             { return isCtpMode() || isKothMode(); }
+
+    // ── Capture the Point / King of the Hill ─────────────────────────────
+    public List<CapturePoint> getCapturePoints()              { return capturePoints; }
+    public void addCapturePoint(CapturePoint cp)              { capturePoints.add(cp); }
+    public void removeCapturePoint(int i)                     { if (i >= 0 && i < capturePoints.size()) capturePoints.remove(i); }
+
+    public int  getCtpScoreToWin()                            { return ctpScoreToWin; }
+    public void setCtpScoreToWin(int v)                       { this.ctpScoreToWin = Math.max(1, v); }
+    public int  getCtpScorePerSec()                           { return ctpScorePerSec; }
+    public void setCtpScorePerSec(int v)                      { this.ctpScorePerSec = Math.max(1, v); }
+    public boolean isCtpFirstToScore()                        { return ctpFirstToScore; }
+    public void setCtpFirstToScore(boolean v)                 { this.ctpFirstToScore = v; }
+    public int  getCtpRoundDurationSec()                      { return ctpRoundDurationSec; }
+    public void setCtpRoundDurationSec(int v)                 { this.ctpRoundDurationSec = Math.max(30, v); }
+
+    public int  getKothScoreToWin()                           { return kothScoreToWin; }
+    public void setKothScoreToWin(int v)                      { this.kothScoreToWin = Math.max(1, v); }
+    public int  getKothScorePerSec()                          { return kothScorePerSec; }
+    public void setKothScorePerSec(int v)                     { this.kothScorePerSec = Math.max(1, v); }
+    public boolean isKothFirstToScore()                       { return kothFirstToScore; }
+    public void setKothFirstToScore(boolean v)                { this.kothFirstToScore = v; }
+    public int  getKothRoundDurationSec()                     { return kothRoundDurationSec; }
+    public void setKothRoundDurationSec(int v)                { this.kothRoundDurationSec = Math.max(30, v); }
+
+    /** Returns the effective score-to-win for the current objective mode. */
+    public int getObjectiveScoreToWin() {
+        return isKothMode() ? kothScoreToWin : ctpScoreToWin;
+    }
+    /** Returns the effective score-per-second for the current objective mode. */
+    public int getObjectiveScorePerSec() {
+        return isKothMode() ? kothScorePerSec : ctpScorePerSec;
+    }
+    /** Returns true if win condition is "first to score" (not timer) for current mode. */
+    public boolean isObjectiveFirstToScore() {
+        return isKothMode() ? kothFirstToScore : ctpFirstToScore;
+    }
+    /** Returns the effective round duration (seconds) for timer-based objective mode. */
+    public int getObjectiveRoundDurationSec() {
+        return isKothMode() ? kothRoundDurationSec : ctpRoundDurationSec;
+    }
 
     public int     getBrBorderRadius()           { return brBorderRadius; }
     public void    setBrBorderRadius(int r)      { this.brBorderRadius = Math.max(10, r); }

@@ -1,7 +1,0 @@
-{
-  "check_combined_hp_and_ms": true,
-  "id": "is_target_low",
-  "perc": 30,
-  "ser": "is_target_low",
-  "side": "Target"
-}

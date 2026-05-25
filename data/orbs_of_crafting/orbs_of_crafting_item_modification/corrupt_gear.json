@@ -1,8 +1,0 @@
-{
-  "data": {
-    "adds_affixes": true
-  },
-  "id": "corrupt_gear",
-  "serializer": "corrupt_gear",
-  "weight": 1000
-}

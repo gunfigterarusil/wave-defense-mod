@@ -208,21 +208,23 @@ public class PvpRoundManager {
                 }
 
             } else if (state.getPhase() == PvpRoundState.Phase.ACTIVE) {
-                String winner = state.checkRoundWinner();
-                if (winner != null) {
-                    state.setPendingWinner(winner);
-                    state.startRoundEndDelay(5);
-                    wm.broadcastToLocation(location.getName(),
-                        Component.translatable("wavedefense.msg.pvp_team_wins_round", winner));
-                    broadcastPvpSync(wm, location);
-                } else if (location.isBattleRoyale() && state.getAliveThisRound().isEmpty()) {
-                    // H3 fix: both last BR players died in the same tick — declare draw.
-                    // pendingWinner = null signals endRound() to record no team win.
-                    state.setPendingWinner(null);
-                    state.startRoundEndDelay(5);
-                    wm.broadcastToLocation(location.getName(),
-                        Component.translatable("wavedefense.msg.pvp_br_draw"));
-                    broadcastPvpSync(wm, location);
+                // CtP/KotH win condition is handled by CapturePointManager — skip alive-check
+                if (!location.isObjectiveMode()) {
+                    String winner = state.checkRoundWinner();
+                    if (winner != null) {
+                        state.setPendingWinner(winner);
+                        state.startRoundEndDelay(5);
+                        wm.broadcastToLocation(location.getName(),
+                            Component.translatable("wavedefense.msg.pvp_team_wins_round", winner));
+                        broadcastPvpSync(wm, location);
+                    } else if (location.isBattleRoyale() && state.getAliveThisRound().isEmpty()) {
+                        // H3 fix: both last BR players died in the same tick — declare draw.
+                        state.setPendingWinner(null);
+                        state.startRoundEndDelay(5);
+                        wm.broadcastToLocation(location.getName(),
+                            Component.translatable("wavedefense.msg.pvp_br_draw"));
+                        broadcastPvpSync(wm, location);
+                    }
                 }
 
             } else if (state.getPhase() == PvpRoundState.Phase.ROUND_END_DELAY) {
@@ -582,6 +584,19 @@ public class PvpRoundManager {
         state.startActiveRound(allInLoc);
         pvpKillStreaks.clear();
         pvpPendingRespawn.clear(); // скидаємо черги respawn з попереднього раунду
+        pvpPenaltyDeducted.clear(); // скидаємо деdup-сет щоб штрафи наступного раунду рахувались знову
+        // CtP/KotH: initialise capture point tracking
+        if (location.isObjectiveMode()) {
+            if (location.getCapturePoints().isEmpty()) {
+                // H-2 fix: no capture points configured → abort immediately with a warning
+                wm.broadcastToLocation(location.getName(),
+                    Component.translatable("wavedefense.msg.ctp_no_points"));
+                state.setPendingWinner(null);
+                state.startRoundEndDelay(3);
+                return;
+            }
+            state.initCapturePoints(location.getCapturePoints(), location.getObjectiveRoundDurationSec());
+        }
 
         for (UUID pid : allInLoc) {
             ServerPlayer p = WaveDefenseMod.getServer().getPlayerList().getPlayer(pid);
@@ -683,18 +698,63 @@ public class PvpRoundManager {
         broadcastPvpSync(wm, location);
     }
 
+    /**
+     * Called by {@link CapturePointManager} when a CtP/KotH win condition is met.
+     * Sets the pending winner and starts the round-end delay — identical to the normal path.
+     *
+     * @param timerEnd true = round ended because time ran out (show timer-win message)
+     */
+    void declareObjectiveWinner(WaveManager wm, Location location, PvpRoundState state,
+                                String winnerTeam, boolean timerEnd) {
+        if (state.getPhase() != PvpRoundState.Phase.ACTIVE) return;
+        state.setPendingWinner(winnerTeam);
+        state.startRoundEndDelay(5);
+        if (winnerTeam != null) {
+            Component msg = timerEnd
+                ? Component.translatable("wavedefense.msg.ctp_timer_wins", winnerTeam)
+                : Component.translatable("wavedefense.msg.ctp_wins", winnerTeam);
+            wm.broadcastToLocation(location.getName(), msg);
+        } else {
+            wm.broadcastToLocation(location.getName(),
+                Component.translatable("wavedefense.msg.pvp_br_draw"));
+        }
+        broadcastPvpSync(wm, location);
+    }
+
     private void endPvpMatch(WaveManager wm, Location location, PvpRoundState state) {
         state.setPhase(PvpRoundState.Phase.ENDED);
 
-        String champion = state.getTeamWins().entrySet().stream()
-            .max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse(null);
+        // H-1 fix: detect ties before picking a champion
+        int maxWins = state.getTeamWins().values().stream().mapToInt(Integer::intValue).max().orElse(0);
+        long teamsAtMax = state.getTeamWins().values().stream().filter(v -> v == maxWins).count();
+        boolean isDraw = teamsAtMax > 1;
+
+        String champion = isDraw ? null
+            : state.getTeamWins().entrySet().stream()
+                .max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse(null);
         String championDisplay = champion != null ? champion
             : Component.translatable("wavedefense.msg.pvp_nobody").getString();
 
+        if (isDraw) {
+            wm.broadcastToLocation(location.getName(),
+                Component.translatable("wavedefense.msg.pvp_draw"));
+        }
         wm.broadcastToLocation(location.getName(),
             Component.translatable("wavedefense.msg.pvp_match_ended", championDisplay));
         wm.fireLootTriggerByName(location.getName(), LootSpawn.Trigger.MATCH_END);
         broadcastPvpSync(wm, location);
+
+        // H-6 fix: clear CtP/KotH overlay on clients when the match ends
+        if (location.isObjectiveMode()) {
+            com.wavedefense.network.packets.SyncCtpStatePacket clearPkt =
+                new com.wavedefense.network.packets.SyncCtpStatePacket(
+                    "", new java.util.LinkedHashMap<>(), new java.util.LinkedHashMap<>(),
+                    new java.util.LinkedHashMap<>(), new java.util.LinkedHashMap<>(),
+                    new java.util.LinkedHashMap<>(), 0, 0);
+            for (ServerPlayer p : wm.getPlayersInLocation(location.getName())) {
+                com.wavedefense.network.PacketHandler.sendToPlayer(p, clearPkt);
+            }
+        }
 
         String winTeam = champion;
 
@@ -737,6 +797,34 @@ public class PvpRoundManager {
         ctx.removeSession(location.getName());
         wm.brManager.clearLocation(location.getName());
         cleanupScoreboardTeams(location.getName());
+
+        // ── Leaderboard: record top player per match ──────────────────────
+        if (WaveDefenseMod.leaderboardManager != null) {
+            String modeKey = switch (location.getPvpMode()) {
+                case DEATHMATCH      -> com.wavedefense.data.LeaderboardManager.MODE_DEATHMATCH;
+                case BATTLE_ROYALE   -> com.wavedefense.data.LeaderboardManager.MODE_BATTLE_ROYALE;
+                case CAPTURE_THE_POINT -> com.wavedefense.data.LeaderboardManager.MODE_CTP;
+                case KING_OF_THE_HILL  -> com.wavedefense.data.LeaderboardManager.MODE_KOTH;
+                default              -> com.wavedefense.data.LeaderboardManager.MODE_STANDARD;
+            };
+            // C-1 fix: matchStartMs is recorded in PvpRoundState.startActiveRound()
+            long matchStartMs = state.getMatchStartMs();
+            int matchDurationSec = matchStartMs > 0
+                ? Math.max(0, (int)((System.currentTimeMillis() - matchStartMs) / 1000)) : 0;
+            for (Map.Entry<UUID, com.wavedefense.data.PvpPlayerStats> e : state.getAllStats().entrySet()) {
+                com.wavedefense.data.PvpPlayerStats ps = e.getValue();
+                int primary = location.isObjectiveMode()
+                    ? state.getObjectiveScore(ps.getTeamName())
+                    : location.getPlayerPoints(e.getKey());
+                int secondary = ps.getKills();
+                com.wavedefense.data.LeaderboardRecord rec =
+                    new com.wavedefense.data.LeaderboardRecord(
+                        e.getKey(), ps.getPlayerName(), primary, secondary,
+                        matchDurationSec);
+                WaveDefenseMod.leaderboardManager.addRecord(location.getName(), modeKey, rec);
+            }
+            WaveDefenseMod.leaderboardManager.saveToFile();
+        }
     }
 
     // ════════════════════════════════════════════════════════════════════

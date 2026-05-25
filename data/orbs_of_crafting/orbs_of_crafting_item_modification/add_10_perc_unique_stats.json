@@ -1,8 +1,0 @@
-{
-  "data": {
-    "num": 10
-  },
-  "id": "add_10_perc_unique_stats",
-  "serializer": "modify_unique_stats",
-  "weight": 1000
-}

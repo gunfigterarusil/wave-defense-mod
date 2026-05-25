@@ -129,6 +129,17 @@ public final class LocationSerializer {
         tag.putBoolean("enforceGameMode", loc.enforceGameMode);
         tag.putString("pvpMode",          loc.getPvpMode().name());
 
+        // ── Capture the Point / King of the Hill ─────────────────────────
+        NbtHelper.saveList(tag, "capturePoints", loc.capturePoints, CapturePoint::save);
+        tag.putInt("ctpScoreToWin",       loc.ctpScoreToWin);
+        tag.putInt("ctpScorePerSec",      loc.ctpScorePerSec);
+        tag.putBoolean("ctpFirstToScore", loc.ctpFirstToScore);
+        tag.putInt("ctpRoundDurationSec", loc.ctpRoundDurationSec);
+        tag.putInt("kothScoreToWin",      loc.kothScoreToWin);
+        tag.putInt("kothScorePerSec",     loc.kothScorePerSec);
+        tag.putBoolean("kothFirstToScore",loc.kothFirstToScore);
+        tag.putInt("kothRoundDurationSec",loc.kothRoundDurationSec);
+
         // ── Battle Royale ─────────────────────────────────────────────────
         tag.putInt("brBorderRadius",          loc.brBorderRadius);
         tag.putInt("brShrinkIntervalSec",     loc.brShrinkIntervalSec);
@@ -290,6 +301,17 @@ public final class LocationSerializer {
         loc.pvpTeamAutoBalance  = NbtHelper.getBool(tag, "pvpTeamAutoBalance",  true);
         loc.enforceGameMode     = NbtHelper.getBool(tag, "enforceGameMode",     true);
         loc.pvpMode             = NbtHelper.loadEnum(tag, "pvpMode", Location.PvpMode.class, Location.PvpMode.STANDARD);
+
+        // ── Capture the Point / King of the Hill ─────────────────────────
+        loc.capturePoints        = NbtHelper.loadList(tag, "capturePoints", CapturePoint::load);
+        loc.ctpScoreToWin        = NbtHelper.getInt(tag,    "ctpScoreToWin",       200);
+        loc.ctpScorePerSec       = NbtHelper.getInt(tag,    "ctpScorePerSec",      1);
+        loc.ctpFirstToScore      = NbtHelper.getBool(tag,   "ctpFirstToScore",     true);
+        loc.ctpRoundDurationSec  = NbtHelper.getInt(tag,    "ctpRoundDurationSec", 300);
+        loc.kothScoreToWin       = NbtHelper.getInt(tag,    "kothScoreToWin",      300);
+        loc.kothScorePerSec      = NbtHelper.getInt(tag,    "kothScorePerSec",     1);
+        loc.kothFirstToScore     = NbtHelper.getBool(tag,   "kothFirstToScore",    true);
+        loc.kothRoundDurationSec = NbtHelper.getInt(tag,    "kothRoundDurationSec",300);
 
         // ── Battle Royale ─────────────────────────────────────────────────
         loc.brBorderRadius        = NbtHelper.getInt(tag,    "brBorderRadius",        100);
