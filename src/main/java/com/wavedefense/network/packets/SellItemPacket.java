@@ -48,6 +48,9 @@ public class SellItemPacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
+            // G1 fix: rate-limit sells to once per 500 ms
+            if (!com.wavedefense.network.PacketRateLimiter.allow(
+                    player.getUUID(), SellItemPacket.class, 500L)) return;
 
             Location location = WaveDefenseMod.locationManager.getLocation(packet.locationName);
             if (location == null) return;

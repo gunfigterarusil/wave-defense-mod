@@ -150,7 +150,7 @@ public class PlayerShopScreen extends ScrollableScreen {
         for (int i = 0; i < cats.length; i++) {
             final ShopItem.ShopCategory cat = cats[i];
             int bx = startCatX + i * (catW + gap);
-            Component label = ((cat == activeCategory) ? Component.translatable("wavedefense.auto.u00a7e_u00a7l_99162931") : Component.translatable("wavedefense.auto.u00a77_d0a4b613"))
+            Component label = Component.literal(cat == activeCategory ? "§e§l" : "§7")
                     .append(Component.translatable(categoryKey(cat)));
             addStatic(Button.builder(
                     label,
@@ -262,12 +262,12 @@ public class PlayerShopScreen extends ScrollableScreen {
     protected void renderHeader(GuiGraphics g, int mx, int my, float pt) {
         int cx = this.width / 2;
         g.drawCenteredString(this.font,
-                Component.translatable("wavedefense.auto.u00a76_u00a7l_008813a3").append(Component.translatable("wavedefense.shop.header", location.getName())),
+                Component.literal("§6§l").append(Component.translatable("wavedefense.shop.header", location.getName())),
                 cx, 8, 0xFFFFFF);
         Component summary = currentWave > 0
                 ? Component.translatable("wavedefense.shop.summary_wave", playerPoints, filteredIndices.size(), currentWave)
                 : Component.translatable("wavedefense.shop.summary", playerPoints, filteredIndices.size());
-        g.drawCenteredString(this.font, Component.translatable("wavedefense.auto.u00a7e_60ffae0a").append(summary), cx, 20, 0xFFFFFF);
+        g.drawCenteredString(this.font, Component.literal("§e").append(summary), cx, 20, 0xFFFFFF);
     }
 
     @Override
@@ -306,7 +306,7 @@ public class PlayerShopScreen extends ScrollableScreen {
             String name = getDisplayName(shopItem, 16);
             g.drawString(this.font, "§f§l" + name, textX, yPos + 4, 0xFFFFFF);
             g.drawString(this.font,
-                    Component.translatable("wavedefense.auto.u00a78_415f64f9").append(Component.translatable(categoryKey(shopItem.getCategory()))).append("\u00A78]"),
+                    Component.literal("\u00A78[").append(Component.translatable(categoryKey(shopItem.getCategory()))).append("\u00A78]"),
                     textX, yPos + 14, 0xAAAAAA);
             if (shopItem.hasAvailabilityTrigger()) {
                 g.drawString(this.font, "§8" + I18n.get(shopItem.getAvailabilityTrigger().label), textX, yPos + 24, 0xAAAAAA);

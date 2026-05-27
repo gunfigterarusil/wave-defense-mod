@@ -38,11 +38,14 @@ public class WaveDefenseConfigScreen extends Screen {
     private boolean pendingTooltips;
     private int     pendingLobbyTimer;
     private String  pendingGameMode;
+    private int     pendingMaxPlayers;
+    private boolean pendingWaveTitle;
 
     // PvP
     private boolean pendingHideNametags;
     private int     pendingDefaultRounds;
     private int     pendingBuyTime;
+    private int     pendingRespawnDelay;
 
     // Mobs & Shop
     private boolean pendingMobEquip;
@@ -80,11 +83,15 @@ public class WaveDefenseConfigScreen extends Screen {
         pendingHideNametags   = WaveDefenseConfig.PVP_HIDE_ENEMY_NAMETAGS.get();
         pendingDefaultRounds  = WaveDefenseConfig.PVP_DEFAULT_ROUNDS.get();
         pendingBuyTime        = WaveDefenseConfig.PVP_DEFAULT_BUY_TIME.get();
+        pendingRespawnDelay   = WaveDefenseConfig.PVP_RESPAWN_DELAY_SECONDS.get();
 
         pendingMobEquip       = WaveDefenseConfig.MOBS_CAN_HAVE_EQUIPMENT.get();
         pendingArmorDrop      = WaveDefenseConfig.MOB_ARMOR_DROP_CHANCE.get();
         pendingShopCategories = WaveDefenseConfig.SHOP_CATEGORIES_ENABLED.get();
         pendingShopHotkey     = WaveDefenseConfig.SHOP_HOTKEY_ENABLED.get();
+
+        pendingMaxPlayers     = WaveDefenseConfig.MAX_PLAYERS_PER_LOCATION.get();
+        pendingWaveTitle      = WaveDefenseConfig.WAVE_START_TITLE_ENABLED.get();
 
         pendingMaxMobTypes    = WaveDefenseConfig.MAX_MOB_TYPES.get();
         pendingMaxWaves       = WaveDefenseConfig.MAX_WAVES.get();
@@ -188,6 +195,18 @@ public class WaveDefenseConfigScreen extends Screen {
         gmBtn.setTooltip(Tooltip.create(
             Component.translatable("wavedefense.config.general.game_mode.tooltip")));
         this.addRenderableWidget(gmBtn);
+        y += 24;
+
+        label(lx, y, lw, "wavedefense.config.general.max_players");
+        addIntBox(cx + 24, y, rw, pendingMaxPlayers, 0, 200,
+            v -> pendingMaxPlayers = v,
+            "wavedefense.config.general.max_players.tooltip");
+        y += 24;
+
+        label(lx, y, lw, "wavedefense.config.general.wave_title");
+        addToggle(cx + 24, y, rw, pendingWaveTitle,
+            v -> pendingWaveTitle = v,
+            "wavedefense.config.general.wave_title.tooltip");
     }
 
     // ── Tab: PvP ─────────────────────────────────────────────────────────
@@ -211,6 +230,12 @@ public class WaveDefenseConfigScreen extends Screen {
         addIntBox(cx + 24, y, rw, pendingBuyTime, 5, 120,
             v -> pendingBuyTime = v);
         y += 24;
+
+        label(lx, y, lw, "wavedefense.config.pvp.respawn_delay");
+        addIntBox(cx + 24, y, rw, pendingRespawnDelay, 0, 30,
+            v -> pendingRespawnDelay = v,
+            "wavedefense.config.pvp.respawn_delay.tooltip");
+        y += 28;
 
         infoLine(cx, y, "wavedefense.config.pvp.note");
     }
@@ -326,6 +351,7 @@ public class WaveDefenseConfigScreen extends Screen {
         WaveDefenseConfig.PVP_HIDE_ENEMY_NAMETAGS.set(pendingHideNametags);
         WaveDefenseConfig.PVP_DEFAULT_ROUNDS.set(pendingDefaultRounds);
         WaveDefenseConfig.PVP_DEFAULT_BUY_TIME.set(pendingBuyTime);
+        WaveDefenseConfig.PVP_RESPAWN_DELAY_SECONDS.set(pendingRespawnDelay);
 
         WaveDefenseConfig.MOBS_CAN_HAVE_EQUIPMENT.set(pendingMobEquip);
         WaveDefenseConfig.MOB_ARMOR_DROP_CHANCE.set(pendingArmorDrop);
@@ -338,6 +364,9 @@ public class WaveDefenseConfigScreen extends Screen {
         WaveDefenseConfig.MAX_PLAYER_SPAWNS.set(pendingMaxPlayerSpawns);
         WaveDefenseConfig.MAX_SHOP_ITEMS.set(pendingMaxShopItems);
         WaveDefenseConfig.MAX_LOOT_SPAWNS.set(pendingMaxLootSpawns);
+
+        WaveDefenseConfig.MAX_PLAYERS_PER_LOCATION.set(pendingMaxPlayers);
+        WaveDefenseConfig.WAVE_START_TITLE_ENABLED.set(pendingWaveTitle);
 
         WaveDefenseConfig.DEBUG_ADMIN_MESSAGES.set(pendingDebugAdmin);
         WaveDefenseConfig.DEBUG_LOGGING_ENABLED.set(pendingDebugLogging);
@@ -388,11 +417,18 @@ public class WaveDefenseConfigScreen extends Screen {
         this.addRenderableWidget(btn);
     }
 
+    /** Integer EditBox with tooltip. */
+    private void addIntBox(int x, int y, int w, int initialValue, int min, int max,
+                           java.util.function.IntConsumer setter, String tooltipKey) {
+        EditBox box = addIntBox(x, y, w, initialValue, min, max, setter);
+        box.setTooltip(Tooltip.create(Component.translatable(tooltipKey)));
+    }
+
     /**
      * Integer EditBox with responder, clamped to [min, max].
      * @param setter called on every keystroke with the parsed (clamped) value
      */
-    private void addIntBox(int x, int y, int w, int initialValue, int min, int max,
+    private EditBox addIntBox(int x, int y, int w, int initialValue, int min, int max,
                            java.util.function.IntConsumer setter) {
         EditBox box = new EditBox(this.font, x, y, w, 18, Component.literal(""));
         box.setValue(String.valueOf(initialValue));
@@ -406,6 +442,7 @@ public class WaveDefenseConfigScreen extends Screen {
         box.setTooltip(Tooltip.create(
             Component.translatable("wavedefense.config.range", min, max)));
         this.addRenderableWidget(box);
+        return box;
     }
 
     // ── Render ────────────────────────────────────────────────────────────

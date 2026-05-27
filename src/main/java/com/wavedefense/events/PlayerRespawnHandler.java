@@ -81,21 +81,32 @@ public class PlayerRespawnHandler {
             player.setHealth(player.getMaxHealth());
             player.getFoodData().setFoodLevel(20);
             if (location.isDeathmatch()) {
-                // Deathmatch: миттєве відродження на точці спавну команди (не spectator)
-                if (player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR) {
-                    player.setGameMode(GameType.SURVIVAL);
+                int delaySeconds = com.wavedefense.config.WaveDefenseConfig.PVP_RESPAWN_DELAY_SECONDS.get();
+                if (delaySeconds > 0) {
+                    // Затримка респавну: spectator + таймер
+                    player.setGameMode(GameType.SPECTATOR);
+                    if (teamSpawn != null) {
+                        WaveDefenseMod.waveManager.teleportToSafeSpawn(player, teamSpawn.getPos(), 0);
+                    }
+                    WaveDefenseMod.waveManager.schedulePvpRespawn(player.getUUID(), teamSpawn, delaySeconds);
+                    player.displayClientMessage(
+                        net.minecraft.network.chat.Component.translatable("wavedefense.msg.respawn_in", delaySeconds), true);
+                } else {
+                    // Deathmatch: миттєве відродження на точці спавну команди (не spectator)
+                    if (player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR) {
+                        player.setGameMode(GameType.SURVIVAL);
+                    }
+                    if (teamSpawn != null) {
+                        WaveDefenseMod.waveManager.teleportToSpawnPoint(player, teamSpawn);
+                    }
+                    // Невразливість на 3 секунди після відродження (60 тіків)
+                    player.invulnerableTime = 60;
+                    // Ефект регенерації і вогнестійкості на 3 сек щоб уникнути миттєвої смерті
+                    player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+                        net.minecraft.world.effect.MobEffects.REGENERATION, 60, 1, false, false));
+                    player.displayClientMessage(
+                        net.minecraft.network.chat.Component.translatable("wavedefense.msg.respawn_continue"), true);
                 }
-                // Н2: health/food already set at line 81 above — removed duplicate call
-                if (teamSpawn != null) {
-                    WaveDefenseMod.waveManager.teleportToSpawnPoint(player, teamSpawn);
-                }
-                // Невразливість на 3 секунди після відродження (60 тіків)
-                player.invulnerableTime = 60;
-                // Ефект регенерації і вогнестійкості на 3 сек щоб уникнути миттєвої смерті
-                player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
-                    net.minecraft.world.effect.MobEffects.REGENERATION, 60, 1, false, false));
-                player.displayClientMessage(
-                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.respawn_continue"), true);
             } else if (location.isBattleRoyale()) {
                 // BR: теж миттєве відродження, але тільки якщо раунд ще не завершено (один гравець живий)
                 if (player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR) {

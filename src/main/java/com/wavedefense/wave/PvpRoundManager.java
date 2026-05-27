@@ -264,15 +264,15 @@ public class PvpRoundManager {
         pvpPenaltyDeducted.add(victim.getUUID());
         location.removePoints(victim.getUUID(), location.getPvpDeathPenalty());
 
-        // Kill streak
+        // Kill streak — use Component args so clients receive a translatable component
         int streak = pvpKillStreaks.merge(killer.getUUID(), 1, Integer::sum);
         pvpKillStreaks.remove(victim.getUUID());
-        String streakSuffix = streak >= 3
-            ? " " + Component.translatable("wavedefense.msg.pvp_kill_streak", streak).getString()
-            : "";
+        net.minecraft.network.chat.Component streakSuffix = streak >= 3
+            ? Component.translatable("wavedefense.msg.pvp_kill_streak", streak)
+            : Component.empty();
         killer.displayClientMessage(
             Component.translatable("wavedefense.msg.pvp_kill",
-                kill, victim.getName().getString(), streakSuffix), true);
+                kill, victim.getName(), streakSuffix), true);
 
         if (streak % 3 == 0) {
             wm.fireLootTriggerByName(location.getName(),
@@ -304,8 +304,8 @@ public class PvpRoundManager {
             if (brWinnerUuid != null) {
                 ServerPlayer brWinner = WaveDefenseMod.getServer()
                     .getPlayerList().getPlayer(brWinnerUuid);
-                roundWinner = brWinner != null ? brWinner.getName().getString()
-                    : Component.translatable("wavedefense.msg.pvp_unknown").getString();
+                // Player names don't need translation; "unknown" key does
+                roundWinner = brWinner != null ? brWinner.getName().getString() : "?";
             } else if (alive == 0) {
                 // H3 fix: killer and victim died in the same tick (e.g. mutual kill).
                 // The tick() watchdog will also catch this, but handle it here too
@@ -320,7 +320,7 @@ public class PvpRoundManager {
             }
             wm.broadcastToLocation(location.getName(),
                 Component.translatable("wavedefense.msg.pvp_br_out",
-                    victim.getName().getString(), alive));
+                    victim.getName(), alive));
         } else {
             roundWinner = state.recordDeath(victim.getUUID(), killer.getUUID());
             pvpPendingRespawn.add(victim.getUUID());
@@ -329,8 +329,11 @@ public class PvpRoundManager {
          if (roundWinner != null) {
             state.setPendingWinner(roundWinner);
             state.startRoundEndDelay(5);
+            net.minecraft.network.chat.Component winnerComp = "?".equals(roundWinner)
+                ? Component.translatable("wavedefense.msg.pvp_unknown")
+                : Component.literal(roundWinner);
             wm.broadcastToLocation(location.getName(),
-                Component.translatable("wavedefense.msg.pvp_team_wins_round", roundWinner));
+                Component.translatable("wavedefense.msg.pvp_team_wins_round", winnerComp));
             broadcastPvpSync(wm, location);
          } else {
              updatePvpEnemyCounts(location, state);
@@ -398,12 +401,14 @@ public class PvpRoundManager {
                 if (brWinnerUuid != null) {
                     ServerPlayer brWinner = WaveDefenseMod.getServer()
                         .getPlayerList().getPlayer(brWinnerUuid);
-                    String winName = brWinner != null ? brWinner.getName().getString()
-                        : Component.translatable("wavedefense.msg.pvp_unknown").getString();
+                    String winName = brWinner != null ? brWinner.getName().getString() : "?";
                     state.setPendingWinner(winName);
                     state.startRoundEndDelay(5);
+                    net.minecraft.network.chat.Component winComp = "?".equals(winName)
+                        ? Component.translatable("wavedefense.msg.pvp_unknown")
+                        : Component.literal(winName);
                     wm.broadcastToLocation(location.getName(),
-                        Component.translatable("wavedefense.msg.pvp_last_survivor", winName));
+                        Component.translatable("wavedefense.msg.pvp_last_survivor", winComp));
                     broadcastPvpSync(wm, location);
                 } else if (alive == 0) {
                     // H3 fix: last two players died simultaneously via environment —
@@ -416,7 +421,7 @@ public class PvpRoundManager {
                 } else {
                     wm.broadcastToLocation(location.getName(),
                         Component.translatable("wavedefense.msg.pvp_br_out",
-                            player.getName().getString(), alive));
+                            player.getName(), alive));
                     broadcastPvpSync(wm, location);
                 }
 
@@ -745,15 +750,17 @@ public class PvpRoundManager {
         String champion = isDraw ? null
             : state.getTeamWins().entrySet().stream()
                 .max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse(null);
-        String championDisplay = champion != null ? champion
-            : Component.translatable("wavedefense.msg.pvp_nobody").getString();
+        // Pass Component as arg so clients render pvp_nobody in their own language
+        net.minecraft.network.chat.Component championComp = champion != null
+            ? net.minecraft.network.chat.Component.literal(champion)
+            : Component.translatable("wavedefense.msg.pvp_nobody");
 
         if (isDraw) {
             wm.broadcastToLocation(location.getName(),
                 Component.translatable("wavedefense.msg.pvp_draw"));
         }
         wm.broadcastToLocation(location.getName(),
-            Component.translatable("wavedefense.msg.pvp_match_ended", championDisplay));
+            Component.translatable("wavedefense.msg.pvp_match_ended", championComp));
         wm.fireLootTriggerByName(location.getName(), LootSpawn.Trigger.MATCH_END);
         broadcastPvpSync(wm, location);
 

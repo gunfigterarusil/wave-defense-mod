@@ -50,7 +50,7 @@ public class ImportWavePacket {
 
             Location loc = WaveDefenseMod.locationManager.getLocation(p.locationName);
             if (loc == null) {
-                player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.auto.локація_value_6b16877a", p.locationName + "» не знайдена"), false);
+                player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.error.location_not_found", p.locationName), false);
                 return;
             }
 
@@ -122,14 +122,14 @@ public class ImportWavePacket {
                 WaveDefenseMod.locationManager.saveToFile();
                 WaveDefenseMod.waveManager.broadcastLocationData();
 
-                player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                    "§a⬇ Імпортовано §e" + imported.size() + "§a хвиль з §7" + p.fileName
-                    + "§a → §6" + p.locationName + "§a (всього: §e" + waves.size() + "§a)"), false);
+                player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "wavedefense.msg.wave_import_success",
+                    imported.size(), p.fileName, p.locationName, waves.size()), false);
 
             } catch (Exception e) {
                 WaveDefenseMod.LOGGER.error("ImportWavePacket error", e);
-                player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                    "§cПомилка імпорту: " + e.getMessage()), false);
+                player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "wavedefense.msg.import_error", e.getMessage()), false);
             }
         });
         ctx.get().setPacketHandled(true);

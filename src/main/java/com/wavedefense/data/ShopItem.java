@@ -9,9 +9,12 @@ import java.util.stream.Collectors;
 
 public class ShopItem {
     public enum ShopCategory {
-        ALL("Всі"), WEAPON("⚔ Зброя"), ARMOR("🛡 Броня"),
-        CONSUMABLE("🧪 Розхідники"), OTHER("📦 Інше");
-        public final String label;
+        ALL("wavedefense.shop.category.all"),
+        WEAPON("wavedefense.shop.category.weapon"),
+        ARMOR("wavedefense.shop.category.armor"),
+        CONSUMABLE("wavedefense.shop.category.consumable"),
+        OTHER("wavedefense.shop.category.other");
+        public final String label; // i18n key
         ShopCategory(String l) { this.label = l; }
     }
 

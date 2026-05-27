@@ -74,8 +74,8 @@ public class PvpTeamSelectScreen extends Screen {
         Component rule = location.isDeathmatch()
             ? Component.translatable("wavedefense.pvp.team_select.dm_rule", location.getDmKillsToWin())
             : Component.translatable("wavedefense.pvp.team_select.team_rule");
-        addLabel(cx - 160, y, 320, Component.translatable("wavedefense.auto.u00a7e_u00a7l_99162931").append(mode));
-        addLabel(cx - 160, y + 18, 320, Component.translatable("wavedefense.auto.u00a77_d0a4b613").append(rule));
+        addLabel(cx - 160, y, 320, Component.literal("§e§l").append(mode));
+        addLabel(cx - 160, y + 18, 320, Component.literal("§7").append(rule));
         // A3 fix: show minimum player requirement so players know when the match will start
         addLabel(cx - 160, y + 34, 320,
             Component.translatable("wavedefense.pvp.team_select.min_players", location.getPvpMinPlayers()));
@@ -84,7 +84,7 @@ public class PvpTeamSelectScreen extends Screen {
     private void addTeamCards(int startY) {
         if (teamOptions.isEmpty()) {
             addLabel(this.width / 2 - 155, startY + 10, 310,
-                Component.translatable("wavedefense.auto.u00a7c_aae14fff").append(Component.translatable("wavedefense.pvp.team_select.no_teams")));
+                Component.literal("§c").append(Component.translatable("wavedefense.pvp.team_select.no_teams")));
             return;
         }
 
@@ -114,11 +114,11 @@ public class PvpTeamSelectScreen extends Screen {
         int max = maxScrollRows(startY);
         if (max > 0) {
             int x = startX + totalW + 8;
-            this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.u25b2_80c50879"), b -> {
+            this.addRenderableWidget(Button.builder(Component.literal("▲"), b -> {
                 scrollRow = Math.max(0, scrollRow - 1);
                 rebuildWidgets();
             }).bounds(x, startY, 22, 20).build()).active = scrollRow > 0;
-            this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.u25bc_7a1f8e34"), b -> {
+            this.addRenderableWidget(Button.builder(Component.literal("▼"), b -> {
                 scrollRow = Math.min(maxScrollRows(startY), scrollRow + 1);
                 rebuildWidgets();
             }).bounds(x, Math.min(this.height - 54, startY + visibleRows * (CARD_H + GAP) - 20), 22, 20).build()).active = scrollRow < max;

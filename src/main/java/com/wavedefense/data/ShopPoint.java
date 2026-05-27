@@ -23,7 +23,7 @@ public class ShopPoint {
     private List<ShopItem> items;    // товари цієї точки
 
     public ShopPoint(String name, BlockPos pos, int radius) {
-        this.name   = name == null ? "Магазин" : name;
+        this.name   = name == null ? "Shop" : name;
         this.pos    = pos;
         this.radius = Math.max(1, Math.min(64, radius));
         this.items  = new ArrayList<>();
@@ -31,7 +31,7 @@ public class ShopPoint {
 
     // ── Getters / Setters ─────────────────────────────────────────────
     public String   getName()               { return name; }
-    public void     setName(String n)       { this.name = n == null ? "Магазин" : n; }
+    public void     setName(String n)       { this.name = n == null ? "Shop" : n; }
 
     public BlockPos getPos()                { return pos; }
     public void     setPos(BlockPos p)      { this.pos = p; }
@@ -69,7 +69,7 @@ public class ShopPoint {
     }
 
     public static ShopPoint load(CompoundTag tag) {
-        String   name   = tag.contains("name")   ? tag.getString("name")          : "Магазин";
+        String   name   = tag.contains("name")   ? tag.getString("name")          : "Shop";
         BlockPos pos    = tag.contains("pos")    ? BlockPos.of(tag.getLong("pos")) : null;
         int      radius = tag.contains("radius") ? tag.getInt("radius")            : 5;
 

@@ -60,8 +60,8 @@ public class ExportWavePacket {
                     root.put("waves", list);
                     String fileName = sanitize(p.locationName) + "_all.nbt";
                     NbtIo.writeCompressed(root, new File(dir, fileName));
-                    player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                        "§a⬆ Збережено §e" + loc.getWaves().size() + "§a хвиль → §7" + fileName), false);
+                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                        "wavedefense.msg.wave_export_all_success", loc.getWaves().size(), fileName), false);
                 } else if (p.mode.startsWith("wave:")) {
                     int idx = Integer.parseInt(p.mode.substring(5));
                     if (idx < 0 || idx >= loc.getWaves().size()) return;
@@ -72,13 +72,13 @@ public class ExportWavePacket {
                     root.put("wave", wc.save());
                     String fileName = sanitize(p.locationName) + "_wave" + (idx + 1) + ".nbt";
                     NbtIo.writeCompressed(root, new File(dir, fileName));
-                    player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                        "§a⬆ Збережено хвилю §e" + (idx + 1) + "§a → §7" + fileName), false);
+                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                        "wavedefense.msg.wave_export_single_success", (idx + 1), fileName), false);
                 }
             } catch (Exception e) {
                 WaveDefenseMod.LOGGER.error("ExportWavePacket error", e);
-                player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                    "§cПомилка збереження: " + e.getMessage()), false);
+                player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "wavedefense.msg.export_error", e.getMessage()), false);
             }
         });
         ctx.get().setPacketHandled(true);

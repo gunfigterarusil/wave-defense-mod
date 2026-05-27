@@ -75,8 +75,8 @@ public class BoundaryManager {
                     int secs = loc.getLocationLeaveTimerSec();
                     ctx.leaveCountdownTicks.put(uid, secs * 20);
                     sendBoundaryTitle(player,
-                        Component.translatable("wavedefense.msg.boundary_return").getString(),
-                        Component.translatable("wavedefense.msg.boundary_timer", secs).getString());
+                        Component.translatable("wavedefense.msg.boundary_return"),
+                        Component.translatable("wavedefense.msg.boundary_timer", secs));
                 } else {
                     int remaining = ticks - 1;
                     ctx.leaveCountdownTicks.put(uid, remaining);
@@ -87,8 +87,8 @@ public class BoundaryManager {
                     } else if (remaining % 20 == 0) {
                         // Показуємо тільки якщо remaining > 0 — не буде «0 сек»
                         sendBoundaryTitle(player,
-                            Component.translatable("wavedefense.msg.boundary_out_of_zone").getString(),
-                            Component.translatable("wavedefense.msg.boundary_timer", remaining / 20).getString());
+                            Component.translatable("wavedefense.msg.boundary_out_of_zone"),
+                            Component.translatable("wavedefense.msg.boundary_timer", remaining / 20));
                         wm.syncPlayerData(player);
                     }
                 }
@@ -100,8 +100,8 @@ public class BoundaryManager {
                     float dmg = loc.getBoundaryDamagePerSec();
                     if (dmg > 0) player.hurt(player.damageSources().magic(), dmg);
                     sendBoundaryTitle(player,
-                        Component.translatable("wavedefense.msg.boundary_unsafe").getString(),
-                        Component.translatable("wavedefense.msg.boundary_damage", dmg).getString());
+                        Component.translatable("wavedefense.msg.boundary_unsafe"),
+                        Component.translatable("wavedefense.msg.boundary_damage", dmg));
                 }
             }
 
@@ -172,10 +172,17 @@ public class BoundaryManager {
     // ── Заголовки ────────────────────────────────────────────────────────
 
     private void sendBoundaryTitle(ServerPlayer p, String title, String subtitle) {
-        p.connection.send(new ClientboundSetTitleTextPacket(
-            net.minecraft.network.chat.Component.literal(title)));
-        p.connection.send(new ClientboundSetSubtitleTextPacket(
-            net.minecraft.network.chat.Component.literal(subtitle)));
+        sendBoundaryTitle(p,
+            net.minecraft.network.chat.Component.literal(title),
+            net.minecraft.network.chat.Component.literal(subtitle));
+    }
+
+    /** Component-overload: delivers translatable title/subtitle to the client in their own language. */
+    private void sendBoundaryTitle(ServerPlayer p,
+                                   net.minecraft.network.chat.Component title,
+                                   net.minecraft.network.chat.Component subtitle) {
+        p.connection.send(new ClientboundSetTitleTextPacket(title));
+        p.connection.send(new ClientboundSetSubtitleTextPacket(subtitle));
         p.connection.send(new ClientboundSetTitlesAnimationPacket(5, 30, 8));
     }
 

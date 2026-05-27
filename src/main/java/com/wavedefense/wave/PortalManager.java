@@ -205,7 +205,7 @@ public class PortalManager {
                         loc.getName(), graceDisplay), false);
                 broadcastNearPortal(portalPos, name,
                     Component.translatable("wavedefense.msg.portal_nearby_entered",
-                        player.getName().getString(), graceDisplay).getString());
+                        player.getName(), graceDisplay));
             } else {
                 player.displayClientMessage(
                     Component.translatable("wavedefense.msg.portal_entered", loc.getName()),

@@ -47,6 +47,9 @@ public class PurchaseItemPacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
+            // G1 fix: rate-limit purchases to once per 500 ms — prevents macro-buy exploit
+            if (!com.wavedefense.network.PacketRateLimiter.allow(
+                    player.getUUID(), PurchaseItemPacket.class, 500L)) return;
 
             Location location = WaveDefenseMod.locationManager.getLocation(packet.locationName);
             if (location == null) return;
@@ -110,7 +113,7 @@ public class PurchaseItemPacket {
                     player.getInventory().add(item.copy());
                 }
                 // Сповіщення
-                String itemName = shopItem.getItems().isEmpty() ? "товар"
+                String itemName = shopItem.getItems().isEmpty() ? "item"
                     : shopItem.getItems().get(0).getHoverName().getString();
                 player.displayClientMessage(
                     net.minecraft.network.chat.Component.translatable("wavedefense.msg.purchased", itemName), true);

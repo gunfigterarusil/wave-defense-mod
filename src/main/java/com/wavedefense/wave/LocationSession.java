@@ -44,9 +44,6 @@ public class LocationSession {
     public int  timer60          = 0;
     public int  timer120         = 0;
     public int  timer300         = 0;
-    /** @deprecated Serialized for NBT compatibility but never written during gameplay (tickTimerCustomForLocation uses waveTriggerWaveCounters). */
-    @Deprecated
-    public int  timerCustom      = 0;
     /**
      * Grace-period countdown ticks when all players left mid-wave (PvE only).
      * -1 = inactive; > 0 = counting down; reaches 0 → session ends cleanly.
@@ -405,6 +402,18 @@ public class LocationSession {
             }
             wm.fireLootTriggerByName(locationName, com.wavedefense.data.LootSpawn.Trigger.WAVE_START);
             wm.fireLootTriggerByNameWithValue(locationName, com.wavedefense.data.LootSpawn.Trigger.WAVE_N, currentWave);
+            // Wave start title (configurable)
+            if (com.wavedefense.config.WaveDefenseConfig.WAVE_START_TITLE_ENABLED.get()) {
+                net.minecraft.network.chat.Component titleComp = net.minecraft.network.chat.Component.translatable(
+                    "wavedefense.msg.wave_started", currentWave);
+                net.minecraft.network.chat.Component subtitleComp = net.minecraft.network.chat.Component.translatable(
+                    "wavedefense.hud.wave_counter", currentWave, location.getTotalWaves());
+                for (net.minecraft.server.level.ServerPlayer p : wm.getPlayersInLocation(locationName)) {
+                    p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket(5, 35, 15));
+                    p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(titleComp));
+                    p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket(subtitleComp));
+                }
+            }
             // Apply this wave's effect to all current players (if configured)
             if (waveConfig.hasEffect()) {
                 applyWaveEffect(waveConfig.getWaveEffect(), waveConfig.getWaveEffectAmplifier(), wm);
@@ -525,7 +534,6 @@ public class LocationSession {
         tag.putInt("timer60", timer60);
         tag.putInt("timer120", timer120);
         tag.putInt("timer300", timer300);
-        // timerCustom intentionally NOT saved — field is deprecated/dead (tickTimerCustomForLocation uses waveTriggerWaveCounters)
         if (stats != null) {
             tag.put("stats", stats.save());
         }
@@ -596,7 +604,6 @@ public class LocationSession {
         sess.timer60 = tag.getInt("timer60");
         sess.timer120 = tag.getInt("timer120");
         sess.timer300 = tag.getInt("timer300");
-        // timerCustom intentionally NOT loaded — field is deprecated/dead
         if (tag.contains("stats")) {
             sess.stats = GameStats.load(tag.getCompound("stats"));
         }

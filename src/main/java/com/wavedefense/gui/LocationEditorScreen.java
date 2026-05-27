@@ -11,6 +11,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 
@@ -305,7 +306,7 @@ public class LocationEditorScreen extends Screen {
         startY += 22;
         this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.trigger_waves_value_f6d52565", triggerWaves), b -> {})
                 .bounds(left, startY, 160, 18).build()).active = false;
-        this.addRenderableWidget(Button.builder(Component.literal("Completion pts: " + location.getCompletionPointsReward()), b -> {})
+        this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.label.completion_pts", location.getCompletionPointsReward()), b -> {})
                 .bounds(left + 180, startY, 160, 18).build()).active = false;
         startY += 30;
         this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.edit_waves_and_mobs_1d2d0b4e"),
@@ -334,7 +335,7 @@ public class LocationEditorScreen extends Screen {
         startY += 24;
         this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.global_items_value_1fefbc32", globalItems), b -> {})
                 .bounds(left, startY, 160, 18).build()).active = false;
-        this.addRenderableWidget(Button.builder(Component.literal("Shop points: " + location.getShopPoints().size()), b -> {})
+        this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.label.shop_points_count", location.getShopPoints().size()), b -> {})
                 .bounds(left + 180, startY, 160, 18).build()).active = false;
         startY += 22;
         this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.point_items_value_1adaa723", pointItems), b -> {})
@@ -364,7 +365,7 @@ public class LocationEditorScreen extends Screen {
         this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.loot_setup_4fdf07f1"), b -> {})
                 .bounds(left, startY, w, 14).build()).active = false;
         startY += 20;
-        this.addRenderableWidget(Button.builder(Component.literal("Loot points: " + location.getLootSpawns().size()), b -> {})
+        this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.label.loot_points_count", location.getLootSpawns().size()), b -> {})
                 .bounds(left, startY, 160, 18).build()).active = false;
         this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.item_stacks_value_140ad990", itemStacks), b -> {})
                 .bounds(left + 180, startY, 160, 18).build()).active = false;
@@ -790,8 +791,8 @@ public class LocationEditorScreen extends Screen {
         y += 18;
         net.minecraft.core.BlockPos vep = location.getVictoryExitPos();
         String vepLbl = vep != null
-            ? String.format("§a✓ Перемога: X%d Y%d Z%d", vep.getX(), vep.getY(), vep.getZ())
-            : "§7Перемога: повернути на попереднє місце";
+            ? String.format(I18n.get("wavedefense.location.exit_victory_set"), vep.getX(), vep.getY(), vep.getZ())
+            : I18n.get("wavedefense.location.exit_victory_unset");
         this.addRenderableWidget(Button.builder(Component.literal(vepLbl), b -> {}).bounds(lx, y, panelW - 88, 14).build()).active = false;
         this.addRenderableWidget(Button.builder(
             Component.translatable("wavedefense.auto.задати_311c5f00"),
@@ -806,8 +807,8 @@ public class LocationEditorScreen extends Screen {
         y += 18;
         net.minecraft.core.BlockPos sep = location.getSurrenderExitPos();
         String sepLbl = sep != null
-            ? String.format("§a✓ Здача: X%d Y%d Z%d", sep.getX(), sep.getY(), sep.getZ())
-            : "§7Здача: повернути на попереднє місце";
+            ? String.format(I18n.get("wavedefense.location.exit_surrender_set"), sep.getX(), sep.getY(), sep.getZ())
+            : I18n.get("wavedefense.location.exit_surrender_unset");
         this.addRenderableWidget(Button.builder(Component.literal(sepLbl), b -> {}).bounds(lx, y, panelW - 88, 14).build()).active = false;
         this.addRenderableWidget(Button.builder(
             Component.translatable("wavedefense.auto.задати_311c5f00"),
@@ -835,7 +836,7 @@ public class LocationEditorScreen extends Screen {
         ).bounds(lx, y, panelW, 14).build()).active = false;
         y += 18;
         String curPart = location.getZoneParticleType();
-        String partDisplay = (curPart == null || curPart.isEmpty()) ? "§7minecraft:squid_ink (за замовчуванням)" : "§a" + curPart;
+        String partDisplay = (curPart == null || curPart.isEmpty()) ? I18n.get("wavedefense.location.particle_default") : "§a" + curPart;
         this.addRenderableWidget(Button.builder(Component.literal(partDisplay), b -> {}).bounds(lx, y, panelW, 14).build()).active = false;
         y += 16;
         String[] particlePresets = {"minecraft:squid_ink","minecraft:flame","minecraft:end_rod","minecraft:witch","minecraft:portal","minecraft:snowflake","minecraft:happy_villager"};
@@ -1056,7 +1057,7 @@ public class LocationEditorScreen extends Screen {
                 net.minecraft.core.BlockPos zc = location.getZoneCenter();
                 String zcLabel = zc != null
                     ? String.format("§a✓ X%d Y%d Z%d", zc.getX(), zc.getY(), zc.getZ())
-                    : "§c⚠ Не встановлено";
+                    : I18n.get("wavedefense.location.zone_not_set");
                 this.addRenderableWidget(Button.builder(
                     Component.literal(zcLabel), b -> {}
                 ).bounds(lx, y, panelW - 90, 14).build()).active = false;
@@ -1068,8 +1069,8 @@ public class LocationEditorScreen extends Screen {
             }
             net.minecraft.core.BlockPos ep = location.getAutoActivateEntryPos();
             String epLabel = ep != null
-                ? String.format("§a✓ Вхід: X%d Y%d Z%d", ep.getX(), ep.getY(), ep.getZ())
-                : "§7Вхід: = точка спавну гравця";
+                ? String.format(I18n.get("wavedefense.location.entry_set"), ep.getX(), ep.getY(), ep.getZ())
+                : I18n.get("wavedefense.location.entry_unset");
             this.addRenderableWidget(Button.builder(Component.literal(epLabel), b -> {}).bounds(lx, y, panelW - 86, 14).build()).active = false;
             this.addRenderableWidget(Button.builder(
                 Component.translatable("wavedefense.auto.задати_вхід_cc0fd093"),
@@ -1134,7 +1135,9 @@ public class LocationEditorScreen extends Screen {
         if (portalOn) {
             y += 22;
             int penaltyW  = location.getPortalPenaltyWave();
-            String penStr = (penaltyW == -1) ? "§eВсі хвилі по порядку" : ("§eХвиля " + (penaltyW + 1));
+            String penStr = (penaltyW == -1)
+                ? I18n.get("wavedefense.location.penalty_wave_all")
+                : String.format(I18n.get("wavedefense.location.penalty_wave_n"), penaltyW + 1);
             this.addRenderableWidget(Button.builder(
                 Component.translatable("wavedefense.auto.штрафна_хвиля_value_6ff1fd17", penStr), b -> {}
             ).bounds(lx, y, panelW - 80, 16).build()).active = false;
@@ -1513,25 +1516,6 @@ public class LocationEditorScreen extends Screen {
             if (key.equals("wavedefense.button.add_mob_spawn")) return TooltipHelper.MOB_SPAWN_ADD;
             if (key.contains("таймер_лоббі"))          return TooltipHelper.LOBBY_TIMER;
         }
-        // Fallback: plain-text matching for any remaining non-translatable labels
-        String plain = msg.getString().replaceAll("§.", "").toLowerCase();
-        if (plain.contains("авто-активац"))                                    return TooltipHelper.ZONE_ACTIVATE;
-        if (plain.contains("радіус активації"))                                return TooltipHelper.ZONE_RADIUS;
-        if (plain.contains("зберегти зміни"))                                  return TooltipHelper.SAVE_ALL_SETTINGS;
-        if (plain.contains("зберегти") && !plain.contains("назад"))            return TooltipHelper.SAVE_SETTINGS;
-        if (plain.contains("pvp") || plain.contains("pve"))                    return TooltipHelper.MODE_TOGGLE;
-        if (plain.contains("зберігати речі") || plain.contains("очищати речі")) return TooltipHelper.KEEP_INVENTORY;
-        if (plain.contains("стартові поінти") || plain.contains("поінти"))     return TooltipHelper.STARTING_POINTS;
-        if (plain.contains("📌") || plain.contains("моя позиція"))             return TooltipHelper.SPAWN_COORDS;
-        if (plain.contains("застосувати"))                                     return TooltipHelper.SPAWN_COORDS;
-        if (plain.contains("кордон"))                                          return TooltipHelper.BOUNDARY_ZONE;
-        if (plain.contains("тригер запуску"))                                  return TooltipHelper.AUTO_TRIGGER;
-        if (plain.contains("портал"))                                          return TooltipHelper.PORTAL_RANDOM;
-        if (plain.contains("разово"))                                          return TooltipHelper.WAVE_TRIGGER_ONCE;
-        if (plain.contains("and"))                                             return TooltipHelper.WAVE_TRIGGER_AND;
-        if (plain.contains("точка спавну гравця"))                             return TooltipHelper.SPAWN_COORDS;
-        if (plain.contains("додати точку спавну мобів"))                       return TooltipHelper.MOB_SPAWN_ADD;
-        if (plain.contains("таймер лобі") || plain.contains("таймер лоббі"))   return TooltipHelper.LOBBY_TIMER;
         return null;
     }
 }

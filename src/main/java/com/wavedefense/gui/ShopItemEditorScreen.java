@@ -102,7 +102,7 @@ public class ShopItemEditorScreen extends Screen {
 
             // Вибрати предмет через меню
             final ItemStack curShopItem = items.get(si);
-            String shopSlotLbl = curShopItem.isEmpty() ? "§8[Порожньо]"
+            String shopSlotLbl = curShopItem.isEmpty() ? I18n.get("wavedefense.shop.slot_empty")
                 : "§a✓ " + (curShopItem.getHoverName().getString().length() > 8
                     ? curShopItem.getHoverName().getString().substring(0, 7) + "…"
                     : curShopItem.getHoverName().getString());
@@ -189,7 +189,7 @@ public class ShopItemEditorScreen extends Screen {
         int catX = cx - 155;
         for (ShopItem.ShopCategory cat : cats) {
             if (cat == ShopItem.ShopCategory.ALL) continue;
-            String lbl = (cat == selectedCategory ? "§e" : "§7") + cat.label;
+            String lbl = (cat == selectedCategory ? "§e" : "§7") + I18n.get(cat.label);
             final ShopItem.ShopCategory fc = cat;
             this.addRenderableWidget(Button.builder(
                 Component.literal(lbl),

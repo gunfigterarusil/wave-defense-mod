@@ -6,6 +6,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
@@ -257,9 +258,9 @@ public class WaveTriggerEditorScreen extends Screen {
         if (needsValue()) {
             WaveTrigger vt = valueTrigger();
             String emoji = vt == WaveTrigger.TIMER_CUSTOM ? "⏱" : vt == WaveTrigger.MOBS_KILLED_N ? "⚔" : "🏆";
-            String lbl   = vt == WaveTrigger.TIMER_CUSTOM    ? emoji + " §7Інтервал (сек):" :
-                           vt == WaveTrigger.MOBS_KILLED_N   ? emoji + " §7Мін. вбитих мобів:" :
-                                                                emoji + " §7Мін. хвиль пережито:";
+            String lbl   = vt == WaveTrigger.TIMER_CUSTOM    ? emoji + " §7" + I18n.get("wavedefense.trigger.label.interval_sec") :
+                           vt == WaveTrigger.MOBS_KILLED_N   ? emoji + " §7" + I18n.get("wavedefense.trigger.label.kill_count") :
+                                                                emoji + " §7" + I18n.get("wavedefense.trigger.label.waves_survived");
             this.addRenderableWidget(Button.builder(
                 Component.literal(lbl), b -> {}
             ).bounds(cx - btnW / 2, y, 200, 18).build()).active = false;
@@ -311,7 +312,9 @@ public class WaveTriggerEditorScreen extends Screen {
         y += 22;
 
         if (cm != WaveConfig.CooldownMode.NONE) {
-            String lbl = cm == WaveConfig.CooldownMode.SECONDS ? "§7Секунд:" : "§7Хвиль:";
+            String lbl = cm == WaveConfig.CooldownMode.SECONDS
+                ? "§7" + I18n.get("wavedefense.trigger.label.cooldown_seconds")
+                : "§7" + I18n.get("wavedefense.trigger.label.cooldown_waves");
             this.addRenderableWidget(Button.builder(
                 Component.literal(lbl), b -> {}
             ).bounds(cx - 116, y, 80, 18).build()).active = false;

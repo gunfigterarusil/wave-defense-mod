@@ -596,7 +596,7 @@ public class PvpLocationEditorScreen extends Screen {
     private void initPointsTab(int cx, int y) {
         int pts = location.getCapturePoints().size();
         this.addRenderableWidget(Button.builder(
-            Component.literal("§7" + pts + " point(s) configured"), b -> {}
+            Component.literal(net.minecraft.client.resources.language.I18n.get("wavedefense.pvp.points_configured", pts)), b -> {}
         ).bounds(cx - 160, y, 320, 14).build()).active = false;
         y += 20;
 
@@ -673,11 +673,11 @@ public class PvpLocationEditorScreen extends Screen {
         y += 24;
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("Global items: " + location.getShopItems().size()),
+                Component.translatable("wavedefense.label.global_items_count", location.getShopItems().size()),
                 button -> {}
         ).bounds(left, y, 160, 18).build()).active = false;
         this.addRenderableWidget(Button.builder(
-                Component.literal("Shop points: " + location.getShopPoints().size()),
+                Component.translatable("wavedefense.label.shop_points_count", location.getShopPoints().size()),
                 button -> {}
         ).bounds(left + 180, y, 160, 18).build()).active = false;
         y += 22;
@@ -722,7 +722,7 @@ public class PvpLocationEditorScreen extends Screen {
         y += 20;
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("Loot points: " + location.getLootSpawns().size()),
+                Component.translatable("wavedefense.label.loot_points_count", location.getLootSpawns().size()),
                 button -> {}
         ).bounds(left, y, 160, 18).build()).active = false;
         this.addRenderableWidget(Button.builder(
@@ -777,7 +777,7 @@ public class PvpLocationEditorScreen extends Screen {
         y += 24;
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("Starting items: " + location.getStartingItems().size()),
+                Component.translatable("wavedefense.label.starting_items_count", location.getStartingItems().size()),
                 b -> this.minecraft.setScreen(new StartingItemsScreen(this, location))
         ).bounds(left, y, 160, 18).build());
         this.addRenderableWidget(Button.builder(

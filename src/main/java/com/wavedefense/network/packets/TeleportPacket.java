@@ -61,6 +61,15 @@ public class TeleportPacket {
                 return;
             }
 
+            // Перевірка ліміту гравців на локації
+            int maxPlayers = com.wavedefense.config.WaveDefenseConfig.MAX_PLAYERS_PER_LOCATION.get();
+            if (maxPlayers > 0 && WaveDefenseMod.waveManager.getPlayersInLocation(location.getName()).size() >= maxPlayers) {
+                player.displayClientMessage(
+                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.location_full", maxPlayers),
+                    true);
+                return;
+            }
+
             // PvP: окрема перевірка і вхід
             if (location.isPvp()) {
                 int spawnIdx = packet.pvpSpawnIndex;

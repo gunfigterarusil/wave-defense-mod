@@ -73,8 +73,8 @@ public class ImportShopPacket {
                     }
                     loc.getShopItems().clear();
                     loaded.forEach(loc::addShopItem);
-                    player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                        "§a✓ Імпортовано §e" + loaded.size() + " §aтоварів до глобального магазину §e" + pkt.locationName), false);
+                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                        "wavedefense.msg.shop_import_global_success", loaded.size(), pkt.locationName), false);
 
                 } else if ("point".equals(mode)) {
                     ShopPoint sp = ShopPoint.load(tag.getCompound("point"));
@@ -92,15 +92,15 @@ public class ImportShopPacket {
                             }
                         }
                         if (!found) loc.addShopPoint(sp);
-                        player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                            "§a✓ Точку магазину §e" + sp.getName() + " §aімпортовано у §e" + pkt.locationName), false);
+                        player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                            "wavedefense.msg.shop_import_point_replaced", sp.getName(), pkt.locationName), false);
                     } else {
                         loc.addShopPoint(sp);
-                        player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                            "§a✓ Точку магазину §e" + sp.getName() + " §aдодано до §e" + pkt.locationName), false);
+                        player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                            "wavedefense.msg.shop_import_point_added", sp.getName(), pkt.locationName), false);
                     }
                 } else {
-                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.auto.файл_несумісний_з_цільовим_режимом_файл_1219b59d", mode + ", ціль: " + pkt.targetMode + ")"), false);
+                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.error.shop_mode_incompatible", mode, pkt.targetMode), false);
                     return;
                 }
 
@@ -117,8 +117,8 @@ public class ImportShopPacket {
                 }
             } catch (Exception e) {
                 WaveDefenseMod.LOGGER.error("Shop import failed", e);
-                player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                    "§cПомилка імпорту: " + e.getMessage()), false);
+                player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "wavedefense.msg.import_error", e.getMessage()), false);
             }
         });
         ctx.get().setPacketHandled(true);

@@ -44,6 +44,7 @@ public class WaveDefenseConfig {
     public static final ForgeConfigSpec.BooleanValue PVP_HIDE_ENEMY_NAMETAGS;
     public static final ForgeConfigSpec.IntValue PVP_DEFAULT_ROUNDS;
     public static final ForgeConfigSpec.IntValue PVP_DEFAULT_BUY_TIME;
+    public static final ForgeConfigSpec.IntValue PVP_RESPAWN_DELAY_SECONDS;
 
     // ── Спавн мобів ───────────────────────────────────────────────────────
     public static final ForgeConfigSpec.BooleanValue MOBS_CAN_HAVE_EQUIPMENT;
@@ -52,6 +53,10 @@ public class WaveDefenseConfig {
     // ── Debug / Logging ───────────────────────────────────────────────────
     public static final ForgeConfigSpec.BooleanValue DEBUG_ADMIN_MESSAGES;
     public static final ForgeConfigSpec.BooleanValue DEBUG_LOGGING_ENABLED;
+
+    // ── Gameplay ──────────────────────────────────────────────────────────
+    public static final ForgeConfigSpec.IntValue     MAX_PLAYERS_PER_LOCATION;
+    public static final ForgeConfigSpec.BooleanValue WAVE_START_TITLE_ENABLED;
 
     // ── Hotkeys ───────────────────────────────────────────────────────────
     public static final ForgeConfigSpec.BooleanValue SHOP_HOTKEY_ENABLED;
@@ -89,6 +94,15 @@ public class WaveDefenseConfig {
                         + "Якщо гравець в Creative — автоматично переводиться в цей режим.\n"
                         + "Допустимі значення: \"survival\", \"adventure\"")
                 .define("locationGameMode", "survival");
+
+        MAX_PLAYERS_PER_LOCATION = BUILDER
+                .comment("Максимальна кількість гравців в одній локації одночасно.\n"
+                        + "0 = без обмежень.")
+                .defineInRange("maxPlayersPerLocation", 0, 0, 200);
+
+        WAVE_START_TITLE_ENABLED = BUILDER
+                .comment("Показувати великий title/subtitle на екрані гравця при старті кожної хвилі.")
+                .define("waveStartTitleEnabled", true);
 
         BUILDER.pop();
 
@@ -130,6 +144,11 @@ public class WaveDefenseConfig {
         PVP_DEFAULT_BUY_TIME = BUILDER
                 .comment("Час покупок між раундами за замовчуванням (секунди)")
                 .defineInRange("defaultBuyTime", 20, 5, 120);
+
+        PVP_RESPAWN_DELAY_SECONDS = BUILDER
+                .comment("Затримка відродження (секунди) після смерті у Deathmatch та Battle Royale.\n"
+                        + "0 = миттєве відродження.")
+                .defineInRange("pvpRespawnDelaySeconds", 0, 0, 30);
 
         BUILDER.pop();
 

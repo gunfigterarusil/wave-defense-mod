@@ -40,6 +40,19 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class WaveManager {
 
+    // ── PvP respawn delay ─────────────────────────────────────────────────
+    /** Holds the countdown until a delayed PvP respawn fires for a player. */
+    public static final class PendingRespawnData {
+        public final com.wavedefense.data.PvpSpawnPoint spawnPoint; // may be null
+        public int ticksRemaining;
+        public PendingRespawnData(com.wavedefense.data.PvpSpawnPoint spawnPoint, int ticksRemaining) {
+            this.spawnPoint = spawnPoint;
+            this.ticksRemaining = ticksRemaining;
+        }
+    }
+    /** UUID → pending delayed respawn. Transient; not persisted to NBT. */
+    public final Map<UUID, PendingRespawnData> pendingPvpRespawns = new ConcurrentHashMap<>();
+
     public final WaveContext waveCtx;
     public final Map<UUID, PlayerWaveData> playerData;
     public final PvpRoundManager pvpMgr;
@@ -234,13 +247,18 @@ public class WaveManager {
     }
 
     public void broadcastToNearby(BlockPos center, Location location, String message) {
+        broadcastToNearby(center, location, net.minecraft.network.chat.Component.literal(message));
+    }
+
+    /** Component-overload: preserves translatability for every connected client. */
+    public void broadcastToNearby(BlockPos center, Location location,
+                                  net.minecraft.network.chat.Component message) {
         net.minecraft.server.MinecraftServer srv = WaveDefenseMod.getServer();
         if (srv == null || center == null || message == null) return;
-        net.minecraft.network.chat.Component comp = net.minecraft.network.chat.Component.literal(message);
         final double RADIUS_SQ = 80.0 * 80.0;
         for (net.minecraft.server.level.ServerPlayer p : srv.getPlayerList().getPlayers()) {
             if (p.blockPosition().distSqr(center) <= RADIUS_SQ) {
-                p.displayClientMessage(comp, false);
+                p.displayClientMessage(message, false);
             }
         }
     }
@@ -346,7 +364,54 @@ public class WaveManager {
             infoPanelMgr.tick();
         }
 
+        // Process delayed PvP respawns
+        tickPendingPvpRespawns();
+
         waveCtx.tickCounter++;
+    }
+
+    private void tickPendingPvpRespawns() {
+        if (pendingPvpRespawns.isEmpty()) return;
+        net.minecraft.server.MinecraftServer srv = WaveDefenseMod.getServer();
+        if (srv == null) return;
+        Iterator<Map.Entry<UUID, PendingRespawnData>> it = pendingPvpRespawns.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<UUID, PendingRespawnData> entry = it.next();
+            PendingRespawnData data = entry.getValue();
+            data.ticksRemaining--;
+            if (data.ticksRemaining > 0) continue;
+
+            it.remove();
+            ServerPlayer player = srv.getPlayerList().getPlayer(entry.getKey());
+            if (player == null) continue;
+
+            // Only proceed if still in an active PvP location
+            PlayerWaveData pData = playerData.get(entry.getKey());
+            if (pData == null || pData.getCurrentLocation() == null
+                    || !pData.getCurrentLocation().isPvp()) continue;
+
+            // Execute the respawn
+            player.setHealth(player.getMaxHealth());
+            player.getFoodData().setFoodLevel(20);
+            player.setGameMode(GameType.SURVIVAL);
+            if (data.spawnPoint != null) {
+                teleportToSpawnPoint(player, data.spawnPoint);
+            }
+            player.invulnerableTime = 60;
+            player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 60, 1, false, false));
+            player.displayClientMessage(
+                net.minecraft.network.chat.Component.translatable("wavedefense.msg.respawn_continue"), true);
+        }
+    }
+
+    /** Schedules a delayed PvP respawn for {@code playerId}. */
+    public void schedulePvpRespawn(UUID playerId, @Nullable com.wavedefense.data.PvpSpawnPoint spawnPoint, int delaySeconds) {
+        pendingPvpRespawns.put(playerId, new PendingRespawnData(spawnPoint, Math.max(1, delaySeconds * 20)));
+    }
+
+    /** Cancels any pending delayed respawn for {@code playerId}. */
+    public void cancelPvpRespawn(UUID playerId) {
+        pendingPvpRespawns.remove(playerId);
     }
 
     public void tick() {

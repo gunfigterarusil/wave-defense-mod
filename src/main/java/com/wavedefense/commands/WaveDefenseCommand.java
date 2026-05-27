@@ -222,7 +222,7 @@ public class WaveDefenseCommand {
         }
         Location location = WaveDefenseMod.locationManager.getLocation(locationName);
         if (location == null || location.getPlayerSpawn() == null) {
-            source.sendFailure(Component.translatable("wavedefense.auto.локація_value_879f640b", locationName + "\" не знайдена або не має точки спавну!"));
+            source.sendFailure(Component.translatable("wavedefense.error.location_no_spawn", locationName));
             return 0;
         }
         int count = 0;
@@ -396,7 +396,7 @@ public class WaveDefenseCommand {
         WaveDefenseMonitor.LocationHistory history = monitor.getLocationHistories().get(locationName);
 
         if (history == null) {
-            source.sendFailure(Component.translatable("wavedefense.auto.локація_value_879f640b", locationName + "\" не знайдена або не має статистики."));
+            source.sendFailure(Component.translatable("wavedefense.error.location_no_stats", locationName));
             return 0;
         }
 

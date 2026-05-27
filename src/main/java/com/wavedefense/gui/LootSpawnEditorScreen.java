@@ -186,7 +186,7 @@ public class LootSpawnEditorScreen extends Screen {
             int xPos = slotsL + i * (SLOT_W + SLOT_GAP);
             final int si = i;
             ItemStack it = i < editItems.size() ? editItems.get(i) : ItemStack.EMPTY;
-            String slotLbl = it.isEmpty() ? "§8[Порожньо]" : "§a✓ " + it.getHoverName().getString();
+            String slotLbl = it.isEmpty() ? "§8[" + net.minecraft.client.resources.language.I18n.get("wavedefense.label.empty") + "]" : "§a✓ " + it.getHoverName().getString();
             if (slotLbl.length() > 14) slotLbl = slotLbl.substring(0, 13) + "…";
 
             // Вибрати через ItemSelectionScreen (кнопка нижче іконки)
@@ -287,7 +287,7 @@ public class LootSpawnEditorScreen extends Screen {
         int trigCount = editingIndex >= 0
                 ? location.getLootSpawns().get(editingIndex).getTriggers().size() : 1;
         this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.тригери_спавну_value_c28b183d", trigCount + " обрано)"),
+                Component.translatable("wavedefense.label.loot_trigger_count", trigCount),
                 b -> { showTriggers = true; rebuildWidgets(); }
         ).bounds(cx - btnW / 2, y, 210, 20).build());
         y += 28;

@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.Optional;
 
 public class LocationManager {
+    private static final int DATA_VERSION = 1;
+
     private final List<Location> locations = new ArrayList<>();
     private final File dataFile;
 
@@ -68,6 +70,7 @@ public class LocationManager {
 
     public CompoundTag save() {
         CompoundTag data = new CompoundTag();
+        data.putInt("version", DATA_VERSION);
         ListTag locationsList = new ListTag();
         for (Location loc : locations) {
             locationsList.add(loc.save());
@@ -124,6 +127,11 @@ public class LocationManager {
         }
         try {
             CompoundTag data = NbtIo.readCompressed(dataFile);
+            int fileVersion = data.contains("version") ? data.getInt("version") : 0;
+            if (fileVersion > DATA_VERSION) {
+                WaveDefenseMod.LOGGER.warn("[WaveDefense] Location data version {} is newer than supported {}; loading anyway",
+                    fileVersion, DATA_VERSION);
+            }
             // Normal startup: just deserialize, do NOT rewrite the file needlessly
             deserializeLocations(data);
         } catch (IOException e) {

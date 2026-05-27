@@ -8,6 +8,7 @@ import com.wavedefense.network.packets.UpdateLocationPacket;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
@@ -206,7 +207,7 @@ public class ShopEditorScreen extends Screen {
             // Рядок 1: назва + координати
             String posStr = sp.getPos() != null
                 ? String.format("§8 X:%d Y:%d Z:%d (r=%d)", sp.getPos().getX(), sp.getPos().getY(), sp.getPos().getZ(), sp.getRadius())
-                : "§c ⚠ без позиції";
+                : I18n.get("wavedefense.location.shop_no_pos");
             String titleLine = "§6" + sp.getName() + posStr;
             if (titleLine.length() > 60) titleLine = titleLine.substring(0, 58) + "…";
             this.addRenderableWidget(Button.builder(
@@ -346,7 +347,7 @@ public class ShopEditorScreen extends Screen {
                 }
                 if (items.get(idx).hasAvailabilityTrigger())
                     g.drawString(this.font,
-                        "§6[§e" + items.get(idx).getAvailabilityTrigger().label + "§6]",
+                        "§6[§e" + I18n.get(items.get(idx).getAvailabilityTrigger().label) + "§6]",
                         cx - 140 + 84, yPos + 27, 0xFFFFAA00);
             }
         } else {

@@ -145,7 +145,7 @@ public class SessionManager {
             long secsLeft = Math.max(1L, (existSess.startTimerMs - System.currentTimeMillis()) / 1000L + 1L);
             wm.broadcastToLocation(location.getName(), Component.translatable(
                 "wavedefense.msg.player_joined_lobby_countdown",
-                player.getName().getString(), secsLeft));
+                player.getName(), secsLeft));
             data.setCurrentWave(existSess.currentWave);
             data.setTimerActive(true);
             data.setTimeUntilNextWave((int) secsLeft);
@@ -190,6 +190,8 @@ public class SessionManager {
         // Знімаємо ефекти очікування PvP і режим спектатора при виході
         wm.removeWaitEffects(player);
         wm.pvpMgr.getPvpPendingRespawn().remove(playerId);
+        // Скасовуємо відкладений респавн (якщо гравець виходить під час затримки)
+        wm.cancelPvpRespawn(playerId);
         PlayerWaveData data = ctx.playerData.remove(playerId);
         wm.invalidatePlayersCache();
         if (data != null) {

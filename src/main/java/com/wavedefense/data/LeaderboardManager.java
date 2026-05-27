@@ -28,6 +28,7 @@ public class LeaderboardManager {
     public static final String MODE_CTP        = "PvP_CAPTURE_THE_POINT";
     public static final String MODE_KOTH       = "PvP_KING_OF_THE_HILL";
 
+    private static final int DATA_VERSION = 1;
     private static final int MAX_ENTRIES = 10;
 
     /** location name → mode key → sorted list (index 0 = highest primaryScore) */
@@ -142,6 +143,7 @@ public class LeaderboardManager {
 
     private CompoundTag serialize() {
         CompoundTag root = new CompoundTag();
+        root.putInt("__version__", DATA_VERSION);
         for (Map.Entry<String, Map<String, List<LeaderboardRecord>>> locEntry : data.entrySet()) {
             CompoundTag locTag = new CompoundTag();
             for (Map.Entry<String, List<LeaderboardRecord>> modeEntry : locEntry.getValue().entrySet()) {
@@ -155,8 +157,14 @@ public class LeaderboardManager {
     }
 
     private void deserialize(CompoundTag root) {
+        int fileVersion = root.contains("__version__") ? root.getInt("__version__") : 0;
+        if (fileVersion > DATA_VERSION) {
+            WaveDefenseMod.LOGGER.warn("[WaveDefense] Leaderboard data version {} is newer than supported {}; loading anyway",
+                fileVersion, DATA_VERSION);
+        }
         data.clear();
         for (String locName : root.getAllKeys()) {
+            if ("__version__".equals(locName)) continue;
             CompoundTag locTag = root.getCompound(locName);
             for (String modeKey : locTag.getAllKeys()) {
                 ListTag listTag = locTag.getList(modeKey, 10);

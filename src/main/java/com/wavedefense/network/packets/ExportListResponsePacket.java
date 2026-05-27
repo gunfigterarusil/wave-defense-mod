@@ -45,7 +45,7 @@ public class ExportListResponsePacket {
             net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
             if (mc.screen instanceof com.wavedefense.gui.ImportExportScreen screen) {
                 screen.setAvailableExports(pkt.names);
-                screen.setStatus("§aОновлено: " + pkt.names.size() + " файлів");
+                screen.setStatus(String.format(net.minecraft.client.resources.language.I18n.get("wavedefense.export.status_updated"), pkt.names.size()));
             }
         }
     }

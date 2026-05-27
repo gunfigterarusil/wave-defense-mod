@@ -9,6 +9,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.language.I18n;
 import com.wavedefense.gui.ScissorHelper;
 import net.minecraft.network.chat.Component;
 
@@ -70,7 +71,7 @@ public class ImportExportScreen extends Screen {
                 Component.literal("§a📤 " + locName),
                 b -> {
                     PacketHandler.sendToServer(new ExportLocationPacket(ln));
-                    statusMsg = "§7Експортую §e" + ln + "§7...";
+                    statusMsg = String.format(I18n.get("wavedefense.export.status_exporting"), ln);
                     rebuildWidgets();
                 }
             ).bounds(lx, y, 300, 18).build());
@@ -93,7 +94,7 @@ public class ImportExportScreen extends Screen {
         this.addRenderableWidget(Button.builder(
             Component.translatable("wavedefense.auto.оновити_список_0f28150f"), b -> {
                 PacketHandler.sendToServer(new ExportLocationPacket("__list__"));
-                statusMsg = "§7Завантажую список...";
+                statusMsg = I18n.get("wavedefense.export.status_loading");
                 rebuildWidgets();
             }
         ).bounds(cx - 160, y, 200, 18).build());
@@ -104,22 +105,23 @@ public class ImportExportScreen extends Screen {
             final String pf = pendingImportFile;
             // Warning row
             this.addRenderableWidget(Button.builder(
-                Component.literal("§e⚠ Перезаписати §c" + pf + "§e? Дані будуть втрачені!"),
+                Component.translatable("wavedefense.import.confirm_overwrite", pf),
                 b -> {}
             ).bounds(lx, y, 300, 14).build()).active = false;
             y += 18;
             // Confirm button
             this.addRenderableWidget(Button.builder(
-                Component.literal("§c✔ Підтвердити"),
+                Component.translatable("wavedefense.button.confirm"),
                 b -> {
                     PacketHandler.sendToServer(new ImportLocationPacket(pf));
-                    statusMsg = "§7Імпортую §e" + pf + "§7...";
+                    statusMsg = net.minecraft.client.resources.language.I18n.get(
+                        "wavedefense.import.status_importing", pf);
                     pendingImportFile = null;
                     rebuildWidgets();
                 }
             ).bounds(lx, y, 145, 18).build());
             this.addRenderableWidget(Button.builder(
-                Component.literal("§7✕ Скасувати"),
+                Component.translatable("wavedefense.button.cancel"),
                 b -> { pendingImportFile = null; rebuildWidgets(); }
             ).bounds(lx + 155, y, 145, 18).build());
             y += 24;

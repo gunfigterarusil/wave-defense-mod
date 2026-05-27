@@ -77,12 +77,12 @@ public class ExportShopPacket {
 
                 File file = new File(dir, fileName + ".nbt");
                 NbtIo.writeCompressed(tag, file);
-                player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                    "§a✓ Магазин збережено: §e" + file.getName()), false);
+                player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "wavedefense.msg.export_ok", file.getName()), false);
             } catch (Exception e) {
                 WaveDefenseMod.LOGGER.error("Shop export failed", e);
-                player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                    "§cПомилка експорту: " + e.getMessage()), false);
+                player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "wavedefense.msg.export_error", e.getMessage()), false);
             }
         });
         ctx.get().setPacketHandled(true);

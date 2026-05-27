@@ -103,7 +103,7 @@ public class ZoneActivationManager {
                     s.zoneCountdownTicker = 0;
                     s.zoneCountdownStartMs = 0L;
                     wm.broadcastToNearby(center, location,
-                        Component.translatable("wavedefense.zone.activation_cancelled").getString());
+                        Component.translatable("wavedefense.zone.activation_cancelled"));
                 }
                 continue;
             }
@@ -121,7 +121,7 @@ public class ZoneActivationManager {
                 s.zoneCountdownTicker = activationDelay * 20;
                 s.zoneCountdownStartMs = System.currentTimeMillis();
                 wm.broadcastToNearby(center, location,
-                    Component.translatable("wavedefense.zone.activating_countdown", locName, activationDelay).getString());
+                    Component.translatable("wavedefense.zone.activating_countdown", locName, activationDelay));
             }
 
             int ticks = s.zoneCountdownTicker - 1;
@@ -136,8 +136,7 @@ public class ZoneActivationManager {
                     int secsLeft = ticks / 20;
                     if (secsLeft <= 5 || secsLeft % 5 == 0) {
                         wm.broadcastToNearby(center, location,
-                            Component.translatable("wavedefense.msg.zone_activating", secsLeft)
-                                .getString());
+                            Component.translatable("wavedefense.msg.zone_activating", secsLeft));
                     }
                 }
             }
@@ -164,8 +163,8 @@ public class ZoneActivationManager {
     /** Активує локацію для гравців із зони, налаштовує zoneOpenUntil. */
     private void startZoneLocationForPlayers(WaveManager wm, Location location,
                                              Set<UUID> playerIds) {
-        wm.debugAdmin("Зона §e" + location.getName()
-            + " §7— активація для " + playerIds.size() + " гравців");
+        wm.debugAdmin("Zone §e" + location.getName()
+            + " §7— activating for " + playerIds.size() + " players");
         activateZoneForPlayers(wm, location, playerIds);
         if (location.getZoneOpenAfterStartSec() > 0) {
             LocationSession s = ctx.getOrCreateSession(location.getName(), location);
@@ -178,8 +177,8 @@ public class ZoneActivationManager {
 
     /** Додає кожного гравця із набору до локації. Також доступний зовні пакету для тригерів. */
     void activateZoneForPlayers(WaveManager wm, Location location, Set<UUID> playerIds) {
-        wm.debugAdmin("Локація §e" + location.getName()
-            + " §7запускається для " + playerIds.size() + " гравців");
+        wm.debugAdmin("Location §e" + location.getName()
+            + " §7starting for " + playerIds.size() + " players");
         wm.debugLog("Location '" + location.getName()
             + "' activated for " + playerIds.size() + " players");
 
@@ -193,7 +192,7 @@ public class ZoneActivationManager {
 
         if (activated > 0) {
             wm.broadcastToNearby(location.getPlayerSpawn(), location,
-                Component.translatable("wavedefense.zone.activated_players", location.getName(), activated).getString());
+                Component.translatable("wavedefense.zone.activated_players", location.getName(), activated));
         }
     }
 
