@@ -10,17 +10,16 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Точка магазину — фізична позиція у світі з власним списком товарів і радіусом доступу.
- * Коли shopMode = POINT у Location — гравець може відкрити магазин лише якщо
- * він знаходиться в межах radius блоків від однієї з точок. Кожна точка має
- * свій окремий список ShopItem.
+ * A shop point — a physical position in the world with its own item list and access radius.
+ * When shopMode = POINT in Location, a player can only open the shop if they are within
+ * {@code radius} blocks of one of the points. Each point has its own separate ShopItem list.
  */
 public class ShopPoint {
 
-    private String      name;        // відображувана назва, наприклад "Крамниця зброї"
-    private BlockPos    pos;         // центр точки магазину
-    private int         radius;      // радіус доступу (блоків, 1-64)
-    private List<ShopItem> items;    // товари цієї точки
+    private String      name;        // display name, e.g. "Weapons Shop"
+    private BlockPos    pos;         // centre of the shop point
+    private int         radius;      // access radius (blocks, 1-64)
+    private List<ShopItem> items;    // items sold at this point
 
     public ShopPoint(String name, BlockPos pos, int radius) {
         this.name   = name == null ? "Shop" : name;

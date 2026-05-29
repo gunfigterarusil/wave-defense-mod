@@ -208,9 +208,31 @@ public class ZoneActivationManager {
     }
 
     private void spawnZoneParticlesForLocation(String locName, BlockPos center, int radius) {
-        ServerLevel overworld = (ServerLevel)
-            WaveDefenseMod.getServer().getLevel(Level.OVERWORLD);
-        if (overworld == null) return;
+        // A5 fix: use the level of players currently in (or near) the location
+        // instead of always defaulting to the Overworld.
+        ServerLevel world = null;
+
+        // 1) Any player already inside the session
+        for (ServerPlayer p : ctx.getPlayersInLocation(locName)) {
+            world = p.serverLevel();
+            break;
+        }
+        // 2) Fallback: any player near the zone center (pre-join countdown)
+        if (world == null && WaveDefenseMod.getServer() != null) {
+            double searchSq = (radius + 32.0) * (radius + 32.0);
+            for (ServerPlayer p : WaveDefenseMod.getServer().getPlayerList().getPlayers()) {
+                if (p.blockPosition().distSqr(center) <= searchSq) {
+                    world = p.serverLevel();
+                    break;
+                }
+            }
+        }
+        // 3) Last resort: Overworld
+        if (world == null) {
+            world = (ServerLevel) WaveDefenseMod.getServer().getLevel(Level.OVERWORLD);
+        }
+        if (world == null) return;
+        final ServerLevel overworld = world;
 
         SimpleParticleType particleType = ParticleTypes.SQUID_INK;
         if (locName != null) {

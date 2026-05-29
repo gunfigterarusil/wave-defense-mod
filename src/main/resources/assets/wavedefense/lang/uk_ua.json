@@ -1151,5 +1151,6 @@
   "wavedefense.label.loot_trigger_count": "§b⚡ Тригери спавну: %d обрано",
   "wavedefense.label.reward_row": "§7Мін. балів: §6%d §7| %s",
   "wavedefense.error.location_not_found": "§cЛокацію \"%s\" не знайдено.",
-  "wavedefense.error.shop_mode_incompatible": "§cФайл несумісний з цільовим режимом (файл: %s, ціль: %s)."
+  "wavedefense.error.shop_mode_incompatible": "§cФайл несумісний з цільовим режимом (файл: %s, ціль: %s).",
+  "wavedefense.hud.ctp_neutral": "Нейтральний"
 }

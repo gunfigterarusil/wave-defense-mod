@@ -9,17 +9,17 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Точка появи луту на карті.
- * Зберігає: позицію, предмети (до 4), шанс, кількість та набір тригерів.
+ * A loot spawn point on the map.
+ * Stores: position, items (up to 4), chance, count, and a set of triggers.
  */
 public class LootSpawn {
 
     /**
-     * Тригери що вказують КОЛИ спавниться лут.
-     * Можна встановити кілька тригерів одночасно.
+     * Triggers that control WHEN loot spawns.
+     * Multiple triggers can be active simultaneously.
      */
     public enum Trigger {
-        // ── Загальні ─────────────────────────────────────────────────
+        // ── General ───────────────────────────────────────────────────
         WAVE_START     ("wavedefense.trigger.loot.wave_start",     true,  true,  false, "wavedefense.trigger.loot.wave_start.tip"),
         WAVE_END       ("wavedefense.trigger.loot.wave_end",       true,  true,  false, "wavedefense.trigger.loot.wave_end.tip"),
         TIMER_60       ("wavedefense.trigger.loot.timer_60",       true,  true,  false, "wavedefense.trigger.loot.timer_60.tip"),
@@ -28,7 +28,7 @@ public class LootSpawn {
         PLAYER_JOIN    ("wavedefense.trigger.loot.player_join",    true,  true,  false, "wavedefense.trigger.loot.player_join.tip"),
         PLAYER_DEATH   ("wavedefense.trigger.loot.player_death",   true,  true,  false, "wavedefense.trigger.loot.player_death.tip"),
 
-        // ── PvE-специфічні ───────────────────────────────────────────
+        // ── PvE-specific ──────────────────────────────────────────────
         MOB_KILL       ("wavedefense.trigger.loot.mob_kill",       true,  false, false, "wavedefense.trigger.loot.mob_kill.tip"),
         HALF_MOBS_DEAD ("wavedefense.trigger.loot.half_mobs_dead", true,  false, false, "wavedefense.trigger.loot.half_mobs_dead.tip"),
         LOCATION_START ("wavedefense.trigger.loot.location_start", true,  false, false, "wavedefense.trigger.loot.location_start.tip"),
@@ -36,7 +36,7 @@ public class LootSpawn {
         WAVE_N         ("wavedefense.trigger.loot.wave_n",         true,  false, true,  "wavedefense.trigger.loot.wave_n.tip"),
         MOBS_KILLED_N  ("wavedefense.trigger.loot.mobs_killed_n",  true,  false, true,  "wavedefense.trigger.loot.mobs_killed_n.tip"),
 
-        // ── PvP-специфічні ───────────────────────────────────────────
+        // ── PvP-specific ──────────────────────────────────────────────
         ROUND_START    ("wavedefense.trigger.loot.round_start",    false, true,  false, "wavedefense.trigger.loot.round_start.tip"),
         ROUND_END      ("wavedefense.trigger.loot.round_end",      false, true,  false, "wavedefense.trigger.loot.round_end.tip"),
         BUY_PHASE      ("wavedefense.trigger.loot.buy_phase",      false, true,  false, "wavedefense.trigger.loot.buy_phase.tip"),
@@ -46,9 +46,9 @@ public class LootSpawn {
         MATCH_END      ("wavedefense.trigger.loot.match_end",      false, true,  false, "wavedefense.trigger.loot.match_end.tip");
 
         public final String  label;
-        public final boolean pve;        // доступний у PvE
-        public final boolean pvp;        // доступний у PvP
-        public final boolean needsValue; // потребує числового налаштування (N)
+        public final boolean pve;        // available in PvE
+        public final boolean pvp;        // available in PvP
+        public final boolean needsValue; // requires a numeric setting (N)
         public final String  tooltip;
 
         Trigger(String label, boolean pve, boolean pvp, boolean needsValue, String tooltip) {
@@ -64,8 +64,8 @@ public class LootSpawn {
     private List<ItemStack> items;
     private int spawnChance; // 1–100
     private int count;
-    private Set<Trigger> triggers; // один або кілька тригерів
-    // Per-trigger custom values: наприклад WAVE_N=3, MOBS_KILLED_N=50
+    private Set<Trigger> triggers; // one or more triggers
+    // Per-trigger custom values: e.g. WAVE_N=3, MOBS_KILLED_N=50
     private java.util.Map<Trigger, Integer> triggerValues = new java.util.EnumMap<>(Trigger.class);
 
     public LootSpawn(BlockPos pos, List<ItemStack> items, int spawnChance, int count) {
@@ -74,7 +74,7 @@ public class LootSpawn {
         this.spawnChance = Math.max(1, Math.min(100, spawnChance));
         this.count       = Math.max(1, count);
         this.triggers     = new LinkedHashSet<>();
-        this.triggers.add(Trigger.WAVE_START); // дефолт
+        this.triggers.add(Trigger.WAVE_START); // default
         this.triggerValues = new java.util.EnumMap<>(Trigger.class);
     }
 

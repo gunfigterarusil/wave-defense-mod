@@ -8,14 +8,15 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Стан PvP сесії для однієї локації.
+ * PvP session state for a single location.
  *
- * Фази:
- *   WAITING   — чекаємо мінімальну кількість гравців
- *   BUY       — час купівлі між раундами
- *   COUNTDOWN — підрахунок перед стартом раунду (BUY→ACTIVE)
- *   ACTIVE    — активний раунд
- *   ENDED     — всі раунди завершені
+ * Phases:
+ *   WAITING         — waiting for the minimum number of players
+ *   BUY             — buy phase between rounds
+ *   COUNTDOWN       — countdown before round start (BUY → ACTIVE)
+ *   ACTIVE          — active round
+ *   ROUND_END_DELAY — brief delay at round end before the next phase
+ *   ENDED           — all rounds completed
  */
 public class PvpRoundState {
 
@@ -25,7 +26,7 @@ public class PvpRoundState {
     private int currentRound = 0;
     private int totalRounds;
     private int buyTime;
-    private int roundStartDelay = 5; // секунд між BUY→ACTIVE
+    private int roundStartDelay = 5; // seconds between BUY → ACTIVE
 
     private int timerTicks = 0;
 

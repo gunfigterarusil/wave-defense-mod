@@ -41,7 +41,7 @@ public class ClientLocationManager {
                 return;
             }
         }
-        locations.add(updated); // якщо не знайдено — додаємо
+        locations.add(updated); // not found — add it
     }
 
 }

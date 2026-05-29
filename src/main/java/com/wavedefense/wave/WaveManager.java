@@ -193,6 +193,22 @@ public class WaveManager {
             data.setPlayerPoints(data.getCurrentLocation().getPlayerPoints(player.getUUID()));
         }
         com.wavedefense.network.PacketHandler.sendToPlayer(player, new SyncPlayerDataPacket(data));
+        // G4 fix: also sync per-player game stats so StatsScreen shows live data
+        syncPlayerStats(player);
+    }
+
+    /**
+     * G4 fix: sends the session's GameStats to a single player.
+     * Called after mob kills, wave completions, and location joins so the client
+     * StatsScreen always shows up-to-date numbers.
+     */
+    public void syncPlayerStats(ServerPlayer player) {
+        PlayerWaveData data = playerData.get(player.getUUID());
+        if (data == null || data.getCurrentLocation() == null) return;
+        LocationSession sess = waveCtx.getSession(data.getCurrentLocation().getName());
+        if (sess == null || sess.stats == null) return;
+        com.wavedefense.network.PacketHandler.sendToPlayer(
+            player, new com.wavedefense.network.packets.SyncStatsPacket(sess.stats));
     }
 
     public void syncTeammates(String locationName) {
@@ -420,6 +436,7 @@ public class WaveManager {
 
     private void tickSession(LocationSession sess) {
         // Session tick logic - delegate to LocationSession
+        if (WaveDefenseMod.locationManager == null) return;
         Location location = WaveDefenseMod.locationManager.getLocation(sess.locationName);
         if (location != null) {
             sess.tick(this, location);
@@ -510,6 +527,8 @@ public class WaveManager {
             GameStats stats = sess.stats;
             if (stats != null) {
                 stats.incrementMobsKilled();
+                // G4 fix: push updated stats to the killing player immediately
+                syncPlayerStats(player);
             }
 
             // Update player-specific stats

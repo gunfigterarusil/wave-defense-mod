@@ -25,6 +25,9 @@ public class DeleteLocationPacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player != null && player.hasPermissions(2)) { // Check for admin permissions
+                // C1 fix: end any active session before removing the location so players
+                // are properly restored and the session map doesn't contain orphans.
+                WaveDefenseMod.waveManager.endSessionForLocation(packet.locationName);
                 WaveDefenseMod.locationManager.removeLocation(packet.locationName);
                 WaveDefenseMod.waveManager.broadcastLocationData();
             }

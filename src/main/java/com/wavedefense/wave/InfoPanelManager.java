@@ -34,6 +34,12 @@ public class InfoPanelManager {
 
     private final WaveContext ctx;
 
+    // ── Cached reflection accessors (D2 fix: look up once, reuse every tick) ──
+    @SuppressWarnings("rawtypes")
+    private static volatile EntityDataAccessor cachedTextAccessor    = null;
+    @SuppressWarnings("rawtypes")
+    private static volatile EntityDataAccessor cachedBillboardAccessor = null;
+
     public InfoPanelManager(WaveContext ctx) {
         this.ctx = ctx;
     }
@@ -333,27 +339,35 @@ public class InfoPanelManager {
     @SuppressWarnings("unchecked")
     private void setTextDisplayText(Display.TextDisplay td, Component comp) {
         try {
-            Class<?> cls = Display.TextDisplay.class;
-            while (cls != null && cls != Object.class) {
-                for (java.lang.reflect.Field f : cls.getDeclaredFields()) {
-                    if (!java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
-                    f.setAccessible(true);
-                    try {
-                        Object val = f.get(null);
-                        if (!(val instanceof EntityDataAccessor<?> accessor)) continue;
-                        Object cur = td.getEntityData().get(
-                            (EntityDataAccessor<Object>) accessor);
-                        if (cur instanceof Optional) {
-                            td.getEntityData().set(
-                                (EntityDataAccessor<Optional<Component>>) accessor,
-                                Optional.of(comp));
-                            return;
-                        }
-                    } catch (Exception ignored2) {}
+            // D2 fix: use cached accessor to avoid per-tick reflection scan
+            if (cachedTextAccessor == null) {
+                Class<?> cls = Display.TextDisplay.class;
+                outer:
+                while (cls != null && cls != Object.class) {
+                    for (java.lang.reflect.Field f : cls.getDeclaredFields()) {
+                        if (!java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
+                        f.setAccessible(true);
+                        try {
+                            Object val = f.get(null);
+                            if (!(val instanceof EntityDataAccessor<?> accessor)) continue;
+                            Object cur = td.getEntityData().get(
+                                (EntityDataAccessor<Object>) accessor);
+                            if (cur instanceof Optional) {
+                                cachedTextAccessor = accessor;
+                                break outer;
+                            }
+                        } catch (Exception ignored2) {}
+                    }
+                    cls = cls.getSuperclass();
                 }
-                cls = cls.getSuperclass();
+            }
+            if (cachedTextAccessor != null) {
+                td.getEntityData().set(
+                    (EntityDataAccessor<Optional<Component>>) cachedTextAccessor,
+                    Optional.of(comp));
             }
         } catch (Exception e) {
+            cachedTextAccessor = null; // reset so next call retries
             debugLog("setTextDisplayText failed: " + e.getMessage());
         }
     }
@@ -361,27 +375,35 @@ public class InfoPanelManager {
     @SuppressWarnings("unchecked")
     private void setBillboardViaReflection(Display.TextDisplay td) {
         try {
-            Class<?> cls = Display.class;
-            while (cls != null && cls != Object.class) {
-                for (java.lang.reflect.Field f : cls.getDeclaredFields()) {
-                    if (!java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
-                    f.setAccessible(true);
-                    try {
-                        Object val = f.get(null);
-                        if (!(val instanceof EntityDataAccessor<?> accessor)) continue;
-                        Object cur = td.getEntityData().get(
-                            (EntityDataAccessor<Object>) accessor);
-                        if (cur instanceof Display.BillboardConstraints) {
-                            td.getEntityData().set(
-                                (EntityDataAccessor<Display.BillboardConstraints>) accessor,
-                                Display.BillboardConstraints.CENTER);
-                            return;
-                        }
-                    } catch (Exception ignored2) {}
+            // D2 fix: use cached accessor to avoid per-tick reflection scan
+            if (cachedBillboardAccessor == null) {
+                Class<?> cls = Display.class;
+                outer:
+                while (cls != null && cls != Object.class) {
+                    for (java.lang.reflect.Field f : cls.getDeclaredFields()) {
+                        if (!java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
+                        f.setAccessible(true);
+                        try {
+                            Object val = f.get(null);
+                            if (!(val instanceof EntityDataAccessor<?> accessor)) continue;
+                            Object cur = td.getEntityData().get(
+                                (EntityDataAccessor<Object>) accessor);
+                            if (cur instanceof Display.BillboardConstraints) {
+                                cachedBillboardAccessor = accessor;
+                                break outer;
+                            }
+                        } catch (Exception ignored2) {}
+                    }
+                    cls = cls.getSuperclass();
                 }
-                cls = cls.getSuperclass();
+            }
+            if (cachedBillboardAccessor != null) {
+                td.getEntityData().set(
+                    (EntityDataAccessor<Display.BillboardConstraints>) cachedBillboardAccessor,
+                    Display.BillboardConstraints.CENTER);
             }
         } catch (Exception e) {
+            cachedBillboardAccessor = null; // reset so next call retries
             debugLog("setBillboardViaReflection failed: " + e.getMessage());
         }
     }

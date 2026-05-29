@@ -23,9 +23,9 @@ public class LocationEditorScreen extends Screen {
     private int mobSpawnScrollOffset = 0;
     private static final int MOB_SPAWN_PER_PAGE = 5;
 
-    // Поля вводу координат точки спавну гравця
+    // Player spawn coordinate input fields
     private CoordinateInputField spawnCoordField;
-    // Поле стартових поінтів
+    // Starting points input field
     private EditBox startingPointsInput;
     // Section divider Y positions for Special tab sectionDivider rendering
     private int ySectionBoundary = -1, ySectionZone = -1, ySectionPortal = -1;

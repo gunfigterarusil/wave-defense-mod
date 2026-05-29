@@ -9,8 +9,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Конфігурація моба у хвилі.
- * Тепер підтримує: броню (4 слоти), зброю (в руці), ефекти.
+ * Mob configuration for a wave.
+ * Supports: armor (4 slots), weapon (in hand), effects.
  */
 public class WaveMob {
     private ResourceLocation mobType;
@@ -18,9 +18,9 @@ public class WaveMob {
     private int growthPerWave;
     private int spawnChance;
     private int pointsPerKill;
-    private int spawnRadius = 0;   // радіус розкиду навколо точки спавну (0 = точно на точці)
+    private int spawnRadius = 0;   // scatter radius around the spawn point (0 = exact point)
 
-    // Спорядження (можуть бути empty)
+    // Equipment (may be empty)
     private ItemStack helmet     = ItemStack.EMPTY;
     private ItemStack chestplate = ItemStack.EMPTY;
     private ItemStack leggings   = ItemStack.EMPTY;

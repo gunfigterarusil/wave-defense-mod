@@ -814,6 +814,8 @@ public class PvpRoundManager {
             if (p != null) wm.syncPlayerData(p);
             if (p != null) wm.clearTeammatesForPlayer(p);
         }
+        // E1 fix: clear dedup-set so penalties in a future session are counted correctly.
+        pvpPenaltyDeducted.clear();
         ctx.removeSession(location.getName());
         wm.brManager.clearLocation(location.getName());
         cleanupScoreboardTeams(location.getName());

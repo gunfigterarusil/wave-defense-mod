@@ -4,13 +4,13 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 
 /**
- * Точка спавну мобів з індивідуальним радіусом розкиду.
- * radius=0 — моби спавняться точно на pos.
- * radius>0 — в межах квадрата [-radius, +radius] по X та Z.
+ * A mob spawn point with an individual scatter radius.
+ * radius=0 — mobs spawn exactly at pos.
+ * radius>0 — within a square [-radius, +radius] on X and Z.
  */
 public class MobSpawnPoint {
     private BlockPos pos;
-    private int radius = 0; // 0 = точний спавн
+    private int radius = 0; // 0 = exact spawn
 
     public MobSpawnPoint(BlockPos pos) {
         this.pos = pos;

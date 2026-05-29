@@ -1151,5 +1151,6 @@
   "wavedefense.error.location_no_stats": "§cUbicación \"%s\" no encontrada o sin estadísticas.",
   "wavedefense.label.loot_trigger_count": "§b⚡ Disparadores: %d seleccionado(s)",
   "wavedefense.error.location_not_found": "§cUbicación \"%s\" no encontrada.",
-  "wavedefense.error.shop_mode_incompatible": "§cArchivo incompatible con el modo destino (archivo: %s, destino: %s)."
+  "wavedefense.error.shop_mode_incompatible": "§cArchivo incompatible con el modo destino (archivo: %s, destino: %s).",
+  "wavedefense.hud.ctp_neutral": "Neutral"
 }

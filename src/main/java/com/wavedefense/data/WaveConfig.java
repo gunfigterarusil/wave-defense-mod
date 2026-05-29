@@ -13,45 +13,45 @@ public class WaveConfig {
     private List<WaveMob> mobs;
     private int pointsReward;
 
-    // Ефект що накладається на всіх гравців на час хвилі
-    // null = без ефекту. Формат: "minecraft:speed" або "minecraft:strength" тощо
+    // Effect applied to all players for the duration of the wave.
+    // null = no effect. Format: "minecraft:speed", "minecraft:strength", etc.
     private ResourceLocation waveEffect;
-    private int waveEffectAmplifier; // 0 = рівень I, 1 = рівень II, тощо
+    private int waveEffectAmplifier; // 0 = level I, 1 = level II, etc.
 
-    // Команда яка виконується при завершенні хвилі
-    // Підтримує змінні: %location%, %wave%, %players%
+    // Command executed when the wave is completed.
+    // Supports variables: %location%, %wave%, %players%
     private String completionCommand;
 
-    // ── Тригерна хвиля ───────────────────────────────────────────────
-    // Якщо triggerEnabled=true — хвиля запускається незалежно по тригеру
-    // а не по загальному порядку. Може бути одночасно з іншою хвилею.
+    // ── Trigger wave ─────────────────────────────────────────────────
+    // When triggerEnabled=true, this wave spawns independently on its trigger
+    // rather than in the normal sequence. It can run alongside another wave.
     private boolean triggerEnabled   = false;
     private WaveTrigger triggerType  = WaveTrigger.PLAYER_OPEN_CHEST;
-    // Мультитригери: всі умови мають бути виконані одночасно (AND)
+    // Multi-triggers: ALL conditions must be satisfied simultaneously (AND)
     private java.util.List<WaveTrigger> extraTriggers = new java.util.ArrayList<>();
-    // Предмет для тригера PLAYER_HAS_ITEM (registry id, наприклад "minecraft:diamond")
-    // Підтримує кілька предметів через кому: "minecraft:diamond,minecraft:iron_ingot"
+    // Item for the PLAYER_HAS_ITEM trigger (registry id, e.g. "minecraft:diamond")
+    // Supports multiple items separated by commas: "minecraft:diamond,minecraft:iron_ingot"
     private String triggerCustomItemId = "";
-    // Числове значення для тригерів TIMER_CUSTOM (сек), MOBS_KILLED_N (кількість), WAVES_SURVIVED_N (кількість)
-    private int    triggerCustomValue  = 60;   // за замовчуванням 60 сек для TIMER_CUSTOM
-    // Перезарядка після спрацювання:
-    //   cooldownMode=NONE — немає перезарядки
-    //   cooldownMode=SECONDS — cooldownValue секунд
-    //   cooldownMode=WAVES — cooldownValue хвиль основних хвиль
+    // Numeric value for TIMER_CUSTOM (sec), MOBS_KILLED_N (count), WAVES_SURVIVED_N (count)
+    private int    triggerCustomValue  = 60;   // default 60 sec for TIMER_CUSTOM
+    // Cooldown after firing:
+    //   cooldownMode=NONE    — no cooldown
+    //   cooldownMode=SECONDS — cooldownValue seconds
+    //   cooldownMode=WAVES   — cooldownValue main waves
     public enum CooldownMode { NONE, SECONDS, WAVES }
     private CooldownMode cooldownMode  = CooldownMode.NONE;
     private int          cooldownValue = 0;
 
-    // Окрема точка спавну мобів для цієї хвилі (пріорітет над точками локації)
-    // null = використовуються точки спавну локації
+    // Dedicated mob spawn point for this wave (takes priority over location spawn points).
+    // null = use location spawn points.
     private net.minecraft.core.BlockPos waveSpawnPos = null;
 
-    // Активувати хвилю тільки починаючи з певної хвилі (0 = завжди)
+    // Only activate this wave starting from a specific wave number (0 = always)
     private int activateFromWave = 0;
 
-    // Разово: спрацювати лише один раз за сесію локації
+    // One-time: fire only once per location session
     private boolean oneTimeOnly = false;
-    private boolean firedThisSession = false; // runtime, не serialized
+    private boolean firedThisSession = false; // runtime-only, not serialized
 
     public WaveConfig(int waveNumber, int timeBetweenWaves) {
         this.waveNumber = waveNumber;

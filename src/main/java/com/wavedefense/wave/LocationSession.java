@@ -242,21 +242,39 @@ public class LocationSession {
         // Removes mobs that died outside onMobKilled() (void, /kill, fire, unloaded chunk…)
         // so their wave does not stall forever.
         // Searches ALL loaded dimensions, not just the first player's level.
-        if (tickCount % 40 == 0 && !spawnedMobs.isEmpty()) {
+        if (tickCount % 40 == 0) {
             net.minecraft.server.MinecraftServer srv = com.wavedefense.WaveDefenseMod.getServer();
             if (srv != null) {
-                int cleaned = 0;
-                java.util.Iterator<UUID> it = spawnedMobs.iterator();
-                while (it.hasNext()) {
-                    UUID uuid = it.next();
-                    boolean alive = false;
-                    for (net.minecraft.server.level.ServerLevel lvl : srv.getAllLevels()) {
-                        net.minecraft.world.entity.Entity e = lvl.getEntity(uuid);
-                        if (e != null && e.isAlive()) { alive = true; break; }
+                // Sweep main wave mobs
+                if (!spawnedMobs.isEmpty()) {
+                    int cleaned = 0;
+                    java.util.Iterator<UUID> it = spawnedMobs.iterator();
+                    while (it.hasNext()) {
+                        UUID uuid = it.next();
+                        boolean alive = false;
+                        for (net.minecraft.server.level.ServerLevel lvl : srv.getAllLevels()) {
+                            net.minecraft.world.entity.Entity e = lvl.getEntity(uuid);
+                            if (e != null && e.isAlive()) { alive = true; break; }
+                        }
+                        if (!alive) { it.remove(); cleaned++; }
                     }
-                    if (!alive) { it.remove(); cleaned++; }
+                    if (cleaned > 0) mobsKilled += cleaned;
                 }
-                if (cleaned > 0) mobsKilled += cleaned;
+                // Sweep trigger wave mobs — prevents stalled trigger conditions when
+                // trigger mobs die from non-player causes (fire, void, /kill, etc.)
+                for (Set<UUID> trigSet : triggerMobs.values()) {
+                    if (trigSet.isEmpty()) continue;
+                    java.util.Iterator<UUID> it = trigSet.iterator();
+                    while (it.hasNext()) {
+                        UUID uuid = it.next();
+                        boolean alive = false;
+                        for (net.minecraft.server.level.ServerLevel lvl : srv.getAllLevels()) {
+                            net.minecraft.world.entity.Entity e = lvl.getEntity(uuid);
+                            if (e != null && e.isAlive()) { alive = true; break; }
+                        }
+                        if (!alive) { it.remove(); }
+                    }
+                }
             }
         }
 
@@ -436,6 +454,14 @@ public class LocationSession {
      * pointsReward to all players and executes completionCommand if configured.
      */
     private void onWaveCompleted(WaveConfig wc, WaveManager wm, Location location) {
+        // Record wave metrics for auto-difficulty scaling
+        WaveAutoScaler.WaveMetrics metrics = wm.autoScaler.getCurrentWaveMetrics();
+        if (metrics != null) {
+            metrics.totalEnemies = waveStartMobCount;
+            metrics.enemiesKilled = Math.min(mobsKilled, waveStartMobCount);
+            wm.autoScaler.recordWaveCompletion(metrics);
+        }
+
         // Fire WAVE_END loot trigger
         wm.fireLootTriggerByName(locationName, com.wavedefense.data.LootSpawn.Trigger.WAVE_END);
         // Distribute per-wave points to every player in the location
@@ -673,7 +699,12 @@ public class LocationSession {
     private static Set<UUID> loadUuidSet(ListTag list) {
         Set<UUID> set = ConcurrentHashMap.newKeySet();
         for (int i = 0; i < list.size(); i++) {
-            set.add(UUID.fromString(list.getString(i)));
+            try {
+                set.add(UUID.fromString(list.getString(i)));
+            } catch (IllegalArgumentException ignored) {
+                com.wavedefense.WaveDefenseMod.LOGGER.warn(
+                    "[WaveDefense] Skipped malformed UUID in session NBT: '{}'", list.getString(i));
+            }
         }
         return set;
     }

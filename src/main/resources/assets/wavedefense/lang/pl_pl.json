@@ -1151,5 +1151,6 @@
   "wavedefense.error.location_no_stats": "§cLokalizacja \"%s\" nie znaleziona lub bez statystyk.",
   "wavedefense.label.loot_trigger_count": "§b⚡ Wyzwalacze spawnu: %d wybrano",
   "wavedefense.error.location_not_found": "§cLokalizacja \"%s\" nie znaleziona.",
-  "wavedefense.error.shop_mode_incompatible": "§cPlik niezgodny z docelowym trybem (plik: %s, cel: %s)."
+  "wavedefense.error.shop_mode_incompatible": "§cPlik niezgodny z docelowym trybem (plik: %s, cel: %s).",
+  "wavedefense.hud.ctp_neutral": "Neutralny"
 }

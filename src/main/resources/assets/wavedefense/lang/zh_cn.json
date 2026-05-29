@@ -1151,5 +1151,6 @@
   "wavedefense.error.location_no_stats": "§c地点“%s”未找到或没有统计数据。",
   "wavedefense.label.loot_trigger_count": "§b⚡ 刷怪触发器：%d 个已选",
   "wavedefense.error.location_not_found": "§c地点\"%s\"未找到。",
-  "wavedefense.error.shop_mode_incompatible": "§c文件与目标模式不兼容（文件：%s，目标：%s）。"
+  "wavedefense.error.shop_mode_incompatible": "§c文件与目标模式不兼容（文件：%s，目标：%s）。",
+  "wavedefense.hud.ctp_neutral": "中立"
 }

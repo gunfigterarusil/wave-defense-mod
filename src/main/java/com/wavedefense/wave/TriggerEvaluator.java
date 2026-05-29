@@ -90,8 +90,10 @@ public class TriggerEvaluator {
                 case PLAYER_HAS_SWORD:
                 case PLAYER_HAS_ITEM:
                 case PLAYER_LOW_HEALTH:
-                    // Для запуску локації — перевіряємо будь-якого гравця поблизу
-                    fired = !nearbyPlayers.isEmpty() && checkWaveTriggerCondition(trigger, name, null);
+                    // G6 fix: checkWaveTriggerCondition uses ctx.getPlayersInLocation()
+                    // which is always empty before anyone joins — check nearbyPlayers directly.
+                    fired = !nearbyPlayers.isEmpty()
+                        && checkLocationTriggerForPlayers(trigger, nearbyPlayers, name);
                     break;
                 default:
                     // Всі інші — стандартна перевірка
@@ -348,6 +350,83 @@ public class TriggerEvaluator {
             } catch (Exception ignored) {}
         }
         return false;
+    }
+
+    /**
+     * G6 fix: checks item/health/inventory triggers against a supplied list of nearby
+     * players that have NOT yet joined the location.
+     * Used by tickLocationTriggers() where ctx.getPlayersInLocation() is empty
+     * because nobody has entered yet.
+     */
+    private boolean checkLocationTriggerForPlayers(WaveTrigger trigger,
+                                                    List<ServerPlayer> players,
+                                                    String locName) {
+        switch (trigger) {
+            case PLAYER_LOW_HEALTH:
+                for (ServerPlayer p : players) if (p.getHealth() <= 4) return true;
+                return false;
+            case PLAYER_FULL_INVENT:
+                for (ServerPlayer p : players) {
+                    if (p.getInventory().getFreeSlot() == -1
+                            && !p.getInventory().offhand.get(0).isEmpty()) return true;
+                }
+                return false;
+            case PLAYER_HAS_DIAMOND:
+                for (ServerPlayer p : players) {
+                    if (p.getInventory().hasAnyMatching(ss ->
+                            ss.getItem() == net.minecraft.world.item.Items.DIAMOND ||
+                            ss.getItem() instanceof net.minecraft.world.item.ArmorItem ai
+                            && ai.getMaterial() == net.minecraft.world.item.ArmorMaterials.DIAMOND))
+                        return true;
+                }
+                return false;
+            case PLAYER_HAS_IRON:
+                for (ServerPlayer p : players) {
+                    if (p.getInventory().hasAnyMatching(ss ->
+                            ss.getItem() == net.minecraft.world.item.Items.IRON_INGOT ||
+                            ss.getItem() instanceof net.minecraft.world.item.ArmorItem ai
+                            && ai.getMaterial() == net.minecraft.world.item.ArmorMaterials.IRON))
+                        return true;
+                }
+                return false;
+            case PLAYER_HAS_SWORD:
+                for (ServerPlayer p : players) {
+                    if (p.getInventory().hasAnyMatching(
+                            ss -> ss.getItem() instanceof net.minecraft.world.item.SwordItem))
+                        return true;
+                }
+                return false;
+            case PLAYER_HAS_ITEM: {
+                // Fetch the configured item id(s) from the location's trigger waves
+                com.wavedefense.data.Location loc =
+                    WaveDefenseMod.locationManager.getLocation(locName);
+                if (loc == null) return false;
+                for (com.wavedefense.data.WaveConfig wc : loc.getWaves()) {
+                    if (!wc.isTriggerEnabled()) continue;
+                    String ids = wc.getTriggerCustomItemId();
+                    if (ids.isBlank()) continue;
+                    for (String part : ids.split(",")) {
+                        String trimmed = part.trim();
+                        if (trimmed.isEmpty()) continue;
+                        try {
+                            net.minecraft.resources.ResourceLocation rl =
+                                new net.minecraft.resources.ResourceLocation(trimmed);
+                            net.minecraft.world.item.Item item =
+                                net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(rl);
+                            if (item == null) continue;
+                            net.minecraft.world.item.ItemStack stack =
+                                new net.minecraft.world.item.ItemStack(item);
+                            for (ServerPlayer p : players) {
+                                if (p.getInventory().contains(stack)) return true;
+                            }
+                        } catch (Exception ignored) {}
+                    }
+                }
+                return false;
+            }
+            default:
+                return false;
+        }
     }
 
     private boolean checkWaveTriggerCondition(WaveTrigger trigger,

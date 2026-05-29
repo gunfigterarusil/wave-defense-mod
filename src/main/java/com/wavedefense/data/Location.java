@@ -12,54 +12,54 @@ public class Location {
     String name;
     LocationMode mode;
     BlockPos playerSpawn;
-    /** Радіус розкиду PvE гравців навколо playerSpawn (0 = точно на блоці) */
+    /** Scatter radius for PvE players around playerSpawn (0 = exact block). */
     int playerSpawnRadius = 0;
     List<MobSpawnPoint> mobSpawns;
-    /** Радіус розкиду мобів навколо точки спавну (0 = за замовчуванням 5 блоків) */
+    /** Scatter radius for mobs around their spawn point (0 = default 5 blocks). */
     int mobSpawnRadius = 5;
     List<WaveConfig> waves;
     int totalWaves;
     int timeBetweenWaves;
     Map<UUID, Integer> playerPoints;
     boolean keepInventory;
-    // Авто-активація зони (тільки PvE)
+    // Auto-activation zone (PvE only)
     boolean autoActivate = false;
-    int autoActivateRadius = 5; // блоків
+    int autoActivateRadius = 5; // blocks
     List<ItemStack> startingItems;
     List<ShopItem> shopItems;
     List<ShopItem> completionRewards;
-    // ── Режим магазину ────────────────────────────────────────────────
+    // ── Shop mode ─────────────────────────────────────────────────────
     public enum ShopMode { GLOBAL, POINT }
-    ShopMode        shopMode   = ShopMode.GLOBAL;   // GLOBAL = звичайний, POINT = точковий
-    List<ShopPoint> shopPoints = new ArrayList<>();  // точки точкового магазину
+    ShopMode        shopMode   = ShopMode.GLOBAL;   // GLOBAL = standard, POINT = multi-point
+    List<ShopPoint> shopPoints = new ArrayList<>();  // point-based shop entries
     int completionPointsReward;
     List<LootSpawn> lootSpawns;
 
-    // PvP поля
+    // PvP fields
     List<PvpSpawnPoint> pvpSpawnPoints;
     int pvpMinPlayers;
     boolean pvpFriendlyFire;
     int pvpKillPoints;
     int pvpDeathPenalty;
-    int pvpTotalRounds;   // кількість раундів (0 = нескінченно)
-    int pvpBuyTime;        // час на покупки між раундами (секунди)
-    int pvpRoundStartDelay = 5;   // секунд від BUY→ACTIVE (підрахунок)
-    int pvpRoundStartPoints = 0;  // поінти кожному гравцю на початку раунду
-    int pvpWinPoints    = 0;      // поінти переможній команді за раунд
-    int pvpLosePoints   = 0;      // поінти команді що програла за раунд
-    // ── PvP підрежим ─────────────────────────────────────────────────────
+    int pvpTotalRounds;   // number of rounds (0 = infinite)
+    int pvpBuyTime;        // buy-phase duration between rounds (seconds)
+    int pvpRoundStartDelay = 5;   // seconds from BUY→ACTIVE (countdown)
+    int pvpRoundStartPoints = 0;  // points awarded to every player at round start
+    int pvpWinPoints    = 0;      // points awarded to the winning team per round
+    int pvpLosePoints   = 0;      // points awarded to the losing team per round
+    // ── PvP sub-mode ─────────────────────────────────────────────────────
     public enum PvpMode { STANDARD, DEATHMATCH, BATTLE_ROYALE, CAPTURE_THE_POINT, KING_OF_THE_HILL }
     PvpMode pvpMode = PvpMode.STANDARD;
 
-    // ── Battle Royale налаштування ────────────────────────────────────
-    int     brBorderRadius        = 100;  // початковий радіус кордону (блоків)
-    int     brShrinkIntervalSec   = 30;   // кожні N сек кордон зменшується на 1 блок
+    // ── Battle Royale settings ────────────────────────────────────────
+    int     brBorderRadius        = 100;  // starting border radius (blocks)
+    int     brShrinkIntervalSec   = 30;   // border shrinks by 1 block every N seconds
     String  brBorderParticle      = "minecraft:flame";
     int     brBorderParticleCount = 8;
     boolean brBorderDamage        = true;
     float   brBorderDamageAmt     = 1.0f;
 
-    int     dmKillsToWin  = 10;          // Deathmatch: вбивств для перемоги у раунді
+    int     dmKillsToWin  = 10;          // Deathmatch: kills to win a round
 
     // ── Capture the Point / King of the Hill ─────────────────────────────
     List<CapturePoint> capturePoints    = new ArrayList<>();
@@ -71,89 +71,89 @@ public class Location {
     int  kothScorePerSec    = 1;
     boolean kothFirstToScore = true;
     int  kothRoundDurationSec = 300;
-    boolean pvpWaitEffect = true;       // ефекти slowness+blindness на очікування (замість spectator)
-    boolean pvpTeamAutoBalance = true;  // автобаланс команд при вході/виході
-    boolean enforceGameMode = true;     // примусовий gamemode в локації
-    int startingPoints = 0; // стартові поінти при вході на локацію
+    boolean pvpWaitEffect = true;       // apply slowness+blindness while waiting (instead of spectator)
+    boolean pvpTeamAutoBalance = true;  // auto-balance teams on join/leave
+    boolean enforceGameMode = true;     // force the configured game mode in the location
+    int startingPoints = 0; // points awarded to each player when joining the location
     Map<UUID, String> playerTeamMap;
 
-    // ── Радіус локації та таймер виходу ─────────────────────────────
-    // Якщо locationBoundaryEnabled=true — гравець що вийшов за radius отримує наслідки
+    // ── Location boundary and leave timer ────────────────────────────
+    // When locationBoundaryEnabled=true, players who leave the radius face a consequence.
     boolean locationBoundaryEnabled = false;
-    int     locationBoundaryRadius  = 50;   // блоків, 1-9999
-    int     locationLeaveTimerSec   = 30;   // секунд на повернення (для TIMER режиму)
-    // ── Наслідки перетину кордону ─────────────────────────────────────
+    int     locationBoundaryRadius  = 50;   // blocks, 1-9999
+    int     locationLeaveTimerSec   = 30;   // seconds to return (for TIMER mode)
+    // ── Boundary consequence ──────────────────────────────────────────
     public enum BoundaryConsequence { TIMER_SURRENDER, DAMAGE, TELEPORT_BACK, INSTANT_SURRENDER }
     BoundaryConsequence boundaryConsequence = BoundaryConsequence.TIMER_SURRENDER;
-    float   boundaryDamagePerSec  = 2.0f;  // шкода за секунду (для DAMAGE режиму)
-    // ── Візуал кордону ───────────────────────────────────────────────
+    float   boundaryDamagePerSec  = 2.0f;  // damage per second (for DAMAGE mode)
+    // ── Boundary visual ───────────────────────────────────────────────
     boolean boundaryParticlesEnabled = false;
-    String  boundaryParticleType  = "minecraft:smoke"; // тип частинок
-    int     boundaryParticleCount = 4;    // частинок на точку
-    int     boundaryParticleHeight = 3;   // висота кільця (блоків)
+    String  boundaryParticleType  = "minecraft:smoke"; // particle type
+    int     boundaryParticleCount = 4;    // particles per point
+    int     boundaryParticleHeight = 3;   // ring height (blocks)
 
-    // ── Тригер запуску локації ────────────────────────────────────────
+    // ── Location activation trigger ───────────────────────────────────
     boolean locationTriggerEnabled  = false;
     com.wavedefense.data.WaveTrigger locationTriggerType = com.wavedefense.data.WaveTrigger.PLAYER_ENTER_ZONE;
 
-    // ── Портал ────────────────────────────────────────────────────────
+    // ── Portal ────────────────────────────────────────────────────────
     boolean portalEnabled       = false;
-    // Штрафна хвиля: -1 = всі хвилі по порядку, 0+ = індекс конкретної хвилі
+    // Penalty wave: -1 = all waves in order, 0+ = index of a specific wave
     int     portalPenaltyWave   = -1;
-    // Час очікування до штрафної хвилі (тіки, 0 = відразу)
+    // Delay before the penalty wave spawns (seconds, 0 = immediately)
     int     portalPenaltyTimerSec = 60;
-    // Чи зникає портал після проходження локації?
+    // Whether the portal disappears after the location is completed
     boolean portalDisappearsOnComplete = true;
-    // Якщо зникає — через скільки секунд зʼявляється знову в іншому місці
+    // If it disappears — how many seconds until it reappears elsewhere
     int     portalRespawnTimerSec = 300;
 
-    // Зберігати лут підібраний в локації після виходу
+    // Keep loot picked up in the location after leaving
     boolean keepLootOnExit = false;
 
-    // ── Перемога — екран та затримка виходу ───────────────────────────
-    boolean victoryScreenEnabled = true;     // показувати екран "Перемога"
-    int     victoryLingerTimeSec  = 30;       // скільки секунд гравці залишаються після перемоги
+    // ── Victory — screen and linger delay ─────────────────────────────
+    boolean victoryScreenEnabled = true;     // show the "Victory" screen
+    int     victoryLingerTimeSec  = 30;       // how many seconds players remain after victory
 
-    // ── Авто-активація зони (розширена) ───────────────────────────────
-    // Центр зони: якщо null — використовується playerSpawn
+    // ── Auto-activation zone (extended) ───────────────────────────────
+    // Zone centre: if null, playerSpawn is used
     net.minecraft.core.BlockPos zoneCenter   = null;
-    int  zoneActivationTimeSec  = 0;    // 0 = миттєво; >0 = таймер після першого гравця в зоні
-    // Час (сек) скільки зона залишається відкритою ПІСЛЯ запуску локації (0 = закрити одразу)
-    int  zoneOpenAfterStartSec  = 0;    // 0 = закрити одразу після телепорту
-    // useZoneCenter: false = використовуємо playerSpawn як центр, true = використовуємо zoneCenter
+    int  zoneActivationTimeSec  = 0;    // 0 = instant; >0 = timer after first player enters zone
+    // How long (sec) the zone stays open AFTER the location starts (0 = close immediately)
+    int  zoneOpenAfterStartSec  = 0;    // 0 = close immediately after teleport
+    // false = use playerSpawn as zone centre; true = use zoneCenter
     boolean zoneUsesCustomCenter = false;
 
-    // ── Портал: час відкритості після старту локації ──────────────────
-    // 0 = закрити портал одразу після запуску локації
-    // >0 = портал залишається відкритим ще N секунд після старту (для запізнілих гравців)
-    // -1 = не закривати автоматично (стара поведінка grace period 30 сек)
+    // ── Portal: open duration after location starts ───────────────────
+    // 0 = close portal immediately after location starts
+    // >0 = portal stays open N more seconds after start (for late joiners)
+    // -1 = do not close automatically (legacy grace-period behaviour)
     int portalOpenAfterStartSec = -1;
 
-    // КД повторного входу після завершення/здачі
-    int     reEntryCooldownSec = 0;  // 0 = вимкнено
+    // Re-entry cooldown after completion/surrender
+    int     reEntryCooldownSec = 0;  // 0 = disabled
 
-    // Загальна статистика (зберігається між сесіями)
+    // Cumulative stats (persisted across sessions)
     long    totalMobsKilledAllTime = 0L;
     int     totalSessionsCompleted  = 0;
 
-    // ── Інфо-панелі (TextDisplay entities у грі) ──────────────────────
+    // ── Info panels (TextDisplay entities in-game) ────────────────────
     InfoPanelSettings infoPanel = new InfoPanelSettings();
 
-    // Точка входу в портал (server-side, не serialized — зберігається у WaveManager.portalEntryPositions)
-    // Авто-активація: окрема точка входу (якщо null — використовується playerSpawn)
+    // Portal entry point (server-side; not serialized — stored in WaveManager.portalEntryPositions)
+    // Auto-activation: separate entry point (if null, playerSpawn is used)
     net.minecraft.core.BlockPos autoActivateEntryPos = null;
-    // Точки виходу після проходження та здачі (null = повернутись на попереднє місце)
-    net.minecraft.core.BlockPos victoryExitPos  = null;  // після перемоги
-    net.minecraft.core.BlockPos surrenderExitPos = null; // після здачі
-    // Прихована від гравців (адміни завжди бачать)
+    // Exit points after completion and surrender (null = return to previous position)
+    net.minecraft.core.BlockPos victoryExitPos  = null;  // after victory
+    net.minecraft.core.BlockPos surrenderExitPos = null; // after surrender
+    // Hidden from players (admins always see it)
     boolean hiddenFromPlayers = false;
-    // Час до початку першої хвилі після запуску (секунди)
+    // Delay before the first wave starts after the lobby ends (seconds)
     int firstWaveDelaySec = 0;
-    // Частинки навколо зони входу (null = SQUID_INK за замовчуванням)
-    String zoneParticleType  = null; // registry id, напр. "minecraft:flame"
-    int    zoneParticleCount = 0;   // 0 = авто (radius*2, min 6, max 12)
-    float  zoneParticleSpeed = 0.02f; // швидкість частинок (delta movement)
-    int    zoneParticleInterval = 1;  // кожні N тіків спавнити частинки (1=кожен тік, 20=раз/сек)
+    // Particles around the entry zone (null = SQUID_INK default)
+    String zoneParticleType  = null; // registry id, e.g. "minecraft:flame"
+    int    zoneParticleCount = 0;   // 0 = auto (radius*2, min 6, max 12)
+    float  zoneParticleSpeed = 0.02f; // particle speed (delta movement)
+    int    zoneParticleInterval = 1;  // spawn particles every N ticks (1=every tick, 20=once/sec)
 
     // ── Lock state ──────────────────────────────────────────────────────
     boolean locked = false;  // persistent: prevents new players from entering when true
@@ -168,8 +168,7 @@ public class Location {
     int masChaosResist    = 0;  // chaos_resist FLAT modifier
     int masPhysicalResist = 0;  // physical_resist FLAT modifier
 
-    // Таймер до запуску локації (для інфо-панелі над зоною входу, відображається в InfoPanel)
-    // — це вже є як zoneActivationTimeSec, використовуємо його для відображення
+    // Lobby timer (shown on the entry-zone info panel) — already stored in zoneActivationTimeSec.
 
     public Location(String name) {
         this.name = name;

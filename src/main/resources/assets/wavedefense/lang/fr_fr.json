@@ -1151,5 +1151,6 @@
   "wavedefense.error.location_no_stats": "§cEmplacement \"%s\" introuvable ou sans statistiques.",
   "wavedefense.label.loot_trigger_count": "§b⚡ Déclencheurs: %d sélectionné(s)",
   "wavedefense.error.location_not_found": "§cEmplacement \"%s\" introuvable.",
-  "wavedefense.error.shop_mode_incompatible": "§cFichier incompatible avec le mode cible (fichier: %s, cible: %s)."
+  "wavedefense.error.shop_mode_incompatible": "§cFichier incompatible avec le mode cible (fichier: %s, cible: %s).",
+  "wavedefense.hud.ctp_neutral": "Neutre"
 }

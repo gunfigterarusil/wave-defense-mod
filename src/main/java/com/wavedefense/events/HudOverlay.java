@@ -97,10 +97,10 @@ public class HudOverlay {
         if (mobLine  != null) estimatedW = Math.max(estimatedW, mc.font.width(mobLine)  + 10);
         if (showProgressBar)  estimatedW = Math.max(estimatedW, 210);
 
-        // ── Позиція з HudLayout ───────────────────────────────────────
+        // ── Position from HudLayout ──────────────────────────────────
         HudLayout hl = HudLayout.get();
         int blockX = hl.resolveX(screenW, estimatedW);
-        int blockY = hl.resolveY(screenH, 70); // 70px макс висота блоку
+        int blockY = hl.resolveY(screenH, 70); // 70px max block height
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();

@@ -1151,5 +1151,6 @@
   "wavedefense.error.location_no_stats": "§cLocation \"%s\" not found or has no statistics.",
   "wavedefense.label.loot_trigger_count": "§b⚡ Spawn triggers: %d selected",
   "wavedefense.error.location_not_found": "§cLocation \"%s\" not found.",
-  "wavedefense.error.shop_mode_incompatible": "§cFile incompatible with target mode (file: %s, target: %s)."
+  "wavedefense.error.shop_mode_incompatible": "§cFile incompatible with target mode (file: %s, target: %s).",
+  "wavedefense.hud.ctp_neutral": "Neutral"
 }

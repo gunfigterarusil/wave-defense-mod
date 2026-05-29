@@ -6,6 +6,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.resources.language.I18n;
 
 import java.util.List;
+import java.util.Map;
 
 public class PlayerHUD {
 
@@ -44,6 +45,11 @@ public class PlayerHUD {
         // ── Тімейт-панель (лівий бік) ─────────────────────────────
         if (data.isShowTeammates()) {
             renderTeamPanel(g, mc);
+        }
+
+        // ── G7 fix: CtP/KotH overlay (top-centre) ─────────────────
+        if (ClientCtpStateManager.isActive()) {
+            renderCtpOverlay(g, mc, width);
         }
     }
 
@@ -107,6 +113,102 @@ public class PlayerHUD {
             g.fill(bx,            by,          bx + 1,     by + BAR_H,    0xFF555555);
             g.fill(bx + BAR_W - 1, by,         bx + BAR_W, by + BAR_H,   0xFF555555);
         }
+    }
+
+    /**
+     * Renders the Capture the Point / King of the Hill overlay at the top-centre of the screen.
+     * Shows each capture point name, its current owner (colour-coded), a capture progress bar,
+     * and the team score (or round timer if the location is in timer mode).
+     */
+    private static void renderCtpOverlay(GuiGraphics g, Minecraft mc, int screenW) {
+        Map<String, String>  owners   = ClientCtpStateManager.getPointOwners();
+        Map<String, String>  names    = ClientCtpStateManager.getPointNames();
+        Map<String, Integer> progress = ClientCtpStateManager.getCaptureProgress();
+        Map<String, Integer> timeTicks= ClientCtpStateManager.getCaptureTimeTicks();
+        Map<String, Integer> score    = ClientCtpStateManager.getObjectiveScore();
+        int scoreToWin   = ClientCtpStateManager.getScoreToWin();
+        int ticksLeft    = ClientCtpStateManager.getRoundTicksLeft();
+
+        if (owners.isEmpty()) return;
+
+        final int ENTRY_W  = 80;
+        final int BAR_H    = 4;
+        final int ROW_H    = 18;
+        final int GAP      = 4;
+        int count  = owners.size();
+        int totalW = count * ENTRY_W + (count - 1) * GAP;
+        int startX = (screenW - totalW) / 2;
+        int startY = 6;
+
+        int col = 0;
+        for (String pointId : owners.keySet()) {
+            int x = startX + col * (ENTRY_W + GAP);
+            String owner      = owners.getOrDefault(pointId, "");
+            String displayName= names.getOrDefault(pointId, pointId);
+            int    prog       = progress.getOrDefault(pointId, 0);   // 0-100
+            int    maxTicks   = timeTicks.getOrDefault(pointId, 1);
+
+            // Background panel
+            g.fill(x - 2, startY - 1, x + ENTRY_W + 2, startY + ROW_H + 1, 0x88000000);
+
+            // Point label
+            String label = truncate(displayName, 10);
+            int lw = mc.font.width(label);
+            g.drawString(mc.font, label, x + (ENTRY_W - lw) / 2, startY, 0xFFFFFFFF, false);
+
+            // Owner name
+            int ownerColor = owner.isEmpty() ? 0xFFAAAAAA : teamColor(owner);
+            String ownerLabel = owner.isEmpty() ? I18n.get("wavedefense.hud.ctp_neutral") : truncate(owner, 8);
+            int ow = mc.font.width(ownerLabel);
+            g.drawString(mc.font, ownerLabel, x + (ENTRY_W - ow) / 2, startY + 8, ownerColor, false);
+
+            // Capture progress bar (only shown when being contested, i.e. prog > 0 and < 100)
+            int barY = startY + ROW_H - BAR_H;
+            g.fill(x, barY, x + ENTRY_W, barY + BAR_H, 0xFF222222);
+            if (prog > 0) {
+                int filled = (int)(ENTRY_W * (prog / 100.0f));
+                g.fill(x, barY, x + filled, barY + BAR_H, 0xFFFFD700);
+            }
+
+            col++;
+        }
+
+        // Score / timer row below the capture points
+        if (!score.isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            for (Map.Entry<String, Integer> e : score.entrySet()) {
+                if (sb.length() > 0) sb.append("  ");
+                int tc = teamColor(e.getKey());
+                // Convert ARGB to §-code: approximate with nearest §colour
+                String colCode = tc == 0xFFFF5555 ? "§c" : tc == 0xFF5555FF ? "§9" : tc == 0xFF55FF55 ? "§a" : "§f";
+                sb.append(colCode).append(truncate(e.getKey(), 6)).append(" §f").append(e.getValue());
+                if (scoreToWin > 0) sb.append("/").append(scoreToWin);
+            }
+            if (ticksLeft > 0) {
+                int secs = ticksLeft / 20;
+                sb.append("  §7").append(String.format("%d:%02d", secs / 60, secs % 60));
+            }
+            String scoreText = sb.toString();
+            int sw = mc.font.width(scoreText);
+            g.drawString(mc.font, scoreText, (screenW - sw) / 2, startY + ROW_H + 3, 0xFFFFFFFF, false);
+        }
+    }
+
+    /** Returns a distinct colour for a team name (consistent across calls). */
+    private static int teamColor(String team) {
+        if (team == null || team.isBlank()) return 0xFFAAAAAA;
+        // Map common team name patterns to colours; fall back to hash-based colour
+        String lower = team.toLowerCase();
+        if (lower.contains("red"))   return 0xFFFF5555;
+        if (lower.contains("blue"))  return 0xFF5555FF;
+        if (lower.contains("green")) return 0xFF55FF55;
+        if (lower.contains("gold") || lower.contains("yellow")) return 0xFFFFD700;
+        // Deterministic colour from hash
+        int h = Math.abs(team.hashCode());
+        int r = 100 + (h % 156);
+        int grn = 100 + ((h >> 8) % 156);
+        int b = 100 + ((h >> 16) % 156);
+        return 0xFF000000 | (r << 16) | (grn << 8) | b;
     }
 
     private static String truncate(String s, int maxChars) {

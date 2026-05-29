@@ -14,10 +14,11 @@ Build configurable arena locations with mob waves, team PvP, shops, loot events,
 portals, boundaries, HUD panels, and full in-game admin editors.
 No config files needed — everything is configured through in-game GUI screens.
 
-v0.2.51: server-tick crash isolation, Leave Location key changed to G (was L),
-location import confirmation dialog, info button on player menu rows,
-surrender button now visually distinct from Exit PvP, minimum player count hint
-in team-select screen, and C→S packet rate limiter for DoS protection.
+v0.2.52: dedicated-server crash fix (client-only Screen class referenced from @Mod class);
+backup system actually started; auto-difficulty scaling now records wave results;
+zone particles use the player's actual dimension; GameStats sent to client after kills;
+location triggers for PLAYER_HAS_ITEM / PLAYER_LOW_HEALTH now evaluate correctly;
+WaveDefenseMonitor no longer holds a stale WaveContext reference.
 
 PvE features:
 - Wave-defense locations: configurable mobs, equipment, potion effects, spawn points,

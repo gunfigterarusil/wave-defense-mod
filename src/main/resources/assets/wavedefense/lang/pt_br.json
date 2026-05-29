@@ -1151,5 +1151,6 @@
   "wavedefense.error.location_no_stats": "§cLocal \"%s\" não encontrado ou sem estatísticas.",
   "wavedefense.label.loot_trigger_count": "§b⚡ Gatilhos: %d selecionado(s)",
   "wavedefense.error.location_not_found": "§cLocal \"%s\" não encontrado.",
-  "wavedefense.error.shop_mode_incompatible": "§cArquivo incompatível com o modo alvo (arquivo: %s, alvo: %s)."
+  "wavedefense.error.shop_mode_incompatible": "§cArquivo incompatível com o modo alvo (arquivo: %s, alvo: %s).",
+  "wavedefense.hud.ctp_neutral": "Neutro"
 }

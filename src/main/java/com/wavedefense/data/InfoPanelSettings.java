@@ -3,44 +3,43 @@ package com.wavedefense.data;
 import net.minecraft.nbt.CompoundTag;
 
 /**
- * Налаштування інфо-панелі локації.
- * Два режими:
- *   1. spawnInfoPanel — TextDisplay над точкою спавну гравців (загальна статистика)
- *   2. mobSpawnPanel  — TextDisplay над кожною точкою спавну мобів (таймер до хвилі)
+ * Info-panel settings for a location.
+ * Two modes:
+ *   1. spawnInfoPanel — TextDisplay above the player spawn point (general stats)
+ *   2. mobSpawnPanel  — TextDisplay above each mob spawn point (wave timer)
  */
 public class InfoPanelSettings {
 
-    // ── Панель гравця (над точкою спавну) ────────────────────────────────
-    private boolean spawnPanelEnabled   = false;   // вмикач
-    private float   spawnPanelOffsetY   = 2.5f;    // висота над блоком спавну
+    // ── Player panel (above spawn point) ─────────────────────────────────
+    private boolean spawnPanelEnabled   = false;   // toggle
+    private float   spawnPanelOffsetY   = 2.5f;    // height above the spawn block
 
-    // Що відображати на панелі гравця
-    private boolean showPlayerCount     = true;    // кількість гравців у локації
-    private boolean showWaveNumber      = true;    // поточна / загальна хвиль (напр. «Хвиля 3/10»)
-    private boolean showWaveTimer       = true;    // таймер до наступної хвилі
-    private boolean showMobsRemaining   = true;    // кількість мобів що залишились
-    private boolean showSecretCount     = false;   // кількість прихованих (тригерних) хвиль
-    private boolean showShopSecrets     = false;   // кількість товарів із умовою доступності
-    private boolean showPoints          = false;   // поінти гравця
-    // Нові поля
-    private boolean showFirstWaveTimer  = true;    // таймер до початку першої хвилі (після запуску)
-    private boolean showLobbyTimer      = true;    // таймер до запуску локації (на панелі зони входу)
+    // What to display on the player panel
+    private boolean showPlayerCount     = true;    // number of players in the location
+    private boolean showWaveNumber      = true;    // current / total waves (e.g. "Wave 3/10")
+    private boolean showWaveTimer       = true;    // countdown to next wave
+    private boolean showMobsRemaining   = true;    // mobs still alive
+    private boolean showSecretCount     = false;   // number of hidden (trigger) waves
+    private boolean showShopSecrets     = false;   // number of items with an availability condition
+    private boolean showPoints          = false;   // player's points
+    private boolean showFirstWaveTimer  = true;    // countdown to the first wave after lobby ends
+    private boolean showLobbyTimer      = true;    // countdown until the location starts (lobby zone panel)
 
-    // ── Панель точок спавну мобів ─────────────────────────────────────────
-    private boolean mobSpawnPanelEnabled = false;  // вмикач
-    private float   mobSpawnOffsetY      = 2.5f;   // висота над блоком спавну мобів
+    // ── Mob spawn panels ──────────────────────────────────────────────────
+    private boolean mobSpawnPanelEnabled = false;  // toggle
+    private float   mobSpawnOffsetY      = 2.5f;   // height above the mob spawn block
 
-    // Що відображати над кожною точкою спавну мобів
-    private boolean mobShowWaveTimer     = true;   // таймер до наступної хвилі
-    private boolean mobShowWaveNumber    = false;  // поточна хвиля
-    private boolean mobShowMobCount      = false;  // скільки мобів тут спавниться
+    // What to display above each mob spawn point
+    private boolean mobShowWaveTimer     = true;   // countdown to next wave
+    private boolean mobShowWaveNumber    = false;  // current wave number
+    private boolean mobShowMobCount      = false;  // how many mobs spawn here
 
-    // ── Стиль тексту ──────────────────────────────────────────────────────
-    // Колір тексту у форматі 0xRRGGBB (без альфа-каналу)
-    private int  textColor          = 0xFFFFFF;   // білий
-    private int  backgroundColor    = 0x7F000000; // напівпрозорий чорний (або 0 = прозорий)
+    // ── Text style ────────────────────────────────────────────────────────
+    // Text colour in 0xRRGGBB format (no alpha channel)
+    private int  textColor          = 0xFFFFFF;   // white
+    private int  backgroundColor    = 0x7F000000; // semi-transparent black (0 = transparent)
     private boolean hasShadow       = true;
-    private float   textScale       = 0.5f;        // масштаб тексту (0.1 – 2.0)
+    private float   textScale       = 0.5f;        // text scale (0.1 – 2.0)
 
     // ═══════════════════════ Accessors ═══════════════════════════════════
 

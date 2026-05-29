@@ -1,5 +1,103 @@
 # Changelog
 
+## [0.2.52] - 2026-05-29
+
+### Fixed — Server crash, gameplay correctness, and stats visibility (14 fixes)
+
+**Dedicated-server crash — `Screen` class loaded by `@Mod` class (CRITICAL)**
+`WaveDefenseMod` (a shared `@Mod` class loaded on both client and server) imported
+`net.minecraftforge.client.ConfigScreenHandler` and `com.wavedefense.gui.WaveDefenseConfigScreen`
+at the top level. `net.minecraftforge.client.*` is a client-only package — on a dedicated server
+the classes do not exist, causing `NoClassDefFoundError` during mod initialization.
+Fixed by moving all client-only setup into a private `@OnlyIn(Dist.CLIENT) static final class ClientSetup`
+and routing the call through `DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> ClientSetup::register)`.
+The `@OnlyIn` annotation is stripped by Forge's class transformer on the server; `DistExecutor`
+ensures the lambda is never evaluated on the server JVM regardless.
+
+**BackupSystem never started (A3)**
+`WaveDefenseBackupSystem` had a complete ~700-line implementation but `initialize()` and
+`startScheduledBackups()` were never called. Backup scheduler now starts in `onServerStarting()`
+and `shutdown()` is called in `onServerStopping()`.
+
+**Auto-difficulty scaling broken — `recordWaveCompletion()` never called (A2)**
+`WaveAutoScaler.recordWaveCompletion()` existed but had no call site. The scaler accumulated
+no data and always applied default difficulty. Fixed in `LocationSession.onWaveCompleted()`:
+`WaveMetrics` is populated from `waveStartMobCount` / `mobsKilled` and passed to the scaler
+after every wave.
+
+**Null guard for `locationManager` in `WaveManager.tickSession()` (A7)**
+`tickSession()` called `locationManager.getLocation()` without checking whether
+`WaveDefenseMod.locationManager` was non-null (it is null before `onServerStarting` fires).
+Added early return if `locationManager == null`.
+
+**`pvpPenaltyDeducted` set not cleared on session end (E1)**
+The dedup-set that prevents double death-penalty deductions in PvP was cleared in
+`startActiveRound()` but not in `endPvpMatch()`. A UUID carried over from one session
+could silently suppress the penalty in the next independent session. Fixed:
+`pvpPenaltyDeducted.clear()` added before `ctx.removeSession()` in `endPvpMatch()`.
+
+**`UUID.fromString()` without try-catch on NBT load (C2)**
+`LocationSession.loadUuidSet()` called `UUID.fromString(string)` directly. A single
+malformed UUID in persisted NBT (e.g. after a corrupt save) would throw
+`IllegalArgumentException` and prevent the entire session from loading. Wrapped in
+`try/catch`; malformed entries are skipped with a `LOGGER.warn`.
+
+**Dead-mob sweep missed `triggerMobs` (A8 extension)**
+The 40-tick periodic cleanup iterated `spawnedMobs` but not the per-wave `triggerMobs`
+sets. Trigger-wave mobs killed by non-player causes (fire, fall, void) stayed in the
+tracking set, preventing trigger conditions that check mob-count from ever clearing.
+Extended the sweep to also clean `triggerMobs`.
+
+**Reflection not cached in `InfoPanelManager` (D2)**
+`setTextDisplayText()` and `setBillboardViaReflection()` used reflection on every call
+(once per second per TextDisplay entity). The `EntityDataAccessor` field is now cached in
+a `static volatile` field on first successful lookup; subsequent calls skip the reflection
+entirely. Cache resets on exception so a future Forge/Minecraft update won't silently
+cause NPEs.
+
+**CtP/KotH HUD overlay missing (G7)**
+`PlayerHUD` had no code path for Capture-the-Point or King-of-the-Hill game modes.
+Added `renderCtpOverlay()` driven by `ClientCtpStateManager.isActive()`: a top-centre
+panel showing each capture point's name, owner (team-coloured), and capture progress bar,
+plus a score row with team scores, score-to-win, and round timer.
+New key `wavedefense.hud.ctp_neutral` added to all 8 language files.
+
+**Orphan session not ended when location is deleted (C1)**
+`DeleteLocationPacket` called `locationManager.removeLocation()` directly. If an active
+session existed for that location, it stayed in `waveCtx.sessions` forever — players could
+not rejoin the (now non-existent) location, and the session leaked memory.
+Fixed: `waveManager.endSessionForLocation()` is called before `removeLocation()`.
+
+**Zone particles always spawned in the Overworld (A5)**
+`ZoneActivationManager.spawnZoneParticlesForLocation()` used
+`getServer().getLevel(Level.OVERWORLD)` unconditionally. Nether, End, and custom-dimension
+arenas never showed their configured particles.
+Fixed with a three-level fallback: (1) level of any player already in the session;
+(2) level of any player within `radius + 32` blocks of the zone center; (3) Overworld.
+
+**`WaveDefenseMonitor` held a stale `WaveContext` (A4)**
+The singleton captured `WaveDefenseMod.waveManager.waveCtx` as a `final` field in its
+constructor. If `getInstance()` were called before `WaveManager` was initialized, `waveCtx`
+would be permanently `null`. Replaced the field with a static helper method `waveCtx()`
+that resolves the context dynamically on each call.
+
+**GameStats never sent to client (G4)**
+`SyncStatsPacket` was registered and had a working client handler, but was never sent.
+Players saw stale zeroes in `StatsScreen`. Fixed: new `WaveManager.syncPlayerStats(player)`
+method sends the packet; it is called from `syncPlayerData()` (covers location join/leave)
+and directly after `stats.incrementMobsKilled()` in `onMobKilled()`.
+
+**Location triggers for `PLAYER_HAS_ITEM` / `PLAYER_LOW_HEALTH` etc. always returned `false` (G6)**
+`TriggerEvaluator.tickLocationTriggers()` delegated to `checkWaveTriggerCondition()` for
+item and health checks, which internally called `ctx.getPlayersInLocation(locName)`. But
+the location is not yet active — nobody has joined — so that list is always empty.
+Fixed: new private method `checkLocationTriggerForPlayers(trigger, nearbyPlayers, locName)`
+checks the already-collected `nearbyPlayers` list directly, bypassing the session lookup.
+Covers: `PLAYER_HAS_ITEM`, `PLAYER_LOW_HEALTH`, `PLAYER_HAS_DIAMOND`, `PLAYER_HAS_IRON`,
+`PLAYER_HAS_SWORD`, `PLAYER_FULL_INVENT`.
+
+---
+
 ## [0.2.51] - 2026-05-25
 
 ### Fixed — Server stability, UX clarity, and DoS hardening (7 fixes)

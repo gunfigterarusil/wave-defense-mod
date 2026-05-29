@@ -1151,5 +1151,6 @@
   "wavedefense.error.location_no_stats": "§cStandort \"%s\" nicht gefunden oder ohne Statistiken.",
   "wavedefense.label.loot_trigger_count": "§b⚡ Spawn-Trigger: %d ausgewählt",
   "wavedefense.error.location_not_found": "§cStandort \"%s\" nicht gefunden.",
-  "wavedefense.error.shop_mode_incompatible": "§cDatei inkompatibel mit Zielmodus (Datei: %s, Ziel: %s)."
+  "wavedefense.error.shop_mode_incompatible": "§cDatei inkompatibel mit Zielmodus (Datei: %s, Ziel: %s).",
+  "wavedefense.hud.ctp_neutral": "Neutral"
 }

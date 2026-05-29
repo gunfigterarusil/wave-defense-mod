@@ -1,4 +1,4 @@
-# Wave Defense Mod - v0.2.51
+# Wave Defense Mod - v0.2.52
 
 Wave Defense is a PvE/PvP Forge mod for **Minecraft 1.20.1** and **Java 17**.
 It lets server owners build configurable arena locations with mob waves, team PvP,
@@ -8,7 +8,23 @@ shops, loot events, portals, boundaries, HUD panels, and in-game admin editors.
 
 ## Status
 
-Version `0.2.51` — Server stability, UX clarity, and security hardening pass.
+Version `0.2.52` — Server crash fix, gameplay correctness, and stats visibility pass.
+
+**v0.2.52 fixes (14):**
+- **CRITICAL** — Dedicated-server crash: `ConfigScreenHandler` / `WaveDefenseConfigScreen` (client-only classes) were imported directly by the `@Mod` class, causing `NoClassDefFoundError` on server startup. Isolated into `@OnlyIn(Dist.CLIENT)` inner class + `DistExecutor`.
+- BackupSystem (`WaveDefenseBackupSystem`) was never started — `initialize()` / `startScheduledBackups()` added to `onServerStarting`.
+- Auto-difficulty scaling broken — `recordWaveCompletion()` had no call site; wave metrics now recorded after every wave.
+- Null-guard added for `locationManager` in `WaveManager.tickSession()` (NPE before server fully starts).
+- `pvpPenaltyDeducted` set not cleared on PvP session end — could suppress death penalty in future sessions.
+- `UUID.fromString()` in session NBT load now wrapped in `try/catch` — malformed UUID no longer crashes load.
+- Dead-mob sweep extended to `triggerMobs` sets — trigger conditions blocked by mobs killed by non-player sources.
+- `InfoPanelManager` reflection cached in a `static volatile` field — was re-reflecting every second per entity.
+- CtP/KotH HUD overlay implemented in `PlayerHUD` — point ownership, capture progress bars, team scores, round timer.
+- Orphan session now ended before location deletion in `DeleteLocationPacket`.
+- Zone particles now use the player's actual dimension (Nether, End, custom) — previously hardcoded to Overworld.
+- `WaveDefenseMonitor` no longer holds a stale `WaveContext` — replaced captured field with dynamic `waveCtx()` method.
+- `SyncStatsPacket` now actually sent — `GameStats` pushed to client on mob kill and on location join/leave.
+- Location triggers for `PLAYER_HAS_ITEM`, `PLAYER_LOW_HEALTH`, and inventory/item checks now evaluate correctly against nearby players instead of the (empty) in-session player list.
 
 **v0.2.51 fixes (7):**
 - Server tick wrapped in `try/catch` — one sub-manager exception can no longer crash the whole server.
@@ -47,7 +63,7 @@ Completed in this workspace:
 ## Installation
 
 1. Install Forge `1.20.1` (`47.2.0+` recommended).
-2. Copy the built `wavedefense-0.2.51.jar` into the `mods/` folder.
+2. Copy the built `wavedefense-0.2.52.jar` into the `mods/` folder.
 3. **Optional**: install Mine and Slash (`mmorpg` mod, v6.1.0+) to unlock per-location mob level / XP / resistance settings.
 4. Start the client or dedicated server.
 

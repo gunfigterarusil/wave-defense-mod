@@ -5,52 +5,52 @@ import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.config.ModConfig;
 
 /**
- * Конфіг-файл моду Wave Defense.
- * Файл: config/wavedefense-common.toml
+ * Wave Defense mod configuration.
+ * File: config/wavedefense-common.toml
  *
- * Категорії:
- *   [general]        — загальні налаштування
- *   [shop]           — магазин
- *   [zone_activation] — авто-активація зон
- *   [pvp]            — PvP раунди
- *   [mob_equipment]  — броня/зброя мобів
- *   [hotkeys]        — гарячі клавіші
- *   [limits]         — ліміти (до 9999)
+ * Sections:
+ *   [general]         — general settings
+ *   [shop]            — shop settings
+ *   [zone_activation] — auto-activation zones
+ *   [pvp]             — PvP rounds
+ *   [mob_equipment]   — mob armor/weapons
+ *   [hotkeys]         — hotkeys
+ *   [limits]          — value limits (up to 9999)
  */
 public class WaveDefenseConfig {
     public static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
     public static final ForgeConfigSpec SPEC;
 
-    // ── Загальні ──────────────────────────────────────────────────────────
+    // ── General ───────────────────────────────────────────────────────────
     public static final ForgeConfigSpec.BooleanValue ENABLE_HUD;
     public static final ForgeConfigSpec.IntValue DEFAULT_WAVE_TIME;
     public static final ForgeConfigSpec.BooleanValue ENABLE_UI_TOOLTIPS;
     public static final ForgeConfigSpec.IntValue LOBBY_TIMER_SECONDS;
     /**
-     * Режим гри що встановлюється гравцю при вході на локацію (і якщо він в Creative).
-     * Допустимі значення: "survival", "adventure"
+     * Game mode applied to players when joining a location (and when they are in Creative).
+     * Accepted values: "survival", "adventure"
      */
     public static final ForgeConfigSpec.ConfigValue<String> LOCATION_GAME_MODE;
 
-    // ── Магазин ───────────────────────────────────────────────────────────
+    // ── Shop ──────────────────────────────────────────────────────────────
     public static final ForgeConfigSpec.BooleanValue SHOP_CATEGORIES_ENABLED;
 
-    // ── PvE зона авто-активація ───────────────────────────────────────────
+    // ── PvE zone auto-activation ──────────────────────────────────────────
     public static final ForgeConfigSpec.IntValue ZONE_ACTIVATION_RADIUS;
     public static final ForgeConfigSpec.IntValue ZONE_ACTIVATION_COUNTDOWN;
     public static final ForgeConfigSpec.BooleanValue ZONE_ACTIVATION_PARTICLES;
 
-    // ── PvP ───────────────────────────────────────────────────────────────
+    // ── PvP ───────────────────────────────────────────────────────────────────
     public static final ForgeConfigSpec.BooleanValue PVP_HIDE_ENEMY_NAMETAGS;
     public static final ForgeConfigSpec.IntValue PVP_DEFAULT_ROUNDS;
     public static final ForgeConfigSpec.IntValue PVP_DEFAULT_BUY_TIME;
     public static final ForgeConfigSpec.IntValue PVP_RESPAWN_DELAY_SECONDS;
 
-    // ── Спавн мобів ───────────────────────────────────────────────────────
+    // ── Mob equipment ─────────────────────────────────────────────────────
     public static final ForgeConfigSpec.BooleanValue MOBS_CAN_HAVE_EQUIPMENT;
     public static final ForgeConfigSpec.DoubleValue MOB_ARMOR_DROP_CHANCE;
 
-    // ── Debug / Logging ───────────────────────────────────────────────────
+    // ── Debug / Logging ──────────────────────────────────────────────────
     public static final ForgeConfigSpec.BooleanValue DEBUG_ADMIN_MESSAGES;
     public static final ForgeConfigSpec.BooleanValue DEBUG_LOGGING_ENABLED;
 
@@ -61,47 +61,46 @@ public class WaveDefenseConfig {
     // ── Hotkeys ───────────────────────────────────────────────────────────
     public static final ForgeConfigSpec.BooleanValue SHOP_HOTKEY_ENABLED;
 
-    // ── Ліміти (до 9999) ─────────────────────────────────────────────────
-    public static final ForgeConfigSpec.IntValue MAX_MOB_TYPES;       // типів мобів у хвилі
-    public static final ForgeConfigSpec.IntValue MAX_WAVES;            // хвиль у локації
-    public static final ForgeConfigSpec.IntValue MAX_MOB_SPAWNS;       // точок спавну мобів
-    public static final ForgeConfigSpec.IntValue MAX_PLAYER_SPAWNS;    // PvP точок спавну команди
-    public static final ForgeConfigSpec.IntValue MAX_SHOP_ITEMS;       // товарів у магазині
-    public static final ForgeConfigSpec.IntValue MAX_LOOT_SPAWNS;      // точок лут-спавну
+    // ── Limits (up to 9999) ───────────────────────────────────────────────
+    public static final ForgeConfigSpec.IntValue MAX_MOB_TYPES;       // mob types per wave
+    public static final ForgeConfigSpec.IntValue MAX_WAVES;            // waves per location
+    public static final ForgeConfigSpec.IntValue MAX_MOB_SPAWNS;       // mob spawn points
+    public static final ForgeConfigSpec.IntValue MAX_PLAYER_SPAWNS;    // PvP team spawn points
+    public static final ForgeConfigSpec.IntValue MAX_SHOP_ITEMS;       // shop items
+    public static final ForgeConfigSpec.IntValue MAX_LOOT_SPAWNS;      // loot spawn points
 
     static {
         BUILDER.push("general");
 
         ENABLE_HUD = BUILDER
-                .comment("Вмикає HUD оверлей з інформацією про хвилі")
+                .comment("Enables the HUD overlay showing wave information.")
                 .define("enableHUD", true);
 
         DEFAULT_WAVE_TIME = BUILDER
-                .comment("Час між хвилями за замовчуванням (секунди)")
+                .comment("Default time between waves (seconds).")
                 .defineInRange("defaultWaveTime", 60, 10, 600);
 
-
         ENABLE_UI_TOOLTIPS = BUILDER
-                .comment("Показувати підказки при наведенні на елементи інтерфейсу")
+                .comment("Show tooltips when hovering over UI elements.")
                 .define("enableUITooltips", true);
 
         LOBBY_TIMER_SECONDS = BUILDER
-                .comment("Таймер лоббі — перезапускається при кожному новому гравці (секунди)")
+                .comment("Lobby countdown timer in seconds — resets when a new player joins.")
                 .defineInRange("lobbyTimerSeconds", 30, 5, 300);
 
         LOCATION_GAME_MODE = BUILDER
-                .comment("Режим гри що примусово встановлюється гравцю при вході на локацію.\n"
-                        + "Якщо гравець в Creative — автоматично переводиться в цей режим.\n"
-                        + "Допустимі значення: \"survival\", \"adventure\"")
+                .comment("Game mode forced on players when they join a location.\n"
+                        + "Creative players are automatically switched to this mode.\n"
+                        + "Accepted values: \"survival\", \"adventure\"")
                 .define("locationGameMode", "survival");
 
         MAX_PLAYERS_PER_LOCATION = BUILDER
-                .comment("Максимальна кількість гравців в одній локації одночасно.\n"
-                        + "0 = без обмежень.")
+                .comment("Maximum number of players allowed in one location simultaneously.\n"
+                        + "0 = no limit.")
                 .defineInRange("maxPlayersPerLocation", 0, 0, 200);
 
         WAVE_START_TITLE_ENABLED = BUILDER
-                .comment("Показувати великий title/subtitle на екрані гравця при старті кожної хвилі.")
+                .comment("Show a large title/subtitle on the player's screen when each wave starts.")
                 .define("waveStartTitleEnabled", true);
 
         BUILDER.pop();
@@ -109,7 +108,7 @@ public class WaveDefenseConfig {
         BUILDER.push("shop");
 
         SHOP_CATEGORIES_ENABLED = BUILDER
-                .comment("Вмикає категорії в магазині (зброя, броня, розхідники, інше)")
+                .comment("Enables shop categories (weapon, armor, consumable, other).")
                 .define("categoriesEnabled", true);
 
         BUILDER.pop();
@@ -117,16 +116,16 @@ public class WaveDefenseConfig {
         BUILDER.push("zone_activation");
 
         ZONE_ACTIVATION_RADIUS = BUILDER
-                .comment("Радіус зони авто-активації локації (блоки)\n" +
-                         "Гравці входять у зону → починається таймер")
+                .comment("Auto-activation zone radius in blocks.\n" +
+                         "Players entering the zone start the countdown timer.")
                 .defineInRange("radius", 5, 1, 20);
 
         ZONE_ACTIVATION_COUNTDOWN = BUILDER
-                .comment("Таймер (секунди) до активації — гравець може вийти щоб скасувати")
+                .comment("Countdown (seconds) before the zone activates — players can leave to cancel.")
                 .defineInRange("countdown", 30, 5, 120);
 
         ZONE_ACTIVATION_PARTICLES = BUILDER
-                .comment("Показувати чорне коло з частинок навколо зони активації")
+                .comment("Show a particle ring around the auto-activation zone.")
                 .define("particles", true);
 
         BUILDER.pop();
@@ -134,20 +133,20 @@ public class WaveDefenseConfig {
         BUILDER.push("pvp");
 
         PVP_HIDE_ENEMY_NAMETAGS = BUILDER
-                .comment("Ховати ніки ворожих гравців під час активного PvP раунду")
+                .comment("Hide enemy player name tags during an active PvP round.")
                 .define("hideEnemyNametags", true);
 
         PVP_DEFAULT_ROUNDS = BUILDER
-                .comment("Кількість раундів за замовчуванням для нових PvP локацій")
+                .comment("Default number of rounds for new PvP locations.")
                 .defineInRange("defaultRounds", 10, 1, 100);
 
         PVP_DEFAULT_BUY_TIME = BUILDER
-                .comment("Час покупок між раундами за замовчуванням (секунди)")
+                .comment("Default buy-phase duration between rounds (seconds).")
                 .defineInRange("defaultBuyTime", 20, 5, 120);
 
         PVP_RESPAWN_DELAY_SECONDS = BUILDER
-                .comment("Затримка відродження (секунди) після смерті у Deathmatch та Battle Royale.\n"
-                        + "0 = миттєве відродження.")
+                .comment("Respawn delay (seconds) after death in Deathmatch and Battle Royale.\n"
+                        + "0 = instant respawn.")
                 .defineInRange("pvpRespawnDelaySeconds", 0, 0, 30);
 
         BUILDER.pop();
@@ -155,11 +154,11 @@ public class WaveDefenseConfig {
         BUILDER.push("mob_equipment");
 
         MOBS_CAN_HAVE_EQUIPMENT = BUILDER
-                .comment("Дозволити видавати мобам броню та зброю")
+                .comment("Allow mobs to be given armor and weapons.")
                 .define("enabled", true);
 
         MOB_ARMOR_DROP_CHANCE = BUILDER
-                .comment("Ймовірність дропу спорядження мобів (0.0 = ніколи, 1.0 = завжди)")
+                .comment("Drop chance for mob equipment (0.0 = never, 1.0 = always).")
                 .defineInRange("armorDropChance", 0.085, 0.0, 1.0);
 
         BUILDER.pop();
@@ -167,51 +166,51 @@ public class WaveDefenseConfig {
         BUILDER.push("hotkeys");
 
         SHOP_HOTKEY_ENABLED = BUILDER
-                .comment("Гаряча клавіша B для прямого відкриття магазину (без меню)")
+                .comment("B hotkey to open the shop directly (without the admin menu).")
                 .define("shopHotkeyEnabled", true);
 
         BUILDER.pop();
 
         BUILDER.push("debug");
-        BUILDER.comment("Налаштування відлагодження та логування");
+        BUILDER.comment("Debug and logging settings.");
 
         DEBUG_ADMIN_MESSAGES = BUILDER
-                .comment("Показувати повідомлення про стан локацій (старт, хвилі) адміністраторам.\n" +
-                         "Повідомлення видно тільки гравцям з permission level >= 2.")
+                .comment("Show location state messages (start, waves) to administrators.\n" +
+                         "Only visible to players with permission level >= 2.")
                 .define("adminDebugMessages", true);
 
         DEBUG_LOGGING_ENABLED = BUILDER
-                .comment("Записувати події моду у server log (waves, triggers, errors).\n" +
-                         "Вимкніть щоб зменшити обсяг логів.")
+                .comment("Write mod events to the server log (waves, triggers, errors).\n" +
+                         "Disable to reduce log volume.")
                 .define("loggingEnabled", true);
 
         BUILDER.pop();
 
         BUILDER.push("limits");
-        BUILDER.comment("Максимальні ліміти для налаштувань локацій. Значення 1-9999.");
+        BUILDER.comment("Maximum limits for location settings. Range: 1-9999.");
 
         MAX_MOB_TYPES = BUILDER
-                .comment("Максимальна кількість типів мобів у одній хвилі")
+                .comment("Maximum number of mob types in a single wave.")
                 .defineInRange("maxMobTypes", 20, 1, 9999);
 
         MAX_WAVES = BUILDER
-                .comment("Максимальна кількість хвиль у локації")
+                .comment("Maximum number of waves in a location.")
                 .defineInRange("maxWaves", 100, 1, 9999);
 
         MAX_MOB_SPAWNS = BUILDER
-                .comment("Максимальна кількість точок спавну мобів у локації")
+                .comment("Maximum number of mob spawn points in a location.")
                 .defineInRange("maxMobSpawns", 50, 1, 9999);
 
         MAX_PLAYER_SPAWNS = BUILDER
-                .comment("Максимальна кількість PvP точок спавну команд")
+                .comment("Maximum number of PvP team spawn points.")
                 .defineInRange("maxPlayerSpawns", 20, 1, 9999);
 
         MAX_SHOP_ITEMS = BUILDER
-                .comment("Максимальна кількість товарів у магазині локації")
+                .comment("Maximum number of items in a location's shop.")
                 .defineInRange("maxShopItems", 100, 1, 9999);
 
         MAX_LOOT_SPAWNS = BUILDER
-                .comment("Максимальна кількість точок спавну луту")
+                .comment("Maximum number of loot spawn points.")
                 .defineInRange("maxLootSpawns", 50, 1, 9999);
 
         BUILDER.pop();
@@ -223,7 +222,7 @@ public class WaveDefenseConfig {
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, SPEC, "wavedefense-common.toml");
     }
 
-    /** Повертає GameType налаштований для локацій (survival або adventure). */
+    /** Returns the GameType configured for locations (survival or adventure). */
     public static net.minecraft.world.level.GameType getLocationGameType() {
         String val = LOCATION_GAME_MODE.get();
         if ("adventure".equalsIgnoreCase(val)) return net.minecraft.world.level.GameType.ADVENTURE;

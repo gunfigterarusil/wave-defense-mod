@@ -50,7 +50,9 @@ public class WaveDefenseMonitor {
     // ============================================================
     //  CORE MONITORING STATE
     // ============================================================
-    private final WaveContext waveCtx;
+    // A4 fix: do NOT capture waveCtx at construction time — WaveManager may not
+    // be initialised yet (singleton is created lazily on the first server tick).
+    // Always resolve it through WaveDefenseMod.waveManager at call time.
     private final boolean monitoringEnabled;
     private volatile long monitorStartTime;
     private volatile long lastTickTime;
@@ -136,8 +138,12 @@ public class WaveDefenseMonitor {
     // ============================================================
     //  CONSTRUCTOR
     // ============================================================
+    /** Returns the current WaveContext, or null if WaveManager is not yet initialised. */
+    private static WaveContext waveCtx() {
+        return WaveDefenseMod.waveManager != null ? WaveDefenseMod.waveManager.waveCtx : null;
+    }
+
     private WaveDefenseMonitor() {
-        this.waveCtx = WaveDefenseMod.waveManager != null ? WaveDefenseMod.waveManager.waveCtx : null;
         this.monitoringEnabled = true;
         this.monitorStartTime = System.currentTimeMillis();
         this.lastTickTime = System.currentTimeMillis();
@@ -209,10 +215,10 @@ public class WaveDefenseMonitor {
     //  METRICS COLLECTION
     // ============================================================
     private void collectGameplayMetrics() {
-        if (waveCtx == null) return;
+        if (waveCtx() == null) return;
 
         // Update per-location metrics
-        for (LocationSession session : waveCtx.sessions.values()) {
+        for (LocationSession session : waveCtx().sessions.values()) {
             String locName = session.locationName;
             locationHistories.computeIfAbsent(locName, k -> new LocationHistory(locName))
                 .update(session);
@@ -404,9 +410,9 @@ public class WaveDefenseMonitor {
     }
 
     private boolean checkWaveTimeouts() {
-        if (waveCtx == null) return false;
+        if (waveCtx() == null) return false;
 
-        for (LocationSession session : waveCtx.sessions.values()) {
+        for (LocationSession session : waveCtx().sessions.values()) {
             if (session.waveTimerTicks > 0) {
                 long secondsRemaining = session.waveTimerTicks / 20;
                 long waveDuration = (System.currentTimeMillis() - session.getWaveStartTime()) / 1000;
@@ -424,9 +430,9 @@ public class WaveDefenseMonitor {
     }
 
     private boolean checkMobSpawnLag() {
-        if (waveCtx == null) return false;
+        if (waveCtx() == null) return false;
 
-        for (LocationSession session : waveCtx.sessions.values()) {
+        for (LocationSession session : waveCtx().sessions.values()) {
             if (session.spawnedMobs.size() > MOB_SPAWN_LAG_THRESHOLD) {
                 // Check if mobs have been pending for too long
                 return true;
@@ -621,13 +627,14 @@ public class WaveDefenseMonitor {
     }
 
     public int getTotalActiveLocations() {
-        if (waveCtx == null) return 0;
-        return waveCtx.sessions.size();
+        WaveContext ctx = waveCtx();
+        return ctx != null ? ctx.sessions.size() : 0;
     }
 
     public int getTotalActiveMobs() {
-        if (waveCtx == null) return 0;
-        return waveCtx.sessions.values().stream()
+        WaveContext ctx = waveCtx();
+        if (ctx == null) return 0;
+        return ctx.sessions.values().stream()
             .mapToInt(s -> s.spawnedMobs.size())
             .sum();
     }
@@ -722,9 +729,10 @@ public class WaveDefenseMonitor {
         sb.append("\n");
 
         // Per-Location Status
-        if (waveCtx != null && !waveCtx.sessions.isEmpty()) {
+        WaveContext _ctx = waveCtx();
+        if (_ctx != null && !_ctx.sessions.isEmpty()) {
             sb.append("  ┌─ ACTIVE LOCATIONS ─────────────────────────────────────────┐\n");
-            for (LocationSession session : waveCtx.sessions.values()) {
+            for (LocationSession session : _ctx.sessions.values()) {
                 sb.append(String.format("  │  %s: Wave %d, %d mobs alive, %d players\n",
                     session.locationName,
                     session.currentWave,

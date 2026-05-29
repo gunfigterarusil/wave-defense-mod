@@ -22,16 +22,16 @@ public class ShopItem {
     private ShopCategory category = ShopCategory.OTHER;
     private int buyPrice;
     private int sellPrice;
-    // Тригер доступності товару (null = завжди доступний)
+    // Item availability trigger (null = always available)
     private com.wavedefense.data.WaveTrigger availabilityTrigger = null;
-    // Для SHOP_WAVE_N — номер хвилі (1-based)
+    // For SHOP_WAVE_N — wave number (1-based)
     private int availabilityWave = 1;
-    // Для SHOP_PLAYER_HAS_ITEM — id предмета
+    // For SHOP_PLAYER_HAS_ITEM — item id
     private String availabilityItemId = "";
-    // NBT-перевірка при продажі: якщо true — товар (перший слот) продається тільки якщо NBT збігається
-    // з тим що зберігається в nbtRequiredTag (SNBT рядок, наприклад: {display:{Name:"..."}})
+    // NBT check on purchase: if true — the item (first slot) can only be sold if its NBT matches
+    // the value stored in nbtRequiredTag (SNBT string, e.g. {display:{Name:"..."}})
     private boolean requireNbtMatch  = false;
-    private String  nbtRequiredTag   = "";   // SNBT рядок або порожній
+    private String  nbtRequiredTag   = "";   // SNBT string or empty
 
     public ShopItem(List<ItemStack> items, int buyPrice, int sellPrice) {
         // Ensure we have a mutable list and copy items to prevent outside modification
@@ -76,8 +76,8 @@ public class ShopItem {
     public void    setNbtRequiredTag(String s)    { this.nbtRequiredTag = s == null ? "" : s; }
 
     /**
-     * Перевіряє NBT-match для продажу: якщо requireNbtMatch=true, перший предмет гравця
-     * в інвентарі що відповідає першому слоту магазину повинен мати відповідне NBT.
+     * Checks the NBT match for a sale: if requireNbtMatch=true, the first matching
+     * item in the player's inventory must have the required NBT tags.
      */
     public boolean matchesNbtForSale(net.minecraft.world.item.ItemStack playerItem) {
         if (!requireNbtMatch || nbtRequiredTag.isBlank()) return true;
@@ -85,31 +85,31 @@ public class ShopItem {
         try {
             net.minecraft.nbt.CompoundTag required = net.minecraft.nbt.TagParser.parseTag(nbtRequiredTag);
             net.minecraft.nbt.CompoundTag actual = playerItem.hasTag() ? playerItem.getTag() : new net.minecraft.nbt.CompoundTag();
-            // Перевіряємо що всі ключі з required присутні і рівні в actual (часткова відповідність)
+            // Check that all keys from required are present and equal in actual (partial match)
             for (String key : required.getAllKeys()) {
                 if (!actual.contains(key)) return false;
                 if (!actual.get(key).equals(required.get(key))) return false;
             }
             return true;
         } catch (Exception e) {
-            return false; // invalid SNBT — не відповідає
+            return false; // invalid SNBT — does not match
         }
     }
 
     /**
-     * Перевіряє чи доступний цей товар для гравця/поточної хвилі.
-     * @param currentWave поточна хвиля (1-based), 0 = поза хвилею
-     * @param player гравець для перевірки інвентаря
+     * Checks whether this item is available for the player / current wave.
+     * @param currentWave current wave number (1-based), 0 = outside a wave
+     * @param player player whose inventory to check
      */
     public boolean isAvailable(int currentWave, net.minecraft.server.level.ServerPlayer player) {
         if (availabilityTrigger == null) return true;
         return switch (availabilityTrigger) {
-            case SHOP_LOCATION_START -> true; // завжди
+            case SHOP_LOCATION_START -> true; // always available
             case SHOP_WAVE_START     -> currentWave > 0;
             case SHOP_WAVE_N         -> currentWave == availabilityWave;
             case SHOP_PLAYER_HAS_ITEM -> {
                 if (player == null || availabilityItemId.isBlank()) yield false;
-                // Підтримка кількох предметів через кому — ANY достатньо
+                // Multiple items supported via comma — ANY match is sufficient
                 boolean found = false;
                 for (String part : availabilityItemId.split(",")) {
                     String id = part.trim();
