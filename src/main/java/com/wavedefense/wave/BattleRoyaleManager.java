@@ -32,6 +32,8 @@ public class BattleRoyaleManager {
     private final Map<String, Integer> currentRadius   = new HashMap<>();
     /** Лічильник тіків до наступного звуження */
     private final Map<String, Integer> shrinkTicker    = new HashMap<>();
+    /** Initial-wait countdown ticks (0 = first shrink can fire). */
+    private final Map<String, Integer> initialWaitTicker = new HashMap<>();
 
     // ── Публічне API ────────────────────────────────────────────────────
 
@@ -41,6 +43,7 @@ public class BattleRoyaleManager {
         if (!currentRadius.containsKey(name)) {
             currentRadius.put(name, loc.getBrBorderRadius());
             shrinkTicker.put(name, loc.getBrShrinkIntervalSec() * 20);
+            initialWaitTicker.put(name, loc.getBrInitialWaitSec() * 20);
         }
     }
 
@@ -53,6 +56,7 @@ public class BattleRoyaleManager {
     public void clearLocation(String locName) {
         currentRadius.remove(locName);
         shrinkTicker.remove(locName);
+        initialWaitTicker.remove(locName);
     }
 
     /**
@@ -76,21 +80,39 @@ public class BattleRoyaleManager {
             BlockPos center = loc.getPlayerSpawn();
             if (center == null) continue;
 
-            // ── Звуження кордону ─────────────────────────────────────────
-            int ticks = shrinkTicker.getOrDefault(locName, 0) - 1;
-            if (ticks <= 0) {
-                int newRadius = Math.max(5, radius - 1);
-                currentRadius.put(locName, newRadius);
-                shrinkTicker.put(locName, loc.getBrShrinkIntervalSec() * 20);
-
-                // Повідомлення кожні 10 блоків зменшення
-                if (newRadius % 10 == 0 || newRadius <= 20) {
+            // ── Initial wait before shrinking begins ─────────────────────
+            int initWait = initialWaitTicker.getOrDefault(locName, 0);
+            if (initWait > 0) {
+                initWait -= 20; // tick() runs every 20 ticks (1 sec)
+                initialWaitTicker.put(locName, initWait);
+                if (initWait == 0) {
                     wm.broadcastToLocation(locName,
-                        Component.translatable("wavedefense.auto.border_narrowed_radius_value_7b82d92e", newRadius + " §cblocks"));
+                        Component.translatable("wavedefense.msg.br_border_starts"));
                 }
-                radius = newRadius;
+                // Still spawn particles + apply damage even during initial wait
             } else {
-                shrinkTicker.put(locName, ticks);
+                // ── Звуження кордону ──────────────────────────────────────
+                int finalR = loc.getBrFinalRadius();
+                int ticks  = shrinkTicker.getOrDefault(locName, 0) - 20; // tick() runs every 20 ticks
+                if (ticks <= 0 && radius > finalR) {
+                    int amount = loc.getBrShrinkAmountBlocks();
+                    int newRadius = Math.max(finalR, radius - amount);
+                    currentRadius.put(locName, newRadius);
+                    shrinkTicker.put(locName, loc.getBrShrinkIntervalSec() * 20);
+
+                    // Broadcast when crossing thresholds (every 10 blocks or near final)
+                    if (newRadius % 10 == 0 || newRadius <= 20 || newRadius == finalR) {
+                        wm.broadcastToLocation(locName,
+                            Component.translatable("wavedefense.auto.border_narrowed_radius_value_7b82d92e", newRadius + " §cblocks"));
+                    }
+                    if (newRadius == finalR) {
+                        wm.broadcastToLocation(locName,
+                            Component.translatable("wavedefense.msg.br_border_final", finalR));
+                    }
+                    radius = newRadius;
+                } else {
+                    shrinkTicker.put(locName, ticks);
+                }
             }
 
             // ── Частинки кордону ──────────────────────────────────────────
@@ -173,6 +195,12 @@ public class BattleRoyaleManager {
             shrinkTag.putInt(entry.getKey(), entry.getValue());
         }
         tag.put("shrinkTicker", shrinkTag);
+        // initialWaitTicker
+        CompoundTag waitTag = new CompoundTag();
+        for (Map.Entry<String, Integer> entry : initialWaitTicker.entrySet()) {
+            waitTag.putInt(entry.getKey(), entry.getValue());
+        }
+        tag.put("initialWaitTicker", waitTag);
         return tag;
     }
 
@@ -190,6 +218,13 @@ public class BattleRoyaleManager {
             CompoundTag shrinkTag = tag.getCompound("shrinkTicker");
             for (String key : shrinkTag.getAllKeys()) {
                 shrinkTicker.put(key, shrinkTag.getInt(key));
+            }
+        }
+        initialWaitTicker.clear();
+        if (tag.contains("initialWaitTicker")) {
+            CompoundTag waitTag = tag.getCompound("initialWaitTicker");
+            for (String key : waitTag.getAllKeys()) {
+                initialWaitTicker.put(key, waitTag.getInt(key));
             }
         }
     }

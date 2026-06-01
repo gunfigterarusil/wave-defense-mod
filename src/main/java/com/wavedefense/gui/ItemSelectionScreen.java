@@ -43,6 +43,8 @@ public class ItemSelectionScreen extends Screen {
     private EditBox     searchBox;
     private int         scrollOffset    = 0;
     private float       previewAngle    = 0;
+    /** Active Tacz sub-tab: null = no Tacz filter; otherwise one of TaczCompat.CAT_* (or CAT_ALL). */
+    private String      taczCategory    = null;
 
     // Базові предмети (один ItemStack на Item)
     private List<ItemStack> allStacks;
@@ -216,6 +218,41 @@ public class ItemSelectionScreen extends Screen {
             catX += catW + 2;
         }
 
+        // C3: Tacz sub-tabs — only when Tacz is loaded.
+        // First button "All Tacz" resets filter so admin can include every Tacz gun.
+        if (com.wavedefense.compat.TaczCompat.isLoaded()) {
+            String[] subTabs = {
+                com.wavedefense.compat.TaczCompat.CAT_ALL,
+                com.wavedefense.compat.TaczCompat.CAT_PISTOL,
+                com.wavedefense.compat.TaczCompat.CAT_RIFLE,
+                com.wavedefense.compat.TaczCompat.CAT_SHOTGUN,
+                com.wavedefense.compat.TaczCompat.CAT_SMG,
+                com.wavedefense.compat.TaczCompat.CAT_SNIPER,
+                com.wavedefense.compat.TaczCompat.CAT_RPG,
+                com.wavedefense.compat.TaczCompat.CAT_MG,
+                com.wavedefense.compat.TaczCompat.CAT_OTHER,
+            };
+            int subW = Math.max(40, (this.width - PREVIEW_W - 20) / subTabs.length - 2);
+            int subX = PREVIEW_W + 8;
+            for (String sub : subTabs) {
+                final String fsub = sub;
+                int cnt = com.wavedefense.compat.TaczCompat.getGunsByCategory(sub).size();
+                boolean active = sub.equals(taczCategory);
+                String langKey = "wavedefense.tacz.tab." + sub;
+                String lbl = (active ? "§e§l" : "§7") + I18n.get(langKey) + " §8(" + cnt + ")";
+                // Clicking the active sub-tab again clears the Tacz filter.
+                this.addRenderableWidget(Button.builder(
+                        Component.literal(lbl),
+                        b -> {
+                            taczCategory = active ? null : fsub;
+                            scrollOffset = 0;
+                            applyFilter();
+                        }
+                ).bounds(subX, 60, subW, 14).build());
+                subX += subW + 2;
+            }
+        }
+
         // Закрити
         this.addRenderableWidget(Button.builder(
                 Component.translatable("wavedefense.button.close"),
@@ -224,10 +261,21 @@ public class ItemSelectionScreen extends Screen {
     }
 
     private void applyFilter() {
-        filteredStacks = allStacks.stream()
-                .filter(s -> matchesCategory(s, currentCategory))
+        // C3: Tacz sub-tab overrides the regular category filter — when active, the list
+        // comes from TaczCompat.getGunsByCategory() directly. Search still applies.
+        if (taczCategory != null && com.wavedefense.compat.TaczCompat.isLoaded()) {
+            filteredStacks = com.wavedefense.compat.TaczCompat
+                .getGunsByCategory(taczCategory).stream()
+                .map(e -> com.wavedefense.compat.TaczCompat.buildGunStack(e.gunId))
+                .filter(s -> !s.isEmpty())
                 .filter(this::matchesSearch)
                 .collect(Collectors.toList());
+        } else {
+            filteredStacks = allStacks.stream()
+                    .filter(s -> matchesCategory(s, currentCategory))
+                    .filter(this::matchesSearch)
+                    .collect(Collectors.toList());
+        }
         rebuildWidgets();
     }
 
@@ -300,6 +348,11 @@ public class ItemSelectionScreen extends Screen {
 
     private ItemStack hoveredStack = ItemStack.EMPTY;
 
+    /** Y of the item grid — shifted down when Tacz sub-tabs are visible. */
+    private int computeGridY() {
+        return com.wavedefense.compat.TaczCompat.isLoaded() ? 78 : 64;
+    }
+
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
         GuiTheme.renderBackground(g, this.width, this.height);
@@ -307,7 +360,7 @@ public class ItemSelectionScreen extends Screen {
         previewAngle = (previewAngle + 0.5f) % 360f;
 
         int gridX = PREVIEW_W + 8;
-        int gridY = 64;
+        int gridY = computeGridY();
         int gridW = this.width - gridX - 10;
         int rows  = Math.max(1, (this.height - gridY - 24) / SLOT_SIZE);
         int perPage = rows * COLS;
@@ -410,7 +463,7 @@ public class ItemSelectionScreen extends Screen {
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
         int gridX  = PREVIEW_W + 8;
-        int gridY  = 64;
+        int gridY  = computeGridY();
         int rows   = Math.max(1, (this.height - gridY - 24) / SLOT_SIZE);
         int perPage = rows * COLS;
 
@@ -431,7 +484,7 @@ public class ItemSelectionScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double delta) {
-        int gridY   = 64;
+        int gridY   = computeGridY();
         int rows    = Math.max(1, (this.height - gridY - 24) / SLOT_SIZE);
         int perPage = rows * COLS;
         int maxScroll = Math.max(0, filteredStacks.size() - perPage);

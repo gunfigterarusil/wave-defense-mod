@@ -1,4 +1,4 @@
-# Wave Defense Mod - v0.2.52
+# Wave Defense Mod - v0.2.53.1
 
 Wave Defense is a PvE/PvP Forge mod for **Minecraft 1.20.1** and **Java 17**.
 It lets server owners build configurable arena locations with mob waves, team PvP,
@@ -8,7 +8,37 @@ shops, loot events, portals, boundaries, HUD panels, and in-game admin editors.
 
 ## Status
 
-Version `0.2.52` — Server crash fix, gameplay correctness, and stats visibility pass.
+Version `0.2.53.1` — PvP UX improvements, post-match scoreboard, optional Tacz gun mod
+compatibility, and shop quantity fix. Hotfix included for monitor alert spam on startup.
+
+**v0.2.53.1 hotfix:**
+- `WaveDefenseMonitor` no longer floods operators with `[ALERT WARNING] Current TPS …`
+  messages on every server boot. Chat broadcasts are now opt-in
+  (`debug.monitorBroadcastAlerts`, default off — alerts still go to the server log).
+- 60-second startup grace period suppresses all alerts while the server is still
+  loading worlds.
+- TPS thresholds relaxed: warning 18 → 12, critical 15 → 8 — only genuine sustained
+  problems trigger now.
+- Fixed duplicated `[ALERT WARNING]` in the chat broadcast text.
+
+**v0.2.53 highlights:**
+- **Shop quantity fix** — each of the 4 shop slots now has an `×N` count field
+  (1–64). Previously every item was forced to count 1.
+- **DM spawn modes** — Team / Random / Smart (smart picks the candidate furthest from
+  any living enemy). Configurable per-location.
+- **DM kill leaderboard HUD** — top-right panel showing your kills, leader, and target.
+- **CtP speed multiplier** — more teammates on point = faster capture (cap 4×).
+  Backward-compatible toggle.
+- **CtP "Capture all points" win condition** — owning every point simultaneously
+  wins the round immediately.
+- **Post-match scoreboard** — new screen opens automatically for every player at match
+  end with per-player kills / deaths / assists / points and per-team round wins.
+- **Tacz (Timeless and Classics Zero) optional compatibility** — when Tacz is loaded:
+  - shop item picker gains 9 extra sub-tabs (All / Pistols / Rifles / Shotguns / SMGs
+    / Snipers / RPGs / MGs / Other)
+  - a new "🔫 Tacz" bulk-add button in the shop editor: pick a category, enter a price,
+    and every gun of that category becomes a new shop entry in one click
+  - pure reflection — no compile-time dependency; works without Tacz too
 
 **v0.2.52 fixes (14):**
 - **CRITICAL** — Dedicated-server crash: `ConfigScreenHandler` / `WaveDefenseConfigScreen` (client-only classes) were imported directly by the `@Mod` class, causing `NoClassDefFoundError` on server startup. Isolated into `@OnlyIn(Dist.CLIENT)` inner class + `DistExecutor`.
@@ -63,7 +93,7 @@ Completed in this workspace:
 ## Installation
 
 1. Install Forge `1.20.1` (`47.2.0+` recommended).
-2. Copy the built `wavedefense-0.2.52.jar` into the `mods/` folder.
+2. Copy the built `wavedefense-0.2.53.1.jar` into the `mods/` folder.
 3. **Optional**: install Mine and Slash (`mmorpg` mod, v6.1.0+) to unlock per-location mob level / XP / resistance settings.
 4. Start the client or dedicated server.
 

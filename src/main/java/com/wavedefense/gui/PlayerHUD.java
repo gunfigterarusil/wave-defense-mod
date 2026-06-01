@@ -51,6 +51,49 @@ public class PlayerHUD {
         if (ClientCtpStateManager.isActive()) {
             renderCtpOverlay(g, mc, width);
         }
+
+        // ── B2: DM per-player kill leaderboard (top-right) ─────────
+        if (data.isInPvp() && currentLoc != null && currentLoc.isDeathmatch()) {
+            renderDmLeaderboard(g, mc, width, mc.player.getName().getString(), currentLoc.getDmKillsToWin());
+        }
+    }
+
+    /**
+     * B2: top-right 3-line panel for DM mode showing this player's kills,
+     * the current leader, and the kill target.
+     */
+    private static void renderDmLeaderboard(GuiGraphics g, Minecraft mc, int width,
+                                             String myName, int killTarget) {
+        List<ClientPvpStateManager.PlayerRow> players = ClientPvpStateManager.getPlayers();
+        if (players.isEmpty()) return;
+
+        int myKills = 0;
+        ClientPvpStateManager.PlayerRow leader = null;
+        for (ClientPvpStateManager.PlayerRow p : players) {
+            if (p.name.equals(myName)) myKills = p.kills;
+            if (leader == null || p.kills > leader.kills) leader = p;
+        }
+
+        String line1 = I18n.get("wavedefense.hud.dm.your_kills", myKills);
+        String line2 = leader != null
+            ? I18n.get("wavedefense.hud.dm.top", trunc(leader.name, 12), leader.kills)
+            : "";
+        String line3 = I18n.get("wavedefense.hud.dm.target", killTarget);
+
+        int w = Math.max(mc.font.width(line1), Math.max(mc.font.width(line2), mc.font.width(line3)));
+        int x = width - w - 10;
+        int y = 8;
+
+        // Background panel
+        g.fill(x - 4, y - 2, x + w + 4, y + 30, 0x80000000);
+        g.drawString(mc.font, line1, x, y,      0xFFE0A020);
+        g.drawString(mc.font, line2, x, y + 10, 0xFFCFCFCF);
+        g.drawString(mc.font, line3, x, y + 20, 0xFF80FF80);
+    }
+
+    private static String trunc(String s, int max) {
+        if (s == null) return "";
+        return s.length() > max ? s.substring(0, max - 1) + "…" : s;
     }
 
     private static void renderTeamPanel(GuiGraphics g, Minecraft mc) {

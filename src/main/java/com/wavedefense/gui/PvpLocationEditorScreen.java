@@ -43,15 +43,21 @@ public class PvpLocationEditorScreen extends Screen {
     private EditBox dmKillsToWinInput;
     private EditBox brBorderRadiusInput;
     private EditBox brShrinkIntervalInput;
+    private EditBox brShrinkAmountInput;
+    private EditBox brInitialWaitInput;
+    private EditBox brFinalRadiusInput;
     private EditBox brBorderParticleInput;
+    private EditBox brBorderParticleCountInput;
     private EditBox brBorderDamageAmtInput;
     private EditBox roundStartPointsInput;
     private EditBox winPointsInput;
     private EditBox losePointsInput;
+    private EditBox roundTimeLimitInput;
     // CtP / KotH fields
     private EditBox ctpScoreToWinInput;
     private EditBox ctpScorePerSecInput;
     private EditBox ctpRoundDurationInput;
+    private EditBox kothHoldDurationInput;
     private EditBox boundaryRadiusInput;
     private EditBox leaveTimerInput;
     private EditBox boundaryDamageInput;
@@ -437,38 +443,75 @@ public class PvpLocationEditorScreen extends Screen {
         losePointsInput.setMaxLength(6);
         this.addRenderableWidget(losePointsInput);
         y += 24;
+        // Round time limit (0 = no limit; defender wins on timeout)
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.pvp.standard.round_time_limit"), b -> {}
+        ).bounds(cx - 160, y, 230, 18).build()).active = false;
+        roundTimeLimitInput = new EditBox(this.font, cx + 76, y, 50, 18, Component.literal("0"));
+        roundTimeLimitInput.setValue(String.valueOf(location.getPvpRoundTimeLimitSec()));
+        roundTimeLimitInput.setMaxLength(5);
+        this.addRenderableWidget(roundTimeLimitInput);
+        y += 22;
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.pvp.standard.round_time_limit_hint"), b -> {}
+        ).bounds(cx - 160, y, 320, 12).build()).active = false;
+        y += 18;
         return y;
     }
 
     // ── Секція: Deathmatch ────────────────────────────────────────────────
     private int initDeathmatchSection(int cx, int y) {
+        // DM redesign: DM is a single continuous match — no rounds, no BUY phase.
+        // Only the kills-to-win target is configurable here.
         this.addRenderableWidget(Button.builder(
             Component.translatable("wavedefense.auto.deathmatch_8cceaa3d"), b -> {}
         ).bounds(cx - 160, y, 320, 14).build()).active = false;
         y += 18;
+        // ℹ hint: one match, instant respawn, first to N kills wins
         this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.auto.к_сть_раундів_d95b4363"), b -> {}
-        ).bounds(cx - 160, y, 115, 18).build()).active = false;
-        totalRoundsInput = new EditBox(this.font, cx - 40, y, 50, 18, Component.literal("1"));
-        totalRoundsInput.setValue(String.valueOf(location.getPvpTotalRounds()));
-        totalRoundsInput.setMaxLength(4);
-        this.addRenderableWidget(totalRoundsInput);
+            Component.translatable("wavedefense.pvp.dm.hint_single_match"), b -> {}
+        ).bounds(cx - 160, y, 320, 14).build()).active = false;
+        y += 18;
+        // Kills to win
         this.addRenderableWidget(Button.builder(
             Component.translatable("wavedefense.auto.вбивств_для_перемоги_2b7edec6"), b -> {}
-        ).bounds(cx + 16, y, 150, 18).build()).active = false;
-        dmKillsToWinInput = new EditBox(this.font, cx + 170, y, 50, 18, Component.literal("10"));
+        ).bounds(cx - 160, y, 210, 18).build()).active = false;
+        dmKillsToWinInput = new EditBox(this.font, cx + 55, y, 60, 18, Component.literal("10"));
         dmKillsToWinInput.setValue(String.valueOf(location.getDmKillsToWin()));
         dmKillsToWinInput.setMaxLength(4);
         this.addRenderableWidget(dmKillsToWinInput);
         y += 24;
+        // B1: DM spawn mode cycle button (Team / Random / Smart)
+        com.wavedefense.data.Location.DmSpawnMode dmMode = location.getDmSpawnMode();
+        String dmModeKey = switch (dmMode) {
+            case RANDOM_SPAWN -> "wavedefense.dm.spawn.random";
+            case SMART_SPAWN  -> "wavedefense.dm.spawn.smart";
+            default           -> "wavedefense.dm.spawn.team";
+        };
         this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.auto.час_покупок_між_раундами_сек_407ce665"), b -> {}
-        ).bounds(cx - 160, y, 210, 18).build()).active = false;
-        buyTimeInput = new EditBox(this.font, cx + 55, y, 50, 18, Component.literal("20"));
-        buyTimeInput.setValue(String.valueOf(location.getPvpBuyTime()));
-        buyTimeInput.setMaxLength(4);
-        this.addRenderableWidget(buyTimeInput);
-        y += 24;
+            Component.translatable("wavedefense.dm.spawn.cycle",
+                net.minecraft.client.resources.language.I18n.get(dmModeKey)),
+            b -> {
+                com.wavedefense.data.Location.DmSpawnMode cur = location.getDmSpawnMode();
+                com.wavedefense.data.Location.DmSpawnMode next = switch (cur) {
+                    case TEAM_SPAWN   -> com.wavedefense.data.Location.DmSpawnMode.RANDOM_SPAWN;
+                    case RANDOM_SPAWN -> com.wavedefense.data.Location.DmSpawnMode.SMART_SPAWN;
+                    default           -> com.wavedefense.data.Location.DmSpawnMode.TEAM_SPAWN;
+                };
+                location.setDmSpawnMode(next);
+                rebuildWidgets();
+            }
+        ).bounds(cx - 160, y, 320, 18).build());
+        y += 22;
+        // Match time limit (0 = no limit; leading team wins on timeout)
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.pvp.dm.match_time_limit"), b -> {}
+        ).bounds(cx - 160, y, 230, 18).build()).active = false;
+        roundTimeLimitInput = new EditBox(this.font, cx + 76, y, 50, 18, Component.literal("0"));
+        roundTimeLimitInput.setValue(String.valueOf(location.getPvpRoundTimeLimitSec()));
+        roundTimeLimitInput.setMaxLength(5);
+        this.addRenderableWidget(roundTimeLimitInput);
+        y += 22;
         this.addRenderableWidget(Button.builder(
             Component.translatable("wavedefense.auto.ℹ_гравці_відроджуються_миттєво_н_6cda78dd"), b -> {}
         ).bounds(cx - 160, y, 320, 14).build()).active = false;
@@ -497,10 +540,46 @@ public class PvpLocationEditorScreen extends Screen {
         this.addRenderableWidget(Button.builder(
             Component.translatable("wavedefense.auto.звуження_1_бл_кожні_сек_7aabf000"), b -> {}
         ).bounds(cx - 160, y, 210, 18).build()).active = false;
-        brShrinkIntervalInput = new EditBox(this.font, cx + 55, y, 60, 18, Component.literal("30"));
+        brShrinkIntervalInput = new EditBox(this.font, cx + 55, y, 60, 18, Component.literal("5"));
         brShrinkIntervalInput.setValue(String.valueOf(location.getBrShrinkIntervalSec()));
         brShrinkIntervalInput.setMaxLength(5);
         this.addRenderableWidget(brShrinkIntervalInput);
+        y += 24;
+        // BR: shrink amount per step (blocks)
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.pvp.br.shrink_amount"), b -> {}
+        ).bounds(cx - 160, y, 210, 18).build()).active = false;
+        brShrinkAmountInput = new EditBox(this.font, cx + 55, y, 60, 18, Component.literal("1"));
+        brShrinkAmountInput.setValue(String.valueOf(location.getBrShrinkAmountBlocks()));
+        brShrinkAmountInput.setMaxLength(3);
+        this.addRenderableWidget(brShrinkAmountInput);
+        y += 24;
+        // BR: initial wait before shrinking starts
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.pvp.br.initial_wait"), b -> {}
+        ).bounds(cx - 160, y, 210, 18).build()).active = false;
+        brInitialWaitInput = new EditBox(this.font, cx + 55, y, 60, 18, Component.literal("30"));
+        brInitialWaitInput.setValue(String.valueOf(location.getBrInitialWaitSec()));
+        brInitialWaitInput.setMaxLength(5);
+        this.addRenderableWidget(brInitialWaitInput);
+        y += 24;
+        // BR: final radius (border stops shrinking here)
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.pvp.br.final_radius"), b -> {}
+        ).bounds(cx - 160, y, 210, 18).build()).active = false;
+        brFinalRadiusInput = new EditBox(this.font, cx + 55, y, 60, 18, Component.literal("5"));
+        brFinalRadiusInput.setValue(String.valueOf(location.getBrFinalRadius()));
+        brFinalRadiusInput.setMaxLength(4);
+        this.addRenderableWidget(brFinalRadiusInput);
+        y += 24;
+        // BR: border particle count
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.pvp.br.particle_count"), b -> {}
+        ).bounds(cx - 160, y, 210, 18).build()).active = false;
+        brBorderParticleCountInput = new EditBox(this.font, cx + 55, y, 60, 18, Component.literal("8"));
+        brBorderParticleCountInput.setValue(String.valueOf(location.getBrBorderParticleCount()));
+        brBorderParticleCountInput.setMaxLength(3);
+        this.addRenderableWidget(brBorderParticleCountInput);
         y += 24;
         this.addRenderableWidget(Button.builder(
             Component.translatable("wavedefense.auto.частинки_кордону_id_bcab91af"), b -> {}
@@ -588,6 +667,65 @@ public class PvpLocationEditorScreen extends Screen {
             this.addRenderableWidget(ctpRoundDurationInput);
             y += 24;
         }
+
+        // ── CtP-only extras: speed multiplier + capture-all win ─────────────
+        if (isCtp) {
+            boolean speedMul = location.isCtpSpeedMultiplier();
+            this.addRenderableWidget(Button.builder(
+                Component.translatable(speedMul
+                    ? "wavedefense.ctp.speed_multiplier.on"
+                    : "wavedefense.ctp.speed_multiplier.off"),
+                b -> { location.setCtpSpeedMultiplier(!location.isCtpSpeedMultiplier()); rebuildWidgets(); }
+            ).bounds(cx - 160, y, 320, 18).build());
+            y += 22;
+            boolean allWin = location.isCtpCaptureAllWin();
+            this.addRenderableWidget(Button.builder(
+                Component.translatable(allWin
+                    ? "wavedefense.ctp.capture_all_win.on"
+                    : "wavedefense.ctp.capture_all_win.off"),
+                b -> { location.setCtpCaptureAllWin(!location.isCtpCaptureAllWin()); rebuildWidgets(); }
+            ).bounds(cx - 160, y, 320, 18).build());
+            y += 22;
+        }
+
+        // ── KotH-only: true "Hold the hill" timer mode (TF2 / Halo style) ───
+        if (!isCtp) {
+            y += 6;
+            this.addRenderableWidget(Button.builder(
+                Component.translatable("wavedefense.koth.hold_section"), b -> {}
+            ).bounds(cx - 160, y, 320, 14).build()).active = false;
+            y += 18;
+            boolean holdMode = location.isKothHoldMode();
+            this.addRenderableWidget(Button.builder(
+                Component.translatable(holdMode
+                    ? "wavedefense.koth.hold_mode.on" : "wavedefense.koth.hold_mode.off"),
+                b -> { location.setKothHoldMode(!location.isKothHoldMode()); rebuildWidgets(); }
+            ).bounds(cx - 160, y, 320, 18).build());
+            y += 22;
+            if (holdMode) {
+                // Hold duration
+                this.addRenderableWidget(Button.builder(
+                    Component.translatable("wavedefense.koth.hold_duration"), b -> {}
+                ).bounds(cx - 160, y, 230, 18).build()).active = false;
+                kothHoldDurationInput = new EditBox(this.font, cx + 76, y, 60, 18, Component.literal("180"));
+                kothHoldDurationInput.setValue(String.valueOf(location.getKothHoldDurationSec()));
+                kothHoldDurationInput.setMaxLength(5);
+                this.addRenderableWidget(kothHoldDurationInput);
+                y += 22;
+                // Reset on loss toggle
+                boolean reset = location.isKothResetOnLoss();
+                this.addRenderableWidget(Button.builder(
+                    Component.translatable(reset
+                        ? "wavedefense.koth.reset_on_loss.on" : "wavedefense.koth.reset_on_loss.off"),
+                    b -> { location.setKothResetOnLoss(!location.isKothResetOnLoss()); rebuildWidgets(); }
+                ).bounds(cx - 160, y, 320, 18).build());
+                y += 22;
+                this.addRenderableWidget(Button.builder(
+                    Component.translatable("wavedefense.koth.hold_hint"), b -> {}
+                ).bounds(cx - 160, y, 320, 12).build()).active = false;
+                y += 16;
+            }
+        }
         y += 4;
         return y;
     }
@@ -630,11 +768,16 @@ public class PvpLocationEditorScreen extends Screen {
         if (roundStartPointsInput != null)  try { location.setPvpRoundStartPoints(Math.max(0, Integer.parseInt(roundStartPointsInput.getValue()))); } catch (NumberFormatException ignored) {}
         if (winPointsInput != null)         try { location.setPvpWinPoints(Math.max(0, Integer.parseInt(winPointsInput.getValue()))); } catch (NumberFormatException ignored) {}
         if (losePointsInput != null)        try { location.setPvpLosePoints(Math.max(0, Integer.parseInt(losePointsInput.getValue()))); } catch (NumberFormatException ignored) {}
+        if (roundTimeLimitInput != null)    try { location.setPvpRoundTimeLimitSec(Math.max(0, Integer.parseInt(roundTimeLimitInput.getValue()))); } catch (NumberFormatException ignored) {}
         if (dmKillsToWinInput != null)      try { location.setDmKillsToWin(Math.max(1, Integer.parseInt(dmKillsToWinInput.getValue()))); } catch (NumberFormatException ignored) {}
         if (brBorderRadiusInput != null)    try { location.setBrBorderRadius(Math.max(10, Integer.parseInt(brBorderRadiusInput.getValue()))); } catch (NumberFormatException ignored) {}
         if (brShrinkIntervalInput != null)  try { location.setBrShrinkIntervalSec(Math.max(1, Integer.parseInt(brShrinkIntervalInput.getValue()))); } catch (NumberFormatException ignored) {}
+        if (brShrinkAmountInput != null)    try { location.setBrShrinkAmountBlocks(Math.max(1, Integer.parseInt(brShrinkAmountInput.getValue()))); } catch (NumberFormatException ignored) {}
+        if (brInitialWaitInput != null)     try { location.setBrInitialWaitSec(Math.max(0, Integer.parseInt(brInitialWaitInput.getValue()))); } catch (NumberFormatException ignored) {}
+        if (brFinalRadiusInput != null)     try { location.setBrFinalRadius(Math.max(3, Integer.parseInt(brFinalRadiusInput.getValue()))); } catch (NumberFormatException ignored) {}
         if (brBorderParticleInput != null && !brBorderParticleInput.getValue().isBlank())
             location.setBrBorderParticle(brBorderParticleInput.getValue().trim());
+        if (brBorderParticleCountInput != null) try { location.setBrBorderParticleCount(Math.max(1, Integer.parseInt(brBorderParticleCountInput.getValue()))); } catch (NumberFormatException ignored) {}
         if (brBorderDamageAmtInput != null) try { location.setBrBorderDamageAmt(Math.max(0f, Float.parseFloat(brBorderDamageAmtInput.getValue()))); } catch (NumberFormatException ignored) {}
         // CtP / KotH objective settings
         boolean isCtp2 = location.getPvpMode() == com.wavedefense.data.Location.PvpMode.CAPTURE_THE_POINT;
@@ -649,6 +792,9 @@ public class PvpLocationEditorScreen extends Screen {
         if (ctpRoundDurationInput != null) try {
             int v = Math.max(30, Integer.parseInt(ctpRoundDurationInput.getValue()));
             if (isCtp2) location.setCtpRoundDurationSec(v); else location.setKothRoundDurationSec(v);
+        } catch (NumberFormatException ignored) {}
+        if (kothHoldDurationInput != null) try {
+            location.setKothHoldDurationSec(Math.max(10, Integer.parseInt(kothHoldDurationInput.getValue())));
         } catch (NumberFormatException ignored) {}
     }
 

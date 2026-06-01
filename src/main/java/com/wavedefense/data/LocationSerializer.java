@@ -123,7 +123,9 @@ public final class LocationSerializer {
         tag.putInt("pvpRoundStartPoints", loc.pvpRoundStartPoints);
         tag.putInt("pvpWinPoints",        loc.pvpWinPoints);
         tag.putInt("pvpLosePoints",       loc.pvpLosePoints);
+        tag.putInt("pvpRoundTimeLimitSec", loc.pvpRoundTimeLimitSec);
         tag.putInt("dmKillsToWin",        loc.dmKillsToWin);
+        if (loc.dmSpawnMode != null) tag.putString("dmSpawnMode", loc.dmSpawnMode.name());
         tag.putBoolean("pvpWaitEffect",   loc.pvpWaitEffect);
         tag.putBoolean("pvpTeamAutoBalance", loc.pvpTeamAutoBalance);
         tag.putBoolean("enforceGameMode", loc.enforceGameMode);
@@ -139,10 +141,18 @@ public final class LocationSerializer {
         tag.putInt("kothScorePerSec",     loc.kothScorePerSec);
         tag.putBoolean("kothFirstToScore",loc.kothFirstToScore);
         tag.putInt("kothRoundDurationSec",loc.kothRoundDurationSec);
+        tag.putBoolean("kothHoldMode",    loc.kothHoldMode);
+        tag.putInt("kothHoldDurationSec", loc.kothHoldDurationSec);
+        tag.putBoolean("kothResetOnLoss", loc.kothResetOnLoss);
+        tag.putBoolean("ctpSpeedMultiplier", loc.ctpSpeedMultiplier);
+        tag.putBoolean("ctpCaptureAllWin",   loc.ctpCaptureAllWin);
 
         // ── Battle Royale ─────────────────────────────────────────────────
         tag.putInt("brBorderRadius",          loc.brBorderRadius);
         tag.putInt("brShrinkIntervalSec",     loc.brShrinkIntervalSec);
+        tag.putInt("brShrinkAmountBlocks",    loc.brShrinkAmountBlocks);
+        tag.putInt("brInitialWaitSec",        loc.brInitialWaitSec);
+        tag.putInt("brFinalRadius",           loc.brFinalRadius);
         if (loc.brBorderParticle != null)     tag.putString("brBorderParticle", loc.brBorderParticle);
         tag.putInt("brBorderParticleCount",   loc.brBorderParticleCount);
         tag.putBoolean("brBorderDamage",      loc.brBorderDamage);
@@ -296,7 +306,11 @@ public final class LocationSerializer {
         loc.pvpRoundStartPoints = NbtHelper.getInt(tag,  "pvpRoundStartPoints", 0);
         loc.pvpWinPoints        = NbtHelper.getInt(tag,  "pvpWinPoints",        0);
         loc.pvpLosePoints       = NbtHelper.getInt(tag,  "pvpLosePoints",       0);
+        loc.pvpRoundTimeLimitSec = NbtHelper.getInt(tag, "pvpRoundTimeLimitSec", 0);
         loc.dmKillsToWin        = NbtHelper.getInt(tag,  "dmKillsToWin",        10);
+        loc.dmSpawnMode         = NbtHelper.loadEnum(tag, "dmSpawnMode",
+                                    com.wavedefense.data.Location.DmSpawnMode.class,
+                                    com.wavedefense.data.Location.DmSpawnMode.TEAM_SPAWN);
         loc.pvpWaitEffect       = NbtHelper.getBool(tag, "pvpWaitEffect",       true);
         loc.pvpTeamAutoBalance  = NbtHelper.getBool(tag, "pvpTeamAutoBalance",  true);
         loc.enforceGameMode     = NbtHelper.getBool(tag, "enforceGameMode",     true);
@@ -312,10 +326,18 @@ public final class LocationSerializer {
         loc.kothScorePerSec      = NbtHelper.getInt(tag,    "kothScorePerSec",     1);
         loc.kothFirstToScore     = NbtHelper.getBool(tag,   "kothFirstToScore",    true);
         loc.kothRoundDurationSec = NbtHelper.getInt(tag,    "kothRoundDurationSec",300);
+        loc.kothHoldMode         = NbtHelper.getBool(tag,   "kothHoldMode",        false);
+        loc.kothHoldDurationSec  = NbtHelper.getInt(tag,    "kothHoldDurationSec", 180);
+        loc.kothResetOnLoss      = NbtHelper.getBool(tag,   "kothResetOnLoss",     false);
+        loc.ctpSpeedMultiplier   = NbtHelper.getBool(tag,   "ctpSpeedMultiplier",  false);
+        loc.ctpCaptureAllWin     = NbtHelper.getBool(tag,   "ctpCaptureAllWin",    false);
 
         // ── Battle Royale ─────────────────────────────────────────────────
         loc.brBorderRadius        = NbtHelper.getInt(tag,    "brBorderRadius",        100);
-        loc.brShrinkIntervalSec   = NbtHelper.getInt(tag,    "brShrinkIntervalSec",   30);
+        loc.brShrinkIntervalSec   = NbtHelper.getInt(tag,    "brShrinkIntervalSec",   5);
+        loc.brShrinkAmountBlocks  = NbtHelper.getInt(tag,    "brShrinkAmountBlocks",  1);
+        loc.brInitialWaitSec      = NbtHelper.getInt(tag,    "brInitialWaitSec",      30);
+        loc.brFinalRadius         = NbtHelper.getInt(tag,    "brFinalRadius",         5);
         loc.brBorderParticle      = NbtHelper.getString(tag, "brBorderParticle",      "minecraft:flame");
         loc.brBorderParticleCount = NbtHelper.getInt(tag,    "brBorderParticleCount", 8);
         loc.brBorderDamage        = NbtHelper.getBool(tag,   "brBorderDamage",        true);

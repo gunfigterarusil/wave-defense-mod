@@ -39,6 +39,9 @@ public class ShopItemEditorScreen extends Screen {
     // Буфери ціни — зберігаються між rebuildWidgets() щоб не губити введені значення
     private int pendingBuyPrice  = -1; // -1 = ще не ініціалізовано
     private int pendingSellPrice = -1;
+    // Буфери кількостей предметів у кожному з 4 слотів (зберігаються між rebuildWidgets).
+    // -1 = ще не ініціалізовано (буде заповнено з items[i].getCount() при першому init()).
+    private final int[] pendingCounts = { -1, -1, -1, -1 };
 
     private static final int SLOT_W = 70;
     private static final int SLOT_H = 16;
@@ -130,11 +133,38 @@ public class ShopItemEditorScreen extends Screen {
             // Очистити
             this.addRenderableWidget(Button.builder(
                     Component.translatable("wavedefense.button.clear_item"),
-                    button -> { items.set(si, ItemStack.EMPTY); rebuildWidgets(); }
+                    button -> { items.set(si, ItemStack.EMPTY); pendingCounts[si] = 1; rebuildWidgets(); }
             ).bounds(xPos, startY + (SLOT_H + 2) * 2, dynSlotW, SLOT_H).build());
+
+            // ── Кількість предмета у слоті (×N) ──────────────────────────────
+            // Ініціалізуємо буфер лише раз — далі він зберігає введене значення між rebuildWidgets().
+            if (pendingCounts[si] < 1) {
+                pendingCounts[si] = curShopItem.isEmpty() ? 1 : Math.max(1, curShopItem.getCount());
+            }
+            int countRowY = startY + (SLOT_H + 2) * 3;
+            // Label "×" зліва (вузький)
+            this.addRenderableWidget(Button.builder(
+                    Component.literal("§7×"),
+                    b -> {}
+            ).bounds(xPos, countRowY, 12, SLOT_H).build()).active = false;
+            // EditBox праворуч
+            EditBox countBox = new EditBox(this.font, xPos + 14, countRowY,
+                    Math.max(20, dynSlotW - 14), SLOT_H,
+                    Component.translatable("wavedefense.shop.item_count"));
+            countBox.setMaxLength(2);
+            countBox.setValue(String.valueOf(pendingCounts[si]));
+            countBox.setResponder(s -> {
+                try {
+                    int v = Integer.parseInt(s.trim());
+                    pendingCounts[si] = Math.max(1, Math.min(64, v));
+                } catch (NumberFormatException ignored) {}
+            });
+            this.addRenderableWidget(countBox)
+                .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                    net.minecraft.network.chat.Component.translatable("wavedefense.shop.item_count")));
         }
 
-        startY += (SLOT_H + 2) * 2 + SLOT_H + 6;
+        startY += (SLOT_H + 2) * 3 + SLOT_H + 6;
 
         int labelW = 155;
         int fieldW = 80;
@@ -272,6 +302,13 @@ public class ShopItemEditorScreen extends Screen {
     }
 
     private void save() {
+        // Apply per-slot count from pendingCounts buffer before filtering empties.
+        for (int i = 0; i < items.size() && i < pendingCounts.length; i++) {
+            ItemStack st = items.get(i);
+            if (!st.isEmpty() && pendingCounts[i] >= 1) {
+                st.setCount(Math.min(64, pendingCounts[i]));
+            }
+        }
         List<ItemStack> finalItems = items.stream().filter(i -> !i.isEmpty()).collect(Collectors.toList());
         if (finalItems.isEmpty()) {
             // В2: show error instead of silently ignoring the save

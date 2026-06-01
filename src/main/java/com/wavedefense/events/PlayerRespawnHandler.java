@@ -81,23 +81,26 @@ public class PlayerRespawnHandler {
             player.setHealth(player.getMaxHealth());
             player.getFoodData().setFoodLevel(20);
             if (location.isDeathmatch()) {
+                // B1: pick spawn point honouring dmSpawnMode (Team / Random / Smart).
+                PvpSpawnPoint dmSpawn = WaveDefenseMod.waveManager.pvpMgr.pickDmSpawn(
+                    location, player, teamSpawn);
                 int delaySeconds = com.wavedefense.config.WaveDefenseConfig.PVP_RESPAWN_DELAY_SECONDS.get();
                 if (delaySeconds > 0) {
                     // Затримка респавну: spectator + таймер
                     player.setGameMode(GameType.SPECTATOR);
-                    if (teamSpawn != null) {
-                        WaveDefenseMod.waveManager.teleportToSafeSpawn(player, teamSpawn.getPos(), 0);
+                    if (dmSpawn != null) {
+                        WaveDefenseMod.waveManager.teleportToSafeSpawn(player, dmSpawn.getPos(), 0);
                     }
-                    WaveDefenseMod.waveManager.schedulePvpRespawn(player.getUUID(), teamSpawn, delaySeconds);
+                    WaveDefenseMod.waveManager.schedulePvpRespawn(player.getUUID(), dmSpawn, delaySeconds);
                     player.displayClientMessage(
                         net.minecraft.network.chat.Component.translatable("wavedefense.msg.respawn_in", delaySeconds), true);
                 } else {
-                    // Deathmatch: миттєве відродження на точці спавну команди (не spectator)
+                    // Deathmatch: миттєве відродження на обраній точці (не spectator)
                     if (player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR) {
                         player.setGameMode(GameType.SURVIVAL);
                     }
-                    if (teamSpawn != null) {
-                        WaveDefenseMod.waveManager.teleportToSpawnPoint(player, teamSpawn);
+                    if (dmSpawn != null) {
+                        WaveDefenseMod.waveManager.teleportToSpawnPoint(player, dmSpawn);
                     }
                     // Невразливість на 3 секунди після відродження (60 тіків)
                     player.invulnerableTime = 60;
@@ -108,15 +111,13 @@ public class PlayerRespawnHandler {
                         net.minecraft.network.chat.Component.translatable("wavedefense.msg.respawn_continue"), true);
                 }
             } else if (location.isBattleRoyale()) {
-                // BR: теж миттєве відродження, але тільки якщо раунд ще не завершено (один гравець живий)
-                if (player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR) {
-                    player.setGameMode(GameType.SURVIVAL);
-                }
+                // BR: player is eliminated permanently — move to spectator at their team spawn.
+                // BR2 fix: removed the dead setGameMode(SURVIVAL) line that was immediately
+                // overridden by setGameMode(SPECTATOR) two lines below.
                 if (teamSpawn != null) {
                     WaveDefenseMod.waveManager.teleportToSafeSpawn(player, teamSpawn.getPos(), 0);
                 }
-                // У BR гравець вибуває назавжди після смерті (respawn = виліт з гри)
-                // recordDeath вже це обробив — тут просто переміщуємо spectator
+                // In BR a player is eliminated for good — stay as spectator
                 player.setGameMode(GameType.SPECTATOR);
             } else {
                 // Standard: spectator на точці спавну

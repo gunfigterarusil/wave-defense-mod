@@ -108,14 +108,20 @@ public class WaveDefenseMonitor {
     private volatile long lastAlertCheck = 0;
     private static final long ALERT_CHECK_INTERVAL_MS = 5000; // Check every 5 seconds
 
-    // Default alert thresholds
-    private static final double TPS_WARNING_THRESHOLD = 18.0;
-    private static final double TPS_CRITICAL_THRESHOLD = 15.0;
+    // Default alert thresholds — picked so realistic vanilla-load servers never trigger
+    // them. Dev workspaces routinely run at 14–18 TPS for the first minute of startup;
+    // the previous thresholds (18/15) caused false-positive spam to admins on every boot.
+    private static final double TPS_WARNING_THRESHOLD = 12.0;
+    private static final double TPS_CRITICAL_THRESHOLD = 8.0;
     private static final long MEMORY_WARNING_THRESHOLD_MB = 8192; // 8GB
     private static final long MEMORY_CRITICAL_THRESHOLD_MB = 12288; // 12GB
     private static final int WAVE_TIMEOUT_THRESHOLD_SECONDS = 300; // 5 minutes
     private static final int PLAYER_IDLE_THRESHOLD_SECONDS = 300; // 5 minutes
     private static final int MOB_SPAWN_LAG_THRESHOLD = 50; // 50 mobs behind
+
+    /** Suppress all alerts for this many seconds after monitor construction
+     *  so the server has time to finish loading worlds / mods before TPS is judged. */
+    private static final long STARTUP_GRACE_SECONDS = 60;
 
     // ============================================================
     //  PERFORMANCE TRACKING - WAVE EXECUTION
@@ -371,6 +377,11 @@ public class WaveDefenseMonitor {
     }
 
     private void checkAlerts() {
+        // Suppress all alerts during the startup grace period so the natural low-TPS
+        // window while the server is loading worlds doesn't spam operators with
+        // false-positive warnings.
+        if (getUptimeSeconds() < STARTUP_GRACE_SECONDS) return;
+
         for (AlertRule rule : alertRules) {
             if (rule.evaluate()) {
                 Alert alert = new Alert(
@@ -451,8 +462,17 @@ public class WaveDefenseMonitor {
     private void broadcastAlert(Alert alert) {
         if (WaveDefenseMod.getServer() == null) return;
 
-        Component message = Component.translatable("wavedefense.auto.alert_s_s_942c0f5f", alert.getSeverity(), alert.getMessage()
-        );
+        // Opt-in: broadcast disabled by default to avoid spamming operators with
+        // expected dev-environment low-TPS warnings. Alerts are still LOGGED in checkAlerts().
+        // Toggle config/wavedefense-common.toml → debug.monitorBroadcastAlerts = true to enable.
+        try {
+            if (!com.wavedefense.config.WaveDefenseConfig.MONITOR_BROADCAST_ALERTS.get()) return;
+        } catch (IllegalStateException notLoadedYet) {
+            return; // config not loaded yet — silently skip
+        }
+
+        Component message = Component.translatable("wavedefense.auto.alert_s_s_942c0f5f",
+            alert.getSeverity(), alert.getMessage());
 
         for (ServerPlayer player : WaveDefenseMod.getServer().getPlayerList().getPlayers()) {
             if (player.hasPermissions(2)) { // Op level 2+

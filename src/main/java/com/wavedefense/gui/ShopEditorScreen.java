@@ -113,10 +113,20 @@ public class ShopEditorScreen extends Screen {
     //  GLOBAL
     // ─────────────────────────────────────────────────────────────────
     private void buildGlobalView(int cx, int startY) {
+        // C4: Tacz bulk-add button — visible only when Tacz is loaded.
+        // Layout: "Add item" shrinks to make room for the Tacz button on the right.
+        boolean taczOn = com.wavedefense.compat.TaczCompat.isLoaded();
+        int addW = taczOn ? 130 : 200;
         this.addRenderableWidget(Button.builder(
             Component.translatable("wavedefense.button.add_shop_item"),
             b -> minecraft.setScreen(new ShopItemEditorScreen(location, -1, this))
-        ).bounds(cx - 100, startY, 200, 18).build());
+        ).bounds(cx - 100, startY, addW, 18).build());
+        if (taczOn) {
+            this.addRenderableWidget(Button.builder(
+                Component.translatable("wavedefense.tacz.bulk.open_button"),
+                b -> minecraft.setScreen(new TaczBulkAddScreen(location, this))
+            ).bounds(cx + 36, startY, 64, 18).build());
+        }
         startY += 22;
 
         List<ShopItem> items = location.getShopItems();

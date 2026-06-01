@@ -55,6 +55,74 @@ public class PvpRoundManager {
         return s != null ? s.pvpState : null;
     }
 
+    /**
+     * Returns the {@link PvpSpawnPoint} a Deathmatch player should spawn at, honouring the
+     * location's {@link Location.DmSpawnMode}. Used by both initial round spawn and respawn.
+     *
+     * @param location  the PvP location (must be DM mode)
+     * @param player    the player about to (re)spawn — used for SMART_SPAWN distance check
+     * @param teamSpawn fallback spawn (player's team spawn point) — used for TEAM_SPAWN
+     * @return the chosen spawn point, or {@code teamSpawn} when no other candidate exists
+     */
+    public PvpSpawnPoint pickDmSpawn(Location location, ServerPlayer player, PvpSpawnPoint teamSpawn) {
+        if (location == null) return teamSpawn;
+        Location.DmSpawnMode mode = location.getDmSpawnMode();
+        java.util.List<PvpSpawnPoint> spawns = location.getPvpSpawnPoints();
+        if (spawns.isEmpty()) return teamSpawn;
+        if (mode == Location.DmSpawnMode.TEAM_SPAWN) return teamSpawn;
+
+        java.util.Random rng = new java.util.Random();
+        if (mode == Location.DmSpawnMode.RANDOM_SPAWN) {
+            return spawns.get(rng.nextInt(spawns.size()));
+        }
+
+        // SMART_SPAWN: pick the candidate with the largest minimum-distance to any living enemy.
+        // Try up to 10 random candidates; settle on the best so far.
+        java.util.List<ServerPlayer> enemies = new java.util.ArrayList<>();
+        if (player != null) {
+            for (PlayerWaveData d : ctx.playerData.values()) {
+                if (d.getPlayerUUID() == null) continue;
+                if (d.getPlayerUUID().equals(player.getUUID())) continue;
+                if (d.getCurrentLocation() == null
+                        || !d.getCurrentLocation().getName().equals(location.getName())) continue;
+                ServerPlayer ep = WaveDefenseMod.getServer() == null ? null
+                        : WaveDefenseMod.getServer().getPlayerList().getPlayer(d.getPlayerUUID());
+                if (ep == null || !ep.isAlive()) continue;
+                // In DM, anyone not on my team counts as enemy
+                String myTeam    = location.getPlayerTeam(player.getUUID());
+                String theirTeam = location.getPlayerTeam(d.getPlayerUUID());
+                if (myTeam != null && myTeam.equals(theirTeam)) continue;
+                enemies.add(ep);
+            }
+        }
+        if (enemies.isEmpty()) {
+            // No enemies tracked — fall back to random
+            return spawns.get(rng.nextInt(spawns.size()));
+        }
+        PvpSpawnPoint best = null;
+        double bestMinDist = -1;
+        int tries = Math.min(10, spawns.size());
+        java.util.Set<Integer> tried = new java.util.HashSet<>();
+        for (int i = 0; i < tries; i++) {
+            int idx;
+            int guard = 0;
+            do { idx = rng.nextInt(spawns.size()); guard++; }
+            while (tried.contains(idx) && guard < 20);
+            tried.add(idx);
+            PvpSpawnPoint cand = spawns.get(idx);
+            if (cand.getPos() == null) continue;
+            double minDist = Double.MAX_VALUE;
+            for (ServerPlayer enemy : enemies) {
+                double d = enemy.blockPosition().distSqr(cand.getPos());
+                if (d < minDist) minDist = d;
+            }
+            if (minDist > bestMinDist) { bestMinDist = minDist; best = cand; }
+            // Early exit if we already cleared the safe-distance threshold (10 blocks = 100)
+            if (bestMinDist >= 100.0) break;
+        }
+        return best != null ? best : (teamSpawn != null ? teamSpawn : spawns.get(0));
+    }
+
     // ════════════════════════════════════════════════════════════════════
     //  Public API — player join / auto-balance
     // ════════════════════════════════════════════════════════════════════
@@ -120,8 +188,16 @@ public class PvpRoundManager {
         // Ініціалізуємо або оновлюємо PvpRoundState
         LocationSession _s = ctx.getOrCreateSession(location.getName(), location);
         if (_s.pvpState == null) {
-            _s.pvpState = new PvpRoundState(
-                location.getPvpTotalRounds(), location.getPvpBuyTime());
+            // DM / BR redesign: both are single-match modes — force totalRounds=1.
+            //   DM: kills-to-win ends the match → endRound() → endPvpMatch().
+            //   BR: last man standing ends the match.
+            int rounds = (location.isDeathmatch() || location.isBattleRoyale())
+                ? 1 : location.getPvpTotalRounds();
+            // DM and BR have no shop/buy phase — pass buyTime=0 so BUY expires instantly
+            // (also bypassed in checkPvpStart, but keeps state consistent).
+            int buy = (location.isDeathmatch() || location.isBattleRoyale())
+                ? 0 : location.getPvpBuyTime();
+            _s.pvpState = new PvpRoundState(rounds, buy);
             _s.pvpState.setDmKillsToWin(location.getDmKillsToWin());
         }
         PvpRoundState state = _s.pvpState;
@@ -217,13 +293,51 @@ public class PvpRoundManager {
                         wm.broadcastToLocation(location.getName(),
                             Component.translatable("wavedefense.msg.pvp_team_wins_round", winner));
                         broadcastPvpSync(wm, location);
-                    } else if (location.isBattleRoyale() && state.getAliveThisRound().isEmpty()) {
-                        // H3 fix: both last BR players died in the same tick — declare draw.
+                    } else if (state.getAliveThisRound().isEmpty()) {
+                        // X2 fix: covers both Standard mode (previously missed) and BR (H3).
+                        // If all players are dead simultaneously (e.g. mutual kill, fall/fire),
+                        // checkRoundWinner() returns null and we must still end the round as draw
+                        // or the ACTIVE phase runs forever with zero alive players.
                         state.setPendingWinner(null);
                         state.startRoundEndDelay(5);
-                        wm.broadcastToLocation(location.getName(),
-                            Component.translatable("wavedefense.msg.pvp_br_draw"));
+                        Component drawMsg = location.isBattleRoyale()
+                            ? Component.translatable("wavedefense.msg.pvp_br_draw")
+                            : Component.translatable("wavedefense.msg.pvp_draw");
+                        wm.broadcastToLocation(location.getName(), drawMsg);
                         broadcastPvpSync(wm, location);
+                    } else if (location.getPvpRoundTimeLimitSec() > 0
+                            && !location.isBattleRoyale()) {
+                        // Round/match time limit timer (Standard + DM).
+                        state.tickDown();
+                        int t = state.getTimerTicks();
+                        // Broadcast countdown at key intervals
+                        if (t > 0 && t % 20 == 0) {
+                            int secsLeft = t / 20;
+                            if (secsLeft == 60 || secsLeft == 30 || secsLeft == 10
+                                    || (secsLeft <= 5 && secsLeft > 0)) {
+                                wm.broadcastToLocation(location.getName(),
+                                    Component.translatable("wavedefense.msg.pvp_time_left", secsLeft));
+                            }
+                            broadcastPvpSync(wm, location);
+                        }
+                        if (t <= 0) {
+                            // Timer expired — decide winner.
+                            String timeoutWinner = decideTimeoutWinner(location, state);
+                            state.setPendingWinner(timeoutWinner);
+                            state.startRoundEndDelay(5);
+                            if (timeoutWinner != null) {
+                                wm.broadcastToLocation(location.getName(),
+                                    Component.translatable(
+                                        location.isDeathmatch()
+                                            ? "wavedefense.msg.pvp_timeout_dm_winner"
+                                            : "wavedefense.msg.pvp_timeout_winner",
+                                        timeoutWinner));
+                            } else {
+                                wm.broadcastToLocation(location.getName(),
+                                    Component.translatable("wavedefense.msg.pvp_timeout_draw"));
+                            }
+                            broadcastPvpSync(wm, location);
+                        }
                     }
                 }
 
@@ -573,6 +687,41 @@ public class PvpRoundManager {
     //  Private — state machine transitions
     // ════════════════════════════════════════════════════════════════════
 
+    /**
+     * Decide the winner when the round / match time limit expires.
+     * <p>
+     * Standard: team with the most alive players wins (draw if tied).
+     * Deathmatch: team with the most kills wins (draw if tied).
+     * Returns null = draw.
+     */
+    private String decideTimeoutWinner(Location location, PvpRoundState state) {
+        if (location.isDeathmatch()) {
+            // Leading team by kills wins
+            return leadingTeam(state.getDmTeamKills());
+        }
+        // Standard: count alive players per team
+        Map<String, Integer> aliveByTeam = new java.util.LinkedHashMap<>();
+        for (UUID id : state.getAliveThisRound()) {
+            PvpPlayerStats ps = state.getStats(id);
+            if (ps == null || ps.getTeamName() == null) continue;
+            aliveByTeam.merge(ps.getTeamName(), 1, Integer::sum);
+        }
+        return leadingTeam(aliveByTeam);
+    }
+
+    /** Returns the single highest-valued key in the map, or null on tie / empty. */
+    private static String leadingTeam(Map<String, Integer> scores) {
+        if (scores == null || scores.isEmpty()) return null;
+        String leader = null;
+        int best = Integer.MIN_VALUE;
+        boolean tie = false;
+        for (Map.Entry<String, Integer> e : scores.entrySet()) {
+            if (e.getValue() > best) { best = e.getValue(); leader = e.getKey(); tie = false; }
+            else if (e.getValue() == best) { tie = true; }
+        }
+        return tie ? null : leader;
+    }
+
     private void checkPvpStart(WaveManager wm, Location location) {
         LocationSession _s = ctx.getSession(location.getName());
         PvpRoundState state = _s != null ? _s.pvpState : null;
@@ -584,10 +733,26 @@ public class PvpRoundManager {
             .count();
 
         if (count >= location.getPvpMinPlayers()) {
-            state.startBuyPhase();
-            wm.broadcastToLocation(location.getName(),
-                Component.translatable("wavedefense.msg.pvp_enough_players",
-                    location.getPvpBuyTime()));
+            if (location.isDeathmatch() || location.isBattleRoyale()) {
+                // DM / BR: no BUY phase — go directly to ACTIVE (or countdown).
+                state.markFirstRound();
+                int delay = location.getPvpRoundStartDelay();
+                if (delay > 0) {
+                    state.startCountdown(delay);
+                    Component msg = location.isBattleRoyale()
+                        ? Component.translatable("wavedefense.msg.pvp_br_starting", delay)
+                        : Component.translatable("wavedefense.msg.pvp_dm_starting", delay);
+                    wm.broadcastToLocation(location.getName(), msg);
+                } else {
+                    startActiveRound(wm, location, state);
+                }
+            } else {
+                state.startBuyPhase();
+                wm.broadcastToLocation(location.getName(),
+                    Component.translatable("wavedefense.msg.pvp_enough_players",
+                        location.getPvpBuyTime()));
+            }
+            broadcastPvpSync(wm, location);
         }
     }
 
@@ -622,14 +787,17 @@ public class PvpRoundManager {
             wm.removeWaitEffects(p);
             wm.setSpectator(p, false);
             String team = location.getPlayerTeam(pid);
+            PvpSpawnPoint teamSpawn = null;
             if (team != null) {
                 for (PvpSpawnPoint sp : location.getPvpSpawnPoints()) {
-                    if (sp.getTeamName().equals(team)) {
-                        wm.teleportToSpawnPoint(p, sp);
-                        break;
-                    }
+                    if (sp.getTeamName().equals(team)) { teamSpawn = sp; break; }
                 }
             }
+            // B1: DM honours dmSpawnMode (TEAM / RANDOM / SMART). Other modes always use team spawn.
+            PvpSpawnPoint chosen = location.isDeathmatch()
+                ? pickDmSpawn(location, p, teamSpawn)
+                : teamSpawn;
+            if (chosen != null) wm.teleportToSpawnPoint(p, chosen);
             if (location.getPvpRoundStartPoints() > 0) {
                 location.addPoints(pid, location.getPvpRoundStartPoints());
                 p.displayClientMessage(Component.translatable(
@@ -642,9 +810,22 @@ public class PvpRoundManager {
         if (state.getCurrentRound() == 1) {
             wm.fireLootTriggerByName(location.getName(), LootSpawn.Trigger.MATCH_START);
         }
-        wm.broadcastToLocation(location.getName(),
-            Component.translatable("wavedefense.msg.pvp_round_started",
-                state.getCurrentRound(), state.getTotalRounds()));
+        // Round / match time limit (Standard + DM only — objective modes use their own timer).
+        // 0 = no limit. Sets ACTIVE-phase timer that counts down in tick().
+        if (location.getPvpRoundTimeLimitSec() > 0
+                && !location.isObjectiveMode() && !location.isBattleRoyale()) {
+            state.setTimerTicks(location.getPvpRoundTimeLimitSec() * 20);
+        }
+        // DM redesign: no round concept in DM — broadcast a single "match started" message.
+        if (location.isDeathmatch()) {
+            wm.broadcastToLocation(location.getName(),
+                Component.translatable("wavedefense.msg.pvp_dm_match_started",
+                    state.getDmKillsToWin()));
+        } else {
+            wm.broadcastToLocation(location.getName(),
+                Component.translatable("wavedefense.msg.pvp_round_started",
+                    state.getCurrentRound(), state.getTotalRounds()));
+        }
         broadcastPvpSync(wm, location);
     }
 
@@ -685,7 +866,10 @@ public class PvpRoundManager {
             }
         }
 
-        if (state.isAllRoundsDone()) {
+        // DM redesign: DM is a single match — always end the match when the kill
+        // target is reached, regardless of totalRounds.
+        // For all other modes isAllRoundsDone() (currentRound >= totalRounds) applies.
+        if (location.isDeathmatch() || state.isAllRoundsDone()) {
             endPvpMatch(wm, location, state);
             return;
         }
@@ -777,6 +961,34 @@ public class PvpRoundManager {
         }
 
         String winTeam = champion;
+
+        // B5: build & send post-match scoreboard packet to every player in the location.
+        // Done BEFORE removing players so PacketHandler.sendToPlayer still finds them online.
+        {
+            String modeLabel = location.isDeathmatch() ? "DM"
+                : location.isBattleRoyale()        ? "BR"
+                : location.isCtpMode()             ? "CTP"
+                : location.isKothMode()            ? "KOTH"
+                : "STANDARD";
+            java.util.List<com.wavedefense.network.packets.OpenPostMatchScoreboardPacket.PlayerRow> rowList =
+                new java.util.ArrayList<>();
+            for (Map.Entry<UUID, PvpPlayerStats> e : state.getAllStats().entrySet()) {
+                PvpPlayerStats st = e.getValue();
+                int playerPts = location.getPlayerPoints(e.getKey());
+                rowList.add(new com.wavedefense.network.packets.OpenPostMatchScoreboardPacket.PlayerRow(
+                    st.getPlayerName(), st.getTeamName(),
+                    st.getKills(), st.getDeaths(), st.getAssists(), playerPts));
+            }
+            com.wavedefense.network.packets.OpenPostMatchScoreboardPacket pkt =
+                new com.wavedefense.network.packets.OpenPostMatchScoreboardPacket(
+                    modeLabel,
+                    champion == null ? "" : champion,
+                    rowList,
+                    new java.util.LinkedHashMap<>(state.getTeamWins()));
+            for (ServerPlayer p : wm.getPlayersInLocation(location.getName())) {
+                com.wavedefense.network.PacketHandler.sendToPlayer(p, pkt);
+            }
+        }
 
         // M1 fix: pvpWinPoints / pvpLosePoints are already distributed per-round
         // in endRound(). Repeating them here caused a double payout for the final

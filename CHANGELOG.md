@@ -1,5 +1,113 @@
 # Changelog
 
+## [0.2.53.1] - 2026-06-01 (hotfix)
+
+### Fixed — Monitor alert spam on dev/test startup
+
+`WaveDefenseMonitor` was broadcasting `[ALERT WARNING] Current TPS: 13.9 (threshold: 18.0)`
+and `[ALERT CRITICAL] Current TPS: 13.9 (threshold: 15.0) — Server performance severely
+degraded!` to every operator on every server boot, including dev workspaces where the
+first 30–60 seconds of low TPS is normal load-time behaviour.
+
+Three changes:
+
+1. **Broadcast is now opt-in.** New config `debug.monitorBroadcastAlerts` (default
+   `false`). Alerts are still written to the server log; only the chat broadcast is
+   suppressed. Enable for live diagnostics on a production server.
+2. **Startup grace period.** All alert evaluation is suppressed for the first 60 seconds
+   of monitor uptime so world-load lag never triggers warnings.
+3. **Thresholds relaxed.** `TPS_WARNING` 18 → 12, `TPS_CRITICAL` 15 → 8 — values that
+   only fire under genuine sustained server-wide problems.
+
+Also fixed the duplicated `[ALERT WARNING]` in the chat message — the translation key
+`wavedefense.auto.alert_s_s_942c0f5f` had a literal `[ALERT %s]` prefix, but the first
+substitution already carried the severity label. Reduced to `§c[%s] §f%s`.
+
+---
+
+## [0.2.53] - 2026-06-01
+
+### Added — PvP UX gaps, Tacz compat, scoreboard, and shop quantity fix
+
+**Part A — Shop item quantity fix**
+`ShopItemEditorScreen` previously had no UI for `ItemStack.getCount()` — every shop item
+was forced to count 1. Each of the 4 item slots now has an `×N` count `EditBox` (1–64);
+values persist via a `pendingCounts[]` buffer across `rebuildWidgets()` and are applied
+to each non-empty stack in `save()`.
+
+**Part B — Five PvP UX improvements**
+
+- **B1 — DM spawn modes** (`Location.DmSpawnMode`: `TEAM_SPAWN` / `RANDOM_SPAWN` /
+  `SMART_SPAWN`). Admin cycles modes via a new button in the Deathmatch editor section.
+  Smart spawn picks the candidate with the largest min-distance to any living enemy
+  (target ≥10 blocks). New helper `PvpRoundManager.pickDmSpawn()` is shared by
+  `PlayerRespawnHandler` (respawn) and `PvpRoundManager.startActiveRound()` (initial DM
+  spawn) so behaviour is identical in both paths.
+
+- **B2 — DM kill leaderboard HUD**: top-right panel in DM mode shows the player's own
+  kill count, the current leader (name + kills), and the kill target. Uses the existing
+  `ClientPvpStateManager.getPlayers()` data — no extra network traffic.
+
+- **B3 — CtP capture speed multiplier**: when enabled (`Location.ctpSpeedMultiplier`),
+  every additional teammate standing on a point increases capture rate proportionally
+  (`progress += sign × min(teamCount, 4)`). Capped at 4× to keep mechanic meaningful in
+  large lobbies. Off by default for backward-compat. Editor toggle visible only for CtP.
+
+- **B4 — CtP "capture all points" win condition** (`Location.ctpCaptureAllWin`):
+  when enabled, owning every capture point simultaneously instantly ends the round with
+  the owning team as winner. Layered on top of the existing first-to-score / timer
+  conditions. New broadcast message `wavedefense.msg.ctp_all_points_captured`.
+
+- **B5 — Post-match scoreboard**: new `OpenPostMatchScoreboardPacket` (S→C) sent from
+  `PvpRoundManager.endPvpMatch()` to every player in the location, carrying mode label,
+  winning team, per-player stats (kills/deaths/assists/points) and per-team round wins.
+  New `PostMatchScoreboardScreen` renders the table sorted by points→kills→deaths with
+  the winning team's row highlighted. 10 new lang keys across all 8 lang files.
+
+**Part C — Optional Timeless and Classics Zero (Tacz) integration**
+
+- **`compat/TaczCompat.java`** — pure-reflection compatibility layer mirroring the
+  proven `MineAndSlashCompat` pattern. Zero compile-time dependency on Tacz; every
+  public method is a no-op when Tacz is absent.
+
+- **Gun discovery** — reflects into one of several known Tacz class paths
+  (`com.tacz.guns.resource.CommonAssetManager`,
+  `com.tacz.guns.resource.manager.CommonGunPackLoader`, etc.) to find the
+  `Map<ResourceLocation, GunData>` of currently loaded guns. Each gun's category
+  (pistol/rifle/shotgun/SMG/sniper/RPG/MG) is read via `getType()`/`getCategory()`
+  reflection with synonym normalisation. **Fallback**: when Tacz internals cannot be
+  read, enumerates every item in the `tacz` namespace via `ForgeRegistries.ITEMS` as
+  category `other` and logs a single warning.
+
+- **Shop item picker** (`ItemSelectionScreen`) — when Tacz is loaded, a second filter
+  row appears below the standard 6 categories: `Tacz All / Pistols / Rifles / Shotguns
+  / SMGs / Snipers / RPGs / MGs / Other`. Selecting a Tacz tab replaces the regular
+  item list with stacks built via `TaczCompat.buildGunStack(gunId)` (sets `GunId` NBT
+  on the `tacz:modern_kinetic_gun` container item). Clicking the active tab again
+  clears the Tacz filter.
+
+- **Bulk-add** (`TaczBulkAddScreen` + new "🔫 Tacz" button in `ShopEditorScreen`
+  global view) — admin enters a default price per category and clicks `Add Pistols (12)`
+  → 12 new `ShopItem` entries are appended to the location's shop list, each containing
+  one gun stack with the configured price and category `WEAPON`. After bulk-add, the
+  packet is sent and the editor returns to the parent screen showing the new rows.
+
+- **mods.toml** — Tacz declared as optional dependency
+  (`mandatory=false`, `versionRange="[1.0.0,)"`).
+
+### New files
+- `src/main/java/com/wavedefense/compat/TaczCompat.java`
+- `src/main/java/com/wavedefense/gui/PostMatchScoreboardScreen.java`
+- `src/main/java/com/wavedefense/gui/TaczBulkAddScreen.java`
+- `src/main/java/com/wavedefense/network/packets/OpenPostMatchScoreboardPacket.java`
+
+### New translation keys (+46 per language × 8 langs = 368 keys total)
+Categories: shop item count (1), DM spawn modes (4), DM HUD (3), CtP speed/capture-all
+(5), scoreboard (10), Tacz tabs + bulk UI (16), plus messages for capture-all and
+timeout draw.
+
+---
+
 ## [0.2.52] - 2026-05-29
 
 ### Fixed — Server crash, gameplay correctness, and stats visibility (14 fixes)

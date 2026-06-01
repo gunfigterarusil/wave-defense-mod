@@ -14,11 +14,12 @@ Build configurable arena locations with mob waves, team PvP, shops, loot events,
 portals, boundaries, HUD panels, and full in-game admin editors.
 No config files needed — everything is configured through in-game GUI screens.
 
-v0.2.52: dedicated-server crash fix (client-only Screen class referenced from @Mod class);
-backup system actually started; auto-difficulty scaling now records wave results;
-zone particles use the player's actual dimension; GameStats sent to client after kills;
-location triggers for PLAYER_HAS_ITEM / PLAYER_LOW_HEALTH now evaluate correctly;
-WaveDefenseMonitor no longer holds a stale WaveContext reference.
+v0.2.53.1: PvP UX improvements (DM spawn modes, kill leaderboard HUD, CtP speed
+multiplier + capture-all win, post-match scoreboard); optional Tacz gun mod
+compatibility (sub-tabs + bulk-add by category); shop item quantity bug fix.
+Hotfix: WaveDefenseMonitor alerts no longer spam operators on startup
+(broadcast opt-in via debug.monitorBroadcastAlerts, 60s grace period, relaxed
+TPS thresholds).
 
 PvE features:
 - Wave-defense locations: configurable mobs, equipment, potion effects, spawn points,
@@ -54,6 +55,13 @@ Mine and Slash compatibility (optional, mmorpg mod v6.1.0+):
   mob level, XP drop bonus, and 5 elemental resistances (fire/water/lightning/chaos/physical).
 - Fully optional — the mod works normally without Mine and Slash.
 
+Timeless and Classics Zero (Tacz) compatibility (optional, tacz mod):
+- When Tacz is installed, the shop item picker gets extra filter tabs for Tacz gun
+  categories (pistol, rifle, shotgun, SMG, sniper, RPG, MG).
+- A "Bulk add Tacz" button appears in the shop editor — admins can add every gun
+  of a given category to the shop in a single click with a configurable default price.
+- Fully optional — pure reflection, no compile-time dependency on Tacz.
+
 Languages: EN · UK · DE · FR · ES · PL · PT-BR · ZH-CN
 
 Hotkeys:  V — main menu   |   B — open shop   |   G — leave location
@@ -83,5 +91,12 @@ displayURL="https://github.com/gunfigterarusil/wave-defense-mod"
     modId="mmorpg"
     mandatory=false
     versionRange="[6.1.0,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.wavedefense]]
+    modId="tacz"
+    mandatory=false
+    versionRange="[1.0.0,)"
     ordering="NONE"
     side="BOTH"

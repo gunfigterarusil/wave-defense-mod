@@ -68,37 +68,83 @@ public class CapturePointManager {
                 tickPoint(wm, location, state, cp, players);
             }
 
-            // ── Award score every second (20 ticks) ───────────────────────
-            if (wm.waveCtx.tickCounter % 20 == 0) {
+            // ── B4: capture-all-points win condition (CtP only) ──────────
+            if (location.isCtpMode() && location.isCtpCaptureAllWin()) {
+                String allOwner = null;
+                boolean allSame = true;
+                for (CapturePoint cp : points) {
+                    String owner = state.getPointOwner(cp.getId());
+                    if (owner == null) { allSame = false; break; }
+                    if (allOwner == null) allOwner = owner;
+                    else if (!allOwner.equals(owner)) { allSame = false; break; }
+                }
+                if (allSame && allOwner != null) {
+                    wm.broadcastToLocation(location.getName(),
+                        Component.translatable("wavedefense.msg.ctp_all_points_captured", allOwner));
+                    wm.pvpMgr.declareObjectiveWinner(wm, location, state, allOwner, false);
+                    continue;
+                }
+            }
+
+            // ── KotH Hold-Timer mode (overrides score-based win conditions) ─
+            boolean kothHold = location.isKothMode() && location.isKothHoldMode();
+
+            if (kothHold) {
+                // Every tick: increment hold timer for the team currently owning the hill
                 for (CapturePoint cp : points) {
                     String owner = state.getPointOwner(cp.getId());
                     if (owner != null) {
-                        state.addObjectiveScore(owner, location.getObjectiveScorePerSec());
+                        state.addKothHoldTicks(owner, 1);
                     }
                 }
 
-                // ── Win condition: first-to-score ─────────────────────────
-                if (location.isObjectiveFirstToScore()) {
-                    String winner = state.checkObjectiveWinner(location.getObjectiveScoreToWin());
+                // Sync every second + check win condition
+                if (wm.waveCtx.tickCounter % 20 == 0) {
+                    int target = location.getKothHoldDurationSec() * 20;
+                    String winner = null;
+                    for (Map.Entry<String, Integer> e : state.getKothHoldTicks().entrySet()) {
+                        if (e.getValue() >= target) { winner = e.getKey(); break; }
+                    }
                     if (winner != null) {
                         wm.pvpMgr.declareObjectiveWinner(wm, location, state, winner, false);
                         continue;
                     }
+                    sendSync(wm, location, state);
+                }
+            } else {
+                // ── Score modes (CtP + KotH score-based) ─────────────────
+                // ── Award score every second (20 ticks) ───────────────────
+                if (wm.waveCtx.tickCounter % 20 == 0) {
+                    for (CapturePoint cp : points) {
+                        String owner = state.getPointOwner(cp.getId());
+                        if (owner != null) {
+                            state.addObjectiveScore(owner, location.getObjectiveScorePerSec());
+                        }
+                    }
+
+                    // ── Win condition: first-to-score ─────────────────────
+                    if (location.isObjectiveFirstToScore()) {
+                        String winner = state.checkObjectiveWinner(location.getObjectiveScoreToWin());
+                        if (winner != null) {
+                            wm.pvpMgr.declareObjectiveWinner(wm, location, state, winner, false);
+                            continue;
+                        }
+                    }
+
+                    // ── Sync state to clients every second ────────────────
+                    sendSync(wm, location, state);
                 }
 
-                // ── Sync state to clients every second ────────────────────
-                sendSync(wm, location, state);
-            }
-
-            // ── Timer countdown (timer mode) ─────────────────────────────
-            if (!location.isObjectiveFirstToScore()) {
-                int remaining = state.getRoundDurationTicks();
-                if (remaining > 0) {
-                    state.setRoundDurationTicks(remaining - 1);
-                    if (remaining - 1 <= 0) {
-                        String winner = state.getLeadingTeam();
-                        wm.pvpMgr.declareObjectiveWinner(wm, location, state, winner, true);
-                        continue;
+                // ── Timer countdown (timer mode) ─────────────────────────
+                if (!location.isObjectiveFirstToScore()) {
+                    int remaining = state.getRoundDurationTicks();
+                    if (remaining > 0) {
+                        state.setRoundDurationTicks(remaining - 1);
+                        if (remaining - 1 <= 0) {
+                            String winner = state.getLeadingTeam();
+                            wm.pvpMgr.declareObjectiveWinner(wm, location, state, winner, true);
+                            continue;
+                        }
                     }
                 }
             }
@@ -164,8 +210,15 @@ public class CapturePointManager {
 
         int sign = capturingTeam.equals(directionTeam) ? 1 : -1;
 
+        // B3: optional speed multiplier — capture progresses faster with more teammates on point.
+        // Capped at 4× to keep the mechanic meaningful in larger lobbies.
+        int speed = 1;
+        if (location.isCtpMode() && location.isCtpSpeedMultiplier()) {
+            Integer count = teamCounts.get(capturingTeam);
+            if (count != null) speed = Math.max(1, Math.min(4, count));
+        }
         // Advance progress (or neutralise opposing team's progress)
-        prog += sign;
+        prog += sign * speed;
 
         if (prog == 0) {
             // Point neutralised — clear direction so next team to arrive claims it
@@ -173,9 +226,15 @@ public class CapturePointManager {
             state.getCaptureProgress().put(cp.getId(), 0);
         } else if (Math.abs(prog) >= capTicks) {
             // Point captured!
+            String oldOwner = state.getPointOwners().get(cp.getId());
             state.getPointOwners().put(cp.getId(), capturingTeam);
             state.getCaptureProgress().put(cp.getId(), 0);
             state.getPointCapturingTeam().remove(cp.getId());
+            // KotH hold-timer mode: if "reset on loss" is enabled, zero the previous owner's timer.
+            if (location.isKothMode() && location.isKothHoldMode() && location.isKothResetOnLoss()
+                    && oldOwner != null && !oldOwner.equals(capturingTeam)) {
+                state.resetKothHoldTicks(oldOwner);
+            }
             wm.broadcastToLocation(location.getName(),
                 Component.translatable("wavedefense.msg.point_captured", capturingTeam, cp.getName()));
         } else {

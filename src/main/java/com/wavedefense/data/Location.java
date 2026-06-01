@@ -47,19 +47,34 @@ public class Location {
     int pvpRoundStartPoints = 0;  // points awarded to every player at round start
     int pvpWinPoints    = 0;      // points awarded to the winning team per round
     int pvpLosePoints   = 0;      // points awarded to the losing team per round
+    // Round / match time limit (sec, 0 = no limit).
+    // Standard: defender wins on timeout → team with more alive players wins (draw if equal).
+    // Deathmatch: leading team wins on timeout (draw if tied).
+    int pvpRoundTimeLimitSec = 0;
     // ── PvP sub-mode ─────────────────────────────────────────────────────
     public enum PvpMode { STANDARD, DEATHMATCH, BATTLE_ROYALE, CAPTURE_THE_POINT, KING_OF_THE_HILL }
     PvpMode pvpMode = PvpMode.STANDARD;
 
     // ── Battle Royale settings ────────────────────────────────────────
     int     brBorderRadius        = 100;  // starting border radius (blocks)
-    int     brShrinkIntervalSec   = 30;   // border shrinks by 1 block every N seconds
+    int     brShrinkIntervalSec   = 5;    // border shrinks every N seconds (default 5 — was 30, too slow)
+    int     brShrinkAmountBlocks  = 1;    // how many blocks to shrink per step
+    int     brInitialWaitSec      = 30;   // initial wait before the border starts shrinking
+    int     brFinalRadius         = 5;    // border stops shrinking at this radius
     String  brBorderParticle      = "minecraft:flame";
     int     brBorderParticleCount = 8;
     boolean brBorderDamage        = true;
     float   brBorderDamageAmt     = 1.0f;
 
     int     dmKillsToWin  = 10;          // Deathmatch: kills to win a round
+    /**
+     * Deathmatch spawn mode (where players appear after death).
+     *   TEAM_SPAWN    — always spawn at the player's team spawn point (legacy default; camper-prone)
+     *   RANDOM_SPAWN  — random PvpSpawnPoint each respawn
+     *   SMART_SPAWN   — random from up to 10 candidates; pick one ≥10 blocks from nearest enemy
+     */
+    public enum DmSpawnMode { TEAM_SPAWN, RANDOM_SPAWN, SMART_SPAWN }
+    DmSpawnMode dmSpawnMode = DmSpawnMode.TEAM_SPAWN;
 
     // ── Capture the Point / King of the Hill ─────────────────────────────
     List<CapturePoint> capturePoints    = new ArrayList<>();
@@ -71,6 +86,16 @@ public class Location {
     int  kothScorePerSec    = 1;
     boolean kothFirstToScore = true;
     int  kothRoundDurationSec = 300;
+    // B3: CtP — multiply capture progress by team count standing on point (capped at 4×).
+    boolean ctpSpeedMultiplier = false;
+    // B4: CtP — additional win condition: one team owns ALL capture points simultaneously.
+    boolean ctpCaptureAllWin   = false;
+    // KotH true "hold timer" mode (TF2/Halo style).
+    // When kothHoldMode=true the win condition is "hold the hill for kothHoldDurationSec
+    // total/consecutive seconds" — score-based settings above are ignored.
+    boolean kothHoldMode        = false;
+    int     kothHoldDurationSec = 180;  // 3 minutes (TF2 default)
+    boolean kothResetOnLoss     = false; // false = Halo style (timer freezes); true = TF2 style (timer resets)
     boolean pvpWaitEffect = true;       // apply slowness+blindness while waiting (instead of spectator)
     boolean pvpTeamAutoBalance = true;  // auto-balance teams on join/leave
     boolean enforceGameMode = true;     // force the configured game mode in the location
@@ -439,8 +464,12 @@ public class Location {
     public void setPvpWinPoints(int p)           { this.pvpWinPoints = Math.max(0, p); }
     public int  getPvpLosePoints()               { return pvpLosePoints; }
     public void setPvpLosePoints(int p)          { this.pvpLosePoints = Math.max(0, p); }
+    public int  getPvpRoundTimeLimitSec()        { return pvpRoundTimeLimitSec; }
+    public void setPvpRoundTimeLimitSec(int s)   { this.pvpRoundTimeLimitSec = Math.max(0, s); }
     public int  getDmKillsToWin()                { return dmKillsToWin; }
     public void setDmKillsToWin(int k)           { this.dmKillsToWin = Math.max(1, k); }
+    public DmSpawnMode getDmSpawnMode()          { return dmSpawnMode != null ? dmSpawnMode : DmSpawnMode.TEAM_SPAWN; }
+    public void setDmSpawnMode(DmSpawnMode m)    { this.dmSpawnMode = m != null ? m : DmSpawnMode.TEAM_SPAWN; }
     public boolean isPvpWaitEffect()             { return pvpWaitEffect; }
     public void    setPvpWaitEffect(boolean v)   { this.pvpWaitEffect = v; }
 
@@ -465,6 +494,10 @@ public class Location {
     public void setCtpFirstToScore(boolean v)                 { this.ctpFirstToScore = v; }
     public int  getCtpRoundDurationSec()                      { return ctpRoundDurationSec; }
     public void setCtpRoundDurationSec(int v)                 { this.ctpRoundDurationSec = Math.max(30, v); }
+    public boolean isCtpSpeedMultiplier()                     { return ctpSpeedMultiplier; }
+    public void setCtpSpeedMultiplier(boolean v)              { this.ctpSpeedMultiplier = v; }
+    public boolean isCtpCaptureAllWin()                       { return ctpCaptureAllWin; }
+    public void setCtpCaptureAllWin(boolean v)                { this.ctpCaptureAllWin = v; }
 
     public int  getKothScoreToWin()                           { return kothScoreToWin; }
     public void setKothScoreToWin(int v)                      { this.kothScoreToWin = Math.max(1, v); }
@@ -474,6 +507,12 @@ public class Location {
     public void setKothFirstToScore(boolean v)                { this.kothFirstToScore = v; }
     public int  getKothRoundDurationSec()                     { return kothRoundDurationSec; }
     public void setKothRoundDurationSec(int v)                { this.kothRoundDurationSec = Math.max(30, v); }
+    public boolean isKothHoldMode()                           { return kothHoldMode; }
+    public void setKothHoldMode(boolean v)                    { this.kothHoldMode = v; }
+    public int  getKothHoldDurationSec()                      { return kothHoldDurationSec; }
+    public void setKothHoldDurationSec(int v)                 { this.kothHoldDurationSec = Math.max(10, v); }
+    public boolean isKothResetOnLoss()                        { return kothResetOnLoss; }
+    public void setKothResetOnLoss(boolean v)                 { this.kothResetOnLoss = v; }
 
     /** Returns the effective score-to-win for the current objective mode. */
     public int getObjectiveScoreToWin() {
@@ -496,6 +535,12 @@ public class Location {
     public void    setBrBorderRadius(int r)      { this.brBorderRadius = Math.max(10, r); }
     public int     getBrShrinkIntervalSec()      { return brShrinkIntervalSec; }
     public void    setBrShrinkIntervalSec(int s) { this.brShrinkIntervalSec = Math.max(1, s); }
+    public int     getBrShrinkAmountBlocks()     { return Math.max(1, brShrinkAmountBlocks); }
+    public void    setBrShrinkAmountBlocks(int b){ this.brShrinkAmountBlocks = Math.max(1, b); }
+    public int     getBrInitialWaitSec()         { return Math.max(0, brInitialWaitSec); }
+    public void    setBrInitialWaitSec(int s)    { this.brInitialWaitSec = Math.max(0, s); }
+    public int     getBrFinalRadius()            { return Math.max(3, brFinalRadius); }
+    public void    setBrFinalRadius(int r)       { this.brFinalRadius = Math.max(3, r); }
     public String  getBrBorderParticle()         { return brBorderParticle != null ? brBorderParticle : "minecraft:flame"; }
     public void    setBrBorderParticle(String p) { this.brBorderParticle = p; }
     public int     getBrBorderParticleCount()    { return brBorderParticleCount; }

@@ -26,7 +26,8 @@ public class PvpRoundState {
     private int currentRound = 0;
     private int totalRounds;
     private int buyTime;
-    private int roundStartDelay = 5; // seconds between BUY → ACTIVE
+    // B1 fix: roundStartDelay was a dead field (never set from Location, never read at runtime).
+    // The delay is always read directly from Location.getPvpRoundStartDelay() in PvpRoundManager.
 
     private int timerTicks = 0;
 
@@ -75,6 +76,12 @@ public class PvpRoundState {
     private final Map<String, Integer> objectiveScore    = new LinkedHashMap<>();
     /** Ticks remaining in timer-mode round (0 when over) */
     private int roundDurationTicks = 0;
+    /** KotH hold-timer mode: teamName → accumulated ticks held on the hill */
+    private final Map<String, Integer> kothHoldTicks = new LinkedHashMap<>();
+    public Map<String, Integer> getKothHoldTicks()              { return kothHoldTicks; }
+    public int getKothHoldTicks(String team)                    { return team == null ? 0 : kothHoldTicks.getOrDefault(team, 0); }
+    public void addKothHoldTicks(String team, int delta)        { if (team != null) kothHoldTicks.merge(team, delta, Integer::sum); }
+    public void resetKothHoldTicks(String team)                 { if (team != null) kothHoldTicks.put(team, 0); }
     /** epoch-ms when the first ACTIVE round of this match began (for leaderboard duration). */
     private long matchStartMs = 0L;
 
@@ -88,6 +95,7 @@ public class PvpRoundState {
         captureProgress.clear();
         pointCapturingTeam.clear();
         objectiveScore.clear();
+        kothHoldTicks.clear();
         for (CapturePoint cp : points) {
             pointOwners.put(cp.getId(), null);     // neutral
             captureProgress.put(cp.getId(), 0);
@@ -172,9 +180,13 @@ public class PvpRoundState {
         this.buyTime     = buyTime;
     }
 
-    // ── Налаштування ────────────────────────────────────────────────────
-    public int  getRoundStartDelay()      { return roundStartDelay; }
-    public void setRoundStartDelay(int s) { this.roundStartDelay = Math.max(0, s); }
+    // ── Deathmatch helpers ──────────────────────────────────────────────
+    /**
+     * DM: advance to round 1 without going through the BUY phase.
+     * Called from checkPvpStart() when the mode is DEATHMATCH so the match
+     * starts immediately (the BUY / shop phase is skipped entirely).
+     */
+    public void markFirstRound() { this.currentRound = 1; }
 
     // ── Гравці ──────────────────────────────────────────────────────────
     public void registerPlayer(UUID id, String name, String team) {
@@ -301,7 +313,6 @@ public class PvpRoundState {
         tag.putInt("currentRound", currentRound);
         tag.putInt("totalRounds", totalRounds);
         tag.putInt("buyTime", buyTime);
-        tag.putInt("roundStartDelay", roundStartDelay);
         tag.putInt("timerTicks", timerTicks);
         tag.putInt("dmKillsToWin", dmKillsToWin);
         if (pendingWinner != null) {
@@ -361,6 +372,11 @@ public class PvpRoundState {
             tag.put("captureProgress", progTag);
         }
         tag.putInt("roundDurationTicks", roundDurationTicks);
+        if (!kothHoldTicks.isEmpty()) {
+            CompoundTag kothTag = new CompoundTag();
+            for (Map.Entry<String, Integer> e : kothHoldTicks.entrySet()) kothTag.putInt(e.getKey(), e.getValue());
+            tag.put("kothHoldTicks", kothTag);
+        }
         return tag;
     }
 
@@ -375,7 +391,6 @@ public class PvpRoundState {
         try { state.phase = Phase.valueOf(tag.getString("phase")); }
         catch (IllegalArgumentException ignored) { state.phase = Phase.WAITING; }
         state.currentRound = tag.getInt("currentRound");
-        state.roundStartDelay = tag.getInt("roundStartDelay");
         state.timerTicks = tag.getInt("timerTicks");
         state.dmKillsToWin = tag.getInt("dmKillsToWin");
         state.pendingWinner = tag.contains("pendingWinner") ? tag.getString("pendingWinner") : null;
@@ -435,6 +450,10 @@ public class PvpRoundState {
             for (String key : progTag.getAllKeys()) state.captureProgress.put(key, progTag.getInt(key));
         }
         state.roundDurationTicks = NbtHelper.getInt(tag, "roundDurationTicks", 0);
+        if (tag.contains("kothHoldTicks")) {
+            CompoundTag kothTag = tag.getCompound("kothHoldTicks");
+            for (String key : kothTag.getAllKeys()) state.kothHoldTicks.put(key, kothTag.getInt(key));
+        }
         return state;
     }
 }

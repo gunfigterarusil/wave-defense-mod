@@ -67,6 +67,12 @@ public class PacketHandler {
         c2s(RequestLeaderboardPacket.class, RequestLeaderboardPacket::encode, RequestLeaderboardPacket::decode, RequestLeaderboardPacket::handle);
         s2c(LeaderboardDataPacket.class, LeaderboardDataPacket::encode, LeaderboardDataPacket::decode, LeaderboardDataPacket::handle);
 
+        // B5: post-match scoreboard (PvP)
+        s2c(OpenPostMatchScoreboardPacket.class,
+            OpenPostMatchScoreboardPacket::encode,
+            OpenPostMatchScoreboardPacket::decode,
+            OpenPostMatchScoreboardPacket::handle);
+
         WaveDefenseMod.LOGGER.info("Network packets registered");
     }
 

@@ -53,6 +53,7 @@ public class WaveDefenseConfig {
     // ── Debug / Logging ──────────────────────────────────────────────────
     public static final ForgeConfigSpec.BooleanValue DEBUG_ADMIN_MESSAGES;
     public static final ForgeConfigSpec.BooleanValue DEBUG_LOGGING_ENABLED;
+    public static final ForgeConfigSpec.BooleanValue MONITOR_BROADCAST_ALERTS;
 
     // ── Gameplay ──────────────────────────────────────────────────────────
     public static final ForgeConfigSpec.IntValue     MAX_PLAYERS_PER_LOCATION;
@@ -183,6 +184,13 @@ public class WaveDefenseConfig {
                 .comment("Write mod events to the server log (waves, triggers, errors).\n" +
                          "Disable to reduce log volume.")
                 .define("loggingEnabled", true);
+
+        MONITOR_BROADCAST_ALERTS = BUILDER
+                .comment("Broadcast WaveDefenseMonitor alerts (low TPS, high memory, wave timeout)\n" +
+                         "to all online operators (permission level >= 2).\n" +
+                         "Disabled by default — alerts are still written to the server log.\n" +
+                         "Enable only for live diagnostics; otherwise leave off to avoid spam.")
+                .define("monitorBroadcastAlerts", false);
 
         BUILDER.pop();
 
