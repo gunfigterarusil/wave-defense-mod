@@ -1215,5 +1215,8 @@
   "wavedefense.tacz.bulk.price": "§7Prix :",
   "wavedefense.tacz.bulk.added": "§a✓ §e%d§a armes de la catégorie §e%s§a ajoutées à la boutique",
   "wavedefense.tacz.bulk.not_loaded": "§cTacz n'est pas chargé — rien à ajouter.",
-  "wavedefense.tacz.bulk.open_button": "🔫 Tacz"
+  "wavedefense.tacz.bulk.open_button": "🔫 Tacz",
+  "wavedefense.tab.all": "Tout",
+  "wavedefense.item.click_hint": "§7CG +1 · CD -1 · Shift+CG +10 · Shift+CD reset",
+  "wavedefense.item.selected_count": "§e× %d"
 }

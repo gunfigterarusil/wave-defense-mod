@@ -1,4 +1,4 @@
-# Wave Defense Mod - v0.2.53.2
+# Wave Defense Mod - v0.2.53.4
 
 Wave Defense is a PvE/PvP Forge mod for **Minecraft 1.20.1** and **Java 17**.
 It lets server owners build configurable arena locations with mob waves, team PvP,
@@ -8,8 +8,23 @@ shops, loot events, portals, boundaries, HUD panels, and in-game admin editors.
 
 ## Status
 
-Version `0.2.53.2` — PvP UX improvements, post-match scoreboard, optional Tacz gun mod
-compatibility, and shop quantity fix. Hotfixes for monitor alert spam and Tacz gun discovery.
+Version `0.2.53.4` — Item picker selection feedback and click-counted quantity.
+
+**v0.2.53.4 changes:**
+- Yellow outline + count overlay show the currently selected item in the picker.
+- `LMB +1 · RMB -1 · Shift+LMB +10 · Shift+RMB reset` — click counting replaces
+  click-to-confirm; explicit Confirm / Cancel buttons.
+- Picker count flows back into the slot's `×N` EditBox automatically.
+
+**v0.2.53.3 changes:**
+- Item picker (shop / starting items / loot) now discovers tabs dynamically via
+  `CreativeModeTabRegistry` — same labels, same items, same ordering as the creative
+  inventory. Modded tabs (Tacz, Mine and Slash, datapacks) appear automatically.
+- Virtual "All" tab aggregates every stack from every tab for free-form search.
+- `◄ / ►` paging when the tab strip overflows.
+- Simplified `TaczCompat`: removed brittle GunData reflection paths; bulk-add still
+  works through our 8 fixed categories (pistol / rifle / shotgun / smg / sniper / rpg
+  / mg / other).
 
 **v0.2.53.2 hotfix:**
 - Fixed empty Tacz category counts in the shop picker — discovery now scans loaded
@@ -102,7 +117,7 @@ Completed in this workspace:
 ## Installation
 
 1. Install Forge `1.20.1` (`47.2.0+` recommended).
-2. Copy the built `wavedefense-0.2.53.2.jar` into the `mods/` folder.
+2. Copy the built `wavedefense-0.2.53.4.jar` into the `mods/` folder.
 3. **Optional**: install Mine and Slash (`mmorpg` mod, v6.1.0+) to unlock per-location mob level / XP / resistance settings.
 4. Start the client or dedicated server.
 

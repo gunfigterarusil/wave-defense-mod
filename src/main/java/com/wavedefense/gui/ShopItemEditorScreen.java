@@ -105,6 +105,11 @@ public class ShopItemEditorScreen extends Screen {
 
             // Вибрати предмет через меню
             final ItemStack curShopItem = items.get(si);
+            // Initialise pending count BEFORE building the button so the picker
+            // receives the correct preselected count even on first init.
+            if (pendingCounts[si] < 1) {
+                pendingCounts[si] = curShopItem.isEmpty() ? 1 : Math.max(1, curShopItem.getCount());
+            }
             String shopSlotLbl = curShopItem.isEmpty() ? I18n.get("wavedefense.shop.slot_empty")
                 : "§a✓ " + (curShopItem.getHoverName().getString().length() > 8
                     ? curShopItem.getHoverName().getString().substring(0, 7) + "…"
@@ -113,8 +118,13 @@ public class ShopItemEditorScreen extends Screen {
                     Component.literal(shopSlotLbl),
                     button -> minecraft.setScreen(new ItemSelectionScreen(this, stack -> {
                         items.set(si, stack);
+                        // Adopt the click-counted count from the picker so the per-slot
+                        // ×N EditBox below shows it. Picker guarantees count is in [1,64].
+                        pendingCounts[si] = Math.max(1, Math.min(64, stack.getCount()));
                         rebuildWidgets();
-                    }, curShopItem))
+                    }, curShopItem.isEmpty()
+                            ? curShopItem
+                            : withCount(curShopItem, Math.max(1, pendingCounts[si]))))
             ).bounds(xPos, startY, dynSlotW, SLOT_H).build());
 
             // "З руки"
@@ -136,11 +146,7 @@ public class ShopItemEditorScreen extends Screen {
                     button -> { items.set(si, ItemStack.EMPTY); pendingCounts[si] = 1; rebuildWidgets(); }
             ).bounds(xPos, startY + (SLOT_H + 2) * 2, dynSlotW, SLOT_H).build());
 
-            // ── Кількість предмета у слоті (×N) ──────────────────────────────
-            // Ініціалізуємо буфер лише раз — далі він зберігає введене значення між rebuildWidgets().
-            if (pendingCounts[si] < 1) {
-                pendingCounts[si] = curShopItem.isEmpty() ? 1 : Math.max(1, curShopItem.getCount());
-            }
+            // ── Кількість предмета у слоті (×N) — buffer initialised above ──
             int countRowY = startY + (SLOT_H + 2) * 3;
             // Label "×" зліва (вузький)
             this.addRenderableWidget(Button.builder(
@@ -299,6 +305,13 @@ public class ShopItemEditorScreen extends Screen {
         this.addRenderableWidget(Button.builder(
                 Component.translatable("wavedefense.button.cancel"), button -> this.minecraft.setScreen(parent)
         ).bounds(cx + 10, this.height - 28, 100, 20).build());
+    }
+
+    /** Returns a copy of {@code st} with count set (≥1). */
+    private static ItemStack withCount(ItemStack st, int count) {
+        ItemStack copy = st.copy();
+        copy.setCount(Math.max(1, count));
+        return copy;
     }
 
     private void save() {

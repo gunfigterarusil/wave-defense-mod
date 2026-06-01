@@ -1215,5 +1215,8 @@
   "wavedefense.tacz.bulk.price": "§7价格：",
   "wavedefense.tacz.bulk.added": "§a✓ 已将 §e%d§a 件 §e%s§a 类武器添加到商店",
   "wavedefense.tacz.bulk.not_loaded": "§cTacz 未加载 — 无可添加。",
-  "wavedefense.tacz.bulk.open_button": "🔫 Tacz"
+  "wavedefense.tacz.bulk.open_button": "🔫 Tacz",
+  "wavedefense.tab.all": "全部",
+  "wavedefense.item.click_hint": "§7左键 +1 · 右键 -1 · Shift+左键 +10 · Shift+右键 重置",
+  "wavedefense.item.selected_count": "§e× %d"
 }

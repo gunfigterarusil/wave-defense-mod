@@ -1,5 +1,90 @@
 # Changelog
 
+## [0.2.53.4] - 2026-06-01
+
+### Changed — Item picker selection feedback + click-counted quantity
+
+Tester reported that it was not clear whether an item had actually been picked
+in the shop item editor, and that the only way to set quantity was through the
+small per-slot `×N` field.
+
+`ItemSelectionScreen` now provides explicit selection feedback and click-based
+quantity:
+
+- **Bright yellow 2-pixel outline** around the currently selected slot —
+  visible at a glance.
+- **Stack count overlay** drawn on the selected slot via vanilla's
+  `renderItemDecorations` so the chosen quantity is shown in the same place
+  it would appear in the inventory (corner of the icon).
+- **Click counting** instead of click-to-confirm:
+  - `LMB` on an item: +1 to its count (or selects it and sets count to 1 if
+    a different item was selected before)
+  - `RMB`: −1, drops to zero, deselects
+  - `Shift+LMB`: +10
+  - `Shift+RMB`: full reset
+  - Clamp: 1–64
+- **Confirm / Cancel** buttons replace the old "Close" — confirm sends the
+  selected stack with the click-counted count back to the parent callback;
+  cancel just closes without changing anything.
+- Footer shows the click-hint (`LMB +1 · RMB -1 · Shift+LMB +10 · Shift+RMB
+  reset`) and the live `× N` count so the admin never has to guess.
+- Re-opening the picker for an existing slot pre-populates the counter from
+  the slot's stack so successive edits are non-destructive.
+
+`ShopItemEditorScreen` adopts the picker's chosen count into its per-slot
+`×N` EditBox automatically, so the existing fine-tune-via-typing path still
+works for values the click-counter can't reach quickly.
+
+3 new lang keys × 8 langs: `wavedefense.item.click_hint`,
+`wavedefense.item.selected_count`, `wavedefense.tab.all`.
+
+---
+
+## [0.2.53.3] - 2026-06-01
+
+### Changed — Item picker now mirrors the creative-inventory tab layout
+
+The shop / starting-items / loot item picker previously had a hard-coded list
+of 6 categories (All / Weapon / Armor / Potion / Food / Other). With modded
+content this categorisation was inconsistent — admins had to hunt for an item
+when its modded category didn't match our enum.
+
+`ItemSelectionScreen` now discovers tabs at runtime via
+`CreativeModeTabRegistry.getSortedCreativeModeTabs()` — the same source the
+vanilla creative inventory uses. Every loaded, non-empty creative tab becomes
+a tab in our picker, with the **same label, same items, and same ordering**
+as in creative.
+
+- The first tab is a virtual "All" (aggregates every stack from every tab,
+  deduplicated, sorted by name) — handy for free-form search.
+- Modded tabs (Tacz gun categories, Mine and Slash gear tabs, datapack tabs)
+  appear automatically without code changes.
+- A `◄ / ►` strip lets the admin page through tabs when there are too many to
+  fit on one row.
+- Search remains scoped to the active tab.
+- The old `Category` enum (`Weapon` / `Armor` / `Potion` / `Food` / `Other`)
+  and the separate Tacz sub-tab row are removed — Tacz tabs now sit inside the
+  main strip alongside everything else. The `wavedefense.item.category.*`
+  lang keys are kept (unused) for compatibility with downstream code that
+  might still reference them.
+
+### Simplified — `TaczCompat` (after 0.2.53.2)
+
+Stripped the reflection-into-`GunData` paths entirely — they were ineffective
+and overcomplicated. Gun discovery now:
+
+1. Walks creative tabs once, captures every Tacz-namespaced stack carrying a
+   `GunId` NBT tag (template preserved for default attachments / pre-fill).
+2. Buckets each gun into one of 8 fixed categories via substring matching on
+   the gun id (`glock_*` → pistol, `ak*` → rifle, `m870` → shotgun, etc.).
+3. Sorts results by category index then display name.
+
+`TaczBulkAddScreen` still uses these 8 categories for bulk adds; the regular
+item picker now shows Tacz guns through whichever creative tab the gunpack
+author put them in (so Tacz's own sub-tab hierarchy is preserved verbatim).
+
+---
+
 ## [0.2.53.2] - 2026-06-01 (hotfix)
 
 ### Fixed — Tacz gun discovery (shop showed "0 of every category")

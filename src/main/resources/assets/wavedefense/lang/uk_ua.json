@@ -1215,5 +1215,8 @@
   "wavedefense.tacz.bulk.price": "§7Ціна:",
   "wavedefense.tacz.bulk.added": "§a✓ Додано §e%d§a одиниць зброї категорії §e%s§a у магазин",
   "wavedefense.tacz.bulk.not_loaded": "§cTacz не завантажено — нічого додати.",
-  "wavedefense.tacz.bulk.open_button": "🔫 Tacz"
+  "wavedefense.tacz.bulk.open_button": "🔫 Tacz",
+  "wavedefense.tab.all": "Все",
+  "wavedefense.item.click_hint": "§7ЛКМ +1 · ПКМ -1 · Shift+ЛКМ +10 · Shift+ПКМ скинути",
+  "wavedefense.item.selected_count": "§e× %d"
 }
