@@ -1,4 +1,4 @@
-# Wave Defense Mod - v0.2.53.1
+# Wave Defense Mod - v0.2.53.2
 
 Wave Defense is a PvE/PvP Forge mod for **Minecraft 1.20.1** and **Java 17**.
 It lets server owners build configurable arena locations with mob waves, team PvP,
@@ -8,8 +8,17 @@ shops, loot events, portals, boundaries, HUD panels, and in-game admin editors.
 
 ## Status
 
-Version `0.2.53.1` — PvP UX improvements, post-match scoreboard, optional Tacz gun mod
-compatibility, and shop quantity fix. Hotfix included for monitor alert spam on startup.
+Version `0.2.53.2` — PvP UX improvements, post-match scoreboard, optional Tacz gun mod
+compatibility, and shop quantity fix. Hotfixes for monitor alert spam and Tacz gun discovery.
+
+**v0.2.53.2 hotfix:**
+- Fixed empty Tacz category counts in the shop picker — discovery now scans loaded
+  `CreativeModeTab`s (the same source the regular item picker uses), so every gun
+  the admin sees in creative — including datapack-added ones — appears in the shop.
+- Bulk-add now uses the captured creative-tab stack as a template, preserving any
+  default attachments or NBT the gun pack ships with.
+- Categorisation tries Tacz's internal `GunData` first, then falls back to id-substring
+  guessing (`glock_*` → pistol, `ak*` → rifle, `awp/kar98/mosin` → sniper, etc.).
 
 **v0.2.53.1 hotfix:**
 - `WaveDefenseMonitor` no longer floods operators with `[ALERT WARNING] Current TPS …`
@@ -93,7 +102,7 @@ Completed in this workspace:
 ## Installation
 
 1. Install Forge `1.20.1` (`47.2.0+` recommended).
-2. Copy the built `wavedefense-0.2.53.1.jar` into the `mods/` folder.
+2. Copy the built `wavedefense-0.2.53.2.jar` into the `mods/` folder.
 3. **Optional**: install Mine and Slash (`mmorpg` mod, v6.1.0+) to unlock per-location mob level / XP / resistance settings.
 4. Start the client or dedicated server.
 

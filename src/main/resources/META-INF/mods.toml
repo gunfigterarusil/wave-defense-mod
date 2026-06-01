@@ -14,12 +14,14 @@ Build configurable arena locations with mob waves, team PvP, shops, loot events,
 portals, boundaries, HUD panels, and full in-game admin editors.
 No config files needed — everything is configured through in-game GUI screens.
 
-v0.2.53.1: PvP UX improvements (DM spawn modes, kill leaderboard HUD, CtP speed
+v0.2.53.2: PvP UX improvements (DM spawn modes, kill leaderboard HUD, CtP speed
 multiplier + capture-all win, post-match scoreboard); optional Tacz gun mod
 compatibility (sub-tabs + bulk-add by category); shop item quantity bug fix.
-Hotfix: WaveDefenseMonitor alerts no longer spam operators on startup
-(broadcast opt-in via debug.monitorBroadcastAlerts, 60s grace period, relaxed
-TPS thresholds).
+Hotfix 0.2.53.1: WaveDefenseMonitor alerts no longer spam operators on startup
+(broadcast opt-in, 60s grace period, relaxed TPS thresholds).
+Hotfix 0.2.53.2: Tacz gun discovery now scans CreativeModeTabs (same source
+as the regular item picker) so every Tacz gun — including datapack-added —
+appears in the shop with correct category counts.
 
 PvE features:
 - Wave-defense locations: configurable mobs, equipment, potion effects, spawn points,

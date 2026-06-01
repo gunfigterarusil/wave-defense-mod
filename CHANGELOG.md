@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.2.53.2] - 2026-06-01 (hotfix)
+
+### Fixed — Tacz gun discovery (shop showed "0 of every category")
+
+The previous implementation tried to reach into Tacz's internal
+`Map<ResourceLocation, GunData>` via reflection. On test servers — even with
+many vanilla Tacz guns + datapack-added guns — this map either could not be
+found at the expected class path or was empty by the time the editor was
+opened, so every category tab showed `(0)` and bulk-add did nothing.
+
+**Rewritten `TaczCompat.discoverGuns()`** to scan every loaded
+`CreativeModeTab` (via `CreativeModeTabRegistry.getSortedCreativeModeTabs()`)
+exactly the way `ItemSelectionScreen.buildAllStacks()` already does for the
+general item picker. For each `ItemStack` in the `tacz` namespace that carries
+a `GunId` NBT tag we:
+
+1. Capture the stack itself as the entry's `template` (preserves any default
+   attachments or pre-fill the gunpack ships).
+2. Categorise via reflection into `GunData` **if available**, otherwise via
+   substring matching on the gun id path (`glock_*`, `ak*`, `m870*`,
+   `awp/kar98/mosin/*sniper*`, etc.).
+3. Fall back to `other` for unrecognised ids — admin still gets them via the
+   "Tacz All" or "Other" tabs.
+
+`buildGunStack(gunId)` now returns the cached template `.copy()` first, only
+constructing a bare container item with `GunId` NBT as a last resort.
+
+Result: every gun the admin sees in their creative inventory — including
+datapack-added ones — appears in the shop picker and is reachable via
+bulk-add. Counts in the sub-tabs are accurate.
+
+A one-line `[WD/Tacz] discovered N Tacz guns via creative tabs` info log
+confirms how many guns were picked up after Tacz initialises.
+
+---
+
 ## [0.2.53.1] - 2026-06-01 (hotfix)
 
 ### Fixed — Monitor alert spam on dev/test startup
