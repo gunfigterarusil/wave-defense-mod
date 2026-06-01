@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.2.53.5] - 2026-06-01 (hotfix)
+
+### Fixed — Item picker and Tacz bulk-add showed empty lists
+
+Tester reported the picker tab strip was empty (only the "All" virtual tab
+visible, "0 items" in the footer) and the Tacz bulk-add screen showed `(0)`
+in every category — even with Tacz installed and lots of guns available.
+
+Root cause: in Forge 1.20.1, `CreativeModeTab.getDisplayItems()` returns an
+empty collection until `BuildCreativeModeTabContentsEvent` has fired for
+that tab. Our scan ran *before* the build event in this scenario, so it
+saw nothing.
+
+**New `gui/CreativeTabHelper.java`** — force-builds every loaded creative
+tab using the current world's `FeatureFlagSet` and `RegistryAccess`, then
+exposes a safe `getDisplayItems()` wrapper. Repeated calls are idempotent
+and cheap.
+
+- `ItemSelectionScreen.discoverCreativeTabs()` calls
+  `CreativeTabHelper.forceBuildAllTabs()` first so the tab strip is
+  populated on first open.
+- `ItemSelectionScreen.buildAllStacks()` adds a `ForgeRegistries.ITEMS`
+  fallback pass — every registered item that no tab exposed is still
+  available in the "All" tab. The picker is now never empty.
+- `TaczCompat.discoverGuns()` force-builds tabs before scanning, then
+  refuses to cache an empty result so the next attempt can re-scan after
+  Forge's build event fires.
+
+After this fix the picker shows every mod's creative tabs verbatim and
+Tacz bulk-add correctly lists `(N)` guns per category.
+
+---
+
 ## [0.2.53.4] - 2026-06-01
 
 ### Changed — Item picker selection feedback + click-counted quantity

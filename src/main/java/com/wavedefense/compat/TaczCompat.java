@@ -91,7 +91,12 @@ public final class TaczCompat {
         if (cachedEntries != null) return cachedEntries;
         synchronized (TaczCompat.class) {
             if (cachedEntries != null) return cachedEntries;
-            cachedEntries = Collections.unmodifiableList(discoverGuns());
+            List<TaczGunEntry> fresh = discoverGuns();
+            // Don't cache an empty result — creative tabs may not be populated yet.
+            // The next call will retry the scan after BuildCreativeModeTabContentsEvent
+            // has had a chance to fire.
+            if (fresh.isEmpty()) return fresh;
+            cachedEntries = Collections.unmodifiableList(fresh);
             return cachedEntries;
         }
     }
@@ -134,24 +139,26 @@ public final class TaczCompat {
     // ── Internals ─────────────────────────────────────────────────────────
 
     private static List<TaczGunEntry> discoverGuns() {
+        // Force-build creative tabs first — in Forge 1.20.1 tab.getDisplayItems()
+        // returns an empty collection until BuildCreativeModeTabContentsEvent fires.
+        try {
+            com.wavedefense.gui.CreativeTabHelper.forceBuildAllTabs();
+        } catch (Throwable ignored) {}
+
         // Dedupe by gunId — same gun can appear in multiple creative tabs
         Map<String, TaczGunEntry> byId = new LinkedHashMap<>();
         try {
             for (CreativeModeTab tab : CreativeModeTabRegistry.getSortedCreativeModeTabs()) {
-                try {
-                    for (ItemStack st : tab.getDisplayItems()) {
-                        if (st == null || st.isEmpty()) continue;
-                        ResourceLocation key = ForgeRegistries.ITEMS.getKey(st.getItem());
-                        if (key == null || !"tacz".equals(key.getNamespace())) continue;
-                        String gunId = extractGunId(st);
-                        if (gunId == null) continue;          // not a gun (ammo/attachment)
-                        if (byId.containsKey(gunId)) continue;
-                        String cat = categoriseById(gunId);
-                        String name = displayNameOf(st, gunId);
-                        byId.put(gunId, new TaczGunEntry(gunId, cat, name, st.copy()));
-                    }
-                } catch (Throwable ignored) {
-                    // One bad tab shouldn't break discovery
+                for (ItemStack st : com.wavedefense.gui.CreativeTabHelper.safeGetItems(tab)) {
+                    if (st == null || st.isEmpty()) continue;
+                    ResourceLocation key = ForgeRegistries.ITEMS.getKey(st.getItem());
+                    if (key == null || !"tacz".equals(key.getNamespace())) continue;
+                    String gunId = extractGunId(st);
+                    if (gunId == null) continue;          // not a gun (ammo/attachment)
+                    if (byId.containsKey(gunId)) continue;
+                    String cat = categoriseById(gunId);
+                    String name = displayNameOf(st, gunId);
+                    byId.put(gunId, new TaczGunEntry(gunId, cat, name, st.copy()));
                 }
             }
         } catch (Throwable t) {

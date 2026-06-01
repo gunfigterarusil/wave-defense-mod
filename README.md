@@ -1,4 +1,4 @@
-# Wave Defense Mod - v0.2.53.4
+# Wave Defense Mod - v0.2.53.5
 
 Wave Defense is a PvE/PvP Forge mod for **Minecraft 1.20.1** and **Java 17**.
 It lets server owners build configurable arena locations with mob waves, team PvP,
@@ -8,7 +8,15 @@ shops, loot events, portals, boundaries, HUD panels, and in-game admin editors.
 
 ## Status
 
-Version `0.2.53.4` — Item picker selection feedback and click-counted quantity.
+Version `0.2.53.5` — Hotfix: item picker and Tacz bulk-add now populate correctly on
+first open (Forge 1.20.1 creative tabs require an explicit build pass before
+`getDisplayItems()` returns anything).
+
+**v0.2.53.5 hotfix:**
+- New `CreativeTabHelper` force-builds every creative tab before scanning, so the
+  item picker is never empty and Tacz `(0)` category counts are gone.
+- "All" tab has a `ForgeRegistries.ITEMS` fallback — every registered item is
+  guaranteed to show up even if no creative tab claims it.
 
 **v0.2.53.4 changes:**
 - Yellow outline + count overlay show the currently selected item in the picker.
@@ -117,7 +125,7 @@ Completed in this workspace:
 ## Installation
 
 1. Install Forge `1.20.1` (`47.2.0+` recommended).
-2. Copy the built `wavedefense-0.2.53.4.jar` into the `mods/` folder.
+2. Copy the built `wavedefense-0.2.53.5.jar` into the `mods/` folder.
 3. **Optional**: install Mine and Slash (`mmorpg` mod, v6.1.0+) to unlock per-location mob level / XP / resistance settings.
 4. Start the client or dedicated server.
 

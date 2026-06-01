@@ -69,38 +69,55 @@ public class ItemSelectionScreen extends Screen {
 
     /**
      * Captures every loaded {@link CreativeModeTab} that actually contains items.
-     * Skips empty special tabs (Hotbar / Survival Inventory / Search are empty
-     * for {@code getDisplayItems()} purposes).
+     * Forces a build pass first via {@link CreativeTabHelper#forceBuildAllTabs()}
+     * because Forge 1.20.1 only populates {@code getDisplayItems()} after
+     * {@code BuildCreativeModeTabContentsEvent} fires — which may not have
+     * happened by the time the admin opens the picker for the first time.
      */
     private void discoverCreativeTabs() {
+        CreativeTabHelper.forceBuildAllTabs();
         creativeTabs.clear();
         try {
             for (CreativeModeTab tab : CreativeModeTabRegistry.getSortedCreativeModeTabs()) {
-                try {
-                    Iterable<ItemStack> items = tab.getDisplayItems();
-                    Iterator<ItemStack> it = items.iterator();
-                    if (it.hasNext()) creativeTabs.add(tab);
-                } catch (Throwable ignored) {}
+                if (!CreativeTabHelper.safeGetItems(tab).isEmpty()) {
+                    creativeTabs.add(tab);
+                }
             }
         } catch (Throwable ignored) {}
     }
 
     /**
      * Aggregates every stack from every discovered tab into a single deduped list
-     * for the virtual "All" tab. Sorted by stack hover-name for predictable order.
+     * for the virtual "All" tab, plus a fallback pass over {@link ForgeRegistries#ITEMS}
+     * to catch any item that no tab claimed. Sorted by hover-name.
      */
     private void buildAllStacks() {
         allStacks = new ArrayList<>();
         Set<String> seen = new LinkedHashSet<>();
+
+        // 1. Aggregate from every creative tab — keeps NBT-distinguished modded stacks
+        //    (Tacz guns w/ GunId, MnS gear w/ stats, etc.).
         for (CreativeModeTab tab : creativeTabs) {
-            try {
-                for (ItemStack st : tab.getDisplayItems()) {
-                    if (st == null || st.isEmpty() || st.getItem() == Items.AIR) continue;
-                    String key = stableKey(st);
-                    if (seen.add(key)) allStacks.add(st.copy());
-                }
-            } catch (Throwable ignored) {}
+            for (ItemStack st : CreativeTabHelper.safeGetItems(tab)) {
+                if (st == null || st.isEmpty() || st.getItem() == Items.AIR) continue;
+                String key = stableKey(st);
+                if (seen.add(key)) allStacks.add(st.copy());
+            }
         }
+
+        // 2. Fallback — every registered item that no tab exposed. Guarantees the
+        //    picker is never empty even if Forge tab building somehow stays empty.
+        try {
+            for (Item item : ForgeRegistries.ITEMS.getValues()) {
+                if (item == Items.AIR) continue;
+                try {
+                    ItemStack st = new ItemStack(item);
+                    if (seen.add(stableKey(st))) allStacks.add(st);
+                } catch (Throwable ignored) {}
+            }
+        } catch (Throwable ignored) {}
+
+        // 3. Sort by display name for predictable browsing
         allStacks.sort(Comparator.comparing(s -> {
             try { return s.getHoverName().getString().toLowerCase(Locale.ROOT); }
             catch (Throwable e) { return ""; }
@@ -133,12 +150,10 @@ public class ItemSelectionScreen extends Screen {
         CreativeModeTab tab = creativeTabs.get(activeTabIndex);
         List<ItemStack> out = new ArrayList<>();
         Set<String> seen = new LinkedHashSet<>();
-        try {
-            for (ItemStack st : tab.getDisplayItems()) {
-                if (st == null || st.isEmpty() || st.getItem() == Items.AIR) continue;
-                if (seen.add(stableKey(st))) out.add(st);
-            }
-        } catch (Throwable ignored) {}
+        for (ItemStack st : CreativeTabHelper.safeGetItems(tab)) {
+            if (st == null || st.isEmpty() || st.getItem() == Items.AIR) continue;
+            if (seen.add(stableKey(st))) out.add(st);
+        }
         return out;
     }
 
