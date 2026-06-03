@@ -34,6 +34,9 @@ public class KeyBindings {
     /** R — toggle ready during PvP READY_CHECK phase (v0.2.62) */
     public static KeyMapping readyKey;
 
+    /** F4 — toggle AdminDebugHud overlay (v0.2.65, op-level only) */
+    public static KeyMapping debugHudKey;
+
     @SubscribeEvent
     public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
         openMenuKey = new KeyMapping(
@@ -72,6 +75,16 @@ public class KeyBindings {
                 CATEGORY
         );
         event.register(readyKey);
+
+        // v0.2.65 — F4 admin debug HUD toggle (op-level only at render time)
+        debugHudKey = new KeyMapping(
+                "key.wavedefense.debughud",
+                KeyConflictContext.IN_GAME,
+                InputConstants.Type.KEYSYM,
+                GLFW.GLFW_KEY_F4,
+                CATEGORY
+        );
+        event.register(debugHudKey);
     }
 
     @Mod.EventBusSubscriber(modid = WaveDefenseMod.MODID, value = Dist.CLIENT)
@@ -95,6 +108,19 @@ public class KeyBindings {
                             net.minecraft.network.chat.Component.translatable("wavedefense.msg.leaving_location"), true);
                         // Закриваємо поточний екран щоб не блокував
                         if (mc.screen != null) mc.setScreen(null);
+                    }
+                }
+            }
+
+            // v0.2.65: record tick for AdminDebugHud TPS probe
+            com.wavedefense.gui.AdminDebugHud.TickRateProbe.recordTick();
+
+            // F4 — toggle admin debug HUD overlay (v0.2.65)
+            if (debugHudKey != null) {
+                while (debugHudKey.consumeClick()) {
+                    if (mc.player != null && mc.player.hasPermissions(2)) {
+                        com.wavedefense.gui.AdminDebugHud.visible =
+                            !com.wavedefense.gui.AdminDebugHud.visible;
                     }
                 }
             }

@@ -1427,5 +1427,9 @@
   "wavedefense.msg.shop_chunked": "§6Shop save sent in %d chunks (%d items)",
   "wavedefense.editor2.section.reset_tooltip": "Reset this section to default values",
   "wavedefense.editor2.spawns.edit_items": "Edit team starting items (%d) ▶",
-  "wavedefense.editor2.spawns.items_save_first": "§7Save the spawn first, then re-open to add team items"
+  "wavedefense.editor2.spawns.items_save_first": "§7Save the spawn first, then re-open to add team items",
+  "key.wavedefense.debughud": "Admin Debug HUD (op only)",
+  "wavedefense.editor2.spawns.display_name": "Display name",
+  "wavedefense.editor2.spawns.color": "Color",
+  "wavedefense.editor2.spawns.color_auto": "(auto from team name)"
 }

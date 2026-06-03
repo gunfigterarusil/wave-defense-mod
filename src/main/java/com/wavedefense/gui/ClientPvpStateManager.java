@@ -31,8 +31,16 @@ public class ClientPvpStateManager {
     private static List<PlayerRow> players = new ArrayList<>();
     // v0.2.62: ready-check tracking
     private static Set<String> readyNames = new HashSet<>();
+    // v0.2.65: timestamp of last sync packet for AdminDebugHud freshness display
+    private static long lastUpdateMs = -1L;
+
+    /** v0.2.65: ms since last SyncPvpStatePacket processed, or -1 if never. */
+    public static long getLastUpdateAgoMs() {
+        return lastUpdateMs < 0 ? -1L : (System.currentTimeMillis() - lastUpdateMs);
+    }
 
     public static void update(CompoundTag tag) {
+        lastUpdateMs = System.currentTimeMillis();
         location      = tag.getString("location");
         phase         = tag.getString("phase");
         currentRound  = tag.getInt("currentRound");

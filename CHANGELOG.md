@@ -1,5 +1,111 @@
 # Changelog
 
+## [0.2.65] - 2026-06-03 — Team colors/display names + admin debug HUD + inspection commands
+
+PvP teams gain real customization (named, colored), admins get an F4 debug
+overlay, and three new /wda commands for inspection and targeted teleport.
+
+### Added — Team colors + display names (Phase A)
+
+`data/PvpSpawnPoint`:
+- `colorName` — ChatFormatting enum name as string (e.g. "RED", "BLUE", "GREEN").
+  Empty = legacy hash-from-team-name auto-pick.
+- `customDisplayName` — shown in HUD/scoreboard/minimap legend. Empty = use
+  `teamName` (internal id).
+- `resolveChatColor()` — falls back to 8-palette hash if no explicit colour set.
+- `getDisplayName()` — convenience: returns custom name or team name.
+- NBT save/load: only persists fields when non-empty (compact).
+
+`gui/universal/UniversalLocationEditor` — spawn-edit form gains:
+- **Display name** EditBox (under team name)
+- **Color** cycle button — cycles through 9 states (auto + 8 ChatFormatting
+  colours), preview shows §<color>● next to current value
+- Session-level `spawnEditingColor` state — cleared when form opens/closes/cancels
+
+Spawn list rows now show `§<color>● §f<DisplayName>§8(teamName) §7XYZ` instead
+of plain `§e<teamName> §7XYZ`.
+
+`MinimapPreviewWidget` honors explicit `colorName` first, falls back to hash
+palette otherwise.
+
+### Added — Admin Debug HUD (Phase B)
+
+New file `gui/AdminDebugHud.java` (~110 lines) — F3-style left-aligned overlay
+with semi-transparent backdrop. Toggled by **F4** keybind.
+
+Lines:
+- §e§lWaveDefense [DEBUG] F4 to hide
+- Tick: 20.0/s (target 20) — TPS estimated client-side via 20-sample frame ring
+- Last PvP sync: N ms ago — freshness indicator (green &lt;1s, yellow &lt;5s, red older)
+- This loc: phase + ready count + timer
+- My team: name + coords
+- Heap NN/MMMB, FPS NN
+
+Self-guards: returns immediately if not visible, no player, GUI hidden, or
+local player lacks op-level 2.
+
+`gui/ClientPvpStateManager` adds `lastUpdateMs` field + `getLastUpdateAgoMs()`.
+
+`KeyBindings` adds `debugHudKey` bound to GLFW_KEY_F4. Tick handler:
+- Records frame for TickRateProbe every client tick
+- Consumes F4 click (op-level gate) → toggles `AdminDebugHud.visible`
+
+### Added — 3 new /wda commands (Phase C)
+
+```
+/wda players-in <location>     # list players currently inside, with team
+/wda who-ready <location>      # list ready-set during READY_CHECK
+/wda tp-to-spawn <player> <location> <team>   # rebalance targeted player
+```
+
+`PvpRoundManager.debugDumpReadySet(loc)` — multi-line string with player names
+and timer remaining. Returns sensible message when phase != READY_CHECK.
+
+Audit-logged via existing `AuditEvent.success()` factory.
+
+### Translations
+
+4 new keys × 8 langs = **32 strings**: F4 keybind label + 3 spawn-form labels
+(display name, color, color_auto placeholder).
+
+### Files changed
+
+**Created (1):**
+- `gui/AdminDebugHud.java`
+
+**Modified (6):**
+- `data/PvpSpawnPoint.java` — colorName + customDisplayName + helpers + NBT
+- `gui/universal/UniversalLocationEditor.java` — display-name EditBox + color
+  cycle + spawnEditingColor state + reset on form close + spawn-list row
+  format + safeCf helper
+- `gui/widgets/MinimapPreviewWidget.java` — honor explicit colorName
+- `gui/ClientPvpStateManager.java` — lastUpdateMs + getLastUpdateAgoMs
+- `events/KeyBindings.java` — debugHudKey + F4 handler + TickRateProbe.recordTick
+- `events/ClientEventHandler.java` — call AdminDebugHud.render in HUD overlay
+- `commands/WaveDefenseAdminCommands.java` — 3 new subcommands wired into register
+- `wave/PvpRoundManager.java` — debugDumpReadySet
+- 8 × lang files (+4 keys each)
+- `gradle.properties`, `README.md` — version 0.2.65
+
+### Smoke test
+1. `./gradlew build` clean.
+2. Edit a PvP spawn → set Display name="Crimson Squad", cycle Color to RED →
+   Save. Spawn list shows §c● §fCrimson Squad§8(internal_name) ...
+3. Press F4 → admin debug HUD shows TPS, sync time, phase, team, heap.
+   Press F4 again to hide. Non-op players see nothing.
+4. `/wda players-in test-arena` lists everyone in that location with their team.
+5. `/wda who-ready test-arena` during READY_CHECK lists who pressed R.
+6. `/wda tp-to-spawn Alice test-arena Red` teleports Alice to the Red team
+   spawn point.
+
+### Deferred to v0.2.66+
+- Scoreboard / nameplate using customDisplayName + colorName (currently still
+  uses teamName for the WD_TEAM_PREFIX team)
+- ChatFormatting picker UI (currently text-cycle button — could be a grid)
+- AdminDebugHud auto-pinned packet-rate counter
+
+---
+
 ## [0.2.64] - 2026-06-03 — Chunked shop save + reset-defaults + per-team starting items
 
 Three quality features that together remove a real crash class and unlock a

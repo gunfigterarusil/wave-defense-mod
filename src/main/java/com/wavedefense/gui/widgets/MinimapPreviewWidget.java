@@ -76,7 +76,10 @@ public class MinimapPreviewWidget extends AbstractWidget {
             // Clamp to widget area
             sx = Math.max(x + 1, Math.min(x + w - DOT_SIZE - 1, sx));
             sz = Math.max(y + 1, Math.min(y + h - DOT_SIZE - 1, sz));
-            int colour = teamColour(sp.getTeamName());
+            // v0.2.65: prefer explicit ChatFormatting color if admin set one
+            int colour = sp.getColorName().isEmpty()
+                ? teamColour(sp.getTeamName())
+                : chatColourToArgb(sp.resolveChatColor());
             g.fill(sx, sz, sx + DOT_SIZE, sz + DOT_SIZE, colour);
         }
 
@@ -85,6 +88,12 @@ public class MinimapPreviewWidget extends AbstractWidget {
         String label = (dx + 1) + "×" + (dz + 1);
         int labelW = mc.font.width(label);
         g.drawString(mc.font, label, x + (w - labelW) / 2, y + h - mc.font.lineHeight - 2, LABEL_COLOUR);
+    }
+
+    /** v0.2.65: convert a ChatFormatting colour to ARGB. */
+    private static int chatColourToArgb(net.minecraft.ChatFormatting cf) {
+        Integer rgb = cf.getColor();
+        return rgb == null ? 0xFFFFFFFF : (0xFF000000 | rgb);
     }
 
     /** Hash team name → one of 8 ChatFormatting colours, ARGB int. */

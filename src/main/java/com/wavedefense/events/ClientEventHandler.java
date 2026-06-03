@@ -151,6 +151,8 @@ public class ClientEventHandler {
         PlayerHUD.render(event.getGuiGraphics(), event.getPartialTick(), w, h);
         // v0.2.62 — ready-check overlay (self-guards on phase != READY_CHECK)
         com.wavedefense.gui.PvpReadyHud.render(event.getGuiGraphics(), w, h);
+        // v0.2.65 — admin debug HUD (self-guards on F4 toggle + op level)
+        com.wavedefense.gui.AdminDebugHud.render(event.getGuiGraphics(), w, h);
     }
 
     /**

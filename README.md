@@ -1,4 +1,4 @@
-# Wave Defense Mod - v0.2.64
+# Wave Defense Mod - v0.2.65
 
 Wave Defense is a PvE/PvP Forge mod for **Minecraft 1.20.1** and **Java 17**.
 It lets server owners build configurable arena locations with mob waves, team PvP,

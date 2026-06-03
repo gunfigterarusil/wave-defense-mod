@@ -1427,5 +1427,9 @@
   "wavedefense.msg.shop_chunked": "§6Магазин надіслано %d частинами (%d предметів)",
   "wavedefense.editor2.section.reset_tooltip": "Скинути цю секцію до значень за замовчуванням",
   "wavedefense.editor2.spawns.edit_items": "Редагувати стартові предмети команди (%d) ▶",
-  "wavedefense.editor2.spawns.items_save_first": "§7Спершу збережіть спавн, потім відкрийте знову щоб додати предмети"
+  "wavedefense.editor2.spawns.items_save_first": "§7Спершу збережіть спавн, потім відкрийте знову щоб додати предмети",
+  "key.wavedefense.debughud": "Адмін Debug HUD (тільки op)",
+  "wavedefense.editor2.spawns.display_name": "Відображувана назва",
+  "wavedefense.editor2.spawns.color": "Колір",
+  "wavedefense.editor2.spawns.color_auto": "(авто з назви команди)"
 }

@@ -1427,5 +1427,9 @@
   "wavedefense.msg.shop_chunked": "§6Boutique envoyée en %d morceaux (%d objets)",
   "wavedefense.editor2.section.reset_tooltip": "Réinitialiser cette section",
   "wavedefense.editor2.spawns.edit_items": "Éditer objets de départ équipe (%d) ▶",
-  "wavedefense.editor2.spawns.items_save_first": "§7Sauvegardez d'abord le spawn, puis rouvrez"
+  "wavedefense.editor2.spawns.items_save_first": "§7Sauvegardez d'abord le spawn, puis rouvrez",
+  "key.wavedefense.debughud": "HUD Admin Debug (op uniquement)",
+  "wavedefense.editor2.spawns.display_name": "Nom affiché",
+  "wavedefense.editor2.spawns.color": "Couleur",
+  "wavedefense.editor2.spawns.color_auto": "(auto depuis le nom)"
 }

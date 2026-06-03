@@ -95,7 +95,103 @@ public class WaveDefenseAdminCommands {
                 .then(buildMatchCommand())   // v0.2.61
                 .then(buildDebugCommand())   // v0.2.61
                 .then(buildResetCommand())   // v0.2.61
+                .then(buildPlayersInCommand())  // v0.2.65
+                .then(buildWhoReadyCommand())   // v0.2.65
+                .then(buildTpToSpawnCommand())  // v0.2.65
         );
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    //  v0.2.65: PvP inspection + targeted teleport
+    // ════════════════════════════════════════════════════════════════════
+
+    /** /wda players-in <location> — lists who's currently inside a location. */
+    private static LiteralArgumentBuilder<CommandSourceStack> buildPlayersInCommand() {
+        return Commands.literal("players-in")
+            .then(Commands.argument("location", StringArgumentType.string())
+                .executes(ctx -> {
+                    String loc = StringArgumentType.getString(ctx, "location");
+                    if (WaveDefenseMod.waveManager == null) {
+                        ctx.getSource().sendFailure(Component.literal("§c✗ WaveManager not ready"));
+                        return 0;
+                    }
+                    java.util.List<net.minecraft.server.level.ServerPlayer> ps =
+                        WaveDefenseMod.waveManager.getPlayersInLocation(loc);
+                    if (ps.isEmpty()) {
+                        ctx.getSource().sendSuccess(() -> Component.literal(
+                            "§7No players in §e" + loc), false);
+                        return 0;
+                    }
+                    StringBuilder sb = new StringBuilder("§7Players in §e" + loc + "§7 (" + ps.size() + "):\n");
+                    Location locObj = WaveDefenseMod.locationManager.getLocation(loc);
+                    for (net.minecraft.server.level.ServerPlayer p : ps) {
+                        String team = locObj != null ? locObj.getPlayerTeam(p.getUUID()) : null;
+                        sb.append("  §f").append(p.getName().getString());
+                        if (team != null && !team.isEmpty()) sb.append(" §8[").append(team).append("]");
+                        sb.append("\n");
+                    }
+                    String dump = sb.toString();
+                    ctx.getSource().sendSuccess(() -> Component.literal(dump), false);
+                    return 1;
+                }));
+    }
+
+    /** /wda who-ready <location> — lists who pressed ready during READY_CHECK. */
+    private static LiteralArgumentBuilder<CommandSourceStack> buildWhoReadyCommand() {
+        return Commands.literal("who-ready")
+            .then(Commands.argument("location", StringArgumentType.string())
+                .executes(ctx -> {
+                    String loc = StringArgumentType.getString(ctx, "location");
+                    if (WaveDefenseMod.waveManager == null) {
+                        ctx.getSource().sendFailure(Component.literal("§c✗ WaveManager not ready"));
+                        return 0;
+                    }
+                    String dump = WaveDefenseMod.waveManager.pvpMgr.debugDumpReadySet(loc);
+                    ctx.getSource().sendSuccess(() -> Component.literal("§7" + dump), false);
+                    return 1;
+                }));
+    }
+
+    /** /wda tp-to-spawn <player> <location> <team> — teleports a specific
+     *  player to a specific team spawn point (admin convenience for rebalancing). */
+    private static LiteralArgumentBuilder<CommandSourceStack> buildTpToSpawnCommand() {
+        return Commands.literal("tp-to-spawn")
+            .then(Commands.argument("player", EntityArgument.player())
+                .then(Commands.argument("location", StringArgumentType.string())
+                    .then(Commands.argument("team", StringArgumentType.string())
+                        .executes(ctx -> {
+                            try {
+                                ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
+                                String locName = StringArgumentType.getString(ctx, "location");
+                                String teamName = StringArgumentType.getString(ctx, "team");
+                                Location locObj = WaveDefenseMod.locationManager.getLocation(locName);
+                                if (locObj == null) {
+                                    ctx.getSource().sendFailure(Component.literal("§c✗ Location not found: " + locName));
+                                    return 0;
+                                }
+                                com.wavedefense.data.PvpSpawnPoint match = null;
+                                for (com.wavedefense.data.PvpSpawnPoint sp : locObj.getPvpSpawnPoints()) {
+                                    if (sp.getTeamName().equalsIgnoreCase(teamName)) { match = sp; break; }
+                                }
+                                if (match == null) {
+                                    ctx.getSource().sendFailure(Component.literal(
+                                        "§c✗ Team not found in " + locName + ": " + teamName));
+                                    return 0;
+                                }
+                                BlockPos p = match.getPos();
+                                target.teleportTo(p.getX() + 0.5, p.getY(), p.getZ() + 0.5);
+                                ctx.getSource().sendSuccess(() -> Component.literal(
+                                    "§a✓ Teleported §f" + target.getName().getString()
+                                        + "§a to §e" + locName + "§a team §e" + teamName), true);
+                                auditLogger.log(AuditEvent.success(ctx.getSource(), "tp-to-spawn",
+                                    Map.of("player", target.getName().getString(),
+                                           "location", locName, "team", teamName)));
+                                return 1;
+                            } catch (CommandSyntaxException e) {
+                                ctx.getSource().sendFailure(Component.literal("§c✗ Player not found"));
+                                return 0;
+                            }
+                        }))));
     }
 
     // ════════════════════════════════════════════════════════════════════

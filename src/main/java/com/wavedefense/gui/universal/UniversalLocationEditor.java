@@ -126,7 +126,7 @@ public class UniversalLocationEditor extends Screen {
                 b -> { activeTab = t; scrollOffset = 0;
                        // QW1: discard any in-progress spawn-edit form so it doesn't
                        // resurrect with empty boxes on return to Gameplay tab.
-                       spawnEditing = false; spawnEditingIndex = -1;
+                       spawnEditing = false; spawnEditingIndex = -1; spawnEditingColor = "";
                        rebuildWidgets(); }
             ).bounds(tabBarX + i * (tabW + 2), TAB_BAR_Y, tabW, TAB_BAR_H).build();
             addStatic(btn);
@@ -406,6 +406,20 @@ public class UniversalLocationEditor extends Screen {
         return y;
     }
 
+    /** v0.2.65: safely resolve a ChatFormatting name string; falls back to WHITE
+     *  if the name is unknown / not a colour code. Used by the spawn-edit form's
+     *  color cycle button to preview the chosen colour. */
+    private static net.minecraft.ChatFormatting safeCf(String name) {
+        if (name == null || name.isEmpty()) return net.minecraft.ChatFormatting.WHITE;
+        try {
+            net.minecraft.ChatFormatting cf = net.minecraft.ChatFormatting.valueOf(
+                name.toUpperCase(java.util.Locale.ROOT));
+            return cf.isColor() ? cf : net.minecraft.ChatFormatting.WHITE;
+        } catch (IllegalArgumentException ex) {
+            return net.minecraft.ChatFormatting.WHITE;
+        }
+    }
+
     /** Builds a "[label] [_____]" row with a 140px label and EditBox filling the rest. */
     private net.minecraft.client.gui.components.EditBox labelledIntRow(int x, int y, int w, String labelKey, int initial) {
         return labelledIntRowT(x, y, w, labelKey, initial, null);
@@ -452,7 +466,7 @@ public class UniversalLocationEditor extends Screen {
         // "+ Add" button
         this.addRenderableWidget(Button.builder(
             Component.translatable("wavedefense.editor2.spawns.add"),
-            b -> { spawnEditing = true; spawnEditingIndex = -1; rebuildWidgets(); }
+            b -> { spawnEditing = true; spawnEditingIndex = -1; spawnEditingColor = ""; rebuildWidgets(); }
         ).bounds(leftCol, y, colW, 18).build());
         y += 22;
 
@@ -471,14 +485,19 @@ public class UniversalLocationEditor extends Screen {
             final int idx = start + i;
             com.wavedefense.data.PvpSpawnPoint sp = spawns.get(idx);
             net.minecraft.core.BlockPos p = sp.getPos();
-            String label = String.format("§e%s §7X%d Y%d Z%d%s",
-                sp.getTeamName(), p.getX(), p.getY(), p.getZ(),
+            // v0.2.65: prefix with team's resolved color, use display name if set
+            String teamColorPrefix = "§" + sp.resolveChatColor().getChar() + "● ";
+            String displayed = sp.getDisplayName();
+            String customNote = sp.getCustomDisplayName().isEmpty() ? "" : " §8(" + sp.getTeamName() + ")";
+            String label = String.format("%s§f%s%s §7X%d Y%d Z%d%s",
+                teamColorPrefix, displayed, customNote,
+                p.getX(), p.getY(), p.getZ(),
                 sp.getSpawnRadius() > 0 ? " §8(R:" + sp.getSpawnRadius() + ")" : "");
             this.addRenderableWidget(Button.builder(Component.literal(label), b -> {})
                 .bounds(leftCol, y, colW - 60, 18).build()).active = false;
             this.addRenderableWidget(Button.builder(
                 Component.literal("§e✎"),
-                b -> { spawnEditing = true; spawnEditingIndex = idx; rebuildWidgets(); }
+                b -> { spawnEditing = true; spawnEditingIndex = idx; spawnEditingColor = ""; rebuildWidgets(); }
             ).bounds(leftCol + colW - 56, y, 26, 18).build());
             this.addRenderableWidget(Button.builder(
                 Component.literal("§c✕"),
@@ -503,7 +522,7 @@ public class UniversalLocationEditor extends Screen {
         com.wavedefense.data.PvpSpawnPoint existing =
             (spawnEditingIndex >= 0 && spawnEditingIndex < spawns.size()) ? spawns.get(spawnEditingIndex) : null;
 
-        // Team name
+        // Team name (internal id — used by scoreboard/team-key)
         this.addRenderableWidget(Button.builder(
             Component.literal("§7" + I18n.get("wavedefense.editor2.spawns.team_name") + ":"), b -> {}
         ).bounds(leftCol, y, 110, 18).build()).active = false;
@@ -512,6 +531,43 @@ public class UniversalLocationEditor extends Screen {
         spawnNameBox.setValue(existing != null ? existing.getTeamName() : "");
         spawnNameBox.setMaxLength(32);
         this.addRenderableWidget(spawnNameBox);
+        y += 22;
+
+        // v0.2.65: Custom display name (optional — empty falls back to team name)
+        this.addRenderableWidget(Button.builder(
+            Component.literal("§7" + I18n.get("wavedefense.editor2.spawns.display_name") + ":"), b -> {}
+        ).bounds(leftCol, y, 110, 18).build()).active = false;
+        spawnDisplayNameBox = new net.minecraft.client.gui.components.EditBox(
+            this.font, leftCol + 114, y, colW - 118, 18, Component.literal(""));
+        spawnDisplayNameBox.setValue(existing != null ? existing.getCustomDisplayName() : "");
+        spawnDisplayNameBox.setMaxLength(48);
+        this.addRenderableWidget(spawnDisplayNameBox);
+        y += 22;
+
+        // v0.2.65: Color cycle button — 8 ChatFormatting choices + auto
+        // Initialize editing-color from existing if not already set this session
+        if (existing != null && spawnEditingColor.isEmpty() && !existing.getColorName().isEmpty()) {
+            spawnEditingColor = existing.getColorName();
+        }
+        String[] colors = {"", "RED", "BLUE", "GREEN", "YELLOW", "LIGHT_PURPLE", "AQUA", "GOLD", "WHITE"};
+        String currentColor = spawnEditingColor == null ? "" : spawnEditingColor;
+        // Display: §<color>● <name>  with "(auto)" placeholder when empty
+        net.minecraft.ChatFormatting cf = currentColor.isEmpty()
+            ? (existing != null ? existing.resolveChatColor() : net.minecraft.ChatFormatting.WHITE)
+            : safeCf(currentColor);
+        String colorLabel = cf + "● §7" + I18n.get("wavedefense.editor2.spawns.color") + ": §f"
+            + (currentColor.isEmpty() ? I18n.get("wavedefense.editor2.spawns.color_auto") : currentColor);
+        this.addRenderableWidget(Button.builder(
+            Component.literal(colorLabel),
+            b -> {
+                int idx = 0;
+                for (int i = 0; i < colors.length; i++) {
+                    if (colors[i].equals(currentColor)) { idx = i; break; }
+                }
+                spawnEditingColor = colors[(idx + 1) % colors.length];
+                rebuildWidgets();
+            }
+        ).bounds(leftCol, y, colW, 18).build());
         y += 22;
 
         // Coords + radius via CoordinatePickerWidget (withRadius=true for scatter)
@@ -550,7 +606,7 @@ public class UniversalLocationEditor extends Screen {
         ).bounds(leftCol, y, halfW, 20).build());
         this.addRenderableWidget(Button.builder(
             Component.translatable("wavedefense.button.cancel"),
-            b -> { spawnEditing = false; spawnEditingIndex = -1; rebuildWidgets(); }
+            b -> { spawnEditing = false; spawnEditingIndex = -1; spawnEditingColor = ""; rebuildWidgets(); }
         ).bounds(leftCol + halfW + 8, y, halfW, 20).build());
         y += 24;
         return y;
@@ -574,11 +630,17 @@ public class UniversalLocationEditor extends Screen {
         int radius = (r != null && r.pos != null) ? r.radius
             : (isEdit ? location.getPvpSpawnPoints().get(spawnEditingIndex).getSpawnRadius() : 0);
 
+        // v0.2.65: capture display name + color from form state
+        String displayName = spawnDisplayNameBox != null ? spawnDisplayNameBox.getValue().trim() : "";
+        String colorName   = spawnEditingColor == null ? "" : spawnEditingColor;
+
         if (isEdit) {
             com.wavedefense.data.PvpSpawnPoint sp = location.getPvpSpawnPoints().get(spawnEditingIndex);
             sp.setTeamName(name);
             sp.setPos(pos);
             sp.setSpawnRadius(radius);
+            sp.setCustomDisplayName(displayName);
+            sp.setColorName(colorName);
         } else {
             com.wavedefense.data.PvpSpawnPoint sp = new com.wavedefense.data.PvpSpawnPoint(name, pos);
             sp.setSpawnRadius(radius);
@@ -586,6 +648,7 @@ public class UniversalLocationEditor extends Screen {
         }
         spawnEditing = false;
         spawnEditingIndex = -1;
+        spawnEditingColor = "";
         rebuildWidgets();
     }
 
@@ -1451,6 +1514,9 @@ public class UniversalLocationEditor extends Screen {
     private net.minecraft.client.gui.components.EditBox spawnNameBox;
     private com.wavedefense.gui.widgets.CoordinatePickerWidget spawnCoordPicker;
     private int spawnListScrollOffset = 0;
+    // v0.2.65 — Spawn color + display name editing state
+    private net.minecraft.client.gui.components.EditBox spawnDisplayNameBox;
+    private String spawnEditingColor = ""; // empty = auto-from-hash, else ChatFormatting name
 
     /** Reads all EditBox values into the working Location. Called on Save and on
      *  every rebuildWidgets() so typed values survive sibling toggle clicks.
@@ -1574,6 +1640,7 @@ public class UniversalLocationEditor extends Screen {
         brParticleIdBox = null; brDamageAmtBox = null;
         objScoreToWinBox = objScorePerSecBox = objRoundDurationBox = kothHoldDurationBox = null;
         ecoKillPtsBox = ecoDeathPenaltyBox = ecoWinPtsBox = ecoLosePtsBox = ecoRoundStartPtsBox = null;
+        spawnDisplayNameBox = null;
         boundaryDamageBox = null;
         zoneParticleIdBox = zoneParticleCountBox = zoneParticleSpeedBox = zoneParticleIntervalBox = null;
         zoneActivationTimeBox = zoneOpenAfterStartBox = null;

@@ -887,6 +887,28 @@ public class PvpRoundManager {
         return true;
     }
 
+    /** v0.2.65: lists names of ready players for /wda who-ready. */
+    public String debugDumpReadySet(String locationName) {
+        LocationSession s = ctx.sessions.get(locationName);
+        if (s == null || s.pvpState == null) return "no active PvP session for '" + locationName + "'";
+        PvpRoundState st = s.pvpState;
+        if (st.getPhase() != PvpRoundState.Phase.READY_CHECK)
+            return "Phase=" + st.getPhase() + " (not READY_CHECK) — ready set empty by definition";
+        java.util.Set<UUID> ready = st.getReadyPlayers();
+        if (ready.isEmpty()) return "No players ready yet (timer " + st.getTimerSeconds() + "s)";
+        StringBuilder sb = new StringBuilder();
+        sb.append("Ready (").append(ready.size()).append("): ");
+        boolean first = true;
+        for (UUID id : ready) {
+            PvpPlayerStats ps = st.getStats(id);
+            if (!first) sb.append(", ");
+            sb.append(ps != null ? ps.getPlayerName() : id.toString());
+            first = false;
+        }
+        sb.append("  (timer ").append(st.getTimerSeconds()).append("s)");
+        return sb.toString();
+    }
+
     /** Multi-line string dump of current PvP state for /wda debug state. */
     public String debugDumpPvpState(String locationName) {
         LocationSession s = ctx.sessions.get(locationName);

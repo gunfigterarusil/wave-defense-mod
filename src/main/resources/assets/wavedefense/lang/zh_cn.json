@@ -1427,5 +1427,9 @@
   "wavedefense.msg.shop_chunked": "§6商店分 %d 块发送（%d 个物品）",
   "wavedefense.editor2.section.reset_tooltip": "将此部分重置为默认值",
   "wavedefense.editor2.spawns.edit_items": "编辑队伍初始物品（%d）▶",
-  "wavedefense.editor2.spawns.items_save_first": "§7先保存出生点，然后重新打开"
+  "wavedefense.editor2.spawns.items_save_first": "§7先保存出生点，然后重新打开",
+  "key.wavedefense.debughud": "管理员调试 HUD（仅 op）",
+  "wavedefense.editor2.spawns.display_name": "显示名称",
+  "wavedefense.editor2.spawns.color": "颜色",
+  "wavedefense.editor2.spawns.color_auto": "（自动从队伍名）"
 }
