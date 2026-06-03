@@ -114,7 +114,7 @@ public class WaveDefenseAdminCommands {
                             .skipReadyCheck(WaveDefenseMod.waveManager, loc);
                         ctx.getSource().sendSuccess(() -> Component.literal(
                             "§a✓ Ready-check skipped for §e" + loc), true);
-                        auditLogger.log(ctx.getSource(), "match.skip-readycheck", loc);
+                        auditLogger.log(AuditEvent.success(ctx.getSource(), "match.skip-readycheck", Map.of("location", loc)));
                         return 1;
                     })))
             .then(Commands.literal("stop")
@@ -127,7 +127,7 @@ public class WaveDefenseAdminCommands {
                             .forceEndPvpLocation(WaveDefenseMod.waveManager, loc);
                         ctx.getSource().sendSuccess(() -> Component.literal(
                             (stopped ? "§a✓ " : "§c✗ ") + "Stop match: §e" + loc), true);
-                        auditLogger.log(ctx.getSource(), "match.stop", loc);
+                        auditLogger.log(AuditEvent.success(ctx.getSource(), "match.stop", Map.of("location", loc)));
                         return stopped ? 1 : 0;
                     })))
             .then(Commands.literal("restart")
@@ -141,7 +141,7 @@ public class WaveDefenseAdminCommands {
                         ctx.getSource().sendSuccess(() -> Component.literal(
                             (ok ? "§a✓ " : "§c✗ ") + "Restart match: §e" + loc
                                 + " §7(players must rejoin)"), true);
-                        auditLogger.log(ctx.getSource(), "match.restart", loc);
+                        auditLogger.log(AuditEvent.success(ctx.getSource(), "match.restart", Map.of("location", loc)));
                         return ok ? 1 : 0;
                     })));
     }
@@ -167,7 +167,7 @@ public class WaveDefenseAdminCommands {
                         WaveDefenseMod.locationManager.save();
                         ctx.getSource().sendSuccess(() -> Component.literal(
                             "§a✓ Location §e" + loc + "§a reloaded from disk"), true);
-                        auditLogger.log(ctx.getSource(), "debug.reload", loc);
+                        auditLogger.log(AuditEvent.success(ctx.getSource(), "debug.reload", Map.of("location", loc)));
                         return 1;
                     })));
     }
@@ -183,7 +183,7 @@ public class WaveDefenseAdminCommands {
                     }
                     ctx.getSource().sendSuccess(() -> Component.literal(
                         "§a✓ Leaderboard cleared"), true);
-                    auditLogger.log(ctx.getSource(), "reset.leaderboard", "all");
+                    auditLogger.log(AuditEvent.success(ctx.getSource(), "reset.leaderboard", Map.of("scope", "all")));
                     return 1;
                 }));
     }
