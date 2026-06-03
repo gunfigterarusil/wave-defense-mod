@@ -20,9 +20,23 @@ import java.util.stream.Collectors;
  */
 public class PvpRoundState {
 
-    public enum Phase { WAITING, BUY, COUNTDOWN, ACTIVE, ROUND_END_DELAY, ENDED }
+    public enum Phase { WAITING, READY_CHECK, BUY, COUNTDOWN, ACTIVE, ROUND_END_DELAY, ENDED }
 
     private Phase phase      = Phase.WAITING;
+    // v0.2.61: ready-check tracking — set of players who pressed "ready" while in READY_CHECK
+    private final Set<UUID> readyPlayers = new HashSet<>();
+    public boolean isPlayerReady(UUID id)         { return readyPlayers.contains(id); }
+    public void    markPlayerReady(UUID id)       { if (id != null) readyPlayers.add(id); }
+    public void    unmarkPlayerReady(UUID id)     { readyPlayers.remove(id); }
+    public void    clearReadyPlayers()            { readyPlayers.clear(); }
+    public int     getReadyCount()                { return readyPlayers.size(); }
+    public Set<UUID> getReadyPlayers()            { return java.util.Collections.unmodifiableSet(readyPlayers); }
+    /** Transition WAITING → READY_CHECK with a timeout countdown. */
+    public void    startReadyCheck(int timeoutSec) {
+        this.phase = Phase.READY_CHECK;
+        this.timerTicks = Math.max(0, timeoutSec) * 20;
+        this.readyPlayers.clear();
+    }
     private int currentRound = 0;
     private int totalRounds;
     private int buyTime;
@@ -284,9 +298,22 @@ public class PvpRoundState {
             if (firstTeam == null) {
                 firstTeam = ps.getTeamName();
             } else if (!firstTeam.equals(ps.getTeamName())) {
-                return null;
+                return null;     // multiple teams alive — round still in progress
             }
         }
+        if (firstTeam == null) return null;
+        // Bug fix: don't declare a winner when only one team has ever been part of
+        // the match. Without this, a Standard round ends the instant ACTIVE starts
+        // if both players were assigned to the same team (same spawn group, or admin
+        // misconfigured spawn points so every spawn has the same team name).
+        // The round would skip straight to ROUND_END_DELAY → endRound → endPvpMatch.
+        java.util.Set<String> registeredTeams = new java.util.HashSet<>();
+        for (PvpPlayerStats ps : stats.values()) {
+            if (ps == null) continue;
+            String t = ps.getTeamName();
+            if (t != null && !t.isBlank()) registeredTeams.add(t);
+        }
+        if (registeredTeams.size() < 2) return null;
         return firstTeam;
     }
 

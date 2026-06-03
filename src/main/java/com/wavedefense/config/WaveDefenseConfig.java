@@ -45,6 +45,12 @@ public class WaveDefenseConfig {
     public static final ForgeConfigSpec.IntValue PVP_DEFAULT_ROUNDS;
     public static final ForgeConfigSpec.IntValue PVP_DEFAULT_BUY_TIME;
     public static final ForgeConfigSpec.IntValue PVP_RESPAWN_DELAY_SECONDS;
+    // v0.2.61 — Ready-check + PvP score caps
+    public static final ForgeConfigSpec.IntValue PVP_MAX_READY_CHECK_TIMEOUT_SEC;
+    public static final ForgeConfigSpec.IntValue PVP_MAX_KILL_POINTS;
+    public static final ForgeConfigSpec.IntValue PVP_MAX_DEATH_PENALTY;
+    public static final ForgeConfigSpec.IntValue PVP_MAX_WIN_POINTS;
+    public static final ForgeConfigSpec.IntValue PVP_MAX_LOSE_POINTS;
 
     // ── Mob equipment ─────────────────────────────────────────────────────
     public static final ForgeConfigSpec.BooleanValue MOBS_CAN_HAVE_EQUIPMENT;
@@ -149,6 +155,28 @@ public class WaveDefenseConfig {
                 .comment("Respawn delay (seconds) after death in Deathmatch and Battle Royale.\n"
                         + "0 = instant respawn.")
                 .defineInRange("pvpRespawnDelaySeconds", 0, 0, 30);
+
+        // v0.2.61 — Ready-check + PvP point caps
+        PVP_MAX_READY_CHECK_TIMEOUT_SEC = BUILDER
+                .comment("Maximum allowed ready-check timeout (seconds) admins can set per location.\n"
+                        + "Hard cap against absurdly long waits. 0 in per-location = wait forever.")
+                .defineInRange("pvpMaxReadyCheckTimeoutSec", 600, 0, 3600);
+
+        PVP_MAX_KILL_POINTS = BUILDER
+                .comment("Maximum points awarded per kill — caps admin input.")
+                .defineInRange("pvpMaxKillPoints", 100000, 0, 9999999);
+
+        PVP_MAX_DEATH_PENALTY = BUILDER
+                .comment("Maximum point penalty per death — caps admin input.")
+                .defineInRange("pvpMaxDeathPenalty", 100000, 0, 9999999);
+
+        PVP_MAX_WIN_POINTS = BUILDER
+                .comment("Maximum points awarded to round-winning team — caps admin input.")
+                .defineInRange("pvpMaxWinPoints", 100000, 0, 9999999);
+
+        PVP_MAX_LOSE_POINTS = BUILDER
+                .comment("Maximum points awarded to round-losing team — caps admin input.")
+                .defineInRange("pvpMaxLosePoints", 100000, 0, 9999999);
 
         BUILDER.pop();
 

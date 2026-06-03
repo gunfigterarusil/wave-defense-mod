@@ -145,27 +145,32 @@ public final class TaczCompat {
             com.wavedefense.gui.CreativeTabHelper.forceBuildAllTabs();
         } catch (Throwable ignored) {}
 
-        // Dedupe by gunId — same gun can appear in multiple creative tabs
-        Map<String, TaczGunEntry> byId = new LinkedHashMap<>();
+        // Dedupe by FULL NBT stable key so all gun *variants* shipped by the
+        // gunpack author (different default attachments, accessories, paint, etc.)
+        // become their own entries. Previously dedupe was by gunId only, which
+        // collapsed N variants into one default — losing the pre-built loadouts.
+        Map<String, TaczGunEntry> byKey = new LinkedHashMap<>();
         try {
             for (CreativeModeTab tab : CreativeModeTabRegistry.getSortedCreativeModeTabs()) {
                 for (ItemStack st : com.wavedefense.gui.CreativeTabHelper.safeGetItems(tab)) {
                     if (st == null || st.isEmpty()) continue;
-                    ResourceLocation key = ForgeRegistries.ITEMS.getKey(st.getItem());
-                    if (key == null || !"tacz".equals(key.getNamespace())) continue;
+                    ResourceLocation rl = ForgeRegistries.ITEMS.getKey(st.getItem());
+                    if (rl == null || !"tacz".equals(rl.getNamespace())) continue;
                     String gunId = extractGunId(st);
                     if (gunId == null) continue;          // not a gun (ammo/attachment)
-                    if (byId.containsKey(gunId)) continue;
+                    String dedupeKey = stableNbtKey(st);  // includes attachments / NBT
+                    if (byKey.containsKey(dedupeKey)) continue;
                     String cat = categoriseById(gunId);
                     String name = displayNameOf(st, gunId);
-                    byId.put(gunId, new TaczGunEntry(gunId, cat, name, st.copy()));
+                    byKey.put(dedupeKey,
+                        new TaczGunEntry(gunId, cat, name, st.copy()));
                 }
             }
         } catch (Throwable t) {
             WaveDefenseMod.LOGGER.warn("[WD/Tacz] CreativeModeTab scan failed: {}", t.getMessage());
         }
         // Sort: category (in our fixed order) → displayName asc
-        List<TaczGunEntry> sorted = new ArrayList<>(byId.values());
+        List<TaczGunEntry> sorted = new ArrayList<>(byKey.values());
         sorted.sort(Comparator
             .<TaczGunEntry, Integer>comparing(e -> {
                 int idx = KNOWN_CATEGORIES.indexOf(e.category);
@@ -176,6 +181,24 @@ public final class TaczCompat {
             WaveDefenseMod.LOGGER.info("[WD/Tacz] discovered {} guns via creative tabs", sorted.size());
         }
         return sorted;
+    }
+
+    /**
+     * Stable identity key for an ItemStack — full registry id + full NBT (display
+     * fields stripped because some packs randomise them). Used to dedupe gun
+     * variants in {@link #discoverGuns()} so e.g. AK-47 with attachments and
+     * AK-47 without attachments count as two distinct shop items.
+     */
+    private static String stableNbtKey(ItemStack st) {
+        ResourceLocation rl = ForgeRegistries.ITEMS.getKey(st.getItem());
+        String base = rl != null ? rl.toString() : st.getItem().toString();
+        if (!st.hasTag() || st.getTag() == null) return base;
+        CompoundTag tag = st.getTag().copy();
+        // Strip cosmetic / per-stack fields that aren't part of identity
+        tag.remove("display");
+        tag.remove("Damage");
+        tag.remove("RepairCost");
+        return tag.isEmpty() ? base : base + "|" + tag;
     }
 
     /** Reads the {@code GunId} string from an ItemStack's NBT, or null if not present. */

@@ -54,6 +54,12 @@ public final class LocationSerializer {
         tag.putString("shopMode", loc.getShopMode().name());
         NbtHelper.saveList(tag, "shopPoints", loc.shopPoints, ShopPoint::save);
 
+        // ── BBox area + minimap ──────────────────────────────────────────
+        if (loc.bboxMin != null) tag.putLong("bboxMin", loc.bboxMin.asLong());
+        if (loc.bboxMax != null) tag.putLong("bboxMax", loc.bboxMax.asLong());
+        tag.putBoolean("minimapEnabled", loc.minimapEnabled);
+        tag.putBoolean("bboxOutlineEnabled", loc.bboxOutlineEnabled);
+
         // ── Boundary ─────────────────────────────────────────────────────
         tag.putBoolean("locationBoundaryEnabled", loc.locationBoundaryEnabled);
         tag.putInt("locationBoundaryRadius",      loc.locationBoundaryRadius);
@@ -120,6 +126,7 @@ public final class LocationSerializer {
 
         // ── PvP extended ─────────────────────────────────────────────────
         tag.putInt("pvpRoundStartDelay",  loc.pvpRoundStartDelay);
+        tag.putInt("pvpReadyCheckTimeoutSec", loc.pvpReadyCheckTimeoutSec);
         tag.putInt("pvpRoundStartPoints", loc.pvpRoundStartPoints);
         tag.putInt("pvpWinPoints",        loc.pvpWinPoints);
         tag.putInt("pvpLosePoints",       loc.pvpLosePoints);
@@ -234,6 +241,14 @@ public final class LocationSerializer {
         loc.shopMode   = NbtHelper.loadEnum(tag, "shopMode",   Location.ShopMode.class, Location.ShopMode.GLOBAL);
         loc.shopPoints = NbtHelper.loadList(tag, "shopPoints", ShopPoint::load);
 
+        // ── BBox area + minimap ──────────────────────────────────────────
+        loc.bboxMin = tag.contains("bboxMin")
+            ? net.minecraft.core.BlockPos.of(tag.getLong("bboxMin")) : null;
+        loc.bboxMax = tag.contains("bboxMax")
+            ? net.minecraft.core.BlockPos.of(tag.getLong("bboxMax")) : null;
+        loc.minimapEnabled = NbtHelper.getBool(tag, "minimapEnabled", false);
+        loc.bboxOutlineEnabled = NbtHelper.getBool(tag, "bboxOutlineEnabled", false);
+
         // ── Boundary ─────────────────────────────────────────────────────
         loc.locationBoundaryEnabled  = NbtHelper.getBool(tag,   "locationBoundaryEnabled",   false);
         loc.locationBoundaryRadius   = NbtHelper.getInt(tag,    "locationBoundaryRadius",    50);
@@ -303,6 +318,7 @@ public final class LocationSerializer {
 
         // ── PvP extended ─────────────────────────────────────────────────
         loc.pvpRoundStartDelay  = NbtHelper.getInt(tag,  "pvpRoundStartDelay",  5);
+        loc.pvpReadyCheckTimeoutSec = NbtHelper.getInt(tag, "pvpReadyCheckTimeoutSec", 60);
         loc.pvpRoundStartPoints = NbtHelper.getInt(tag,  "pvpRoundStartPoints", 0);
         loc.pvpWinPoints        = NbtHelper.getInt(tag,  "pvpWinPoints",        0);
         loc.pvpLosePoints       = NbtHelper.getInt(tag,  "pvpLosePoints",       0);

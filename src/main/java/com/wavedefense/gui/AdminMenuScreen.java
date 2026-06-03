@@ -108,17 +108,35 @@ public class AdminMenuScreen extends ListEditorScreen<String> {
     protected void buildRowWidgets(int cx, int y, String name, int index) {
         final String finalName = name;
 
+        // Name button shrunk by 28px to make room for the ⎘ duplicate button.
         this.addRenderableWidget(Button.builder(
                 Component.literal(name),
                 button -> selectLocation(finalName)
-        ).bounds(cx - panelW / 2, y, panelW - 80, 20).build());
+        ).bounds(cx - panelW / 2, y, panelW - 138, 20).build());
 
+        // ⎘ Duplicate location (v0.2.63) — clones via NBT roundtrip with auto-numbered name
         this.addRenderableWidget(Button.builder(
-                Component.literal("✎"),
+                Component.literal("§b⎘"),
+                button -> duplicateLocation(finalName)
+        ).bounds(cx + panelW / 2 - 133, y, 26, 20).build())
+        .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+            Component.translatable("wavedefense.tooltip.duplicate_location", finalName)));
+
+        // ✎ Default editor → new UniversalLocationEditor (Sprint 2, v0.2.58+)
+        this.addRenderableWidget(Button.builder(
+                Component.literal("§a✎"),
                 button -> editLocation(finalName)
-        ).bounds(cx + panelW / 2 - 75, y, 35, 20).build())
+        ).bounds(cx + panelW / 2 - 105, y, 28, 20).build())
         .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
             Component.translatable("wavedefense.tooltip.edit_location", finalName)));
+
+        // 📜 Legacy editor — kept as fallback, to be removed in next major version
+        this.addRenderableWidget(Button.builder(
+                Component.literal("§e📜"),
+                button -> editLocationLegacy(finalName)
+        ).bounds(cx + panelW / 2 - 75, y, 35, 20).build())
+        .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+            Component.translatable("wavedefense.tooltip.edit_location_legacy", finalName)));
 
         boolean isPendingDel = name.equals(pendingDeleteName);
         this.addRenderableWidget(Button.builder(
@@ -191,11 +209,52 @@ public class AdminMenuScreen extends ListEditorScreen<String> {
         }
     }
 
+    /** Default editor — Sprint 2 unified editor (PvE/PvP unified, 6 tabs). */
     private void editLocation(String name) {
         Location location = ClientLocationManager.getLocation(name);
         if (location != null) {
+            this.minecraft.setScreen(
+                new com.wavedefense.gui.universal.UniversalLocationEditor(location, this));
+        }
+    }
+
+    /** Legacy fallback — routes to the old PvE / PvP editor depending on mode.
+     *  Marked for removal in the next major release. */
+    @SuppressWarnings("deprecation")
+    private void editLocationLegacy(String name) {
+        Location location = ClientLocationManager.getLocation(name);
+        if (location == null) return;
+        if (location.getMode() == com.wavedefense.data.LocationMode.PVP) {
+            this.minecraft.setScreen(new PvpLocationEditorScreen(location, this));
+        } else {
             this.minecraft.setScreen(new LocationEditorScreen(location, this));
         }
+    }
+
+    /** v0.2.63: client-side handler for ⎘ button. Picks a non-colliding name
+     *  ({@code name_copy}, {@code name_copy2}, …) and sends DuplicateLocationPacket.
+     *  Server side validates again before applying. */
+    private void duplicateLocation(String sourceName) {
+        // Find the first non-colliding "_copy<N>" suffix
+        String targetBase = sourceName + "_copy";
+        String target = targetBase;
+        int n = 2;
+        while (ClientLocationManager.getLocation(target) != null && n < 100) {
+            target = targetBase + n;
+            n++;
+        }
+        if (ClientLocationManager.getLocation(target) != null) {
+            errorMessage = I18n.get("wavedefense.msg.duplicate_too_many");
+            return;
+        }
+        errorMessage = "";
+        PacketHandler.sendToServer(
+            new com.wavedefense.network.packets.DuplicateLocationPacket(sourceName, target));
+        PacketHandler.sendToServer(new com.wavedefense.network.packets.RequestLocationDataPacket());
+        net.minecraft.client.Minecraft.getInstance().tell(() -> {
+            this.locationNames = ClientLocationManager.getAllLocationNames();
+            this.rebuildWidgets();
+        });
     }
 
     private void deleteLocation(String name) {

@@ -59,8 +59,14 @@ public class ClientEventHandler {
             initialSyncSent = true;
         }
 
+        // Anti-cheat hitbox suppression — applies to BOTH PvP and PvE locations.
+        // Previously only PvP players were guarded; PvE players could leave hitboxes on
+        // and see mob outlines through walls. Any active location (PvE wave or PvP match)
+        // now disables hitbox rendering until they exit.
         PlayerWaveData data = ClientPlayerDataManager.getPlayerData();
-        if (data == null || !data.isInPvp()) return;
+        if (data == null) return;
+        boolean inActiveLocation = data.isInPvp() || data.isInWave();
+        if (!inActiveLocation) return;
 
         EntityRenderDispatcher erd = mc.getEntityRenderDispatcher();
         if (erd.shouldRenderHitBoxes()) {
@@ -140,8 +146,11 @@ public class ClientEventHandler {
     public static void onRenderGuiOverlay(RenderGuiOverlayEvent.Post event) {
         // "hotbar" рендериться кожного кадру (не тільки при Tab)
         if (!event.getOverlay().id().getPath().equals("hotbar")) return;
-        PlayerHUD.render(event.getGuiGraphics(), event.getPartialTick(),
-                event.getWindow().getGuiScaledWidth(), event.getWindow().getGuiScaledHeight());
+        int w = event.getWindow().getGuiScaledWidth();
+        int h = event.getWindow().getGuiScaledHeight();
+        PlayerHUD.render(event.getGuiGraphics(), event.getPartialTick(), w, h);
+        // v0.2.62 — ready-check overlay (self-guards on phase != READY_CHECK)
+        com.wavedefense.gui.PvpReadyHud.render(event.getGuiGraphics(), w, h);
     }
 
     /**

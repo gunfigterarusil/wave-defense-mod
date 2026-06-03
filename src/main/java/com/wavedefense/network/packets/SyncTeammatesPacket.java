@@ -35,6 +35,11 @@ public class SyncTeammatesPacket {
             p.putInt("maxHp", e.maxHp());
             p.putBoolean("alive", e.alive());
             if (e.team() != null) p.putString("team", e.team());
+            // Minimap positions — clients without minimap simply ignore these fields.
+            p.putDouble("x", e.x());
+            p.putDouble("y", e.y());
+            p.putDouble("z", e.z());
+            p.putFloat("yaw", e.yaw());
             list.add(p);
         }
         tag.put("players", list);
@@ -58,5 +63,11 @@ public class SyncTeammatesPacket {
         }
     }
 
-    public record PlayerEntry(String name, UUID uuid, int hp, int maxHp, boolean alive, String team) {}
+    public record PlayerEntry(String name, UUID uuid, int hp, int maxHp, boolean alive,
+                              String team, double x, double y, double z, float yaw) {
+        // Convenience overload for callers that don't need positions
+        public PlayerEntry(String name, UUID uuid, int hp, int maxHp, boolean alive, String team) {
+            this(name, uuid, hp, maxHp, alive, team, 0d, 0d, 0d, 0f);
+        }
+    }
 }

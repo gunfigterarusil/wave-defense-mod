@@ -119,7 +119,11 @@ public class BattleRoyaleManager {
             spawnBorderParticles(world, center, radius, loc);
 
             // ── Шкода поза кордоном ────────────────────────────────────────
-            if (loc.isBrBorderDamage() && loc.getBrBorderDamageAmt() > 0) {
+            // FIX: don't damage players during the initial wait phase — the border
+            // hasn't started shrinking yet and players need time to spread out.
+            // Damage applies only once initialWaitTicker has counted down to 0.
+            boolean shrinkActive = initialWaitTicker.getOrDefault(locName, 0) <= 0;
+            if (shrinkActive && loc.isBrBorderDamage() && loc.getBrBorderDamageAmt() > 0) {
                 for (ServerPlayer p : players) {
                     double dist = Math.sqrt(p.blockPosition().distSqr(center));
                     if (dist > radius) {

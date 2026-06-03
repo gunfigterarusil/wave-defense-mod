@@ -18,7 +18,11 @@ import java.util.List;
 /**
  * Екран налаштування PvP локації.
  * Вкладки: Команди | Правила | Магазин | Лут
+ *
+ * @deprecated Replaced by {@link com.wavedefense.gui.universal.UniversalLocationEditor} in v0.2.56.
+ *   Kept as the "📜 Legacy" fallback in AdminMenuScreen until removed in next major version.
  */
+@Deprecated(forRemoval = true, since = "0.2.56")
 public class PvpLocationEditorScreen extends Screen {
 
     private final Location location;
@@ -296,6 +300,7 @@ public class PvpLocationEditorScreen extends Screen {
         y += 28;
 
         y = initCommonRulesSection(cx, y);
+        y = initBboxMinimapSection(cx, y);
 
         // L-9: removed dead `mode == null` branch; getPvpMode() never returns null
         if (mode == com.wavedefense.data.Location.PvpMode.STANDARD)
@@ -387,6 +392,84 @@ public class PvpLocationEditorScreen extends Screen {
         deathPenaltyInput.setMaxLength(6);
         this.addRenderableWidget(deathPenaltyInput);
         y += 28;
+        return y;
+    }
+
+    // ── Секція: BBox + Tactical Minimap (shared across all PvP modes) ─────
+    /** Per-location bbox (2 corners) + tactical minimap toggle. Drives the PvP
+     *  minimap HUD overlay rendered by {@link MinimapRenderer}. */
+    private int initBboxMinimapSection(int cx, int y) {
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.section.bbox"), b -> {}
+        ).bounds(cx - 160, y, 320, 14).build()).active = false;
+        y += 18;
+
+        net.minecraft.core.BlockPos bmin = location.getBboxMin();
+        net.minecraft.core.BlockPos bmax = location.getBboxMax();
+
+        // Corner 1
+        String c1 = bmin == null
+            ? net.minecraft.client.resources.language.I18n.get("wavedefense.bbox.corner1_unset")
+            : String.format("§a✓ §7X%d Y%d Z%d", bmin.getX(), bmin.getY(), bmin.getZ());
+        this.addRenderableWidget(Button.builder(Component.literal(c1), b -> {})
+            .bounds(cx - 160, y, 220, 16).build()).active = false;
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.bbox.set_here"),
+            b -> { if (minecraft.player != null) {
+                location.setBboxMin(minecraft.player.blockPosition()); rebuildWidgets();
+            }}
+        ).bounds(cx + 64, y, 60, 16).build());
+        if (bmin != null) {
+            this.addRenderableWidget(Button.builder(
+                Component.literal("§c✕"),
+                b -> { location.setBboxMin(null); rebuildWidgets(); }
+            ).bounds(cx + 128, y, 32, 16).build());
+        }
+        y += 20;
+
+        // Corner 2
+        String c2 = bmax == null
+            ? net.minecraft.client.resources.language.I18n.get("wavedefense.bbox.corner2_unset")
+            : String.format("§a✓ §7X%d Y%d Z%d", bmax.getX(), bmax.getY(), bmax.getZ());
+        this.addRenderableWidget(Button.builder(Component.literal(c2), b -> {})
+            .bounds(cx - 160, y, 220, 16).build()).active = false;
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.bbox.set_here"),
+            b -> { if (minecraft.player != null) {
+                location.setBboxMax(minecraft.player.blockPosition()); rebuildWidgets();
+            }}
+        ).bounds(cx + 64, y, 60, 16).build());
+        if (bmax != null) {
+            this.addRenderableWidget(Button.builder(
+                Component.literal("§c✕"),
+                b -> { location.setBboxMax(null); rebuildWidgets(); }
+            ).bounds(cx + 128, y, 32, 16).build());
+        }
+        y += 22;
+
+        // Minimap toggle — only meaningful when both corners are set
+        boolean canShow = location.hasBbox();
+        boolean on = location.isMinimapEnabled();
+        this.addRenderableWidget(Button.builder(
+            on ? Component.translatable("wavedefense.bbox.minimap_on")
+               : Component.translatable("wavedefense.bbox.minimap_off"),
+            b -> { location.setMinimapEnabled(!location.isMinimapEnabled()); rebuildWidgets(); }
+        ).bounds(cx - 160, y, 320, 18).build()).active = canShow;
+        y += 22;
+
+        // In-world particle outline — visible to ALL players, not just admin in editor
+        boolean outlineOn = location.isBboxOutlineEnabled();
+        this.addRenderableWidget(Button.builder(
+            outlineOn ? Component.translatable("wavedefense.bbox.outline_on")
+                      : Component.translatable("wavedefense.bbox.outline_off"),
+            b -> { location.setBboxOutlineEnabled(!location.isBboxOutlineEnabled()); rebuildWidgets(); }
+        ).bounds(cx - 160, y, 320, 18).build()).active = canShow;
+        y += 22;
+
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.bbox.hint"), b -> {}
+        ).bounds(cx - 160, y, 320, 11).build()).active = false;
+        y += 18;
         return y;
     }
 

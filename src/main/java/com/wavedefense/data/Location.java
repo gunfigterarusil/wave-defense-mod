@@ -44,6 +44,7 @@ public class Location {
     int pvpTotalRounds;   // number of rounds (0 = infinite)
     int pvpBuyTime;        // buy-phase duration between rounds (seconds)
     int pvpRoundStartDelay = 5;   // seconds from BUY→ACTIVE (countdown)
+    int pvpReadyCheckTimeoutSec = 60; // v0.2.61: READY_CHECK timeout before force-start (0 = wait forever)
     int pvpRoundStartPoints = 0;  // points awarded to every player at round start
     int pvpWinPoints    = 0;      // points awarded to the winning team per round
     int pvpLosePoints   = 0;      // points awarded to the losing team per round
@@ -101,6 +102,15 @@ public class Location {
     boolean enforceGameMode = true;     // force the configured game mode in the location
     int startingPoints = 0; // points awarded to each player when joining the location
     Map<UUID, String> playerTeamMap;
+
+    // ── Location bbox (optional area) ────────────────────────────────
+    // When set, the location has a defined 3D box area (e.g. for tactical PvP minimap).
+    // Both corners must be non-null for bbox-dependent features to activate.
+    // bbox is independent of the (radius-based) boundary system — admin can use either or both.
+    net.minecraft.core.BlockPos bboxMin = null;
+    net.minecraft.core.BlockPos bboxMax = null;
+    boolean minimapEnabled = false;     // show tactical minimap in PvP
+    boolean bboxOutlineEnabled = false; // show particle outline of bbox top edges in-world
 
     // ── Location boundary and leave timer ────────────────────────────
     // When locationBoundaryEnabled=true, players who leave the radius face a consequence.
@@ -351,6 +361,33 @@ public class Location {
         return ta != null && ta.equals(tb);
     }
 
+    // ── BBox area (optional, for tactical minimap) ───────────────────
+    public net.minecraft.core.BlockPos getBboxMin() { return bboxMin; }
+    public void setBboxMin(net.minecraft.core.BlockPos p) { this.bboxMin = p; }
+    public net.minecraft.core.BlockPos getBboxMax() { return bboxMax; }
+    public void setBboxMax(net.minecraft.core.BlockPos p) { this.bboxMax = p; }
+    public boolean hasBbox() { return bboxMin != null && bboxMax != null; }
+    public boolean isMinimapEnabled() { return minimapEnabled && hasBbox(); }
+    public void setMinimapEnabled(boolean v) { this.minimapEnabled = v; }
+    public boolean isBboxOutlineEnabled() { return bboxOutlineEnabled && hasBbox(); }
+    public void setBboxOutlineEnabled(boolean v) { this.bboxOutlineEnabled = v; }
+    /** @return min-corner of the bbox with components min()-ed pairwise (handles arbitrary corner pairs) */
+    public net.minecraft.core.BlockPos getBboxLowCorner() {
+        if (!hasBbox()) return null;
+        return new net.minecraft.core.BlockPos(
+            Math.min(bboxMin.getX(), bboxMax.getX()),
+            Math.min(bboxMin.getY(), bboxMax.getY()),
+            Math.min(bboxMin.getZ(), bboxMax.getZ()));
+    }
+    /** @return max-corner of the bbox with components max()-ed pairwise */
+    public net.minecraft.core.BlockPos getBboxHighCorner() {
+        if (!hasBbox()) return null;
+        return new net.minecraft.core.BlockPos(
+            Math.max(bboxMin.getX(), bboxMax.getX()),
+            Math.max(bboxMin.getY(), bboxMax.getY()),
+            Math.max(bboxMin.getZ(), bboxMax.getZ()));
+    }
+
     // ── Boundary / Leave timer ───────────────────────────────────────
     public boolean isLocationBoundaryEnabled()             { return locationBoundaryEnabled; }
     public void    setLocationBoundaryEnabled(boolean v)   { this.locationBoundaryEnabled = v; }
@@ -458,6 +495,8 @@ public class Location {
     // ── PvP extended settings ─────────────────────────────────────────
     public int  getPvpRoundStartDelay()          { return pvpRoundStartDelay; }
     public void setPvpRoundStartDelay(int s)     { this.pvpRoundStartDelay = Math.max(0, s); }
+    public int  getPvpReadyCheckTimeoutSec()         { return pvpReadyCheckTimeoutSec; }
+    public void setPvpReadyCheckTimeoutSec(int s)    { this.pvpReadyCheckTimeoutSec = Math.max(0, s); }
     public int  getPvpRoundStartPoints()         { return pvpRoundStartPoints; }
     public void setPvpRoundStartPoints(int p)    { this.pvpRoundStartPoints = Math.max(0, p); }
     public int  getPvpWinPoints()                { return pvpWinPoints; }

@@ -1,0 +1,111 @@
+package com.wavedefense.gui.widgets;
+
+import com.wavedefense.data.Location;
+import com.wavedefense.data.PvpSpawnPoint;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+
+import java.util.List;
+
+/**
+ * Graphical preview of a location's bbox + spawn points, rendered as a small
+ * top-down 2D map inside the editor Area tab. Replaces the text-summary line
+ * when there's enough horizontal space (colW &gt;= 360).
+ *
+ * <p>Drawing model:
+ * <ul>
+ *   <li>Outer rectangle = bbox top-down projection (X×Z, scaled to fit a square)</li>
+ *   <li>Dark fill, light border</li>
+ *   <li>Each {@link PvpSpawnPoint} = 3×3 coloured dot at scaled (x, z)</li>
+ *   <li>Centre label: "WxL" bbox dimensions</li>
+ * </ul>
+ *
+ * <p>v0.2.62.
+ */
+public class MinimapPreviewWidget extends AbstractWidget {
+
+    private static final int BG_FILL      = 0xC0202020;
+    private static final int BORDER       = 0xFF808080;
+    private static final int LABEL_COLOUR = 0xFFE0E0E0;
+    private static final int DOT_SIZE     = 3;
+
+    private final Location location;
+
+    public MinimapPreviewWidget(int x, int y, int sizePx, Location location) {
+        super(x, y, sizePx, sizePx, Component.literal("Minimap preview"));
+        this.location = location;
+    }
+
+    @Override
+    protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        BlockPos a = location.getBboxMin();
+        BlockPos b = location.getBboxMax();
+        if (a == null || b == null) return; // shouldn't render when bbox unset
+
+        int x = getX(), y = getY(), w = getWidth(), h = getHeight();
+        int minX = Math.min(a.getX(), b.getX());
+        int maxX = Math.max(a.getX(), b.getX());
+        int minZ = Math.min(a.getZ(), b.getZ());
+        int maxZ = Math.max(a.getZ(), b.getZ());
+        int dx = Math.max(1, maxX - minX);
+        int dz = Math.max(1, maxZ - minZ);
+
+        // Background + border
+        g.fill(x, y, x + w, y + h, BG_FILL);
+        g.fill(x, y, x + w, y + 1, BORDER);
+        g.fill(x, y + h - 1, x + w, y + h, BORDER);
+        g.fill(x, y, x + 1, y + h, BORDER);
+        g.fill(x + w - 1, y, x + w, y + h, BORDER);
+
+        // Compute scale so the bbox fits with 4-pixel padding on each side
+        int innerSize = Math.max(8, Math.min(w, h) - 8);
+        int innerX = x + (w - innerSize) / 2;
+        int innerY = y + (h - innerSize) / 2;
+
+        // Spawn dots
+        List<PvpSpawnPoint> spawns = location.getPvpSpawnPoints();
+        for (PvpSpawnPoint sp : spawns) {
+            BlockPos p = sp.getPos();
+            if (p == null) continue;
+            int sx = innerX + (int) ((double) (p.getX() - minX) * innerSize / dx);
+            int sz = innerY + (int) ((double) (p.getZ() - minZ) * innerSize / dz);
+            // Clamp to widget area
+            sx = Math.max(x + 1, Math.min(x + w - DOT_SIZE - 1, sx));
+            sz = Math.max(y + 1, Math.min(y + h - DOT_SIZE - 1, sz));
+            int colour = teamColour(sp.getTeamName());
+            g.fill(sx, sz, sx + DOT_SIZE, sz + DOT_SIZE, colour);
+        }
+
+        // Centre label (dimensions in blocks)
+        Minecraft mc = Minecraft.getInstance();
+        String label = (dx + 1) + "×" + (dz + 1);
+        int labelW = mc.font.width(label);
+        g.drawString(mc.font, label, x + (w - labelW) / 2, y + h - mc.font.lineHeight - 2, LABEL_COLOUR);
+    }
+
+    /** Hash team name → one of 8 ChatFormatting colours, ARGB int. */
+    private static int teamColour(String teamName) {
+        int hash = teamName == null ? 0 : Math.abs(teamName.hashCode());
+        int[] palette = {
+            0xFFE04040, // red
+            0xFF4080E0, // blue
+            0xFF40E060, // green
+            0xFFE0C040, // yellow
+            0xFFB040E0, // purple
+            0xFF40E0E0, // cyan
+            0xFFE08040, // orange
+            0xFFE040A0  // pink
+        };
+        return palette[hash % palette.length];
+    }
+
+    @Override
+    protected void updateWidgetNarration(NarrationElementOutput narr) {
+        narr.add(net.minecraft.client.gui.narration.NarratedElementType.TITLE,
+            Component.literal("Minimap preview of location " + location.getName()));
+    }
+}

@@ -29,6 +29,8 @@ public class ClientPvpStateManager {
     private static String myTeam      = "";
     private static Map<String, Integer> teamWins = new LinkedHashMap<>();
     private static List<PlayerRow> players = new ArrayList<>();
+    // v0.2.62: ready-check tracking
+    private static Set<String> readyNames = new HashSet<>();
 
     public static void update(CompoundTag tag) {
         location      = tag.getString("location");
@@ -52,6 +54,23 @@ public class ClientPvpStateManager {
                 pe.getBoolean("alive")
             ));
         }
+
+        // v0.2.62: ready-check player set (may be absent in non-READY_CHECK syncs)
+        readyNames.clear();
+        if (tag.contains("readyPlayers")) {
+            ListTag rl = tag.getList("readyPlayers", 8); // 8 = StringTag
+            for (int i = 0; i < rl.size(); i++) readyNames.add(rl.getString(i));
+        }
+    }
+
+    /** v0.2.62: names of players who pressed ready in current READY_CHECK */
+    public static Set<String> getReadyNames() { return readyNames; }
+
+    /** v0.2.62: true if the local player has pressed ready */
+    public static boolean isMeReady() {
+        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+        if (mc.player == null) return false;
+        return readyNames.contains(mc.player.getGameProfile().getName());
     }
 
     public static String getPhase()       { return phase; }
@@ -74,5 +93,6 @@ public class ClientPvpStateManager {
         myTeam       = "";
         teamWins.clear();
         players.clear();
+        readyNames.clear();
     }
 }

@@ -230,7 +230,8 @@ public class WaveManager {
                     (int) Math.ceil(p.getHealth()),
                     (int) Math.ceil(p.getMaxHealth()),
                     !p.isDeadOrDying(),
-                    team));
+                    team,
+                    p.getX(), p.getY(), p.getZ(), p.getYRot()));
             }
             com.wavedefense.network.PacketHandler.sendToPlayer(
                 viewer, SyncTeammatesPacket.build(locationName, entries));
@@ -378,6 +379,19 @@ public class WaveManager {
         // Update InfoPanel TextDisplay entities every second
         if (waveCtx.tickCounter % 20 == 0) {
             infoPanelMgr.tick();
+        }
+
+        // Refresh teammate HUD (HP bars + alive state) every second for every active
+        // session so changes are visible in real time, not only on death / join / leave.
+        if (waveCtx.tickCounter % 20 == 0) {
+            for (String locName : waveCtx.sessions.keySet()) {
+                try { syncTeammates(locName); }
+                catch (Throwable t) { /* one bad location shouldn't kill the loop */ }
+            }
+            // BBox outline — particle "fence" along bbox top edges, visible to ALL players
+            // in the session (admin no longer the only one who knows where the box is).
+            try { BboxRenderer.tick(waveCtx); }
+            catch (Throwable t) { /* never let render glitches kill the tick */ }
         }
 
         // Process delayed PvP respawns

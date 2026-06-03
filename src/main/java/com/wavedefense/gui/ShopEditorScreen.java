@@ -37,6 +37,14 @@ public class ShopEditorScreen extends Screen {
     // В3: Підтвердження видалення точки магазину
     private int pendingDeletePointIndex = -1;
 
+    // View mode toggle — list (default) or tile (icon grid).
+    // Persists per screen instance; defaults to list for backward compat with
+    // existing admin habits. Tile mode matches PlayerShopScreen visuals.
+    private boolean tileMode = false;
+    private static final int TILE_W   = 112;
+    private static final int TILE_H   = 84;
+    private static final int TILE_GAP = 8;
+
     public ShopEditorScreen(Location location, Screen parent) {
         super(Component.translatable("wavedefense.title.shop_editor")
                 .append(": ").append(location.getName()));
@@ -116,7 +124,7 @@ public class ShopEditorScreen extends Screen {
         // C4: Tacz bulk-add button — visible only when Tacz is loaded.
         // Layout: "Add item" shrinks to make room for the Tacz button on the right.
         boolean taczOn = com.wavedefense.compat.TaczCompat.isLoaded();
-        int addW = taczOn ? 130 : 200;
+        int addW = taczOn ? 100 : 160;
         this.addRenderableWidget(Button.builder(
             Component.translatable("wavedefense.button.add_shop_item"),
             b -> minecraft.setScreen(new ShopItemEditorScreen(location, -1, this))
@@ -125,11 +133,20 @@ public class ShopEditorScreen extends Screen {
             this.addRenderableWidget(Button.builder(
                 Component.translatable("wavedefense.tacz.bulk.open_button"),
                 b -> minecraft.setScreen(new TaczBulkAddScreen(location, this))
-            ).bounds(cx + 36, startY, 64, 18).build());
+            ).bounds(cx + 6, startY, 50, 18).build());
         }
+        // View-mode toggle — matches PlayerShopScreen UX
+        this.addRenderableWidget(Button.builder(
+            Component.translatable(tileMode ? "wavedefense.shop.view_tiles" : "wavedefense.shop.view_list"),
+            b -> { tileMode = !tileMode; scrollOffsetGlobal = 0; rebuildWidgets(); }
+        ).bounds(cx + 60, startY, 40, 18).build());
         startY += 22;
 
         List<ShopItem> items = location.getShopItems();
+        if (tileMode) {
+            buildGlobalViewTiles(cx, startY, items);
+            return;
+        }
         for (int i = 0; i < Math.min(ITEMS_PER_PAGE, items.size()); i++) {
             int idx = i + scrollOffsetGlobal;
             if (idx >= items.size()) break;
@@ -182,6 +199,67 @@ public class ShopEditorScreen extends Screen {
                 b -> { if (scrollOffsetGlobal+ITEMS_PER_PAGE<items.size()){scrollOffsetGlobal++;rebuildWidgets();} }
             ).bounds(cx + 145, this.height - 52, 18, 18).build());
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  GLOBAL — tile (grid) view
+    // ─────────────────────────────────────────────────────────────────
+    private void buildGlobalViewTiles(int cx, int startY, List<ShopItem> items) {
+        int cols = getTileCols();
+        int gridW = cols * TILE_W + (cols - 1) * TILE_GAP;
+        int gridX = cx - gridW / 2;
+        int rows = Math.max(1, (this.height - startY - 60) / TILE_H);
+        int perPage = cols * rows;
+
+        for (int i = 0; i < Math.min(perPage, items.size()); i++) {
+            int idx = i + scrollOffsetGlobal;
+            if (idx >= items.size()) break;
+            int col = i % cols;
+            int row = i / cols;
+            int x = gridX + col * (TILE_W + TILE_GAP);
+            int y = startY + row * TILE_H;
+            final int fi = idx;
+            boolean isPendingDelShop = (pendingDeleteShopIndex == fi);
+
+            // Edit button — bottom-left of the tile
+            this.addRenderableWidget(Button.builder(
+                Component.translatable("wavedefense.button.edit"),
+                b -> { pendingDeleteShopIndex = -1; minecraft.setScreen(new ShopItemEditorScreen(location, fi, this)); }
+            ).bounds(x + 4, y + TILE_H - 22, (TILE_W - 12) / 2, 16).build());
+
+            // Delete button — bottom-right of the tile, with confirm
+            this.addRenderableWidget(Button.builder(
+                isPendingDelShop
+                    ? Component.translatable("wavedefense.button.confirm_delete")
+                    : Component.translatable("wavedefense.button.delete"),
+                b -> {
+                    if (isPendingDelShop) {
+                        pendingDeleteShopIndex = -1;
+                        location.removeShopItem(fi);
+                        int maxOff = Math.max(0, location.getShopItems().size() - perPage);
+                        scrollOffsetGlobal = Math.max(0, Math.min(scrollOffsetGlobal, maxOff));
+                        rebuildWidgets();
+                    } else {
+                        pendingDeleteShopIndex = fi;
+                        rebuildWidgets();
+                    }
+                }
+            ).bounds(x + 4 + (TILE_W - 12) / 2 + 4, y + TILE_H - 22, (TILE_W - 12) / 2, 16).build());
+        }
+
+        if (items.size() > perPage) {
+            this.addRenderableWidget(Button.builder(Component.literal("▲"),
+                b -> { if (scrollOffsetGlobal > 0) { scrollOffsetGlobal--; rebuildWidgets(); } }
+            ).bounds(gridX + gridW + 4, startY, 18, 18).build());
+            this.addRenderableWidget(Button.builder(Component.literal("▼"),
+                b -> { if (scrollOffsetGlobal + perPage < items.size()) { scrollOffsetGlobal++; rebuildWidgets(); } }
+            ).bounds(gridX + gridW + 4, this.height - 52, 18, 18).build());
+        }
+    }
+
+    private int getTileCols() {
+        int usableW = Math.max(TILE_W, this.width - 60);
+        return Math.max(1, Math.min(5, (usableW + TILE_GAP) / (TILE_W + TILE_GAP)));
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -272,11 +350,59 @@ public class ShopEditorScreen extends Screen {
         }
     }
 
+    /** v0.2.64: chunked-save threshold. Shops with more than this many items
+     *  go through {@link com.wavedefense.network.packets.ReplaceShopItemsPacket}
+     *  instead of a single oversized UpdateLocationPacket. 50 chosen so that
+     *  one chunk × ~25 items × ~300 bytes/item ≈ 7-8 KB, well under the
+     *  Forge channel limit. */
+    private static final int CHUNK_THRESHOLD = 50;
+    private static final int CHUNK_SIZE      = 25;
+
     private void saveChanges() {
-        PacketHandler.sendToServer(new UpdateLocationPacket(location));
-        if (minecraft.player != null)
-            minecraft.player.displayClientMessage(Component.translatable("wavedefense.auto.магазин_збережено_2ae52f5a"), true);
+        int itemCount = location.getShopItems().size();
+        if (itemCount > CHUNK_THRESHOLD) {
+            // Chunked path: temporarily strip shopItems from the location, send
+            // the rest via UpdateLocationPacket, then send shopItems in chunks
+            // via ReplaceShopItemsPacket. Server reassembles and broadcasts.
+            sendShopChunked();
+        } else {
+            PacketHandler.sendToServer(new UpdateLocationPacket(location));
+        }
+        if (minecraft.player != null) {
+            if (itemCount > CHUNK_THRESHOLD) {
+                int chunks = (itemCount + CHUNK_SIZE - 1) / CHUNK_SIZE;
+                minecraft.player.displayClientMessage(
+                    Component.translatable("wavedefense.msg.shop_chunked", itemCount, chunks), false);
+            }
+            minecraft.player.displayClientMessage(
+                Component.translatable("wavedefense.auto.магазин_збережено_2ae52f5a"), true);
+        }
         minecraft.setScreen(parent);
+    }
+
+    /** v0.2.64: send the shop in {@value #CHUNK_SIZE}-item chunks via
+     *  ReplaceShopItemsPacket. We still send a metadata-only UpdateLocationPacket
+     *  first so the rest of the Location (waves, loot, etc.) gets sync'd —
+     *  but with shopItems emptied so it stays under the channel limit. */
+    private void sendShopChunked() {
+        java.util.List<com.wavedefense.data.ShopItem> all = new java.util.ArrayList<>(location.getShopItems());
+        // 1) Send metadata (no shop items) by temporarily stripping the list
+        java.util.List<com.wavedefense.data.ShopItem> backup = new java.util.ArrayList<>(location.getShopItems());
+        location.getShopItems().clear();
+        PacketHandler.sendToServer(new UpdateLocationPacket(location));
+        // Restore client-side so the editor still shows them after Save
+        location.getShopItems().addAll(backup);
+        // 2) Stream items in chunks
+        int totalChunks = (all.size() + CHUNK_SIZE - 1) / CHUNK_SIZE;
+        for (int i = 0; i < totalChunks; i++) {
+            int from = i * CHUNK_SIZE;
+            int to   = Math.min(all.size(), from + CHUNK_SIZE);
+            java.util.List<com.wavedefense.data.ShopItem> chunk =
+                new java.util.ArrayList<>(all.subList(from, to));
+            PacketHandler.sendToServer(
+                new com.wavedefense.network.packets.ReplaceShopItemsPacket(
+                    location.getName(), i, totalChunks, chunk));
+        }
     }
 
     private void exportShop(boolean isPoint) {
@@ -333,7 +459,71 @@ public class ShopEditorScreen extends Screen {
         }
 
         // Іконки предметів (поверх кнопок-заглушок, всередині scissor)
-        if (!location.isPointShopMode()) {
+        if (!location.isPointShopMode() && tileMode) {
+            // ── Tile mode: render icon grid with prices ──────────────────
+            int startY = 64;
+            List<ShopItem> items = location.getShopItems();
+            int cols = getTileCols();
+            int gridW = cols * TILE_W + (cols - 1) * TILE_GAP;
+            int gridX = cx - gridW / 2;
+            int rows = Math.max(1, (this.height - startY - 60) / TILE_H);
+            int perPage = cols * rows;
+            ItemStack tooltipItem = null;
+            int tooltipMx = 0, tooltipMy = 0;
+            for (int i = 0; i < Math.min(perPage, items.size()); i++) {
+                int idx = i + scrollOffsetGlobal;
+                if (idx >= items.size()) break;
+                ShopItem si = items.get(idx);
+                int col = i % cols, row = i / cols;
+                int x = gridX + col * (TILE_W + TILE_GAP);
+                int y = startY + row * TILE_H;
+                boolean isPendingDel = pendingDeleteShopIndex == idx;
+
+                // Tile background — red tint when pending delete
+                int bg     = isPendingDel ? 0x44440000 : 0x22335533;
+                int border = isPendingDel ? 0x88AA5555 : 0x8855AA55;
+                g.fill(x, y, x + TILE_W, y + TILE_H - 2, bg);
+                g.fill(x, y, x + TILE_W, y + 1, border);
+
+                // Primary icon (first ItemStack in slot)
+                List<ItemStack> stacks = si.getItems();
+                ItemStack first = stacks.isEmpty() ? ItemStack.EMPTY : stacks.get(0);
+                int iconX = x + TILE_W / 2 - 8;
+                int iconY = y + 6;
+                g.fill(iconX - 1, iconY - 1, iconX + 17, iconY + 17, GuiTheme.BORDER);
+                g.fill(iconX, iconY, iconX + 16, iconY + 16, GuiTheme.PANEL_DARK);
+                g.renderItem(first, iconX, iconY);
+                g.renderItemDecorations(this.font, first, iconX, iconY);
+                if (mouseX >= iconX && mouseX < iconX + 16 && mouseY >= iconY && mouseY < iconY + 16) {
+                    tooltipItem = first; tooltipMx = mouseX; tooltipMy = mouseY;
+                }
+
+                // Item count badge (+N other stacks)
+                if (stacks.size() > 1) {
+                    g.drawString(this.font, "+" + (stacks.size() - 1),
+                        x + TILE_W - 14, y + 6, 0xFFE680);
+                }
+
+                // Name + price line
+                String nm = first.isEmpty()
+                    ? I18n.get("wavedefense.label.empty")
+                    : first.getHoverName().getString();
+                if (nm.length() > 15) nm = nm.substring(0, 13) + "…";
+                g.drawString(this.font, nm, x + 6, y + 26, 0xFFFFFF);
+                g.drawString(this.font, "§e" + si.getBuyPrice() + " §7/ §a" + si.getSellPrice(),
+                    x + 6, y + 38, 0xFFFFFF);
+                if (si.hasAvailabilityTrigger()) {
+                    g.drawString(this.font, "§6[§e" + I18n.get(si.getAvailabilityTrigger().label) + "§6]",
+                        x + 6, y + 50, 0xFFFFAA00);
+                }
+            }
+            if (tooltipItem != null) {
+                g.flush();
+                ScissorHelper.disable();
+                g.renderTooltip(this.font, tooltipItem, tooltipMx, tooltipMy);
+                ScissorHelper.enable(0, MODE_BOT, this.width, Math.max(1, BOTTOM_TOP - MODE_BOT));
+            }
+        } else if (!location.isPointShopMode()) {
             int startY = 64;
             List<ShopItem> items = location.getShopItems();
             for (int i = 0; i < Math.min(ITEMS_PER_PAGE, items.size()); i++) {

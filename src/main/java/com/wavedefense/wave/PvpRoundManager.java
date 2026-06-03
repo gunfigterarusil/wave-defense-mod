@@ -140,6 +140,23 @@ public class PvpRoundManager {
             return;
         }
 
+        // v0.2.61: BR late-join lock — once the match is past READY_CHECK,
+        // new joiners would be inserted as already-eliminated (their team's
+        // spawn is overrun). Reject with a clear message.
+        if (location.isBattleRoyale()) {
+            LocationSession existing = ctx.sessions.get(location.getName());
+            if (existing != null && existing.pvpState != null) {
+                PvpRoundState.Phase ph = existing.pvpState.getPhase();
+                if (ph != PvpRoundState.Phase.WAITING
+                 && ph != PvpRoundState.Phase.READY_CHECK
+                 && ph != PvpRoundState.Phase.ENDED) {
+                    player.displayClientMessage(
+                        Component.translatable("wavedefense.msg.br_match_locked"), false);
+                    return;
+                }
+            }
+        }
+
         ctx.playerBackups.put(playerId, new PlayerBackup(player));
 
         // ── Примусовий gamemode (якщо увімкнено для локації) ─────────────
@@ -165,9 +182,36 @@ public class PvpRoundManager {
             location.addPoints(playerId, location.getStartingPoints());
         }
 
-        PvpSpawnPoint spawnPoint = location.getPvpSpawnPoints().get(spawnIndex);
+        // Bounds-check the spawn index — protects against stale packets / admin
+        // mid-session removing a spawn point. Falls back to 0 with a log warning.
+        java.util.List<PvpSpawnPoint> spawns = location.getPvpSpawnPoints();
+        if (spawns.isEmpty()) {
+            WaveDefenseMod.LOGGER.warn("[WD] PvP join rejected — location '{}' has no spawn points",
+                location.getName());
+            player.displayClientMessage(
+                Component.translatable("wavedefense.msg.pvp_no_spawn_points"), false);
+            ctx.playerBackups.remove(playerId);
+            return;
+        }
+        if (spawnIndex < 0 || spawnIndex >= spawns.size()) {
+            WaveDefenseMod.LOGGER.warn(
+                "[WD] PvP join: spawnIndex {} out of range for '{}' ({} points) — using 0",
+                spawnIndex, location.getName(), spawns.size());
+            spawnIndex = 0;
+        }
+        PvpSpawnPoint spawnPoint = spawns.get(spawnIndex);
         location.setPlayerTeam(playerId, spawnPoint.getTeamName());
         assignScoreboardTeam(player, location.getName(), spawnPoint.getTeamName());
+
+        // v0.2.64: per-team starting items are ADDITIVE on top of the location-
+        // global ones that were applied in the !keepInventory block above. Admin
+        // can leave global empty and put items only on a specific team, or vice
+        // versa. Inventory was cleared earlier so duplicates aren't a concern.
+        if (!location.isKeepInventory() && !spawnPoint.getStartingItems().isEmpty()) {
+            for (net.minecraft.world.item.ItemStack item : spawnPoint.getStartingItems()) {
+                if (item != null && !item.isEmpty()) player.getInventory().add(item.copy());
+            }
+        }
 
         PlayerWaveData data = new PlayerWaveData();
         data.setPlayerUUID(playerId);
@@ -199,9 +243,30 @@ public class PvpRoundManager {
                 ? 0 : location.getPvpBuyTime();
             _s.pvpState = new PvpRoundState(rounds, buy);
             _s.pvpState.setDmKillsToWin(location.getDmKillsToWin());
+            // Common admin pitfall: Standard with totalRounds=1 ends the match on the
+            // very first round result (including draws) — players are kicked out
+            // immediately after the BUY phase if nobody scores. Warn loudly.
+            if (!location.isDeathmatch() && !location.isBattleRoyale()
+                    && !location.isObjectiveMode() && rounds == 1) {
+                WaveDefenseMod.LOGGER.warn(
+                    "[WD/PvP] Location '{}' is Standard mode with totalRounds=1. "
+                    + "The match will end after a single round — first draw or kill "
+                    + "ends the entire match. Set totalRounds >= 3 for typical play.",
+                    location.getName());
+            }
         }
         PvpRoundState state = _s.pvpState;
         state.registerPlayer(playerId, player.getName().getString(), spawnPoint.getTeamName());
+
+        // Mid-round join — if a round is already ACTIVE, add the new player to
+        // aliveThisRound so checkRoundWinner() considers them. Without this they
+        // would be invisible to the round-winner predicate even though they're
+        // alive and on a real team — leading to premature round-end calls.
+        // BR is excluded: respawn-as-spectator is by design (eliminated player).
+        if (state.getPhase() == PvpRoundState.Phase.ACTIVE
+                && !location.isBattleRoyale()) {
+            state.getAliveThisRound().add(playerId);
+        }
 
         // BR: ініціалізуємо кордон
         if (location.isBattleRoyale()) wm.brManager.initLocation(location);
@@ -256,6 +321,37 @@ public class PvpRoundManager {
             Location location = WaveDefenseMod.locationManager.getLocation(locName);
             if (location == null) continue;
 
+            // v0.2.61: READY_CHECK tick — count down timeout; advance when all alive ready
+            //   OR when timer expires (force-start with current ready set, AFK drops out).
+            if (state.getPhase() == PvpRoundState.Phase.READY_CHECK) {
+                state.tickDown();
+                if (state.getTimerTicks() % 20 == 0) broadcastPvpSync(wm, location);
+                // Count alive players (anyone in this location) and ready ones
+                long inLoc = ctx.playerData.values().stream()
+                    .filter(d -> d.getCurrentLocation() != null
+                        && d.getCurrentLocation().getName().equals(locName))
+                    .count();
+                boolean allReady = inLoc > 0 && state.getReadyCount() >= inLoc;
+                boolean timeoutExpired = state.getTimerTicks() <= 0
+                    && location.getPvpReadyCheckTimeoutSec() > 0;
+                if (allReady || timeoutExpired) {
+                    long readyCount = state.getReadyCount();
+                    // Force-start guard: at least minPlayers must be ready or in location
+                    long startCount = timeoutExpired ? readyCount : inLoc;
+                    if (startCount >= location.getPvpMinPlayers()) {
+                        state.clearReadyPlayers();
+                        directStartFromWaitingDeprecated(wm, location, state, inLoc);
+                    } else {
+                        // Not enough ready by timeout — return to WAITING for more joiners
+                        state.setPhase(PvpRoundState.Phase.WAITING);
+                        state.clearReadyPlayers();
+                        wm.broadcastToLocation(location.getName(),
+                            Component.translatable("wavedefense.msg.pvp_ready_check_failed"));
+                        broadcastPvpSync(wm, location);
+                    }
+                }
+                continue;
+            }
             if (state.getPhase() == PvpRoundState.Phase.BUY) {
                 state.tickDown();
                 if (state.getTimerTicks() % 20 == 0) broadcastPvpSync(wm, location);
@@ -678,6 +774,11 @@ public class PvpRoundManager {
         state.getAllStats().computeIfAbsent(toMove,
             id -> new PvpPlayerStats(finalSpName, finalSmallTeam))
             .setTeamName(finalSmallTeam);
+        // Update scoreboard team so nametag visibility (HIDE_FOR_OTHER_TEAMS) reflects
+        // the new team. Without this the rebalanced player would appear as ally to the
+        // OLD team and as enemy-with-hidden-name to the NEW team.
+        removeFromScoreboardTeam(sp);
+        assignScoreboardTeam(sp, location.getName(), finalSmallTeam);
         wm.teleportToSpawnPoint(sp, newSpawn);
         sp.displayClientMessage(Component.translatable(
             "wavedefense.msg.team_rebalanced", finalSmallTeam), false);
@@ -733,6 +834,98 @@ public class PvpRoundManager {
             .count();
 
         if (count >= location.getPvpMinPlayers()) {
+            // v0.2.61: Transition WAITING → READY_CHECK instead of straight to BUY/ACTIVE.
+            // Players are now spawned at their team points but wait-effects keep them
+            // frozen until either everyone presses ready or the timeout expires.
+            // The actual start (BUY for Standard, ACTIVE for DM/BR/CtP/KotH) is
+            // deferred to advanceFromReadyCheck() below.
+            int timeoutSec = location.getPvpReadyCheckTimeoutSec();
+            state.startReadyCheck(timeoutSec);
+            wm.broadcastToLocation(location.getName(),
+                Component.translatable("wavedefense.msg.pvp_ready_check_started", timeoutSec));
+            return;
+        }
+        // ── Legacy direct-start kept as helper, called only when ready-check
+        //    times out (advanceFromReadyCheck) — see helper at end of class. ──
+        directStartFromWaitingDeprecated(wm, location, state, count);
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    //  v0.2.61: Ready-check public API
+    // ════════════════════════════════════════════════════════════════════
+
+    /** Marks a player as ready. If all in-location players are ready, advance
+     *  immediately to BUY/ACTIVE without waiting for the timeout. Called from
+     *  ReadyCheckPacket (future UI hotkey) or admin command. */
+    public void markPlayerReady(WaveManager wm, String locationName, UUID playerId) {
+        LocationSession s = ctx.sessions.get(locationName);
+        if (s == null || s.pvpState == null) return;
+        if (s.pvpState.getPhase() != PvpRoundState.Phase.READY_CHECK) return;
+        s.pvpState.markPlayerReady(playerId);
+        Location location = WaveDefenseMod.locationManager.getLocation(locationName);
+        if (location != null) broadcastPvpSync(wm, location);
+    }
+
+    /** Unmarks a player as ready (toggle off). Called from ReadyCheckPacket when
+     *  the player presses R again before timeout. */
+    public void unmarkPlayerReady(WaveManager wm, String locationName, UUID playerId) {
+        LocationSession s = ctx.sessions.get(locationName);
+        if (s == null || s.pvpState == null) return;
+        if (s.pvpState.getPhase() != PvpRoundState.Phase.READY_CHECK) return;
+        s.pvpState.unmarkPlayerReady(playerId);
+        Location location = WaveDefenseMod.locationManager.getLocation(locationName);
+        if (location != null) broadcastPvpSync(wm, location);
+    }
+
+    /** Admin force-end an active PvP match (called from /wda match stop|restart).
+     *  Wipes the session — players need to rejoin. Returns true if a session was ended. */
+    public boolean forceEndPvpLocation(WaveManager wm, String locationName) {
+        LocationSession s = ctx.sessions.get(locationName);
+        if (s == null || s.pvpState == null) return false;
+        Location location = WaveDefenseMod.locationManager.getLocation(locationName);
+        if (location != null) endPvpMatch(wm, location, s.pvpState);
+        return true;
+    }
+
+    /** Multi-line string dump of current PvP state for /wda debug state. */
+    public String debugDumpPvpState(String locationName) {
+        LocationSession s = ctx.sessions.get(locationName);
+        if (s == null || s.pvpState == null) return "no active PvP session for '" + locationName + "'";
+        PvpRoundState st = s.pvpState;
+        long count = ctx.playerData.values().stream()
+            .filter(d -> d.getCurrentLocation() != null
+                && d.getCurrentLocation().getName().equals(locationName)).count();
+        StringBuilder sb = new StringBuilder();
+        sb.append("PvP[").append(locationName).append("] ");
+        sb.append("phase=").append(st.getPhase()).append(' ');
+        sb.append("round=").append(st.getCurrentRound()).append('/').append(st.getTotalRounds()).append(' ');
+        sb.append("timer=").append(st.getTimerSeconds()).append("s ");
+        sb.append("inLoc=").append(count).append(' ');
+        sb.append("ready=").append(st.getReadyCount()).append(' ');
+        sb.append("alive=").append(st.getAliveThisRound().size());
+        return sb.toString();
+    }
+
+    /** Admin force-skip of the READY_CHECK phase regardless of who pressed ready.
+     *  Goes directly to BUY/ACTIVE as if everyone confirmed. */
+    public void skipReadyCheck(WaveManager wm, String locationName) {
+        LocationSession s = ctx.sessions.get(locationName);
+        if (s == null || s.pvpState == null) return;
+        if (s.pvpState.getPhase() != PvpRoundState.Phase.READY_CHECK) return;
+        Location location = WaveDefenseMod.locationManager.getLocation(locationName);
+        if (location == null) return;
+        long inLoc = ctx.playerData.values().stream()
+            .filter(d -> d.getCurrentLocation() != null
+                && d.getCurrentLocation().getName().equals(locationName))
+            .count();
+        s.pvpState.clearReadyPlayers();
+        directStartFromWaitingDeprecated(wm, location, s.pvpState, inLoc);
+    }
+
+    /** Extracted legacy direct-start so it can be reused from the ready-check
+     *  timeout handler. Original WAITING→BUY/ACTIVE logic unchanged. */
+    private void directStartFromWaitingDeprecated(WaveManager wm, Location location, PvpRoundState state, long count) {
+        if (count >= location.getPvpMinPlayers()) {
             if (location.isDeathmatch() || location.isBattleRoyale()) {
                 // DM / BR: no BUY phase — go directly to ACTIVE (or countdown).
                 state.markFirstRound();
@@ -768,6 +961,25 @@ public class PvpRoundManager {
         pvpKillStreaks.clear();
         pvpPendingRespawn.clear(); // скидаємо черги respawn з попереднього раунду
         pvpPenaltyDeducted.clear(); // скидаємо деdup-сет щоб штрафи наступного раунду рахувались знову
+
+        // Insufficient-teams check — applies to Standard only.
+        // DM uses dmTeamKills, BR uses last-alive, CtP/KotH use score; those modes
+        // don't suffer from the "round ends instantly because everyone is on one team" bug.
+        if (!location.isDeathmatch() && !location.isBattleRoyale() && !location.isObjectiveMode()) {
+            java.util.Set<String> teamsPresent = new java.util.HashSet<>();
+            for (UUID pid : allInLoc) {
+                String t = location.getPlayerTeam(pid);
+                if (t != null && !t.isBlank()) teamsPresent.add(t);
+            }
+            if (teamsPresent.size() < 2) {
+                wm.broadcastToLocation(location.getName(),
+                    Component.translatable("wavedefense.msg.pvp_insufficient_teams"));
+                WaveDefenseMod.LOGGER.warn(
+                    "[WD] Round at '{}' starts with only {} team(s) — checkRoundWinner() will be inert until opponents join",
+                    location.getName(), teamsPresent.size());
+            }
+        }
+
         // CtP/KotH: initialise capture point tracking
         if (location.isObjectiveMode()) {
             if (location.getCapturePoints().isEmpty()) {
@@ -832,6 +1044,10 @@ public class PvpRoundManager {
     void endRound(WaveManager wm, Location location, PvpRoundState state, String winnerTeam) {
         // winnerTeam == null means the round ended in a draw (H3 / H4 fix).
         // recordTeamWin() is null-safe and won't record anything for draws.
+        WaveDefenseMod.LOGGER.info(
+            "[WD/PvP] endRound @ '{}' — round {}/{}, winner={}, teamWins={}",
+            location.getName(), state.getCurrentRound(), state.getTotalRounds(),
+            winnerTeam == null ? "(draw)" : winnerTeam, state.getTeamWins());
         state.recordTeamWin(winnerTeam);
         wm.fireLootTriggerByName(location.getName(), LootSpawn.Trigger.ROUND_END);
         wm.fireLootTriggerByName(location.getName(), LootSpawn.Trigger.TEAM_WIPE);
@@ -924,6 +1140,13 @@ public class PvpRoundManager {
     }
 
     private void endPvpMatch(WaveManager wm, Location location, PvpRoundState state) {
+        // Log a clear reason for the match ending so admins can debug premature
+        // exits ("we just joined, BUY ended, suddenly we're out" complaints).
+        String reason = location.isDeathmatch() ? "DM kill target reached"
+            : "all rounds played (" + state.getCurrentRound() + "/" + state.getTotalRounds() + ")";
+        WaveDefenseMod.LOGGER.info(
+            "[WD/PvP] endPvpMatch @ '{}' — reason: {} — teamWins={}",
+            location.getName(), reason, state.getTeamWins());
         state.setPhase(PvpRoundState.Phase.ENDED);
 
         // H-1 fix: detect ties before picking a champion
@@ -1098,12 +1321,18 @@ public class PvpRoundManager {
                 ps.getKills(), ps.getDeaths(), ps.getAssists(), alive));
         }
 
+        // v0.2.62: collect ready-player NAMES (not UUIDs) for client rendering
+        java.util.Set<String> readyNames = new java.util.HashSet<>();
+        for (UUID rid : state.getReadyPlayers()) {
+            PvpPlayerStats ps = state.getStats(rid);
+            if (ps != null) readyNames.add(ps.getPlayerName());
+        }
         for (ServerPlayer p : wm.getPlayersInLocation(location.getName())) {
             String myTeam = location.getPlayerTeam(p.getUUID());
             net.minecraft.nbt.CompoundTag tag = SyncPvpStatePacket.build(
                 location.getName(), state.getPhase().name(),
                 state.getCurrentRound(), state.getTotalRounds(), state.getTimerSeconds(),
-                state.getTeamWins(), entries, myTeam);
+                state.getTeamWins(), entries, myTeam, readyNames);
             WaveDefenseMod.packetHandler.send(
                 net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> p),
                 new SyncPvpStatePacket(tag));

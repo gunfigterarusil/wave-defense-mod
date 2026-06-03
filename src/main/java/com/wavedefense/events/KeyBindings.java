@@ -31,6 +31,9 @@ public class KeyBindings {
      *  K1 fix: changed from L (conflicts with vanilla Advancements) to G. */
     public static KeyMapping leaveLocationKey;
 
+    /** R — toggle ready during PvP READY_CHECK phase (v0.2.62) */
+    public static KeyMapping readyKey;
+
     @SubscribeEvent
     public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
         openMenuKey = new KeyMapping(
@@ -59,6 +62,16 @@ public class KeyBindings {
                 CATEGORY
         );
         event.register(leaveLocationKey);
+
+        // v0.2.62 — Ready-toggle during PvP READY_CHECK phase
+        readyKey = new KeyMapping(
+                "key.wavedefense.ready",
+                KeyConflictContext.IN_GAME,
+                InputConstants.Type.KEYSYM,
+                GLFW.GLFW_KEY_R,
+                CATEGORY
+        );
+        event.register(readyKey);
     }
 
     @Mod.EventBusSubscriber(modid = WaveDefenseMod.MODID, value = Dist.CLIENT)
@@ -82,6 +95,22 @@ public class KeyBindings {
                             net.minecraft.network.chat.Component.translatable("wavedefense.msg.leaving_location"), true);
                         // Закриваємо поточний екран щоб не блокував
                         if (mc.screen != null) mc.setScreen(null);
+                    }
+                }
+            }
+
+            // R — toggle ready during PvP READY_CHECK phase (v0.2.62)
+            if (readyKey != null) {
+                while (readyKey.consumeClick()) {
+                    String phase = com.wavedefense.gui.ClientPvpStateManager.getPhase();
+                    if ("READY_CHECK".equals(phase)) {
+                        boolean wasReady = com.wavedefense.gui.ClientPvpStateManager.isMeReady();
+                        com.wavedefense.network.PacketHandler.sendToServer(
+                            new com.wavedefense.network.packets.ReadyCheckPacket(!wasReady));
+                        mc.player.displayClientMessage(
+                            net.minecraft.network.chat.Component.translatable(
+                                wasReady ? "wavedefense.msg.ready_off" : "wavedefense.msg.ready_on"),
+                            true);
                     }
                 }
             }

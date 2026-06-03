@@ -56,6 +56,9 @@ public class PlayerHUD {
         if (data.isInPvp() && currentLoc != null && currentLoc.isDeathmatch()) {
             renderDmLeaderboard(g, mc, width, mc.player.getName().getString(), currentLoc.getDmKillsToWin());
         }
+
+        // ── Tactical minimap (bottom-left) — PvP + bbox + minimapEnabled ──
+        MinimapRenderer.render(g, data, width, height);
     }
 
     /**

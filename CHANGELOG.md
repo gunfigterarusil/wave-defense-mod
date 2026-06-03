@@ -1,5 +1,1088 @@
 # Changelog
 
+## [0.2.64] - 2026-06-03 — Chunked shop save + reset-defaults + per-team starting items
+
+Three quality features that together remove a real crash class and unlock a
+much-requested PvP customization.
+
+### Added — Chunked shop save (Phase A)
+
+New `network/packets/ReplaceShopItemsPacket.java`:
+- Client→server with `(locationName, chunkIndex, totalChunks, items[])`
+- Server-side per-(player, location) accumulator keyed by chunk index
+- When all chunks arrive: replaces `location.getShopItems()` (replace, not append),
+  persists via `locationManager.save()`, broadcasts via `broadcastLocationData()`
+- Stale buffers cleaned up after 30s
+
+`ShopEditorScreen.saveChanges()` now branches on item count:
+- ≤ 50 items: single `UpdateLocationPacket` (existing path)
+- \> 50 items: sends metadata-only `UpdateLocationPacket` (with shopItems
+  temporarily emptied) + N `ReplaceShopItemsPacket` chunks of 25 items each
+- Action-bar feedback: *"§6Shop save sent in 5 chunks (127 items)"*
+
+This removes the v0.2.63 "large-shop warning" and replaces it with a real fix.
+Shops with 200+ items now save reliably under Forge's 32 KB channel limit.
+
+### Added — Reset-to-defaults per section (Phase B)
+
+New helper `sectionWithReset(x, y, w, langKey, Runnable)` on
+`UniversalLocationEditor` — adds a small §a↩ button on the right of the section
+header with tooltip *"Reset this section to default values"*.
+
+Applied to 3 sections:
+- **InfoPanels** (Visual tab) → resets all 9 flags + offsetY + textScale +
+  hasShadow + mobSpawnPanelEnabled to documented defaults
+- **MnS** (Compat tab) → resets all 7 override values to 0
+- **Portal** (Area tab) → resets all 5 portal fields to defaults (disabled,
+  60s open-after, 30s penalty, 300s respawn, -1 penalty wave, true disappear)
+
+Future sections gain this for free by switching their `section(...)` call to
+`sectionWithReset(...)`.
+
+### Added — Per-team starting items (Phase C)
+
+`data/PvpSpawnPoint`:
+- New `List<ItemStack> startingItems` field with NBT save/load
+- Empty list = no override (fall back to location-global items)
+- Non-empty list = ADDITIVE on top of location items (admin can mix)
+
+`wave/PvpRoundManager.addPlayerToPvpLocation`:
+- After spawn-point selection, if `!keepInventory` and spawn's `startingItems`
+  is non-empty, copies each item into player inventory in addition to the
+  location-global ones already added
+
+`gui/StartingItemsScreen`:
+- New constructor `(parentScreen, List<ItemStack>, titleSuffix)` for arbitrary
+  item lists (not tied to Location)
+- Legacy `(parentScreen, Location)` constructor delegates to the new one
+- All internal `location.getStartingItems()` calls replaced with `items` field
+
+`gui/universal/UniversalLocationEditor` (spawn-edit form):
+- New "Edit team starting items (N) ▶" button below the coord picker (when
+  editing an existing spawn). Opens StartingItemsScreen against the spawn's
+  items list with team name as title suffix
+- For newly-being-added spawns: §7"Save the spawn first, then re-open to add
+  team items" hint instead (can't open StartingItemsScreen against a list
+  that's not in `location.getPvpSpawnPoints()` yet)
+
+### Translations
+4 new keys × 8 langs = **32 strings**.
+
+### Files changed
+
+**Created (1):**
+- `network/packets/ReplaceShopItemsPacket.java`
+
+**Modified (5):**
+- `network/PacketHandler.java` — register ReplaceShopItemsPacket
+- `data/PvpSpawnPoint.java` — startingItems field + NBT save/load
+- `wave/PvpRoundManager.java` — apply per-team starting items on PvP join
+- `gui/StartingItemsScreen.java` — refactor to take List directly, legacy
+  Location constructor delegates
+- `gui/universal/UniversalLocationEditor.java` — sectionWithReset helper +
+  3 reset sites + "Edit team items" button in spawn-edit form
+- `gui/ShopEditorScreen.java` — chunked save path with CHUNK_THRESHOLD=50,
+  CHUNK_SIZE=25; replaces v0.2.63 large-shop warning
+- 8 × lang files (+4 keys each)
+- `gradle.properties`, `README.md` — version 0.2.64
+
+### Smoke test
+1. `./gradlew build` clean.
+2. Bulk-add 100 Tacz guns via TaczBulkAddScreen → already works (v0.2.55).
+   Now ALSO open ShopEditor → Save → no crash, action-bar shows chunked count.
+3. Open editor InfoPanels section → click §a↩ → all flags reset to sane defaults.
+4. PvP location → edit spawn point → save → re-open → click "Edit team starting
+   items (0)" → opens StartingItemsScreen titled with team name → hold sword,
+   add → save → spawn at this team in-game → sword is in inventory.
+
+### Deferred to v0.2.65
+- Custom team colors + display names (PvpSpawnPoint.color field + dedicated UI)
+- F3-style admin debug HUD
+- /wda commands: `players-in`, `who-ready`, `tp-to-spawn`
+
+---
+
+## [0.2.63] - 2026-06-03 — UX polish: tooltips, warnings, duplicate, shop hint
+
+Quality-of-life polish across the editor and admin menu, requested as the next
+"якість і зручність" pass after v0.2.62.
+
+### Added — Tooltips on cryptic EditBox fields (Phase A)
+
+New `labelledIntRowT` variant of `labelledIntRow` that auto-discovers a tooltip
+by convention: if a lang key `{labelKey}.tooltip` exists, both the label and
+the EditBox get a hover-tooltip with the long explanation. Callers don't change
+— tooltips appear as soon as the translation key is added.
+
+16 tooltip keys added across the most-confused fields:
+- PvP: `round_delay`, `round_time_limit`, `match_time_limit`, `dm_spawn_mode`,
+  `br_shrink_interval`, `br_initial_wait`, `br_final_radius`,
+  `score_per_sec`, `round_duration`, `koth.hold_duration`, `ready_timeout`
+- Area: `portal_open_after`, `portal_penalty_timer`
+- Behaviour: `leave_timer`, `victory_linger`, `re_entry_cooldown`
+
+Future tooltips can be added by appending `.tooltip` suffix lang keys —
+no code change required.
+
+### Added — Missing-config warning bar (Phase B)
+
+`UniversalLocationEditor.renderConfigWarnings()` runs each render frame and
+draws a yellow ⚠ line below the title for critical missing setup:
+
+- §e⚠ No bounding box set
+- §e⚠ PvP needs at least 2 spawn points (current: N)
+- §e⚠ Objective mode needs capture points
+- §e⚠ PvE has no waves configured
+- §e⚠ PvE player spawn not set
+
+Multiple warnings join with §8| separator. Subtle dark backdrop so it stays
+legible over the GuiTheme header. Disappears once the location is sufficiently
+configured.
+
+### Added — Duplicate location workflow (Phase C)
+
+New `network/packets/DuplicateLocationPacket.java`:
+- Client→server with `(sourceName, targetName)`
+- Server validates: perm ≥2, source exists, target doesn't collide, name regex OK
+- Clones via `Location.load(src.save())` NBT roundtrip — every persisted field
+  copied (waves, shop, spawns, capture points, MnS overrides, etc.)
+- New name set via `setName()`, added to LocationManager, broadcast to clients
+
+New `⎘` button (cyan) in each AdminMenuScreen row (between the name and `✎`):
+- `duplicateLocation(sourceName)` picks first non-colliding `_copy`, `_copy2`, …
+  suffix (up to 100) and sends the packet
+- Tooltip: "Duplicate %s (clone all settings under a new name)"
+- Row layout adjusted: name button width reduced by 28px to fit the new icon
+
+### Added — ShopEditor large-shop warning (Phase D)
+
+`ShopEditorScreen.saveChanges()` now displays an action-bar warning if
+`shopItems.size() > 50`:
+*"§e⚠ Shop has 127 items — large saves may take a moment"*
+
+Full chunked-save protocol (replacing one big `UpdateLocationPacket` with
+multiple `ReplaceShopItemsPacket` deltas) deferred to v0.2.64.
+
+### Translations
+
+24 new keys × 8 langs = **192 strings**:
+- 16 tooltip keys
+- 5 warning labels
+- 1 duplicate tooltip + 1 duplicate-too-many error
+- 1 shop large-shop warning
+
+### Files changed
+
+**Created (1):**
+- `network/packets/DuplicateLocationPacket.java`
+
+**Modified (5):**
+- `network/PacketHandler.java` — register DuplicateLocationPacket
+- `gui/universal/UniversalLocationEditor.java` — labelledIntRowT helper +
+  renderConfigWarnings + render-frame call
+- `gui/AdminMenuScreen.java` — `⎘` button + `duplicateLocation` method
+- `gui/ShopEditorScreen.java` — large-shop warning in saveChanges()
+- 8 × lang files (+24 keys each)
+- `gradle.properties`, `README.md` — version 0.2.63
+
+### Smoke test
+1. `./gradlew build` clean.
+2. Hover any "BUY time", "round time limit", or "BR shrink interval" field →
+   long-form explanation appears.
+3. Create new PvP location → top of editor shows §e⚠ for no bbox + few spawns;
+   add spawns and bbox → warnings clear.
+4. Click `⎘` next to a location → new location appears named `name_copy`,
+   identical settings. Click again → `name_copy2`.
+5. Save a 100-item shop → action-bar warning appears before success message.
+
+### Deferred to v0.2.64
+- Chunked ShopEditor save (real replacement of UpdateLocationPacket for large shops)
+- Reset-to-defaults per-section
+- Per-team starting items
+- Custom team colors / display names
+- F3-style admin debug HUD
+
+---
+
+## [0.2.62] - 2026-06-03 — Ready-check UI completion + graphical minimap preview
+
+Closes the two v0.2.61 deferrals — players can now press **R** to ready up,
+and a top-centre HUD overlay shows progress. The Area-tab minimap preview also
+gets a real graphical rectangle with team-coloured spawn dots (text fallback
+on narrow screens).
+
+### Added — Hotkey **R** + `ReadyCheckPacket`
+
+New file `network/packets/ReadyCheckPacket.java`:
+- Client→server toggle, payload = single `boolean ready`
+- Server reads sender UUID from `ctx.getSender()` (never trusts payload identity)
+- Routes to existing `PvpRoundManager.markPlayerReady` / new `unmarkPlayerReady`
+- Guard: silently no-op if player not in PvP location with phase=READY_CHECK
+- Registered in `PacketHandler.register()` between existing C2S packets
+
+New `KeyBindings.readyKey` bound to `GLFW.GLFW_KEY_R`, `KeyConflictContext.IN_GAME`:
+- `ClientEvents.onClientTick` consumes click only when phase=READY_CHECK
+- Toggles ready state via `ReadyCheckPacket(!isMeReady)`
+- Action-bar feedback message "§a✓ You are ready" / "§7You are no longer ready"
+
+### Added — `PvpReadyHud` overlay
+
+New file `gui/PvpReadyHud.java` (~120 lines):
+- Top-centre semi-transparent box with §606060 border
+- Line 1: title (changes between "Ready up — press R" and "✓ Ready — press R to cancel")
+  + " — X/Y ready" count
+- Line 2: per-team rows like "§fRed: §a● §7○ §a●  §8| §fBlue: §a● §7○"
+- Line 3: "§7Auto-start in §eXs§7" timer (or "Waiting for everyone…" if timeout=0)
+- Self-guards: returns immediately if phase ≠ READY_CHECK or `hideGui`
+- Called from `ClientEventHandler.onRenderGuiOverlay` after `PlayerHUD.render`
+
+### Added — Server-side ready sync
+
+`SyncPvpStatePacket.build` gains overload accepting `Set<String> readyPlayerNames`.
+NBT writes `readyPlayers` ListTag of names (only when set is non-empty — saves
+bytes during non-READY_CHECK syncs). The 8-arg overload kept for backwards
+compat with any other caller; new flow uses the 9-arg version.
+
+`PvpRoundManager.broadcastPvpSync` collects ready UUIDs → names via
+`PvpPlayerStats.getPlayerName()` and passes to packet builder.
+
+`ClientPvpStateManager`:
+- New `Set<String> readyNames` field
+- `getReadyNames()` accessor
+- `isMeReady()` — looks up local player's name via `mc.player.getGameProfile().getName()`
+- Cleared in `reset()`
+
+### Added — `MinimapPreviewWidget` (graphical Area-tab preview)
+
+New file `gui/widgets/MinimapPreviewWidget.java` (~95 lines):
+- Extends `AbstractWidget`, takes `(x, y, size, location)`
+- Renders top-down 2D map:
+  - Dark fill + light border (a rectangle)
+  - 3×3 coloured dot per PvpSpawnPoint, position scaled to bbox X/Z extent
+  - Team colour from 8-palette hash (red/blue/green/yellow/purple/cyan/orange/pink)
+  - Centre label = "WxL" block dimensions
+- Editor Area tab uses widget when `colW >= 360` (80px square on the right),
+  falls back to single-line text summary on narrow screens
+
+### Added — `unmarkPlayerReady` server API
+
+`PvpRoundManager.unmarkPlayerReady(WaveManager, String, UUID)` — mirror of
+`markPlayerReady`, removes UUID from ready set and broadcasts new sync.
+Used by `ReadyCheckPacket` when player presses R twice.
+
+### Translations
+
+8 new keys × 8 langs = **64 strings**. Covers keybind display name, 3 HUD
+overlay lines (4 with the "ready vs not-ready" title variant), and 2 action-bar
+messages for ready/un-ready feedback.
+
+### Files changed
+
+**Created (3):**
+- `network/packets/ReadyCheckPacket.java`
+- `gui/PvpReadyHud.java`
+- `gui/widgets/MinimapPreviewWidget.java`
+
+**Modified (7):**
+- `network/PacketHandler.java` — register ReadyCheckPacket
+- `network/packets/SyncPvpStatePacket.java` — 9-arg build overload + readyPlayers NBT
+- `events/KeyBindings.java` — readyKey + onClientTick handler
+- `events/ClientEventHandler.java` — call PvpReadyHud.render from HUD overlay
+- `gui/ClientPvpStateManager.java` — readyNames + isMeReady + reset cleanup
+- `wave/PvpRoundManager.java` — unmarkPlayerReady, broadcastPvpSync passes readyNames
+- `gui/universal/UniversalLocationEditor.java` — MinimapPreviewWidget integration
+  (wide screens) + text fallback (narrow)
+- 8 × lang files (+8 keys each)
+- `gradle.properties`, `README.md` — version 0.2.62
+
+### Promises closed
+- ✅ Hotkey R + ReadyCheckPacket (v0.2.61 deferred)
+- ✅ PvpReadyHud overlay (v0.2.61 deferred)
+- ✅ Graphical minimap preview (v0.2.61 deferred)
+
+### Smoke test (user host)
+1. `./gradlew build` clean.
+2. Open PvP test location, join with 2 players → READY_CHECK starts, top-centre
+   HUD overlay appears. Each player presses R → state advances immediately.
+3. Open editor Area tab on a location with bbox + 4 spawns → see rectangular
+   preview with 4 coloured dots in approximate top-down positions.
+4. Resize editor window narrow (< 360px content) → preview falls back to text
+   summary (same as v0.2.61).
+5. Lang switch UA↔EN → all new strings translated.
+
+---
+
+## [0.2.61] - 2026-06-02 — Ready-check phase + admin commands + config caps
+
+Replaces the implicit "WAITING → start" with an explicit **READY_CHECK** phase
+where players spawn at their team points but are frozen until everyone presses
+ready (or the timeout fires). Adds match-control admin commands and config caps.
+
+### Added — Ready-check phase (Phase A)
+
+New `PvpRoundState.Phase.READY_CHECK` between WAITING and BUY/ACTIVE:
+- When `minPlayers` are present, state transitions to READY_CHECK with a
+  configurable timeout (per-location, default 60s, config-capped at 600s).
+- Players freeze using the existing PvpWaitEffect (slowness + blindness) until
+  either:
+  - **All in-location players press ready** → fast advance to BUY/ACTIVE
+  - **Timeout expires** with ≥minPlayers ready → force-start (AFK out-of-luck)
+  - **Timeout expires** with <minPlayers ready → fall back to WAITING
+- BR mode adds a late-join lock: once past READY_CHECK, new joiners are
+  rejected with §c"Battle Royale match already in progress" message. DM, Std,
+  CtP, KotH still allow late joins.
+- New public API in `PvpRoundManager`:
+  - `markPlayerReady(WaveManager, String, UUID)` — for future ReadyCheckPacket
+  - `skipReadyCheck(WaveManager, String)` — admin force-skip
+  - `forceEndPvpLocation(WaveManager, String)` — admin stop/restart
+  - `debugDumpPvpState(String)` — multi-line state for `/wda debug state`
+
+**Note**: actual ready-press UI (hotkey R + HUD overlay) is deferred to v0.2.62.
+For v0.2.61 timeout auto-advances. Admins can `/wda match skip-readycheck`.
+
+New persistent field on Location: `pvpReadyCheckTimeoutSec` (default 60),
+serialized via LocationSerializer NBT roundtrip.
+
+### Added — Minimap preview (Phase B, MVP)
+
+Area tab now shows a text summary of the minimap when bbox is set:
+*"Minimap preview: 64×64 (h=20) ● ×4 §a✓ HUD ON"* — dimensions, spawn count,
+HUD on/off state. Real graphical preview deferred to v0.2.62.
+
+### Added — Config knobs (Phase C)
+
+`config/wavedefense-common.toml`:
+- `pvpMaxReadyCheckTimeoutSec` — hard cap for per-location ready-check timeouts (600s default)
+- `pvpMaxKillPoints` / `pvpMaxDeathPenalty` / `pvpMaxWinPoints` / `pvpMaxLosePoints`
+  — caps against accidental absurd input (100000 default, max 9999999)
+
+### Added — Admin commands (Phase D)
+
+```
+/wda match skip-readycheck <location>     # admin force-skip ready phase
+/wda match stop <location>                # end ongoing match
+/wda match restart <location>             # stop + clean (players rejoin)
+/wda debug state <location>               # PvP state dump
+/wda debug reload <location>              # reload location from disk
+/wda reset leaderboard                    # clear all records (PERM_ADMIN)
+```
+
+Match commands require `PERM_MOD`. Reset requires `PERM_ADMIN` (destructive).
+All commands audit-logged via existing `AuditLogger`.
+
+New helper: `LeaderboardManager.clearAll()` — wipes records + persists.
+
+### Translations
+5 new keys × 8 langs = **40 strings**. Covers ready-check broadcast messages,
+BR lock rejection, editor ready-timeout label, minimap preview label.
+
+### Files changed
+- `data/PvpRoundState.java` — new READY_CHECK phase + readyPlayers Set + helpers
+- `data/Location.java` — new `pvpReadyCheckTimeoutSec` field + accessors
+- `data/LocationSerializer.java` — serialize new field
+- `data/LeaderboardManager.java` — new `clearAll()` method
+- `wave/PvpRoundManager.java` — BR late-join lock, READY_CHECK tick handler,
+  WAITING→READY_CHECK transition, public ready-check API, force-end + debug-dump
+- `commands/WaveDefenseAdminCommands.java` — match/debug/reset subcommands
+- `config/WaveDefenseConfig.java` — 5 new PvP caps
+- `gui/universal/UniversalLocationEditor.java` — ready-timeout EditBox + minimap preview line
+- 8 × lang files (+5 keys each)
+- `gradle.properties`, `README.md` — version 0.2.61
+
+### Deferred to v0.2.62
+- Hotkey **R** ready-press + `ReadyCheckPacket`
+- `PvpReadyHud` overlay showing "X/Y ready" with team dots
+- Graphical minimap preview (vs text-summary)
+- Per-team starting items, custom team colors
+
+---
+
+## [0.2.60] - 2026-06-02 — Final pre-3.0 inline pass + spawn-context clarity
+
+Closes all 12 audit-identified blockers (B1-B12) so that v0.3.0 can safely
+delete `LocationEditorScreen.java` and `PvpLocationEditorScreen.java`.
+
+### Added — Spawn-context hint
+PvP mode in General tab now shows a §8gray hint§r under the Player Spawn
+section: *"Used as fallback only. PvP players spawn at team points configured
+in §eGameplay → Team spawn points§r."* Removes the long-standing confusion
+between Player Spawn (PvE) and Team Spawn Points (PvP).
+
+### Added — 12 inline-edit blockers
+
+| ID | Field | Tab | Type |
+|----|-------|-----|------|
+| B1 | `victoryScreenEnabled` | General | toggle |
+| B2 | `shopMode` GLOBAL/POINT | Economy | cycle |
+| B3 | `portalEnabled` (master) | Area | toggle (gates B4-B5) |
+| B4 | `portalPenaltyWave` | Area | ± control pair |
+| B5 | `portalDisappearsOnComplete` | Area | toggle |
+| B6 | `boundaryParticlesEnabled` | Area | toggle |
+| B7 | `boundaryDamagePerSec` | Area | EditBox (only when consequence=DAMAGE) |
+| B8 | `zoneParticle{Type,Count,Speed,Interval}` | Area | 4 EditBoxes (new "Zone particles" section) |
+| B9 | `zoneActivationTimeSec`, `zoneOpenAfterStartSec` | Area | 2 EditBoxes (gated by auto-zone on) |
+| B10 | `zoneUsesCustomCenter` + `zoneCenter` | Area | toggle + CoordinatePicker |
+| B11 | InfoPanel `textScale` + `hasShadow` | Visual | EditBox + toggle |
+| B12 | InfoPanel `mobSpawnPanelEnabled` | Visual | toggle |
+
+All EditBoxes flushed via existing `flushEditBoxes()` mechanism. New refs added
+to `resetEditBoxRefs()` to avoid cross-tab pollution.
+
+### Translations
+21 new `editor2.*` keys × 8 langs = **168 strings**. Total `editor2.*` key
+count: 135 per lang. Coverage audit: all 135 source-referenced keys present in
+all 8 lang files.
+
+### Status: ready for v0.3.0 legacy removal
+
+Every `location.set*` / `infoPanel.set*` call from both legacy editors now has
+an inline equivalent in `UniversalLocationEditor.java`. After smoke-test
+verification on user host:
+- v0.3.0 will delete both legacy editor classes (~3026 LOC)
+- Remove `editLocationLegacy()` + `📜` button from `AdminMenuScreen`
+- Remove `wavedefense.tooltip.edit_location_legacy` lang key × 8 langs
+
+### Files changed
+- `gui/universal/UniversalLocationEditor.java` — B1-B12 inline + spawn-context hint
+- 8 × lang files (+21 keys each)
+- `gradle.properties`, `README.md` — version 0.2.60
+
+---
+
+## [0.2.59] - 2026-06-02 — Complete inline migration (legacy-removal prep)
+
+Closes the remaining ~40% of fields that still required `📜 Legacy` round-trips
+after v0.2.58. Every routine workflow is now reachable from the unified editor.
+This is the **last release before legacy editor removal** in v0.3.0.
+
+### Added — Phase A: PvP per-sub-mode inline rules
+
+The PvP Gameplay tab no longer shows a read-only summary that forces admins to
+deep-link. All per-sub-mode fields are now editable inline via a new
+`initPvpSubModeRules(int, int, int, PvpMode)` dispatch method:
+
+| Sub-mode | Inline fields |
+|----------|---------------|
+| **STANDARD** | total rounds, BUY time, round start delay, round-start/win/lose points, round time limit |
+| **DEATHMATCH** | kills to win, match time limit, DM spawn mode cycle (TEAM/RANDOM/SMART) |
+| **BATTLE_ROYALE** | border radius, shrink interval, shrink amount, initial wait, final radius, particle ID + count, damage toggle + amount |
+| **CAPTURE_THE_POINT** | score-to-win, score-per-sec, win-mode toggle, round duration, speed multiplier, capture-all-win |
+| **KING_OF_THE_HILL** | score-to-win, score-per-sec, win-mode toggle, round duration, hold mode + duration + reset-on-loss |
+
+### Added — Phase B: PvE Area heavy fields inline
+
+- **Boundary particles**: ID (EditBox), count, height — previously read-only
+- **Portal timers**: open-after-start, penalty timer, respawn timer
+- **Auto-activate zone**: enable toggle + radius EditBox + entry-position
+  `CoordinatePickerWidget`
+- **Behaviour timers (General tab)**: leave timer, victory linger, re-entry
+  cooldown — three EditBoxes in a new "Timers" section
+
+### Added — Phase C: Standalone-screen openers
+
+- **Capture points editor** — button in PvP Gameplay tab when sub-mode is
+  CTP or KOTH, opens existing `CapturePointEditorScreen`. Warning chip shows
+  point count and ⚠ when zero.
+- **Starting items editor** — button in PvE Economy tab, opens existing
+  `StartingItemsScreen` with current count display.
+
+### Added — Phase D: PvP team-spawn inline list
+
+Replaces the "Spawn points: N" stat in the legacy editor. New section in PvP
+Gameplay tab:
+- Paginated list (5 visible at once, ▲▼ scroll buttons)
+- Each row: team name + coords + radius display, ✎ edit, ✕ delete
+- **+ Add** opens an inline form with team name EditBox +
+  `CoordinatePickerWidget` (`withRadius=true` for scatter radius) + Save/Cancel
+- Live ⚠ warning when no spawns configured (PvP requires ≥2 teams)
+
+### Refactor — `flushEditBoxes()` + `flushInt()` helper
+
+The flush method grew to ~35 fields. Compressed the repetitive
+`if (box != null) try { setter.accept(Integer.parseInt(box.getValue().trim())); }
+catch …` pattern into a one-line `flushInt(box, setter)` call via
+`IntConsumer`. CtP/KotH objective fields route via `isCtp` branch (same setter
+shape for both modes). All 35 fields covered; `resetEditBoxRefs()` nulls them
+all at start of `init()`.
+
+### Translations
+
+44 new `editor2.*` keys × 8 languages = **352 strings**. Total `editor2.*`
+key count is now 124 per language. Lang coverage audit: all 110 source-referenced
+keys present in all 8 lang files.
+
+### Files changed
+
+- `gui/universal/UniversalLocationEditor.java` — Phase A (`initPvpSubModeRules`
+  + per-mode field blocks), Phase B (Area heavy + General timers), Phase C
+  (openers), Phase D (spawn list + edit form + `saveSpawnForm`), 25+ new
+  EditBox refs, `labelledIntRow` and `flushInt` helpers
+- 8 × lang files — +44 keys each
+- `gradle.properties`, `README.md` — 0.2.59
+
+### Pre-test quick wins (still 0.2.59)
+
+Four small fixes added before user smoke-test:
+
+1. **QW1 — Spawn-edit form leak fixed.** Switching tab while editing a PvP spawn
+   used to leave `spawnEditing=true`; returning to Gameplay tab resurrected an
+   empty form. Tab-button handler now resets `spawnEditing` / `spawnEditingIndex`.
+2. **QW2 — `saveSpawnForm` smart fallback.** Editing an existing spawn but not
+   touching coords now keeps the original position (was: silently overwrote with
+   player position). Creating a new spawn still falls back to player position
+   when picker is empty.
+3. **QW3 — PvP economy points fully inline.** Kill points, death penalty,
+   round-win/lose/start points moved from read-only summary + legacy deep-link
+   to live EditBoxes (Standard mode shows all 5; DM shows just kill/death since
+   it has no rounds). The last "open legacy ▶" hint in PvP Economy removed.
+5 new EditBox refs + `flushEditBoxes` entries.
+4. **QW4 — Boundary consequence cycle inline.** Added a 4-state cycle button
+   to Area tab boundary section (TIMER_SURRENDER / DAMAGE / TELEPORT_BACK /
+   INSTANT_SURRENDER). 5 new lang keys × 8 languages.
+
+After QW3+QW4, the only legacy-only workflow remaining is the InfoPanel
+deep-config link in Visual tab (kept for one release as a safety net — all 9
+flags are already inline; the link only opens for users who want the floating
+panel offset edit). v0.3.0 will remove legacy entirely.
+
+### Status: legacy editor removal scheduled for v0.3.0
+
+After this release, the only remaining legacy-specific workflow is the
+InfoPanel deep-config link in Visual tab (kept as safety net). All other
+PvE/PvP editor functionality is now reachable inline. v0.3.0 will delete
+`LocationEditorScreen.java` and `PvpLocationEditorScreen.java`, and remove the
+`📜 Legacy` button from `AdminMenuScreen`.
+
+---
+
+## [0.2.58] - 2026-06-02 — Editor bugfix + inline-edit completion
+
+Closes the two critical correctness bugs uncovered in the 0.2.57 audit and
+moves the most-touched legacy-only fields into the new editor inline.
+
+### Fixed — Critical
+
+- **`CoordinatePickerWidget` no longer zeros sibling coords** while the admin
+  is mid-typing. Root cause: `setResponder(s -> fire())` parsed empty fields
+  as `0`, then a sibling toggle's `rebuildWidgets()` rebuilt the picker from
+  that fabricated state, silently clobbering the user's typed Y/Z. Fix:
+  `getValue()` returns a non-null `BlockPos` only when **all 3** fields parse
+  cleanly. Partial-typing states are silently swallowed (no `onChange` fire).
+  A new `Result.cleared` sentinel distinguishes "user emptied all 3 fields
+  (clear value)" from "user is mid-typing (do nothing)".
+
+- **Cancel now actually cancels.** Previously, every mutation went straight
+  to the `Location` instance in `ClientLocationManager`. Clicking Cancel just
+  closed the screen — local mutations persisted until the next server sync.
+  Fix: the editor constructor now deep-copies the location via NBT roundtrip
+  (`Location.load(original.save())`); all tab callbacks mutate the working
+  copy; Save commits via `ClientLocationManager.updateSingleLocation()` +
+  `UpdateLocationPacket`; Cancel discards the working copy.
+
+### Added — Mode-switch warning
+
+General tab now shows a yellow ⚠ hint under the PvE/PvP buttons:
+*"Switching mode hides current-mode data; press Cancel to discard."* Made safe
+by the Cancel deep-copy fix above — toggling mode without Save is now
+reversible.
+
+### Added — Inline editable fields (no more legacy-bouncing for routine work)
+
+| Tab | Field | Notes |
+|-----|-------|-------|
+| Area    | Boundary radius (EditBox) | clamps to [1, 9999] via setter |
+| Visual  | All 8 InfoPanel granular flags | 2×4 grid of toggles |
+| Visual  | Spawn panel offset Y (EditBox) | clamps to [0.5, 10.0] via setter |
+| Gameplay PvP | Min players (EditBox) + Friendly fire + Auto-balance + Wait-effect toggles | always editable, applies to every PvP sub-mode |
+| Compat  | MnS Level + XP bonus + 5 resistance values | 7 small EditBoxes in a 2-col grid; only shown when Mine and Slash is loaded |
+
+All EditBox values are flushed to the working Location via a new
+`flushEditBoxes()` method called from both `save()` and the overridden
+`rebuildWidgets()` — typed-but-unsaved values now survive sibling toggle clicks
+(same pattern as `PvpLocationEditorScreen.saveAllRules()`).
+
+### Translations
+
+22 new `editor2.*` keys × 8 languages = **176 strings**. Covers mode-switch
+warning, all visual flags, gameplay toggles, MnS labels.
+
+### Tech debt swept
+
+3 stale persistent tasks were re-inspected and found **invalid**:
+1. "Hardcode UA at `WaveTriggerEditorScreen.java:260`" — that line is an emoji
+   ternary (`"⏱" : "⚔" : "🏆"`), no Ukrainian.
+2. "Dead field `LocationSession.timerCustom`" — `grep` finds no such field
+   anywhere in `src/main/java/com/wavedefense`.
+3. "Dead fallback in `LocationEditorScreen.getLocTip()`" — that method is
+   actively called at line 694 and contains live tooltip routing.
+
+Real tech-debt fixed this release: stale comment in `AdminMenuScreen.java`
+line 116 updated from "Sprint 1+" → "Sprint 2, v0.2.58+".
+
+### Files changed
+
+- `gui/widgets/CoordinatePickerWidget.java` — `getValue()` rewrite + `fire()` gate + `Result.cleared` sentinel
+- `gui/universal/UniversalLocationEditor.java` — deep-copy in constructor, `rebuildWidgets` override, `flushEditBoxes`, mode-switch warning, B1-B4 inline edits, `toggleInfoPanelFlag` + `masEditRow` helpers, `resetEditBoxRefs` cleanup
+- `gui/AdminMenuScreen.java` — comment update
+- 8 × lang files (+22 keys each)
+- `gradle.properties`, `README.md` — version 0.2.58
+
+---
+
+## [0.2.57] - 2026-06-02 — Editor widget integration + responsive layout (Sprint 2 finish)
+
+Finishes Sprint 2's plan phases 6 and 8 that were still pending after 0.2.56:
+
+### Changed — `CoordinatePickerWidget` everywhere in the new editor
+
+All five coordinate fields in `UniversalLocationEditor` now use the reusable
+`gui/widgets/CoordinatePickerWidget`:
+
+| Tab | Field | Before | After |
+|-----|-------|--------|-------|
+| General | Player spawn      | "📌 Here" only | `[X][Y][Z] [📌] [🗑]` |
+| General | Victory exit       | "📌 Here" + ✕  | `[X][Y][Z] [📌] [🗑]` |
+| General | Surrender exit     | "📌 Here" + ✕  | `[X][Y][Z] [📌] [🗑]` |
+| Area    | BBox corner 1      | "📌 Here" + ✕  | `[X][Y][Z] [📌] [🗑]` |
+| Area    | BBox corner 2      | "📌 Here" + ✕  | `[X][Y][Z] [📌] [🗑]` |
+
+Honours the user requirement *"всюди де координати потрібно аби було не лише
+поточна позиція а і вручну вписать координати"* — every coord field now accepts
+manual numeric entry alongside the position-pin shortcut. `withRadius=false` for
+these fields since neither spawn, exits, nor bbox corners have a scatter radius
+in the data model (the radius input remains available for the widget when used
+elsewhere — e.g. mob spawn points, future shop points).
+
+`ItemPickerWidget` and `ListTileView` were not integrated in this pass — the
+new editor delegates all item-list and paginated-list editing to existing
+purpose-built screens (`ShopEditorScreen`, `LootSpawnEditorScreen`, etc.). The
+widgets remain in the foundation for future migrations.
+
+### Changed — Responsive layout
+
+All hard-coded `cx ± 200` widths replaced with formulas based on `this.width`:
+
+```
+PAD = 16; MAX_CONTENT_W = 520;
+colW  = Math.min(MAX_CONTENT_W, this.width - 2 * PAD);
+leftX = cx - colW / 2;
+```
+
+Save/Cancel buttons scale with `Math.min(120, (this.width - 80) / 2)` so they
+fit on 640×480 displays at GUI scale 3 without overlapping the screen edges.
+
+### Files changed
+
+- `gui/universal/UniversalLocationEditor.java` — 5 coord clusters → widget, +
+  responsive width fields (`PAD`, `MAX_CONTENT_W`, `colW`, `leftX`) computed in
+  `init()`; tab methods read from instance fields.
+- `gradle.properties`, `README.md` — version 0.2.57.
+
+---
+
+## [0.2.56] - 2026-06-02 — Unified Location Editor (Sprint 2)
+
+### Added — `UniversalLocationEditor` is now the default location editor
+
+Sprint 2 completes the Plan B unified-editor rebuild started in 0.2.55. A single
+6-tab screen now covers **both PvE and PvP** locations:
+
+| Tab | Contents |
+|-----|----------|
+| **🏷 General**  | name, mode toggle, player spawn, victory/surrender exits, `enforceGameMode`, `keepInventory`, hidden-from-menu |
+| **⚔ Gameplay** | PvE: waves/mobs/trigger summary + buttons to `WaveConfigScreen` / `CompletionRewardScreen`. PvP: sub-mode selector (Standard / DM / BR / CtP / KotH) + per-mode rules summary + deep-link to legacy detailed rules |
+| **🗺 Area**     | bbox corners with 📌/✕, minimap toggle, in-world outline toggle, boundary tracking + radius |
+| **💰 Economy** | shop summary + opener, loot summary + opener, completion rewards opener (PvE), points summary (PvP/PvE) |
+| **🎨 Visual**  | info panels (now available for **PvP too** — previously PvE-only), zone particles, BR border particles, HUD note |
+| **📦 Compat**  | Import/Export opener, Mine and Slash overrides summary (when loaded), Tacz bulk-add opener (when loaded) |
+
+### Changed — Admin menu button layout
+
+- `✎` (green) — opens the new `UniversalLocationEditor` (was: old editor)
+- `📜` (yellow) — opens the legacy editor (`LocationEditorScreen` for PvE,
+  `PvpLocationEditorScreen` for PvP). Kept as a fallback for any workflow that
+  hasn't been verified in the new editor yet.
+
+### Deprecated
+
+- `gui/LocationEditorScreen.java` — `@Deprecated(forRemoval=true, since="0.2.56")`
+- `gui/PvpLocationEditorScreen.java` — `@Deprecated(forRemoval=true, since="0.2.56")`
+
+Both classes will be removed in the next major version (0.3.x). For now they
+remain reachable through the `📜` button and through the new editor's
+"open legacy for advanced fields" deep-links inside Gameplay, Economy, Visual,
+and Compat tabs.
+
+### Translations
+
+- **58 new `editor2.*` keys × 8 languages = 464 strings added** (en_us, uk_ua,
+  de_de, fr_fr, es_es, pl_pl, pt_br, zh_cn). Covers all 6 tabs, all section
+  headers, all status labels, mode names, and the `tooltip.edit_location_legacy`
+  button hint.
+
+### Architectural notes
+
+- The new editor renders header + tab bar (static) + scrolled content + footer.
+  Scissor clipping (`ScissorHelper`) keeps content from bleeding into header/footer.
+- Static widgets (tabs, Save/Cancel) bypass scissor — always clickable, always visible.
+- Content is rebuilt on tab switch (`rebuildWidgets()` in tab-button handlers).
+- Deep-link to legacy editor for fields whose EditBox layouts are too complex
+  to duplicate inline (PvP rules per sub-mode, boundary particle ID, MnS resists).
+  This keeps the new editor maintainable while honouring the user's "повний
+  функціонал доступний" rule.
+
+---
+
+## [0.2.55] - 2026-06-02 — UI redesign foundation (Sprint 1)
+
+### Added — Reusable widgets for upcoming admin-UI refactor
+
+The user requested a thorough overhaul of admin screens so every place that asks
+for an item/coordinate/list looks and works the same. Instead of rewriting all
+27 screens at once (high risk), this sprint introduces three **reusable widgets**
+that future migrations will drop in:
+
+#### `gui/widgets/ItemPickerWidget.java`
+Composite for picking a single `ItemStack`. Includes:
+- 16×16 icon preview with vanilla decoration overlay
+- "Select item" button that opens the creative-tab `ItemSelectionScreen`
+- "✋" hand button — copies the player's main-hand item
+- "×" clear button
+- "N" EditBox for stack count (1–64)
+
+Drop into any screen with one line of `addToScreen(this::addRenderableWidget)`.
+Replaces ~50 lines of duplicated boilerplate per item slot.
+
+#### `gui/widgets/CoordinatePickerWidget.java`
+Unified coordinate input combining all idioms used across the mod:
+- 3× EditBox for manual X/Y/Z entry
+- "📌" button — sets fields from the player's current block position
+- Optional scatter-radius EditBox (`withRadius = true`)
+- "🗑" clear button
+- Returns a `Result(BlockPos pos, int radius)` tuple
+
+Replaces the older `CoordinateInputField` (kept for backward-compat).
+
+#### `gui/widgets/ListTileView.java`
+Generic list/tile toggle for paginated lists. Caller provides:
+- a `Renderer<T>` strategy with `renderRow()` and `renderTile()` methods
+- the list of entries
+- the area rectangle
+
+Widget handles: mode toggle button, page calculation, scroll offset clamp.
+
+### Roadmap for Sprint 2
+
+Sprint 1 (this release) — foundation only, no screen migrations yet.
+Sprint 2 will migrate one screen per release using these widgets so each change
+is auditable in isolation. Migration priority is up to the user — most-painful
+screens first.
+
+### New lang keys (× 8 langs)
+7 keys for picker/coord widget tooltips.
+
+---
+
+## [0.2.54.4] - 2026-06-02
+
+### Added — In-world bbox outline (visible to ALL players, not just admin)
+
+Previously the location bbox existed only as coordinates in the admin editor —
+players had no way to see where the edges actually are in 3D. New
+`BboxRenderer` emits `END_ROD` particles along the 4 horizontal top edges
+of the bbox every second, but only for the segments within 64 blocks of
+each player (cheap on large boxes).
+
+New toggle in both PvE and PvP editors:
+- `§a✓ In-world outline ON — particles show bbox edges to all players`
+- `§7○ In-world outline OFF (admin-only via coords)`
+
+Independent of the minimap toggle — admin can have one without the other.
+
+---
+
+## [0.2.54.3] - 2026-06-02
+
+### Deep PvP audit — 2 real bugs, 5 false positives ruled out
+
+Ran a thorough trace of the PvP state machine and player lifecycle. Most
+flagged issues turned out to be either by-design behaviour (BR respawn as
+spectator) or false alarms from misread code paths (the recurring "double
+recordDeath" claim is wrong because EventHandler.onEntityDeath is `if/else`,
+not sequential).
+
+### Fixed — Mid-round join makes the joining player "invisible" to round-end (HIGH)
+
+`PvpRoundManager.addPlayerToPvpLocation()` registered new players in `stats`
+and assigned a team, but did NOT add them to `aliveThisRound`. Since
+`PvpRoundState.checkRoundWinner()` only iterates `aliveThisRound`, a player
+who joined mid-Standard-round was effectively a ghost to the win predicate:
+
+- A and B fight. A dies. B remains, on Team Blue.
+- C joins (Team Red, same as A) — registered but NOT in aliveThisRound.
+- `checkRoundWinner()` sees only B (Blue) alive → declares Blue winner.
+- C is alive on the field but the round ended without him counting.
+
+Fix: when a player joins while phase is ACTIVE (and the mode is not BR —
+BR's respawn-as-spectator is by design), add their UUID to `aliveThisRound`
+so they're a real participant from the moment they spawn.
+
+### Fixed — `rebalancePvpTeams` left scoreboard team out of sync (HIGH)
+
+When auto-balance moved a player from the bigger team to the smaller, three
+pieces of state were updated:
+- `location.setPlayerTeam(toMove, smallTeam)`
+- `stats[toMove].teamName = smallTeam`
+- teleport to new spawn
+
+But the **Minecraft scoreboard team** assignment (used by `HIDE_FOR_OTHER_TEAMS`
+nametag visibility) was never refreshed. Visible symptoms:
+- Old teammates still saw the player's nametag in green ally colour.
+- New teammates saw the player as an enemy with hidden nametag (since they
+  appeared on a different scoreboard team).
+
+Fix: call `removeFromScoreboardTeam(sp)` + `assignScoreboardTeam(sp, locName,
+smallTeam)` after the team change in `rebalancePvpTeams()`.
+
+### Verified — not bugs
+
+| Claim | Verdict |
+|---|---|
+| BR initial-wait ticker overshoots 0 | False — `seconds * 20` is always a multiple of 20 |
+| Double `recordDeath` in BR/Standard | False — `EventHandler.onEntityDeath` is if/else, not sequential |
+| Penalty leak on disconnect mid-combat | False — late kill events early-return when player is no longer in the location |
+| `rebalancePvpTeams` target team has no spawn | False — team names come from spawn points, can't exist without one |
+| Loot triggers cross-contaminate PvE/PvP | False — triggers are per-location, namespaces don't conflict |
+
+---
+
+## [0.2.54.2] - 2026-06-02
+
+### Added — Bbox + minimap settings reachable from PvP editor
+
+Previously the per-location bbox and tactical-minimap toggle lived only in the
+PvE LocationEditor's Special tab. PvP-specific locations had no way to configure
+them — admins had to switch the location to PvE, configure the bbox, switch
+back. Added `initBboxMinimapSection` to `PvpLocationEditorScreen.initRulesTab`
+so the same UI (Corner 1 / Corner 2 / Set Here / Clear / Minimap on-off / hint)
+appears for every PvP mode (Standard / DM / BR / CtP / KotH).
+
+### Improved — Tactical minimap adapts to screen resolution
+
+`MinimapRenderer` previously rendered a fixed 96×96 px square — too small on
+4K monitors with low GUI scale, almost full screen on 720p with large GUI scale.
+Replaced with `min(width, height) / 6` clamped to `[72, 160] px` — the minimap
+stays at a reasonable proportion of the viewport on every common resolution
+and GUI-scale combination.
+
+### Fixed — 188 Ukrainian translations missing (UI was half English)
+
+The UA client showed "half English, half Ukrainian" because 188 lang keys
+in `uk_ua.json` still held their English values from when the keys were
+first added but were never re-translated. Hand-translated all of them across
+admin feedback messages (auto.*), editor tabs, shop UI, PvP team-select,
+imports/exports, and section headers.
+
+After this pass `uk_ua.json` has 9 remaining English-looking values —
+all proper nouns (Mine and Slash, Tacz, Battle Royale) or coordinate
+format strings (`§7#%d: §fX:%d Y:%d Z:%d`) that don't translate.
+
+### Added — Diagnostic logging for PvP match end
+
+`endRound()` and `endPvpMatch()` now log a clear reason to the server log
+when a round or match ends:
+- `[WD/PvP] endRound @ '<loc>' — round N/M, winner=<team|(draw)>, teamWins={…}`
+- `[WD/PvP] endPvpMatch @ '<loc>' — reason: <DM kill target reached |
+  all rounds played (N/M)> — teamWins={…}`
+
+Also added a warning when an admin creates a Standard-mode location with
+`totalRounds = 1` (an easy footgun — the match ends after a single round,
+so a draw kicks everyone out immediately). The log line tells the admin
+to set `totalRounds >= 3` for typical play.
+
+These diagnostics help debug the "we just joined PvP, BUY phase ended,
+suddenly we're out of the location" complaints by surfacing the actual
+exit reason instead of leaving admins guessing.
+
+---
+
+## [0.2.54.1] - 2026-06-02 (hotfix)
+
+### Fixed — Tacz bulk-add: capture all gun variants, not just defaults
+
+`TaczCompat.discoverGuns()` deduplicated by `gunId` alone, which collapsed
+every NBT variant the gunpack author placed in the creative tab (a gun with
+default attachments vs. the same gun pre-fit with a scope, suppressor, paint
+job, etc.) into a single "default" entry. Bulk-add therefore lost the
+pre-built loadouts and the admin saw only one item per gun.
+
+Dedupe key changed from `gunId` to a full stable-NBT key (item id +
+NBT compound minus the cosmetic `display`/`Damage`/`RepairCost` fields),
+mirroring the dedupe `ItemSelectionScreen` uses for the general picker.
+Every visually-distinct stack from the Tacz creative tabs now becomes a
+separate `TaczGunEntry` and a separate shop item.
+
+### Fixed — Tactical minimap facing arrow direction
+
+`MinimapRenderer.render()` applied three sign inversions to the yaw vector
+when computing the facing-arrow tip, leaving the arrow rotated by 90°.
+Replaced with the correct Minecraft → screen transform:
+`dx = -sin(yaw)`, `dz = cos(yaw)`, then map straight to screen `+x` / `+y`.
+
+### Audit
+Ran a thorough audit of 0.2.54 changes. Apart from the two fixes above:
+- Server-side stat double-count claims were false positives —
+  `EventHandler.onEntityDeath` is `if/else` (PvP-kill **or** env-death,
+  never both).
+- `BulkAddShopItemsPacket` handler / chunking math verified correct.
+- BBox NBT backward-compat: old saves missing `bboxMin`/`bboxMax` keys
+  load as `null` and cleanly disable the minimap.
+- `SyncTeammatesPacket.PlayerEntry` overload pair is unambiguous —
+  no positional-arg confusion at any call site.
+
+---
+
+## [0.2.54] - 2026-06-02
+
+### Fixed — Tacz bulk-add crash with 107+ guns (CRITICAL)
+
+`TaczBulkAddScreen.addCategory()` previously appended every gun to the location's
+`shopItems` list locally and then sent **one** `UpdateLocationPacket` containing
+the entire serialised location. With 100+ Tacz guns (vanilla + datapacks),
+the NBT payload exceeds Forge's safe channel size and the client disconnects
+on send (or the server fails to decode and drops the player).
+
+**New packet** `BulkAddShopItemsPacket` (C→S) carries only:
+- the target location name
+- a batch of `ShopItem` entries (CompoundTag list)
+
+Server appends, saves once, and broadcasts a single `SyncShopPacket` to players
+currently inside the location. Permission check requires level 2+.
+
+**Chunking**: `TaczBulkAddScreen` now splits the gun list into batches of 25
+items per packet (~6-8 KB each). Even a 500-gun datapack now adds in 20 small
+packets instead of one ~250 KB monster, eliminating the crash and giving
+realistic progress on slow connections.
+
+### Added — Optional location bbox + tactical PvP minimap
+
+`Location` gains 3 optional fields:
+- `bboxMin` / `bboxMax` — two corner `BlockPos` defining an axis-aligned cube
+- `minimapEnabled` — toggle for the tactical HUD
+
+A new section "🗺 Location BBox & Minimap" appears at the top of the
+LocationEditor Special tab with:
+- "Here" buttons for each corner (uses player's current position)
+- "✕" clear buttons
+- A minimap on/off toggle (disabled until both corners are set)
+
+When `minimapEnabled` is true AND both corners are set AND the player is in a
+PvP match, a new `MinimapRenderer` draws a top-down tactical map in the
+bottom-left of the HUD (96×96 px):
+
+- BBox region scaled to fit, with 3×3 grid lines
+- Dots for every teammate (data from existing `ClientTeammatesManager`)
+- Local player marker (bright green) + facing-direction indicator
+- Dead teammates shown in grey
+- **Enemies are NOT shown** by design — no wallhack
+
+### Teammate position sync
+
+`SyncTeammatesPacket.PlayerEntry` extended with `(double x, y, z, float yaw)`.
+`WaveManager.syncTeammates()` populates positions; `ClientTeammatesManager`
+stores them for the minimap. Existing per-second sync (added in 0.2.53.7)
+keeps dots moving in real time.
+
+### New files
+- `network/packets/BulkAddShopItemsPacket.java`
+- `gui/MinimapRenderer.java`
+
+### New translation keys (× 8 langs)
+`section.bbox`, `bbox.corner1_unset` / `corner2_unset`, `bbox.set_here`,
+`bbox.minimap_on` / `minimap_off`, `bbox.hint` (7 keys total).
+
+---
+
+## [0.2.53.7] - 2026-06-02
+
+### Fixed — Anti-cheat hitbox disable now covers PvE too
+
+`ClientEventHandler.onClientTick()` previously only disabled the client-side
+hitbox renderer when `data.isInPvp()` was true. PvE players could keep
+F3+B turned on and see mob outlines through walls. Now the check is
+`isInPvp() || isInWave()` — any active Wave Defense session forces hitbox
+rendering off.
+
+### Fixed — Teammate HUD HP bars not updating in real time
+
+`syncTeammates()` was called only at join / leave / death. While a teammate
+took damage between deaths the HUD bar stayed full. Added a 20-tick periodic
+sync in `WaveManager.onServerTick()` so each active location pushes a fresh
+`SyncTeammatesPacket` to every player once per second.
+
+### Fixed — BR border damage during initial wait phase
+
+`BattleRoyaleManager.tick()` was applying border damage to players outside
+the (still-static) radius even during the configured "initial wait" phase —
+i.e. before the border started shrinking. Damage now applies only after the
+`initialWaitTicker` reaches zero, giving players the intended grace period
+to spread out.
+
+### Added — Tile mode in admin shop editor
+
+`ShopEditorScreen` (global shop view) gains a `tileMode` toggle next to the
+"Add item" / "Tacz bulk" buttons, mirroring the `PlayerShopScreen` UX.
+Tile mode shows shop items as 112×84 cards with the primary icon, name,
+buy/sell prices, availability trigger badge, plus Edit / Delete buttons
+inside each tile. List mode (default) is unchanged.
+
+Reuses the existing `wavedefense.shop.view_tiles` / `wavedefense.shop.view_list`
+translation keys.
+
+---
+
+## [0.2.53.6] - 2026-06-01 (hotfix)
+
+### Fixed — PvP Standard round ending instantly after BUY phase
+
+Two players who picked the same team (either through spawn-point misconfiguration
+or by both clicking the same team in the selector) would see the match end the
+moment the BUY phase finished. `PvpRoundState.checkRoundWinner()` returns the
+team-name once every alive player belongs to a single team — which is the right
+answer *during a round in progress*, but is wrong *at round start* when there's
+nobody on the other team yet.
+
+`checkRoundWinner()` now additionally verifies that **at least 2 distinct teams
+have ever been registered in the match** before declaring a winner. If only one
+team is represented (degenerate setup or opponents not yet joined), it returns
+`null` instead.
+
+Side effects:
+- BR/DM/CtP/KotH untouched — they use their own win predicates (`checkBrWinner`,
+  `checkDmWinner`, `CapturePointManager`).
+- Standard matches with `pvpRoundTimeLimitSec > 0` will still end on timeout if
+  opponents never join (handled by the existing time-limit logic).
+- `startActiveRound()` now broadcasts a yellow `⚠` warning if the round starts
+  with only one team represented, plus logs to the server log so the admin
+  immediately understands the configuration issue.
+
+### Fixed — IndexOutOfBoundsException on PvP join with stale spawnIndex
+
+`PvpRoundManager.addPlayerToPvpLocation()` did `location.getPvpSpawnPoints().get(spawnIndex)`
+with no bounds check. A stale `TeleportPacket` (admin deleted a spawn point
+between team selection and join) or a malicious client could throw IOOBE,
+leaving the player half-joined (`playerBackups` populated, no session).
+
+Now:
+- Empty spawn-points list → join rejected with `wavedefense.msg.pvp_no_spawn_points`
+  message, backup cleared.
+- Out-of-range index → clamped to 0 with a server log warning.
+
+### New lang keys (× 8 languages)
+`wavedefense.msg.pvp_no_spawn_points`, `wavedefense.msg.pvp_insufficient_teams`
+
+---
+
 ## [0.2.53.5] - 2026-06-01 (hotfix)
 
 ### Fixed — Item picker and Tacz bulk-add showed empty lists

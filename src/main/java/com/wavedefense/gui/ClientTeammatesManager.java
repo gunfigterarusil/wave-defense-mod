@@ -13,7 +13,8 @@ import java.util.UUID;
 @OnlyIn(Dist.CLIENT)
 public class ClientTeammatesManager {
 
-    public record PlayerEntry(String name, UUID uuid, int hp, int maxHp, boolean alive, String team) {}
+    public record PlayerEntry(String name, UUID uuid, int hp, int maxHp, boolean alive,
+                               String team, double x, double y, double z, float yaw) {}
 
     private static String locationName = "";
     private static final List<PlayerEntry> players = new ArrayList<>();
@@ -35,7 +36,11 @@ public class ClientTeammatesManager {
                     p.getInt("hp"),
                     p.getInt("maxHp"),
                     p.getBoolean("alive"),
-                    team
+                    team,
+                    p.contains("x") ? p.getDouble("x") : 0d,
+                    p.contains("y") ? p.getDouble("y") : 0d,
+                    p.contains("z") ? p.getDouble("z") : 0d,
+                    p.contains("yaw") ? p.getFloat("yaw") : 0f
                 ));
             } catch (Exception ignored) {}
         }

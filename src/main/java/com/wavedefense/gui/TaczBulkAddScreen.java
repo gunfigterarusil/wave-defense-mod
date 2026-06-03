@@ -3,8 +3,7 @@ package com.wavedefense.gui;
 import com.wavedefense.compat.TaczCompat;
 import com.wavedefense.data.Location;
 import com.wavedefense.data.ShopItem;
-import com.wavedefense.network.PacketHandler;
-import com.wavedefense.network.packets.UpdateLocationPacket;
+// Network packets used via FQN below — no direct imports needed.
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -97,12 +96,20 @@ public class TaczBulkAddScreen extends Screen {
         ).bounds(cx - 60, this.height - 28, 120, 20).build());
     }
 
-    /** Adds every Tacz gun of the given category as a new ShopItem with the chosen price. */
+    /** Max items per network batch — keeps each packet payload safely under
+     *  Forge's channel size limit even when datapacks add 100+ Tacz guns. */
+    private static final int BATCH_SIZE = 25;
+
+    /** Adds every Tacz gun of the given category as a new ShopItem with the chosen price.
+     *  Sends multiple lightweight {@link com.wavedefense.network.packets.BulkAddShopItemsPacket}
+     *  packets in batches instead of one giant UpdateLocationPacket that overflows the channel. */
     private void addCategory(String category) {
         if (!TaczCompat.isLoaded()) return;
         int price = priceByCategory.getOrDefault(category, DEFAULT_PRICE);
         List<TaczCompat.TaczGunEntry> guns = TaczCompat.getGunsByCategory(category);
-        int added = 0;
+
+        // Build the full list of ShopItems first
+        List<ShopItem> toAdd = new ArrayList<>(guns.size());
         for (TaczCompat.TaczGunEntry entry : guns) {
             ItemStack stack = TaczCompat.buildGunStack(entry.gunId);
             if (stack.isEmpty()) continue;
@@ -110,21 +117,31 @@ public class TaczBulkAddScreen extends Screen {
             items.add(stack);
             ShopItem si = new ShopItem(items, price, 0);
             si.setCategory(ShopItem.ShopCategory.WEAPON);
-            location.getShopItems().add(si);
-            added++;
+            toAdd.add(si);
         }
-        if (added > 0) {
-            // Server-side persist
-            PacketHandler.sendToServer(new UpdateLocationPacket(location));
-            if (this.minecraft != null && this.minecraft.player != null) {
-                this.minecraft.player.displayClientMessage(
-                    Component.translatable("wavedefense.tacz.bulk.added", added,
-                        I18n.get("wavedefense.tacz.tab." + category)),
-                    false);
-            }
-            // Return to the parent shop editor — it will re-render with the new rows.
-            this.minecraft.setScreen(parent);
+        if (toAdd.isEmpty()) return;
+
+        // Optimistic client-side mutation so the user sees instant feedback when they
+        // return to the editor. Server-side state is also updated authoritatively below.
+        for (ShopItem si : toAdd) location.getShopItems().add(si);
+
+        // Network: split into chunks so no single packet exceeds Forge's channel
+        // payload limit. ~25 items per batch = ~6-8 KB per packet — safely below 32 KB.
+        for (int from = 0; from < toAdd.size(); from += BATCH_SIZE) {
+            int to = Math.min(from + BATCH_SIZE, toAdd.size());
+            List<ShopItem> chunk = new ArrayList<>(toAdd.subList(from, to));
+            com.wavedefense.network.PacketHandler.sendToServer(
+                new com.wavedefense.network.packets.BulkAddShopItemsPacket(
+                    location.getName(), chunk));
         }
+
+        if (this.minecraft != null && this.minecraft.player != null) {
+            this.minecraft.player.displayClientMessage(
+                Component.translatable("wavedefense.tacz.bulk.added", toAdd.size(),
+                    I18n.get("wavedefense.tacz.tab." + category)),
+                false);
+        }
+        this.minecraft.setScreen(parent);
     }
 
     @Override

@@ -92,6 +92,12 @@ public class LeaderboardManager {
 
     // ── Persistence ────────────────────────────────────────────────────────
 
+    /** v0.2.61: Wipes all leaderboard records (every location, every mode). Persists immediately. */
+    public synchronized void clearAll() {
+        data.clear();
+        saveToFile();
+    }
+
     public synchronized void saveToFile() {
         try {
             dataFile.getParentFile().mkdirs();

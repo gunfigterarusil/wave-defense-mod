@@ -50,6 +50,23 @@ public class SyncPvpStatePacket {
             List<PlayerEntry> players,
             String myTeam
     ) {
+        return build(locationName, phase, currentRound, totalRounds, timerSeconds,
+            teamWins, players, myTeam, java.util.Collections.emptySet());
+    }
+
+    /** v0.2.62 overload: include readyPlayer names so client can render the
+     *  PvpReadyHud overlay during READY_CHECK phase. */
+    public static CompoundTag build(
+            String locationName,
+            String phase,
+            int currentRound,
+            int totalRounds,
+            int timerSeconds,
+            Map<String, Integer> teamWins,
+            List<PlayerEntry> players,
+            String myTeam,
+            java.util.Set<String> readyPlayerNames
+    ) {
         CompoundTag tag = new CompoundTag();
         tag.putString("location", locationName);
         tag.putString("phase", phase);
@@ -76,6 +93,13 @@ public class SyncPvpStatePacket {
             }
         }
         tag.put("players", playerList);
+
+        // v0.2.62: ready-player names (omit when empty/non-READY_CHECK to save bytes)
+        if (readyPlayerNames != null && !readyPlayerNames.isEmpty()) {
+            ListTag rl = new ListTag();
+            for (String n : readyPlayerNames) rl.add(StringTag.valueOf(n));
+            tag.put("readyPlayers", rl);
+        }
         return tag;
     }
 

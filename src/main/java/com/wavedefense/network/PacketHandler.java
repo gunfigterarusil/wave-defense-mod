@@ -73,6 +73,31 @@ public class PacketHandler {
             OpenPostMatchScoreboardPacket::decode,
             OpenPostMatchScoreboardPacket::handle);
 
+        // Bulk-add for Tacz (and any other future workflow) — keeps each network
+        // packet small instead of serialising the entire Location for every change.
+        c2s(BulkAddShopItemsPacket.class,
+            BulkAddShopItemsPacket::encode,
+            BulkAddShopItemsPacket::decode,
+            BulkAddShopItemsPacket::handle);
+
+        // v0.2.62: ready-check toggle (hotkey R)
+        c2s(ReadyCheckPacket.class,
+            ReadyCheckPacket::encode,
+            ReadyCheckPacket::decode,
+            ReadyCheckPacket::handle);
+
+        // v0.2.63: duplicate location (⎘ button in AdminMenuScreen)
+        c2s(DuplicateLocationPacket.class,
+            DuplicateLocationPacket::encode,
+            DuplicateLocationPacket::decode,
+            DuplicateLocationPacket::handle);
+
+        // v0.2.64: chunked shop save (ShopEditor with > BATCH_SIZE items)
+        c2s(ReplaceShopItemsPacket.class,
+            ReplaceShopItemsPacket::encode,
+            ReplaceShopItemsPacket::decode,
+            ReplaceShopItemsPacket::handle);
+
         WaveDefenseMod.LOGGER.info("Network packets registered");
     }
 

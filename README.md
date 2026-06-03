@@ -1,4 +1,4 @@
-# Wave Defense Mod - v0.2.53.5
+# Wave Defense Mod - v0.2.64
 
 Wave Defense is a PvE/PvP Forge mod for **Minecraft 1.20.1** and **Java 17**.
 It lets server owners build configurable arena locations with mob waves, team PvP,
@@ -8,9 +8,54 @@ shops, loot events, portals, boundaries, HUD panels, and in-game admin editors.
 
 ## Status
 
-Version `0.2.53.5` — Hotfix: item picker and Tacz bulk-add now populate correctly on
-first open (Forge 1.20.1 creative tabs require an explicit build pass before
-`getDisplayItems()` returns anything).
+Version `0.2.54.3` — Two real PvP bugs fixed from deep audit: mid-round join
+correctness + scoreboard team sync after auto-balance.
+
+**v0.2.54.3 changes:**
+- Mid-round joiner is now added to `aliveThisRound` (Standard/CtP/KotH) so
+  round-end checks include them — they're no longer "invisible" to the win predicate.
+- Auto-balance now re-syncs Minecraft scoreboard team so nametag visibility
+  (HIDE_FOR_OTHER_TEAMS) reflects the player's new team immediately.
+
+**v0.2.54.2 changes:**
+- BBox + minimap settings now in PvP editor (Rules tab) — admins no longer have
+  to switch to PvE mode to configure tactical minimap.
+- Minimap auto-scales to `min(width, height) / 6` (clamped 72-160 px) for proper
+  proportions on every resolution / GUI scale combination.
+- 188 Ukrainian translations added — UA client UI is no longer "half English".
+- PvP `endRound` / `endPvpMatch` now log clear exit reasons + warning when
+  Standard mode has `totalRounds = 1` (kicks players out on first draw).
+
+**v0.2.54.1 hotfix:**
+- Tacz bulk-add — captures every NBT-distinct gun variant from creative tabs
+  (e.g. AK-47 + AK-47-with-scope + AK-47-with-suppressor become 3 separate
+  shop items). Was collapsing variants into 1 default per gunId.
+- Minimap player facing arrow now points in the correct direction (was rotated
+  by 90° due to a triple sign-inversion bug).
+
+**v0.2.54 changes:**
+- **Critical** — Adding 100+ Tacz guns at once no longer crashes the client.
+  Replaced the giant `UpdateLocationPacket` with chunked `BulkAddShopItemsPacket`
+  (25 items per network packet).
+- **New** — Per-location bbox (2 corner points) configured in the Special tab.
+- **New** — Tactical PvP minimap (96×96 px, bottom-left HUD) when bbox is set
+  and `minimapEnabled = true`. Shows teammates + your facing direction, no
+  enemy positions revealed.
+- Teammate positions now in the periodic SyncTeammates packet for live dots.
+
+**v0.2.53.7 changes:**
+- Hitbox renderer (F3+B) now suppressed in PvE too, not only PvP.
+- Teammate HUD HP bars now refresh once per second (was only on death / join / leave).
+- BR border damage no longer applies during the initial wait phase.
+- Admin shop editor gets a Tiles / List toggle — visual parity with PlayerShopScreen.
+
+**v0.2.53.6 hotfix:**
+- `checkRoundWinner()` no longer declares a winner when only one team is in the match —
+  prevents round-ends-instantly bug when both players land in the same team.
+- Empty spawn-point list or out-of-range index on PvP join no longer crashes — clean
+  rejection with a player-facing error message.
+- Yellow `⚠` warning broadcast at round start when only one team is represented, so
+  admins immediately spot configuration issues.
 
 **v0.2.53.5 hotfix:**
 - New `CreativeTabHelper` force-builds every creative tab before scanning, so the
@@ -125,7 +170,7 @@ Completed in this workspace:
 ## Installation
 
 1. Install Forge `1.20.1` (`47.2.0+` recommended).
-2. Copy the built `wavedefense-0.2.53.5.jar` into the `mods/` folder.
+2. Copy the built `wavedefense-0.2.55.jar` into the `mods/` folder.
 3. **Optional**: install Mine and Slash (`mmorpg` mod, v6.1.0+) to unlock per-location mob level / XP / resistance settings.
 4. Start the client or dedicated server.
 

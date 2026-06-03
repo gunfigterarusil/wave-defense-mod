@@ -10,14 +10,27 @@ import net.minecraft.world.item.ItemStack;
 
 public class StartingItemsScreen extends Screen {
     private final Screen parentScreen;
-    private final Location location;
+    /** v0.2.64: items source is a raw list reference, not necessarily Location.
+     *  Backwards-compat constructor still takes Location and delegates. */
+    private final java.util.List<ItemStack> items;
+    /** Optional title-bar suffix (e.g. team name). Empty for legacy Location usage. */
+    private final String titleSuffix;
     private int scrollOffset = 0;
     private static final int ITEMS_PER_PAGE = 8;
 
+    /** Legacy: edit the location-global starting items. */
     public StartingItemsScreen(Screen parentScreen, Location location) {
-        super(Component.translatable("wavedefense.title.starting_items"));
+        this(parentScreen, location.getStartingItems(), "");
+    }
+
+    /** v0.2.64: edit an arbitrary item list (e.g. per-team via PvpSpawnPoint). */
+    public StartingItemsScreen(Screen parentScreen, java.util.List<ItemStack> items, String titleSuffix) {
+        super(Component.translatable("wavedefense.title.starting_items")
+            .append(titleSuffix == null || titleSuffix.isEmpty()
+                ? Component.empty() : Component.literal(": " + titleSuffix)));
         this.parentScreen = parentScreen;
-        this.location = location;
+        this.items = items;
+        this.titleSuffix = titleSuffix == null ? "" : titleSuffix;
     }
 
     @Override
@@ -37,11 +50,11 @@ public class StartingItemsScreen extends Screen {
                 button -> addItem()
         ).bounds(centerX - 100, startY, 200, 20).build());
 
-        for (int i = 0; i < Math.min(ITEMS_PER_PAGE, location.getStartingItems().size()); i++) {
+        for (int i = 0; i < Math.min(ITEMS_PER_PAGE, items.size()); i++) {
             int index = i + scrollOffset;
-            if (index >= location.getStartingItems().size()) break;
+            if (index >= items.size()) break;
 
-            ItemStack item = location.getStartingItems().get(index);
+            ItemStack item = items.get(index);
             int yPos = startY + 30 + (i * 30);
 
             String itemName = item.getHoverName().getString();
@@ -61,7 +74,7 @@ public class StartingItemsScreen extends Screen {
             ).bounds(centerX + 85, yPos, 20, 20).build());
         }
 
-        if (location.getStartingItems().size() > ITEMS_PER_PAGE) {
+        if (items.size() > ITEMS_PER_PAGE) {
             this.addRenderableWidget(Button.builder(
                     Component.literal("▲"),
                     button -> scrollUp()
@@ -81,14 +94,14 @@ public class StartingItemsScreen extends Screen {
 
     private void addItem() {
         if (minecraft.player != null && !minecraft.player.getMainHandItem().isEmpty()) {
-            location.addStartingItem(minecraft.player.getMainHandItem().copy());
+            items.add(minecraft.player.getMainHandItem().copy());
             this.rebuildWidgets();
         }
     }
 
     private void removeItem(int index) {
-        if (index >= 0 && index < location.getStartingItems().size()) {
-            location.getStartingItems().remove(index);
+        if (index >= 0 && index < items.size()) {
+            items.remove(index);
             this.rebuildWidgets();
         }
     }
@@ -101,7 +114,7 @@ public class StartingItemsScreen extends Screen {
     }
 
     private void scrollDown() {
-        if (scrollOffset + ITEMS_PER_PAGE < location.getStartingItems().size()) {
+        if (scrollOffset + ITEMS_PER_PAGE < items.size()) {
             scrollOffset++;
             this.rebuildWidgets();
         }
@@ -119,10 +132,10 @@ public class StartingItemsScreen extends Screen {
 
         // Іконки предметів — у scissor-зоні
         ScissorHelper.enable(0, listTop, this.width, Math.max(1, listBot - listTop));
-        for (int i = 0; i < Math.min(ITEMS_PER_PAGE, location.getStartingItems().size()); i++) {
+        for (int i = 0; i < Math.min(ITEMS_PER_PAGE, items.size()); i++) {
             int index = i + scrollOffset;
-            if (index >= location.getStartingItems().size()) break;
-            ItemStack item = location.getStartingItems().get(index);
+            if (index >= items.size()) break;
+            ItemStack item = items.get(index);
             int yPos = startY + 30 + (i * 30);
             g.renderItem(item, cx - 145, yPos);
             g.renderItemDecorations(this.font, item, cx - 145, yPos);
@@ -144,10 +157,10 @@ public class StartingItemsScreen extends Screen {
         }
 
         // Tooltip (завжди поза scissor)
-        for (int i = 0; i < Math.min(ITEMS_PER_PAGE, location.getStartingItems().size()); i++) {
+        for (int i = 0; i < Math.min(ITEMS_PER_PAGE, items.size()); i++) {
             int index = i + scrollOffset;
-            if (index >= location.getStartingItems().size()) break;
-            ItemStack item = location.getStartingItems().get(index);
+            if (index >= items.size()) break;
+            ItemStack item = items.get(index);
             int yPos = startY + 30 + (i * 30);
             if (mouseX >= cx - 145 && mouseX <= cx - 145 + 16 && mouseY >= yPos && mouseY <= yPos + 16)
                 g.renderTooltip(this.font, item, mouseX, mouseY);

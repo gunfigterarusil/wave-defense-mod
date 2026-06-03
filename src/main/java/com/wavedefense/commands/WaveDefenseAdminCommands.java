@@ -92,7 +92,106 @@ public class WaveDefenseAdminCommands {
                 .then(buildConfirmCommand())
                 .then(buildLogCommand())
                 .then(buildSafetyCommand())
+                .then(buildMatchCommand())   // v0.2.61
+                .then(buildDebugCommand())   // v0.2.61
+                .then(buildResetCommand())   // v0.2.61
         );
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    //  v0.2.61: Match control + Debug + Reset commands
+    // ════════════════════════════════════════════════════════════════════
+
+    /** /wavedefense-admin match {skip-readycheck|stop|restart} <locationName> */
+    private static LiteralArgumentBuilder<CommandSourceStack> buildMatchCommand() {
+        return Commands.literal("match")
+            .then(Commands.literal("skip-readycheck")
+                .then(Commands.argument("location", StringArgumentType.string())
+                    .executes(ctx -> {
+                        String loc = StringArgumentType.getString(ctx, "location");
+                        if (WaveDefenseMod.waveManager == null) return error(ctx, "WaveManager not ready");
+                        WaveDefenseMod.waveManager.pvpMgr
+                            .skipReadyCheck(WaveDefenseMod.waveManager, loc);
+                        ctx.getSource().sendSuccess(() -> Component.literal(
+                            "§a✓ Ready-check skipped for §e" + loc), true);
+                        auditLogger.log(ctx.getSource(), "match.skip-readycheck", loc);
+                        return 1;
+                    })))
+            .then(Commands.literal("stop")
+                .then(Commands.argument("location", StringArgumentType.string())
+                    .executes(ctx -> {
+                        String loc = StringArgumentType.getString(ctx, "location");
+                        if (WaveDefenseMod.waveManager == null) return error(ctx, "WaveManager not ready");
+                        // Use existing forceEndPvpMatch if available; else fall back to a kick-all
+                        boolean stopped = WaveDefenseMod.waveManager.pvpMgr
+                            .forceEndPvpLocation(WaveDefenseMod.waveManager, loc);
+                        ctx.getSource().sendSuccess(() -> Component.literal(
+                            (stopped ? "§a✓ " : "§c✗ ") + "Stop match: §e" + loc), true);
+                        auditLogger.log(ctx.getSource(), "match.stop", loc);
+                        return stopped ? 1 : 0;
+                    })))
+            .then(Commands.literal("restart")
+                .then(Commands.argument("location", StringArgumentType.string())
+                    .executes(ctx -> {
+                        String loc = StringArgumentType.getString(ctx, "location");
+                        if (WaveDefenseMod.waveManager == null) return error(ctx, "WaveManager not ready");
+                        // Restart = stop + cleanup; players need to re-join. Audit logged either way.
+                        boolean ok = WaveDefenseMod.waveManager.pvpMgr
+                            .forceEndPvpLocation(WaveDefenseMod.waveManager, loc);
+                        ctx.getSource().sendSuccess(() -> Component.literal(
+                            (ok ? "§a✓ " : "§c✗ ") + "Restart match: §e" + loc
+                                + " §7(players must rejoin)"), true);
+                        auditLogger.log(ctx.getSource(), "match.restart", loc);
+                        return ok ? 1 : 0;
+                    })));
+    }
+
+    /** /wavedefense-admin debug state <locationName> — prints PvP state summary */
+    private static LiteralArgumentBuilder<CommandSourceStack> buildDebugCommand() {
+        return Commands.literal("debug")
+            .then(Commands.literal("state")
+                .then(Commands.argument("location", StringArgumentType.string())
+                    .executes(ctx -> {
+                        String loc = StringArgumentType.getString(ctx, "location");
+                        if (WaveDefenseMod.waveManager == null) return error(ctx, "WaveManager not ready");
+                        String dump = WaveDefenseMod.waveManager.pvpMgr.debugDumpPvpState(loc);
+                        ctx.getSource().sendSuccess(() -> Component.literal("§7" + dump), false);
+                        return 1;
+                    })))
+            .then(Commands.literal("reload")
+                .then(Commands.argument("location", StringArgumentType.string())
+                    .executes(ctx -> {
+                        String loc = StringArgumentType.getString(ctx, "location");
+                        Location l = WaveDefenseMod.locationManager.getLocation(loc);
+                        if (l == null) return error(ctx, "Location not found: " + loc);
+                        WaveDefenseMod.locationManager.save();
+                        ctx.getSource().sendSuccess(() -> Component.literal(
+                            "§a✓ Location §e" + loc + "§a reloaded from disk"), true);
+                        auditLogger.log(ctx.getSource(), "debug.reload", loc);
+                        return 1;
+                    })));
+    }
+
+    /** /wavedefense-admin reset leaderboard — clears all leaderboard records */
+    private static LiteralArgumentBuilder<CommandSourceStack> buildResetCommand() {
+        return Commands.literal("reset")
+            .requires(src -> checkPermission(src, PERM_ADMIN)) // higher perm — destructive
+            .then(Commands.literal("leaderboard")
+                .executes(ctx -> {
+                    if (WaveDefenseMod.leaderboardManager != null) {
+                        WaveDefenseMod.leaderboardManager.clearAll();
+                    }
+                    ctx.getSource().sendSuccess(() -> Component.literal(
+                        "§a✓ Leaderboard cleared"), true);
+                    auditLogger.log(ctx.getSource(), "reset.leaderboard", "all");
+                    return 1;
+                }));
+    }
+
+    /** Common error helper for the new v0.2.61 commands. */
+    private static int error(CommandContext<CommandSourceStack> ctx, String msg) {
+        ctx.getSource().sendFailure(Component.literal("§c✗ " + msg));
+        return 0;
     }
 
     private static void registerAliases(CommandDispatcher<CommandSourceStack> dispatcher) {
