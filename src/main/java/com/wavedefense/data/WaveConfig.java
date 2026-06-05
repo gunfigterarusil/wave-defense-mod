@@ -1,8 +1,8 @@
 package com.wavedefense.data;
 
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
+import net.minecraft.util.ResourceLocation;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,7 +44,7 @@ public class WaveConfig {
 
     // Dedicated mob spawn point for this wave (takes priority over location spawn points).
     // null = use location spawn points.
-    private net.minecraft.core.BlockPos waveSpawnPos = null;
+    private net.minecraft.util.math.BlockPos waveSpawnPos = null;
 
     // Only activate this wave starting from a specific wave number (0 = always)
     private int activateFromWave = 0;
@@ -84,7 +84,7 @@ public class WaveConfig {
 
     public String getCompletionCommand() { return completionCommand == null ? "" : completionCommand; }
     public void setCompletionCommand(String cmd) { this.completionCommand = cmd == null ? "" : cmd; }
-    public boolean hasCompletionCommand() { return completionCommand != null && !completionCommand.isBlank(); }
+    public boolean hasCompletionCommand() { return completionCommand != null && !completionCommand.trim().isEmpty(); }
 
     // ── Trigger getters/setters ──────────────────────────────────────
     public boolean isTriggerEnabled()            { return triggerEnabled; }
@@ -109,8 +109,8 @@ public class WaveConfig {
     public int  getCooldownValue()         { return cooldownValue; }
     public void setCooldownValue(int v)    { this.cooldownValue = Math.max(0, v); }
 
-    public net.minecraft.core.BlockPos getWaveSpawnPos() { return waveSpawnPos; }
-    public void setWaveSpawnPos(net.minecraft.core.BlockPos pos) { this.waveSpawnPos = pos; }
+    public net.minecraft.util.math.BlockPos getWaveSpawnPos() { return waveSpawnPos; }
+    public void setWaveSpawnPos(net.minecraft.util.math.BlockPos pos) { this.waveSpawnPos = pos; }
     public boolean hasWaveSpawnPos() { return waveSpawnPos != null; }
 
     public int  getActivateFromWave()      { return activateFromWave; }
@@ -121,16 +121,16 @@ public class WaveConfig {
     public boolean isFiredThisSession()      { return firedThisSession; }
     public void    setFiredThisSession(boolean v) { this.firedThisSession = v; }
 
-    public CompoundTag save() {
-        CompoundTag tag = new CompoundTag();
+    public CompoundNBT save() {
+        CompoundNBT tag = new CompoundNBT();
         tag.putInt("waveNumber", waveNumber);
         tag.putInt("timeBetweenWaves", timeBetweenWaves);
         tag.putInt("pointsReward", pointsReward);
         tag.putInt("waveEffectAmplifier", waveEffectAmplifier);
         if (waveEffect != null) tag.putString("waveEffect", waveEffect.toString());
-        if (!getCompletionCommand().isBlank()) tag.putString("completionCommand", completionCommand);
+        if (!getCompletionCommand().trim().isEmpty()) tag.putString("completionCommand", completionCommand);
 
-        ListTag mobsList = new ListTag();
+        ListNBT mobsList = new ListNBT();
         for (WaveMob mob : mobs) mobsList.add(mob.save());
         tag.put("mobs", mobsList);
 
@@ -148,9 +148,9 @@ public class WaveConfig {
         if (!triggerCustomItemId.isEmpty()) tag.putString("triggerCustomItemId", triggerCustomItemId);
         tag.putInt("triggerCustomValue", triggerCustomValue);
         if (!extraTriggers.isEmpty()) {
-            net.minecraft.nbt.ListTag etList = new net.minecraft.nbt.ListTag();
+            net.minecraft.nbt.ListNBT etList = new net.minecraft.nbt.ListNBT();
             for (WaveTrigger t : extraTriggers) {
-                net.minecraft.nbt.CompoundTag et = new net.minecraft.nbt.CompoundTag();
+                net.minecraft.nbt.CompoundNBT et = new net.minecraft.nbt.CompoundNBT();
                 et.putString("t", t.name());
                 etList.add(et);
             }
@@ -159,7 +159,7 @@ public class WaveConfig {
         return tag;
     }
 
-    public static WaveConfig load(CompoundTag tag) {
+    public static WaveConfig load(CompoundNBT tag) {
         WaveConfig config = new WaveConfig(
                 tag.getInt("waveNumber"),
                 tag.getInt("timeBetweenWaves")
@@ -172,7 +172,7 @@ public class WaveConfig {
         config.waveEffectAmplifier = tag.contains("waveEffectAmplifier") ? tag.getInt("waveEffectAmplifier") : 0;
         config.completionCommand = tag.contains("completionCommand") ? tag.getString("completionCommand") : "";
 
-        if (tag.contains("waveSpawnPos")) config.waveSpawnPos = net.minecraft.core.BlockPos.of(tag.getLong("waveSpawnPos"));
+        if (tag.contains("waveSpawnPos")) config.waveSpawnPos = net.minecraft.util.math.BlockPos.of(tag.getLong("waveSpawnPos"));
         config.activateFromWave = tag.contains("activateFromWave") ? tag.getInt("activateFromWave") : 0;
         config.oneTimeOnly = tag.contains("oneTimeOnly") && tag.getBoolean("oneTimeOnly");
 
@@ -185,14 +185,14 @@ public class WaveConfig {
         config.triggerCustomItemId = tag.contains("triggerCustomItemId") ? tag.getString("triggerCustomItemId") : "";
         config.triggerCustomValue  = tag.contains("triggerCustomValue")  ? tag.getInt("triggerCustomValue")  : 60;
         if (tag.contains("extraTriggers")) {
-            net.minecraft.nbt.ListTag etList = tag.getList("extraTriggers", 10);
+            net.minecraft.nbt.ListNBT etList = tag.getList("extraTriggers", 10);
             for (int i = 0; i < etList.size(); i++) {
                 try { config.extraTriggers.add(WaveTrigger.valueOf(etList.getCompound(i).getString("t"))); }
                 catch (Exception ignored) {}
             }
         }
 
-        ListTag mobsList = tag.getList("mobs", 10);
+        ListNBT mobsList = tag.getList("mobs", 10);
         for (int i = 0; i < mobsList.size(); i++) config.mobs.add(WaveMob.load(mobsList.getCompound(i)));
         return config;
     }

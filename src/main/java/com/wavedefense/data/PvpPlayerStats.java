@@ -1,6 +1,6 @@
 package com.wavedefense.data;
 
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.CompoundNBT;
 
 /**
  * Статистика гравця для PvP сесії: кіли, смерті, асисти.
@@ -42,8 +42,8 @@ public class PvpPlayerStats {
     //  Save/Load for backup system
     // ──────────────────────────────────────────────────────────────────────
 
-    public CompoundTag save() {
-        CompoundTag tag = new CompoundTag();
+    public CompoundNBT save() {
+        CompoundNBT tag = new CompoundNBT();
         tag.putString("playerName", playerName);
         tag.putString("teamName", teamName);
         tag.putInt("kills", kills);
@@ -52,7 +52,7 @@ public class PvpPlayerStats {
         return tag;
     }
 
-    public void load(CompoundTag tag) {
+    public void load(CompoundNBT tag) {
         playerName = tag.getString("playerName");
         teamName = tag.getString("teamName");
         kills = tag.getInt("kills");

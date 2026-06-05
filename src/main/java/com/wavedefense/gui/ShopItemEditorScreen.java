@@ -1,16 +1,19 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.data.Location;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.UpdateLocationPacket;
 import com.wavedefense.data.ShopItem;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.resources.language.I18n;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,8 +29,8 @@ public class ShopItemEditorScreen extends Screen {
     private final int itemIndex;
     private final Screen parent;
     private List<ItemStack> items = new ArrayList<>();
-    private EditBox buyPriceInput;
-    private EditBox sellPriceInput;
+    private TextFieldWidget buyPriceInput;
+    private TextFieldWidget sellPriceInput;
     private ShopItem.ShopCategory selectedCategory = ShopItem.ShopCategory.OTHER;
     private int scrollOffset = 0;
     private int contentHeight = 0;
@@ -36,7 +39,7 @@ public class ShopItemEditorScreen extends Screen {
     // Якщо не null — редагуємо товари точки магазину (не глобального списку)
     private final com.wavedefense.data.ShopPoint shopPoint;
 
-    // Буфери ціни — зберігаються між rebuildWidgets() щоб не губити введені значення
+    // Буфери ціни — зберігаються між init() щоб не губити введені значення
     private int pendingBuyPrice  = -1; // -1 = ще не ініціалізовано
     private int pendingSellPrice = -1;
     // Буфери кількостей предметів у кожному з 4 слотів (зберігаються між rebuildWidgets).
@@ -55,7 +58,7 @@ public class ShopItemEditorScreen extends Screen {
 
     // ── Конструктор для точки магазину ───────────────────────────────
     public ShopItemEditorScreen(Location location, com.wavedefense.data.ShopPoint shopPoint, int itemIndex, Screen parent) {
-        super(itemIndex >= 0 ? Component.translatable("wavedefense.title.edit_item") : Component.translatable("wavedefense.title.new_item"));
+        super(itemIndex >= 0 ? new TranslationTextComponent("wavedefense.title.edit_item") : new TranslationTextComponent("wavedefense.title.new_item"));
         this.location  = location;
         this.shopPoint = shopPoint;
         this.itemIndex = itemIndex;
@@ -82,10 +85,7 @@ public class ShopItemEditorScreen extends Screen {
         int cx = this.width / 2;
         int startY = 30 - scrollOffset;
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.предмети_товару_до_4_слотів_16b40145"),
-                button -> {}
-        ).bounds(cx - 155, startY, 220, 14).build()).active = false;
+        this.addButton(new Button(cx - 155, startY, 220, 14, new TranslationTextComponent("wavedefense.auto.предмети_товару_до_4_слотів_16b40145"), button -> {})).active = false;
 
         startY += 14;
 
@@ -114,49 +114,36 @@ public class ShopItemEditorScreen extends Screen {
                 : "§a✓ " + (curShopItem.getHoverName().getString().length() > 8
                     ? curShopItem.getHoverName().getString().substring(0, 7) + "…"
                     : curShopItem.getHoverName().getString());
-            this.addRenderableWidget(Button.builder(
-                    Component.literal(shopSlotLbl),
-                    button -> minecraft.setScreen(new ItemSelectionScreen(this, stack -> {
+            this.addButton(new Button(xPos, startY, dynSlotW, SLOT_H, new StringTextComponent(shopSlotLbl), button -> minecraft.setScreen(new ItemSelectionScreen(this, stack -> {
                         items.set(si, stack);
                         // Adopt the click-counted count from the picker so the per-slot
-                        // ×N EditBox below shows it. Picker guarantees count is in [1,64].
+                        // ×N TextFieldWidget below shows it. Picker guarantees count is in [1,64].
                         pendingCounts[si] = Math.max(1, Math.min(64, stack.getCount()));
-                        rebuildWidgets();
+                        init();
                     }, curShopItem.isEmpty()
                             ? curShopItem
-                            : withCount(curShopItem, Math.max(1, pendingCounts[si]))))
-            ).bounds(xPos, startY, dynSlotW, SLOT_H).build());
+                            : withCount(curShopItem, Math.max(1, pendingCounts[si]))))));
 
             // "З руки"
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("§7✋"),
-                    button -> {
+            this.addButton(new Button(xPos, startY + SLOT_H + 2, dynSlotW, SLOT_H, new StringTextComponent("§7✋"), button -> {
                         if (minecraft.player != null) {
-                            net.minecraft.world.item.ItemStack held = minecraft.player.getMainHandItem();
-                            if (!held.isEmpty()) { items.set(si, held.copy()); rebuildWidgets(); }
+                            net.minecraft.item.ItemStack held = minecraft.player.getMainHandItem();
+                            if (!held.isEmpty()) { items.set(si, held.copy()); init(); }
                         }
-                    }
-            ).bounds(xPos, startY + SLOT_H + 2, dynSlotW, SLOT_H).build()
-            ).setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                net.minecraft.network.chat.Component.translatable("wavedefense.auto.взяти_предмет_з_основної_руки_c2a7a392")));
+                    })
+            )/* setTooltip omitted on 1.16.5 */;
 
             // Очистити
-            this.addRenderableWidget(Button.builder(
-                    Component.translatable("wavedefense.button.clear_item"),
-                    button -> { items.set(si, ItemStack.EMPTY); pendingCounts[si] = 1; rebuildWidgets(); }
-            ).bounds(xPos, startY + (SLOT_H + 2) * 2, dynSlotW, SLOT_H).build());
+            this.addButton(new Button(xPos, startY + (SLOT_H + 2) * 2, dynSlotW, SLOT_H, new TranslationTextComponent("wavedefense.button.clear_item"), button -> { items.set(si, ItemStack.EMPTY); pendingCounts[si] = 1; init(); }));
 
             // ── Кількість предмета у слоті (×N) — buffer initialised above ──
             int countRowY = startY + (SLOT_H + 2) * 3;
             // Label "×" зліва (вузький)
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("§7×"),
-                    b -> {}
-            ).bounds(xPos, countRowY, 12, SLOT_H).build()).active = false;
-            // EditBox праворуч
-            EditBox countBox = new EditBox(this.font, xPos + 14, countRowY,
+            this.addButton(new Button(xPos, countRowY, 12, SLOT_H, new StringTextComponent("§7×"), b -> {})).active = false;
+            // TextFieldWidget праворуч
+            TextFieldWidget countBox = new TextFieldWidget(this.font, xPos + 14, countRowY,
                     Math.max(20, dynSlotW - 14), SLOT_H,
-                    Component.translatable("wavedefense.shop.item_count"));
+                    new TranslationTextComponent("wavedefense.shop.item_count"));
             countBox.setMaxLength(2);
             countBox.setValue(String.valueOf(pendingCounts[si]));
             countBox.setResponder(s -> {
@@ -165,9 +152,8 @@ public class ShopItemEditorScreen extends Screen {
                     pendingCounts[si] = Math.max(1, Math.min(64, v));
                 } catch (NumberFormatException ignored) {}
             });
-            this.addRenderableWidget(countBox)
-                .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                    net.minecraft.network.chat.Component.translatable("wavedefense.shop.item_count")));
+            this.addButton(countBox)
+                /* setTooltip omitted on 1.16.5 */;
         }
 
         startY += (SLOT_H + 2) * 3 + SLOT_H + 6;
@@ -176,10 +162,7 @@ public class ShopItemEditorScreen extends Screen {
         int fieldW = 80;
         int fieldX = cx + 10;
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.ціна_купівлі_поінти_c0c2e7a9"),
-                button -> {}
-        ).bounds(cx - 155, startY, labelW, 18).build()).active = false;
+        this.addButton(new Button(cx - 155, startY, labelW, 18, new TranslationTextComponent("wavedefense.auto.ціна_купівлі_поінти_c0c2e7a9"), button -> {})).active = false;
 
         // Ініціалізувати буфери лише один раз (при першому init())
         if (pendingBuyPrice < 0) {
@@ -191,46 +174,38 @@ public class ShopItemEditorScreen extends Screen {
                 ? getSourceList().get(itemIndex).getSellPrice() : 0;
         }
 
-        buyPriceInput = new EditBox(this.font, fieldX, startY, fieldW, 20, Component.translatable("wavedefense.auto.ціна_купівлі_31506e84"));
+        buyPriceInput = new TextFieldWidget(this.font, fieldX, startY, fieldW, 20, new TranslationTextComponent("wavedefense.auto.ціна_купівлі_31506e84"));
         buyPriceInput.setValue(String.valueOf(pendingBuyPrice));
         buyPriceInput.setResponder(s -> {
             try { pendingBuyPrice = Integer.parseInt(s.trim()); }
             catch (NumberFormatException ignored) {}
         });
-        this.addRenderableWidget(buyPriceInput);
+        this.addButton(buyPriceInput);
 
         startY += 26;
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.ціна_продажу_0_без_продажу_b229a3b3"),
-                button -> {}
-        ).bounds(cx - 155, startY, 280, 18).build()).active = false;
+        this.addButton(new Button(cx - 155, startY, 280, 18, new TranslationTextComponent("wavedefense.auto.ціна_продажу_0_без_продажу_b229a3b3"), button -> {})).active = false;
 
         startY += 20;
 
-        sellPriceInput = new EditBox(this.font, cx - 155, startY, fieldW, 20, Component.translatable("wavedefense.auto.ціна_продажу_27f60154"));
+        sellPriceInput = new TextFieldWidget(this.font, cx - 155, startY, fieldW, 20, new TranslationTextComponent("wavedefense.auto.ціна_продажу_27f60154"));
         sellPriceInput.setValue(String.valueOf(pendingSellPrice));
         sellPriceInput.setResponder(s -> {
             try { pendingSellPrice = Integer.parseInt(s.trim()); }
             catch (NumberFormatException ignored) {}
         });
-        this.addRenderableWidget(sellPriceInput);
+        this.addButton(sellPriceInput);
 
         // Категорія
         startY += 26;
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.категорія_товару_0d0ab0fe"), button -> {}
-        ).bounds(cx - 155, startY, 140, 18).build()).active = false;
+        this.addButton(new Button(cx - 155, startY, 140, 18, new TranslationTextComponent("wavedefense.auto.категорія_товару_0d0ab0fe"), button -> {})).active = false;
         ShopItem.ShopCategory[] cats = ShopItem.ShopCategory.values();
         int catX = cx - 155;
         for (ShopItem.ShopCategory cat : cats) {
             if (cat == ShopItem.ShopCategory.ALL) continue;
             String lbl = (cat == selectedCategory ? "§e" : "§7") + I18n.get(cat.label);
             final ShopItem.ShopCategory fc = cat;
-            this.addRenderableWidget(Button.builder(
-                Component.literal(lbl),
-                b -> { selectedCategory = fc; rebuildWidgets(); }
-            ).bounds(catX, startY + 20, 58, 16).build());
+            this.addButton(new Button(catX, startY + 20, 58, 16, new StringTextComponent(lbl), b -> { selectedCategory = fc; init(); }));
             catX += 62;
         }
         startY += 40; // label(18) + gap(2) + buttons(16) + gap(4)
@@ -238,27 +213,21 @@ public class ShopItemEditorScreen extends Screen {
         // ── NBT-перевірка при продажу ───────────────────────────────────
         boolean requireNbt = (itemIndex >= 0 && itemIndex < getSourceList().size())
             ? getSourceList().get(itemIndex).isRequireNbtMatch() : false;
-        this.addRenderableWidget(Button.builder(
-            ((requireNbt) ? Component.translatable("wavedefense.auto.перевіряти_nbt_при_продажу_7fcb81ad") : Component.translatable("wavedefense.auto.перевіряти_nbt_при_продажу_58fb4deb")),
-            b -> {
+        this.addButton(new Button(cx - 155, startY, 200, 16, ((requireNbt) ? new TranslationTextComponent("wavedefense.auto.перевіряти_nbt_при_продажу_7fcb81ad") : new TranslationTextComponent("wavedefense.auto.перевіряти_nbt_при_продажу_58fb4deb")), b -> {
                 if (itemIndex >= 0 && itemIndex < getSourceList().size()) {
                     getSourceList().get(itemIndex).setRequireNbtMatch(!getSourceList().get(itemIndex).isRequireNbtMatch());
-                    rebuildWidgets();
+                    init();
                 }
-            }
-        ).bounds(cx - 155, startY, 200, 16).build())
-        .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-            net.minecraft.network.chat.Component.translatable("wavedefense.auto.продаж_можливий_лише_якщо_предме_d795cdea")));
+            }))
+        /* setTooltip omitted on 1.16.5 */;
 
         if (requireNbt) {
             startY += 20;
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.snbt_рядок_наприклад_display_nam_b6d8c691"), b -> {}
-            ).bounds(cx - 155, startY, 310, 14).build()).active = false;
+            this.addButton(new Button(cx - 155, startY, 310, 14, new TranslationTextComponent("wavedefense.auto.snbt_рядок_наприклад_display_nam_b6d8c691"), b -> {})).active = false;
             startY += 16;
             String curNbt = (itemIndex >= 0 && itemIndex < getSourceList().size())
                 ? getSourceList().get(itemIndex).getNbtRequiredTag() : "";
-            EditBox nbtInput = new EditBox(this.font, cx - 155, startY, 310, 16, Component.translatable("wavedefense.auto.nbt_ab2a3c11"));
+            TextFieldWidget nbtInput = new TextFieldWidget(this.font, cx - 155, startY, 310, 16, new TranslationTextComponent("wavedefense.auto.nbt_ab2a3c11"));
             nbtInput.setMaxLength(512);
             nbtInput.setValue(curNbt);
             final int fi = itemIndex;
@@ -266,11 +235,9 @@ public class ShopItemEditorScreen extends Screen {
                 if (fi >= 0 && fi < getSourceList().size())
                     getSourceList().get(fi).setNbtRequiredTag(s);
             });
-            this.addRenderableWidget(nbtInput);
+            this.addButton(nbtInput);
             startY += 18;
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.ℹ_часткова_відповідність_всі_вка_acbfc949"), b -> {}
-            ).bounds(cx - 155, startY, 310, 11).build()).active = false;
+            this.addButton(new Button(cx - 155, startY, 310, 11, new TranslationTextComponent("wavedefense.auto.ℹ_часткова_відповідність_всі_вка_acbfc949"), b -> {})).active = false;
             startY += 14;
         } else {
             startY += 20;
@@ -283,28 +250,21 @@ public class ShopItemEditorScreen extends Screen {
         String avTrigLbl = avTrig == null
                 ? "§7☐ " + I18n.get("wavedefense.shop.availability.always_label")
                 : "§a☑ " + I18n.get("wavedefense.shop.availability.trigger_prefix") + " §e" + I18n.get(avTrig.label);
-        this.addRenderableWidget(Button.builder(
-                Component.literal(avTrigLbl.length() > 42 ? avTrigLbl.substring(0, 40) + "…" : avTrigLbl),
-                b -> this.minecraft.setScreen(new ShopAvailabilityScreen(this, location, shopPoint, itemIndex))
-        ).bounds(cx - 155, startY, 310, 16).build());
+        this.addButton(new Button(cx - 155, startY, 310, 16, new StringTextComponent(avTrigLbl.length() > 42 ? avTrigLbl.substring(0, 40) + "…" : avTrigLbl), b -> this.minecraft.setScreen(new ShopAvailabilityScreen(this, location, shopPoint, itemIndex))));
         startY += 22;
 
         contentHeight = startY + scrollOffset + 4;
         int maxScroll = getMaxScroll();
         if (scrollOffset > maxScroll) {
             scrollOffset = maxScroll;
-            rebuildWidgets();
+            init();
             return;
         }
 
         // Зберегти / Скасувати — завжди видимі внизу (поза scissor)
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.save"), button -> save()
-        ).bounds(cx - 110, this.height - 28, 100, 20).build());
+        this.addButton(new Button(cx - 110, this.height - 28, 100, 20, new TranslationTextComponent("wavedefense.button.save"), button -> save()));
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.cancel"), button -> this.minecraft.setScreen(parent)
-        ).bounds(cx + 10, this.height - 28, 100, 20).build());
+        this.addButton(new Button(cx + 10, this.height - 28, 100, 20, new TranslationTextComponent("wavedefense.button.cancel"), button -> this.minecraft.setScreen(parent)));
     }
 
     /** Returns a copy of {@code st} with count set (≥1). */
@@ -322,12 +282,12 @@ public class ShopItemEditorScreen extends Screen {
                 st.setCount(Math.min(64, pendingCounts[i]));
             }
         }
-        List<ItemStack> finalItems = items.stream().filter(i -> !i.isEmpty()).collect(Collectors.toList());
+        List<ItemStack> finalItems = items.stream().filter(i -> !i.isEmpty()).collect(java.util.stream.Collectors.toList());
         if (finalItems.isEmpty()) {
             // В2: show error instead of silently ignoring the save
             if (this.minecraft != null && this.minecraft.player != null) {
                 this.minecraft.player.displayClientMessage(
-                    net.minecraft.network.chat.Component.translatable("wavedefense.shop.error_no_items"), true);
+                    new net.minecraft.util.text.TranslationTextComponent("wavedefense.shop.error_no_items"), true);
             }
             return;
         }
@@ -383,7 +343,7 @@ public class ShopItemEditorScreen extends Screen {
         if (delta > 0) scrollOffset = Math.max(0, scrollOffset - step);
         else scrollOffset = Math.min(getMaxScroll(), scrollOffset + step);
         if (oldOffset != scrollOffset) {
-            rebuildWidgets();
+            init();
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, delta);
@@ -392,23 +352,27 @@ public class ShopItemEditorScreen extends Screen {
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
         int clipBot = getClipBottom();
-        for (var child : this.children()) {
-            if (child instanceof net.minecraft.client.gui.components.AbstractWidget w && w.getY() >= clipBot) {
-                if (child.mouseClicked(mx, my, button)) {
-                    this.setFocused(child);
-                    if (button == 0) this.setDragging(true);
-                    return true;
+        for (Object child : this.children()) {
+            if (child instanceof net.minecraft.client.gui.widget.Widget) {
+                net.minecraft.client.gui.widget.Widget w = (net.minecraft.client.gui.widget.Widget) child;
+                if (w.y >= clipBot) {
+                    if (((net.minecraft.client.gui.IGuiEventListener) child).mouseClicked(mx, my, button)) {
+                        this.setFocused((net.minecraft.client.gui.IGuiEventListener) child);
+                        if (button == 0) this.setDragging(true);
+                        return true;
+                    }
                 }
             }
         }
         if (my < CLIP_TOP || my > clipBot) return false;
-        for (var child : this.children()) {
-            if (child instanceof net.minecraft.client.gui.components.AbstractWidget w) {
-                if (w.getY() >= clipBot) continue;
-                if (w.getY() + w.getHeight() <= CLIP_TOP || w.getY() >= clipBot) continue;
+        for (Object child : this.children()) {
+            if (child instanceof net.minecraft.client.gui.widget.Widget) {
+                net.minecraft.client.gui.widget.Widget w = (net.minecraft.client.gui.widget.Widget) child;
+                if (w.y >= clipBot) continue;
+                if (w.y + w.getHeight() <= CLIP_TOP || w.y >= clipBot) continue;
             }
-            if (child.mouseClicked(mx, my, button)) {
-                this.setFocused(child);
+            if (((net.minecraft.client.gui.IGuiEventListener) child).mouseClicked(mx, my, button)) {
+                this.setFocused((net.minecraft.client.gui.IGuiEventListener) child);
                 if (button == 0) this.setDragging(true);
                 return true;
             }
@@ -417,23 +381,26 @@ public class ShopItemEditorScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(MatrixStack g, int mouseX, int mouseY, float partialTick) {
         GuiTheme.renderBackground(g, this.width, this.height);
-        g.drawCenteredString(this.font, this.title, this.width / 2, 10, GuiTheme.TEXT);
-        g.fill(this.width / 2 - 42, 21, this.width / 2 + 42, 22, GuiTheme.ACCENT);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, this.title, this.width / 2, 10, GuiTheme.TEXT);
+        com.wavedefense.gui.GuiCompat.fill(g, this.width / 2 - 42, 21, this.width / 2 + 42, 22, GuiTheme.ACCENT);
 
         // Scissor: вміст між заголовком (26) і нижніми кнопками (height-28)
         int clipBot = this.height - 28;
         GuiTheme.renderContentFrame(g, 8, CLIP_TOP - 4, this.width - 8, clipBot + 4);
         ScissorHelper.enable(0, CLIP_TOP, this.width, Math.max(1, clipBot - CLIP_TOP));
         super.render(g, mouseX, mouseY, partialTick);
-        g.flush();
+        com.wavedefense.gui.GuiCompat.flush(g);
         ScissorHelper.disable();
 
         // Re-render нижні кнопки поверх scissor
-        for (var r : this.renderables) {
-            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w && w.getY() >= clipBot) {
-                w.render(g, mouseX, mouseY, partialTick);
+        for (Object r : this.buttons) {
+            if (r instanceof net.minecraft.client.gui.widget.Widget) {
+                net.minecraft.client.gui.widget.Widget w = (net.minecraft.client.gui.widget.Widget) r;
+                if (w.y >= clipBot) {
+                    w.render(g, mouseX, mouseY, partialTick);
+                }
             }
         }
 
@@ -450,18 +417,18 @@ public class ShopItemEditorScreen extends Screen {
             int xPos = slotsLeft + i * (dynSlotW2 + SLOT_GAP);
             ItemStack item = items.get(i);
             int iconX = xPos + (dynSlotW2 - 16) / 2;
-            g.fill(iconX - 1, iconY - 1, iconX + 17, iconY + 17, GuiTheme.BORDER);
-            g.fill(iconX,     iconY,     iconX + 16, iconY + 16, GuiTheme.PANEL_DARK);
-            g.renderItem(item, iconX, iconY);
-            g.renderItemDecorations(this.font, item, iconX, iconY);
+            com.wavedefense.gui.GuiCompat.fill(g, iconX - 1, iconY - 1, iconX + 17, iconY + 17, GuiTheme.BORDER);
+            com.wavedefense.gui.GuiCompat.fill(g, iconX,     iconY,     iconX + 16, iconY + 16, GuiTheme.PANEL_DARK);
+            com.wavedefense.gui.GuiCompat.renderItem(g, item, iconX, iconY);
+            com.wavedefense.gui.GuiCompat.renderItemDecorations(g, this.font, item, iconX, iconY);
             if (!item.isEmpty() && mouseY >= CLIP_TOP && mouseY <= clipBot
                     && mouseX >= iconX && mouseX <= iconX + 16 && mouseY >= iconY && mouseY <= iconY + 16) {
                 tooltipItem = item;
             }
         }
-        g.flush();
+        com.wavedefense.gui.GuiCompat.flush(g);
         ScissorHelper.disable();
-        if (tooltipItem != null) g.renderTooltip(this.font, tooltipItem, mouseX, mouseY);
+        if (tooltipItem != null) com.wavedefense.gui.GuiCompat.renderTooltip(this, g, this.font, tooltipItem, mouseX, mouseY);
     }
 
     @Override

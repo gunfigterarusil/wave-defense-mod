@@ -1,16 +1,19 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.data.Location;
 import com.wavedefense.data.ShopItem;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.PurchaseItemPacket;
 import com.wavedefense.network.packets.SellItemPacket;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.resources.language.I18n;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.resources.I18n;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -38,7 +41,7 @@ public class PlayerShopScreen extends ScrollableScreen {
     }
 
     public PlayerShopScreen(Location location, com.wavedefense.data.ShopPoint shopPoint) {
-        super(Component.translatable("wavedefense.label.shop_title",
+        super(new TranslationTextComponent("wavedefense.label.shop_title",
                 shopPoint != null ? shopPoint.getName() : location.getName()));
         this.location = location;
         this.shopPoint = shopPoint;
@@ -90,12 +93,12 @@ public class PlayerShopScreen extends ScrollableScreen {
                 if (s.getAvailabilityItemId() != null && !s.getAvailabilityItemId().isEmpty()
                         && Minecraft.getInstance().player != null) {
                     try {
-                        net.minecraft.resources.ResourceLocation rl =
-                                new net.minecraft.resources.ResourceLocation(s.getAvailabilityItemId());
-                        net.minecraft.world.item.Item reqItem =
+                        net.minecraft.util.ResourceLocation rl =
+                                new net.minecraft.util.ResourceLocation(s.getAvailabilityItemId());
+                        net.minecraft.item.Item reqItem =
                                 net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(rl);
                         if (reqItem != null) {
-                            return Minecraft.getInstance().player.getInventory().hasAnyMatching(
+                            return Minecraft.getInstance().player.inventory.items.stream().anyMatch(
                                     st -> st.getItem() == reqItem);
                         }
                     } catch (Exception ignored) {}
@@ -120,10 +123,10 @@ public class PlayerShopScreen extends ScrollableScreen {
 
     private boolean canPlayerSell(ShopItem shopItem) {
         if (minecraft.player == null) return false;
-        Map<net.minecraft.world.item.Item, Integer> req = new HashMap<>();
+        Map<net.minecraft.item.Item, Integer> req = new HashMap<>();
         for (ItemStack s : shopItem.getItems()) req.merge(s.getItem(), s.getCount(), Integer::sum);
-        for (Map.Entry<net.minecraft.world.item.Item, Integer> e : req.entrySet()) {
-            if (minecraft.player.getInventory().countItem(e.getKey()) < e.getValue()) return false;
+        for (Map.Entry<net.minecraft.item.Item, Integer> e : req.entrySet()) {
+            if (minecraft.player.inventory.countItem(e.getKey()) < e.getValue()) return false;
         }
         return true;
     }
@@ -137,10 +140,7 @@ public class PlayerShopScreen extends ScrollableScreen {
         int top = 42;
         int itemsPerPage = getItemsPerPage();
 
-        addStatic(Button.builder(
-                Component.translatable(tileMode ? "wavedefense.shop.view_tiles" : "wavedefense.shop.view_list"),
-                b -> { tileMode = !tileMode; scrollOffset = 0; rebuildWidgets(); }
-        ).bounds(Math.max(8, this.width - 86), 18, 76, 16).build());
+        addStatic(new Button(Math.max(8, this.width - 86), 18, 76, 16, new TranslationTextComponent(tileMode ? "wavedefense.shop.view_tiles" : "wavedefense.shop.view_list"), b -> { tileMode = !tileMode; scrollOffset = 0; init(); }));
 
         ShopItem.ShopCategory[] cats = ShopItem.ShopCategory.values();
         int gap = 2;
@@ -150,12 +150,9 @@ public class PlayerShopScreen extends ScrollableScreen {
         for (int i = 0; i < cats.length; i++) {
             final ShopItem.ShopCategory cat = cats[i];
             int bx = startCatX + i * (catW + gap);
-            Component label = Component.literal(cat == activeCategory ? "§e§l" : "§7")
-                    .append(Component.translatable(categoryKey(cat)));
-            addStatic(Button.builder(
-                    label,
-                    b -> { activeCategory = cat; rebuildFilter(); rebuildWidgets(); }
-            ).bounds(bx, top, catW, 16).build());
+            ITextComponent label = new StringTextComponent(cat == activeCategory ? "§e§l" : "§7")
+                    .append(new TranslationTextComponent(categoryKey(cat)));
+            addStatic(new Button(bx, top, catW, 16, label, b -> { activeCategory = cat; rebuildFilter(); init(); }));
         }
 
         int startY = top + 22;
@@ -164,23 +161,17 @@ public class PlayerShopScreen extends ScrollableScreen {
 
         int scrollRight = tileMode ? this.width - 24 : cx + 225;
         if (scrollOffset > 0) {
-            addStatic(Button.builder(Component.literal("▲"),
-                    b -> { scrollOffset = Math.max(0, scrollOffset - 1); rebuildWidgets(); }
-            ).bounds(scrollRight, startY, 18, 18).build());
+            addStatic(new Button(scrollRight, startY, 18, 18, new StringTextComponent("▲"), b -> { scrollOffset = Math.max(0, scrollOffset - 1); init(); }));
         }
         if (filteredIndices.size() > scrollOffset + itemsPerPage) {
             int stepH = tileMode ? TILE_H : ROW_H;
             int visibleRows = tileMode
                     ? Math.max(1, (itemsPerPage + getTileCols() - 1) / getTileCols())
                     : itemsPerPage;
-            addStatic(Button.builder(Component.literal("▼"),
-                    b -> { scrollOffset = Math.min(Math.max(0, filteredIndices.size() - itemsPerPage), scrollOffset + 1); rebuildWidgets(); }
-            ).bounds(scrollRight, startY + (visibleRows - 1) * stepH, 18, 18).build());
+            addStatic(new Button(scrollRight, startY + (visibleRows - 1) * stepH, 18, 18, new StringTextComponent("▼"), b -> { scrollOffset = Math.min(Math.max(0, filteredIndices.size() - itemsPerPage), scrollOffset + 1); init(); }));
         }
 
-        addStatic(Button.builder(Component.translatable("wavedefense.button.close"),
-                b -> this.onClose()
-        ).bounds(cx - 40, this.height - 26, 80, 18).build());
+        addStatic(new Button(cx - 40, this.height - 26, 80, 18, new TranslationTextComponent("wavedefense.button.close"), b -> this.onClose()));
     }
 
     private void buildListButtons(int cx, int startY, int itemsPerPage) {
@@ -214,9 +205,7 @@ public class PlayerShopScreen extends ScrollableScreen {
     }
 
     private void addBuyButton(ShopItem shopItem, int realIndex, int x, int y, int w, int h) {
-        Button buyBtn = Button.builder(
-                Component.translatable("wavedefense.shop.buy_price", shopItem.getBuyPrice()),
-                b -> {
+        Button buyBtn = new Button(x, y, w, h, new TranslationTextComponent("wavedefense.shop.buy_price", shopItem.getBuyPrice()), b -> {
                     int spIdx = -1;
                     if (shopPoint != null) {
                         List<com.wavedefense.data.ShopPoint> pts = location.getShopPoints();
@@ -228,11 +217,10 @@ public class PlayerShopScreen extends ScrollableScreen {
                     // С5: optimistically deduct cost so button states are correct before server confirms
                     playerPoints = Math.max(0, playerPoints - shopItem.getBuyPrice());
                     rebuildFilter();
-                    rebuildWidgets();
-                }
-        ).bounds(x, y, w, h).build();
+                    init();
+                });
         buyBtn.active = playerPoints >= shopItem.getBuyPrice();
-        this.addRenderableWidget(buyBtn);
+        this.addButton(buyBtn);
     }
 
     private void addSellButton(ShopItem shopItem, int realIndex, int x, int y, int w, int h) {
@@ -245,38 +233,35 @@ public class PlayerShopScreen extends ScrollableScreen {
             }
         }
         final int resolvedSpIdx = spIdx;
-        Button sellBtn = Button.builder(
-                Component.translatable("wavedefense.shop.sell_price", shopItem.getSellPrice()),
-                b -> {
+        Button sellBtn = new Button(x, y, w, h, new TranslationTextComponent("wavedefense.shop.sell_price", shopItem.getSellPrice()), b -> {
                     PacketHandler.sendToServer(new SellItemPacket(location.getName(), resolvedSpIdx, realIndex));
                     updatePlayerPoints();
                     rebuildFilter();
-                    rebuildWidgets();
-                }
-        ).bounds(x, y, w, h).build();
+                    init();
+                });
         sellBtn.active = canPlayerSell(shopItem);
-        this.addRenderableWidget(sellBtn);
+        this.addButton(sellBtn);
     }
 
     @Override
-    protected void renderHeader(GuiGraphics g, int mx, int my, float pt) {
+    protected void renderHeader(MatrixStack g, int mx, int my, float pt) {
         int cx = this.width / 2;
-        g.drawCenteredString(this.font,
-                Component.literal("§6§l").append(Component.translatable("wavedefense.shop.header", location.getName())),
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font,
+                new StringTextComponent("§6§l").append(new TranslationTextComponent("wavedefense.shop.header", location.getName())),
                 cx, 8, 0xFFFFFF);
-        Component summary = currentWave > 0
-                ? Component.translatable("wavedefense.shop.summary_wave", playerPoints, filteredIndices.size(), currentWave)
-                : Component.translatable("wavedefense.shop.summary", playerPoints, filteredIndices.size());
-        g.drawCenteredString(this.font, Component.literal("§e").append(summary), cx, 20, 0xFFFFFF);
+        ITextComponent summary = currentWave > 0
+                ? new TranslationTextComponent("wavedefense.shop.summary_wave", playerPoints, filteredIndices.size(), currentWave)
+                : new TranslationTextComponent("wavedefense.shop.summary", playerPoints, filteredIndices.size());
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, new StringTextComponent("§e").append(summary), cx, 20, 0xFFFFFF);
     }
 
     @Override
-    protected void renderContentExtra(GuiGraphics g, int mx, int my, float pt) {
+    protected void renderContentExtra(MatrixStack g, int mx, int my, float pt) {
         if (tileMode) renderTiles(g, mx, my);
         else renderList(g, mx, my);
     }
 
-    private void renderList(GuiGraphics g, int mx, int my) {
+    private void renderList(MatrixStack g, int mx, int my) {
         int cx = this.width / 2;
         int startY = 64;
         int itemsPerPage = getItemsPerPage();
@@ -288,7 +273,7 @@ public class PlayerShopScreen extends ScrollableScreen {
             ShopItem shopItem = getShopItemList().get(realIndex);
             int yPos = startY + i * ROW_H;
 
-            g.fill(cx - 230, yPos, cx + 228, yPos + ROW_H - 2, i % 2 == 0 ? 0x22FFFFFF : 0x11FFFFFF);
+            com.wavedefense.gui.GuiCompat.fill(g, cx - 230, yPos, cx + 228, yPos + ROW_H - 2, i % 2 == 0 ? 0x22FFFFFF : 0x11FFFFFF);
 
             List<ItemStack> items = shopItem.getItems();
             int iconBaseX = cx - 225;
@@ -304,18 +289,18 @@ public class PlayerShopScreen extends ScrollableScreen {
 
             int textX = iconBaseX + 86;
             String name = getDisplayName(shopItem, 16);
-            g.drawString(this.font, "§f§l" + name, textX, yPos + 4, 0xFFFFFF);
-            g.drawString(this.font,
-                    Component.literal("\u00A78[").append(Component.translatable(categoryKey(shopItem.getCategory()))).append("\u00A78]"),
+            com.wavedefense.gui.GuiCompat.drawString(g, this.font, "§f§l" + name, textX, yPos + 4, 0xFFFFFF);
+            com.wavedefense.gui.GuiCompat.drawString(g, this.font,
+                    new StringTextComponent("\u00A78[").append(new TranslationTextComponent(categoryKey(shopItem.getCategory()))).append("\u00A78]"),
                     textX, yPos + 14, 0xAAAAAA);
             if (shopItem.hasAvailabilityTrigger()) {
-                g.drawString(this.font, "§8" + I18n.get(shopItem.getAvailabilityTrigger().label), textX, yPos + 24, 0xAAAAAA);
+                com.wavedefense.gui.GuiCompat.drawString(g, this.font, "§8" + I18n.get(shopItem.getAvailabilityTrigger().label), textX, yPos + 24, 0xAAAAAA);
             }
             renderTooltipIfNeeded(g, tooltipItem, mx, my);
         }
     }
 
-    private void renderTiles(GuiGraphics g, int mx, int my) {
+    private void renderTiles(MatrixStack g, int mx, int my) {
         int startY = 64;
         int itemsPerPage = getItemsPerPage();
         int cols = getTileCols();
@@ -334,8 +319,8 @@ public class PlayerShopScreen extends ScrollableScreen {
             int y = startY + row * TILE_H;
 
             boolean affordable = playerPoints >= shopItem.getBuyPrice();
-            g.fill(x, y, x + TILE_W, y + TILE_H - 2, affordable ? 0x22335533 : 0x22222222);
-            g.fill(x, y, x + TILE_W, y + 1, affordable ? 0x8855AA55 : 0x88666666);
+            com.wavedefense.gui.GuiCompat.fill(g, x, y, x + TILE_W, y + TILE_H - 2, affordable ? 0x22335533 : 0x22222222);
+            com.wavedefense.gui.GuiCompat.fill(g, x, y, x + TILE_W, y + 1, affordable ? 0x8855AA55 : 0x88666666);
 
             List<ItemStack> stacks = shopItem.getItems();
             ItemStack first = stacks.isEmpty() ? ItemStack.EMPTY : stacks.get(0);
@@ -346,9 +331,9 @@ public class PlayerShopScreen extends ScrollableScreen {
                 tooltipItem = first;
             }
 
-            g.drawString(this.font, getDisplayName(shopItem, 15), x + 6, y + 28, 0xFFFFFF);
-            g.drawString(this.font, Component.translatable(categoryKey(shopItem.getCategory())), x + 6, y + 38, 0xAAAAAA);
-            if (stacks.size() > 1) g.drawString(this.font, "x" + stacks.size(), x + TILE_W - 18, y + 8, 0xFFE680);
+            com.wavedefense.gui.GuiCompat.drawString(g, this.font, getDisplayName(shopItem, 15), x + 6, y + 28, 0xFFFFFF);
+            com.wavedefense.gui.GuiCompat.drawString(g, this.font, new TranslationTextComponent(categoryKey(shopItem.getCategory())), x + 6, y + 38, 0xAAAAAA);
+            if (stacks.size() > 1) com.wavedefense.gui.GuiCompat.drawString(g, this.font, "x" + stacks.size(), x + TILE_W - 18, y + 8, 0xFFE680);
         }
 
         renderTooltipIfNeeded(g, tooltipItem, mx, my);
@@ -357,35 +342,36 @@ public class PlayerShopScreen extends ScrollableScreen {
     private String getDisplayName(ShopItem shopItem, int maxLen) {
         List<ItemStack> stacks = shopItem.getItems();
         String name = stacks.isEmpty()
-                ? Component.translatable("wavedefense.shop.default_item").getString()
+                ? new TranslationTextComponent("wavedefense.shop.default_item").getString()
                 : stacks.get(0).getHoverName().getString();
         if (name.length() > maxLen) name = name.substring(0, Math.max(1, maxLen - 3)) + "...";
         if (stacks.size() > 1) name += " x" + stacks.size();
         return name;
     }
 
-    private void renderSlot(GuiGraphics g, ItemStack stack, int x, int y) {
-        g.fill(x - 1, y - 1, x + 17, y + 17, 0xFF555555);
-        g.fill(x, y, x + 16, y + 16, 0xFF2A2A2A);
-        g.renderItem(stack, x, y);
-        g.renderItemDecorations(this.font, stack, x, y);
+    private void renderSlot(MatrixStack g, ItemStack stack, int x, int y) {
+        com.wavedefense.gui.GuiCompat.fill(g, x - 1, y - 1, x + 17, y + 17, 0xFF555555);
+        com.wavedefense.gui.GuiCompat.fill(g, x, y, x + 16, y + 16, 0xFF2A2A2A);
+        com.wavedefense.gui.GuiCompat.renderItem(g, stack, x, y);
+        com.wavedefense.gui.GuiCompat.renderItemDecorations(g, this.font, stack, x, y);
     }
 
-    private void renderTooltipIfNeeded(GuiGraphics g, ItemStack stack, int mx, int my) {
+    private void renderTooltipIfNeeded(MatrixStack g, ItemStack stack, int mx, int my) {
         if (stack == null || stack.isEmpty()) return;
         ScissorHelper.disable();
-        g.renderTooltip(this.font, stack, mx, my);
+        com.wavedefense.gui.GuiCompat.renderTooltip(this, g, this.font, stack, mx, my);
         ScissorHelper.enable(0, getClipTop(), this.width, Math.max(1, getClipBot() - getClipTop()));
     }
 
     private String categoryKey(ShopItem.ShopCategory category) {
-        return switch (category) {
-            case ALL -> "wavedefense.shop.category.all";
-            case WEAPON -> "wavedefense.shop.category.weapon";
-            case ARMOR -> "wavedefense.shop.category.armor";
-            case CONSUMABLE -> "wavedefense.shop.category.consumable";
-            case OTHER -> "wavedefense.shop.category.other";
-        };
+        switch (category) {
+    case ALL: return "wavedefense.shop.category.all";
+    case WEAPON: return "wavedefense.shop.category.weapon";
+    case ARMOR: return "wavedefense.shop.category.armor";
+    case CONSUMABLE: return "wavedefense.shop.category.consumable";
+    case OTHER: return "wavedefense.shop.category.other";
+}
+        return "wavedefense.shop.category.all";
     }
 
     @Override public boolean keyPressed(int keyCode, int scanCode, int modifiers) { return super.keyPressed(keyCode, scanCode, modifiers); }

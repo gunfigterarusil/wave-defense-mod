@@ -1,10 +1,10 @@
 package com.wavedefense.network.packets;
 
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.PacketBuffer;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraftforge.fml.network.NetworkEvent;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -53,7 +53,7 @@ public class OpenPostMatchScoreboardPacket {
         this.teamWins   = teamWins != null ? teamWins : new LinkedHashMap<>();
     }
 
-    public static void encode(OpenPostMatchScoreboardPacket p, FriendlyByteBuf buf) {
+    public static void encode(OpenPostMatchScoreboardPacket p, PacketBuffer buf) {
         buf.writeUtf(p.modeLabel, 32);
         buf.writeUtf(p.winnerTeam, 64);
         buf.writeVarInt(p.rows.size());
@@ -72,7 +72,7 @@ public class OpenPostMatchScoreboardPacket {
         }
     }
 
-    public static OpenPostMatchScoreboardPacket decode(FriendlyByteBuf buf) {
+    public static OpenPostMatchScoreboardPacket decode(PacketBuffer buf) {
         String mode = buf.readUtf(32);
         String winner = buf.readUtf(64);
         int n = buf.readVarInt();

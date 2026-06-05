@@ -1,10 +1,12 @@
 package com.wavedefense.network.packets;
 
-import com.wavedefense.WaveDefenseMod;
+import net.minecraft.util.text.ITextComponent;
+
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.data.Location;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraftforge.fml.network.NetworkEvent;
 
 import java.util.function.Supplier;
 
@@ -20,47 +22,47 @@ public class AdminTeleportPacket {
         this.targetPlayerName = targetPlayerName;
     }
 
-    public static void encode(AdminTeleportPacket p, FriendlyByteBuf buf) {
+    public static void encode(AdminTeleportPacket p, PacketBuffer buf) {
         buf.writeUtf(p.locationName);
         buf.writeUtf(p.targetPlayerName);
     }
 
-    public static AdminTeleportPacket decode(FriendlyByteBuf buf) {
+    public static AdminTeleportPacket decode(PacketBuffer buf) {
         return new AdminTeleportPacket(buf.readUtf(), buf.readUtf());
     }
 
     public static void handle(AdminTeleportPacket packet, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
-            ServerPlayer sender = ctx.get().getSender();
+            ServerPlayerEntity sender = ctx.get().getSender();
             if (sender == null || !sender.hasPermissions(2)) return;
 
-            Location location = WaveDefenseMod.locationManager.getLocation(packet.locationName);
+            Location location = WaveDefenceMod.locationManager.getLocation(packet.locationName);
             if (location == null) {
                 sender.displayClientMessage(
-                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.location_invalid"), true);
+                    new net.minecraft.util.text.TranslationTextComponent("wavedefense.msg.location_invalid"), true);
                 return;
             }
             // PvP locations require a team spawn point; PvE locations require a player spawn.
             if (!location.isPvp() && location.getPlayerSpawn() == null) {
                 sender.displayClientMessage(
-                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.location_invalid"), true);
+                    new net.minecraft.util.text.TranslationTextComponent("wavedefense.msg.location_invalid"), true);
                 return;
             }
 
-            ServerPlayer target = WaveDefenseMod.getServer().getPlayerList()
+            ServerPlayerEntity target = WaveDefenceMod.getServer().getPlayerList()
                     .getPlayerByName(packet.targetPlayerName);
             if (target == null) {
                 sender.displayClientMessage(
-                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.player_not_found", packet.targetPlayerName), true);
+                    new net.minecraft.util.text.TranslationTextComponent("wavedefense.msg.player_not_found", packet.targetPlayerName), true);
                 return;
             }
 
             target.removeAllEffects();
             if (location.isPvp()) {
                 // Use spawn index 0 (first team) for admin-forced teleport.
-                WaveDefenseMod.waveManager.addPlayerToPvpLocation(target, location, 0);
+                WaveDefenceMod.waveManager.addPlayerToPvpLocation(target, location, 0);
             } else {
-                WaveDefenseMod.waveManager.addPlayerToLocation(target, location);
+                WaveDefenceMod.waveManager.addPlayerToLocation(target, location);
             }
         });
         ctx.get().setPacketHandled(true);

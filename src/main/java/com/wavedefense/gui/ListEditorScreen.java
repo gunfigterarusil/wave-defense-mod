@@ -1,8 +1,8 @@
 package com.wavedefense.gui;
 
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.util.text.ITextComponent;
 
 import java.util.List;
 
@@ -25,12 +25,12 @@ public abstract class ListEditorScreen<T> extends ScrollableScreen {
     /** Parent screen to return to on close; may be null. */
     protected final Screen parent;
 
-    protected ListEditorScreen(Component title, Screen parent) {
+    protected ListEditorScreen(ITextComponent title, Screen parent) {
         super(title);
         this.parent = parent;
     }
 
-    protected ListEditorScreen(Component title) {
+    protected ListEditorScreen(ITextComponent title) {
         this(title, null);
     }
 
@@ -62,7 +62,7 @@ public abstract class ListEditorScreen<T> extends ScrollableScreen {
      * Optional: draw non-widget content for one row (text, icons, etc.).
      * Default implementation is a no-op — override only when needed.
      */
-    protected void renderRow(GuiGraphics g, int cx, int y, T item, int index, int mx, int my) {}
+    protected void renderRow(MatrixStack g, int cx, int y, T item, int index, int mx, int my) {}
 
     // ─── ScrollableScreen overrides ────────────────────────────────────────
 
@@ -97,7 +97,7 @@ public abstract class ListEditorScreen<T> extends ScrollableScreen {
     // ─── Rendering ────────────────────────────────────────────────────────
 
     @Override
-    protected void renderContentExtra(GuiGraphics g, int mx, int my, float pt) {
+    protected void renderContentExtra(MatrixStack g, int mx, int my, float pt) {
         int cx = this.width / 2;
         List<T> items = getItems();
         int perPage = getItemsPerPage();

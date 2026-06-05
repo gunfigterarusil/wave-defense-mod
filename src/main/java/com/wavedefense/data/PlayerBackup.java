@@ -1,14 +1,16 @@
 package com.wavedefense.data;
 
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.google.gson.*;
-import com.wavedefense.WaveDefenseMod;
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.TagParser;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.server.level.ServerPlayer;
+import com.wavedefense.WaveDefenceMod;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.JsonToNBT;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.item.ItemStack;
+import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import java.io.*;
@@ -41,7 +43,7 @@ public class PlayerBackup {
     private final GameModeSnapshot gameMode;
     private final List<EffectSnapshot> effects = new ArrayList<>();
 
-    public PlayerBackup(ServerPlayer player) {
+    public PlayerBackup(ServerPlayerEntity player) {
         this.id = UUID.randomUUID().toString().substring(0, 8);
         this.playerUuid = player.getUUID();
         this.playerName = player.getGameProfile().getName();
@@ -55,22 +57,22 @@ public class PlayerBackup {
         this.totalExperience = player.totalExperience;
         this.gameMode = new GameModeSnapshot(player.gameMode.getGameModeForPlayer());
 
-        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            ItemStack stack = player.getInventory().getItem(i).copy();
+        for (int i = 0; i < player.inventory.getContainerSize(); i++) {
+            ItemStack stack = player.inventory.getItem(i).copy();
             if (!stack.isEmpty()) {
                 inventory.add(stack);
             }
         }
 
-        for (ItemStack stack : player.getInventory().armor) {
+        for (ItemStack stack : player.inventory.armor) {
             armor.add(stack.copy());
         }
 
-        for (ItemStack stack : player.getInventory().offhand) {
+        for (ItemStack stack : player.inventory.offhand) {
             offhand.add(stack.copy());
         }
 
-        for (var effect : player.getActiveEffects()) {
+        for (net.minecraft.potion.EffectInstance effect : player.getActiveEffects()) {
             effects.add(new EffectSnapshot(effect));
         }
     }
@@ -98,7 +100,7 @@ public class PlayerBackup {
         this.effects.addAll(effects);
     }
 
-    public static PlayerBackup create(ServerPlayer player) {
+    public static PlayerBackup create(ServerPlayerEntity player) {
         return new PlayerBackup(player);
     }
 
@@ -141,15 +143,15 @@ public class PlayerBackup {
 
             return true;
         } catch (IOException e) {
-            WaveDefenseMod.LOGGER.error("Failed to save backup for player " + playerName, e);
+            WaveDefenceMod.LOGGER.error("Failed to save backup for player " + playerName, e);
             return false;
         }
     }
 
-    public void restore(ServerPlayer player) {
-        player.teleportTo(player.serverLevel(),
+    public void restore(ServerPlayerEntity player) {
+        player.teleportTo((net.minecraft.world.server.ServerWorld) player.getLevel(),
             originalPosition.getX() + 0.5, originalPosition.getY(), originalPosition.getZ() + 0.5,
-            player.getYRot(), player.getXRot());
+            player.yRot, player.xRot);
 
         player.setHealth(health);
         player.getFoodData().setFoodLevel(foodLevel);
@@ -165,53 +167,53 @@ public class PlayerBackup {
 
         player.setGameMode(gameMode.toGameType());
 
-        player.getInventory().clearContent();
+        player.inventory.clearContent();
         for (int i = 0; i < inventory.size(); i++) {
-            if (i < player.getInventory().getContainerSize()) {
-                player.getInventory().setItem(i, inventory.get(i).copy());
+            if (i < player.inventory.getContainerSize()) {
+                player.inventory.setItem(i, inventory.get(i).copy());
             }
         }
 
         // Restore armor slots
-        for (int i = 0; i < armor.size() && i < player.getInventory().armor.size(); i++) {
-            player.getInventory().armor.set(i, armor.get(i).copy());
+        for (int i = 0; i < armor.size() && i < player.inventory.armor.size(); i++) {
+            player.inventory.armor.set(i, armor.get(i).copy());
         }
 
         // Restore offhand slot
         if (!offhand.isEmpty()) {
-            player.getInventory().offhand.set(0, offhand.get(0).copy());
+            player.inventory.offhand.set(0, offhand.get(0).copy());
         }
 
         // Restore potion effects
         player.removeAllEffects();
         for (EffectSnapshot eff : effects) {
             try {
-                net.minecraft.resources.ResourceLocation effId =
-                    new net.minecraft.resources.ResourceLocation(eff.effect);
-                net.minecraft.world.effect.MobEffect mobEffect =
-                    net.minecraft.core.registries.BuiltInRegistries.MOB_EFFECT.get(effId);
+                net.minecraft.util.ResourceLocation effId =
+                    new net.minecraft.util.ResourceLocation(eff.effect);
+                net.minecraft.potion.Effect mobEffect =
+                    net.minecraftforge.registries.ForgeRegistries.POTIONS.getValue(effId);
                 if (mobEffect != null) {
-                    player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+                    player.addEffect(new net.minecraft.potion.EffectInstance(
                         mobEffect, eff.duration, eff.amplifier,
                         eff.ambient, eff.showParticles, eff.showIcon));
                 }
             } catch (Exception e) {
-                WaveDefenseMod.LOGGER.warn("[WaveDefense] Failed to restore effect '{}': {}",
+                WaveDefenceMod.LOGGER.warn("[WaveDefense] Failed to restore effect '{}': {}",
                     eff.effect, e.getMessage());
             }
         }
 
-        player.sendSystemMessage(Component.translatable("wavedefense.auto.your_data_was_restored_from_back_da57595c"));
+        player.sendMessage(new TranslationTextComponent("wavedefense.auto.your_data_was_restored_from_back_da57595c"), net.minecraft.util.Util.NIL_UUID);
     }
 
     public static List<PlayerBackup> list(UUID playerUuid) {
         try {
             if (!Files.exists(BACKUP_DIR)) {
-                return List.of();
+                return java.util.Collections.emptyList();
             }
 
             String prefix = playerUuid + "_";
-            try (var stream = Files.list(BACKUP_DIR)) {
+            try (java.util.stream.Stream<java.nio.file.Path> stream = Files.list(BACKUP_DIR)) {
                 return stream
                     .filter(p -> p.getFileName().toString().startsWith(prefix))
                     .filter(p -> p.toString().endsWith(".json"))
@@ -221,8 +223,8 @@ public class PlayerBackup {
                     .collect(Collectors.toList());
             }
         } catch (IOException e) {
-            WaveDefenseMod.LOGGER.error("Failed to list backups for player " + playerUuid, e);
-            return List.of();
+            WaveDefenceMod.LOGGER.error("Failed to list backups for player " + playerUuid, e);
+            return java.util.Collections.emptyList();
         }
     }
 
@@ -239,7 +241,7 @@ public class PlayerBackup {
 
             return Optional.ofNullable(loadFromFile(file));
         } catch (Exception e) {
-            WaveDefenseMod.LOGGER.error("Failed to load backup " + backupId + " for player " + playerUuid, e);
+            WaveDefenceMod.LOGGER.error("Failed to load backup " + backupId + " for player " + playerUuid, e);
             return Optional.empty();
         }
     }
@@ -275,8 +277,8 @@ public class PlayerBackup {
             JsonObject gm = json.getAsJsonObject("gameMode");
             // byName(String) can return null for unrecognised names — use fallback overload.
             GameModeSnapshot gameMode = new GameModeSnapshot(
-                net.minecraft.world.level.GameType.byName(gm.get("mode").getAsString(),
-                    net.minecraft.world.level.GameType.SURVIVAL)
+                net.minecraft.world.GameType.byName(gm.get("mode").getAsString(),
+                    net.minecraft.world.GameType.SURVIVAL)
             );
 
             List<EffectSnapshot> effects = deserializeEffects(json.getAsJsonArray("effects"));
@@ -285,7 +287,7 @@ public class PlayerBackup {
                 health, foodLevel, saturation, inventory, armor, offhand,
                 expLevel, expProgress, totalExp, gameMode, effects);
         } catch (Exception e) {
-            WaveDefenseMod.LOGGER.error("Failed to parse backup file: " + file, e);
+            WaveDefenceMod.LOGGER.error("Failed to parse backup file: " + file, e);
             return null;
         }
     }
@@ -294,7 +296,7 @@ public class PlayerBackup {
         JsonArray array = new JsonArray();
         for (ItemStack stack : stacks) {
             if (stack != null && !stack.isEmpty()) {
-                CompoundTag tag = new CompoundTag();
+                CompoundNBT tag = new CompoundNBT();
                 stack.save(tag);
                 array.add(tag.toString());
             }
@@ -303,14 +305,14 @@ public class PlayerBackup {
     }
 
     private static List<ItemStack> deserializeItemStacks(JsonArray array) {
-        if (array == null) return List.of();
+        if (array == null) return java.util.Collections.emptyList();
         List<ItemStack> stacks = new ArrayList<>();
         for (JsonElement elem : array) {
             try {
-                CompoundTag tag = TagParser.parseTag(elem.getAsString());
+                CompoundNBT tag = JsonToNBT.parseTag(elem.getAsString());
                 stacks.add(ItemStack.of(tag));
             } catch (Exception e) {
-                WaveDefenseMod.LOGGER.warn("Failed to deserialize item stack", e);
+                WaveDefenceMod.LOGGER.warn("Failed to deserialize item stack", e);
             }
         }
         return stacks;
@@ -325,7 +327,7 @@ public class PlayerBackup {
     }
 
     private static List<EffectSnapshot> deserializeEffects(JsonArray array) {
-        if (array == null) return List.of();
+        if (array == null) return java.util.Collections.emptyList();
         List<EffectSnapshot> effects = new ArrayList<>();
         for (JsonElement elem : array) {
             effects.add(EffectSnapshot.fromJson(elem.getAsJsonObject()));
@@ -341,12 +343,12 @@ public class PlayerBackup {
     private static class GameModeSnapshot {
         final String mode;
 
-        GameModeSnapshot(net.minecraft.world.level.GameType mode) {
+        GameModeSnapshot(net.minecraft.world.GameType mode) {
             this.mode = mode.getName();
         }
 
-        net.minecraft.world.level.GameType toGameType() {
-            return net.minecraft.world.level.GameType.byName(mode, net.minecraft.world.level.GameType.SURVIVAL);
+        net.minecraft.world.GameType toGameType() {
+            return net.minecraft.world.GameType.byName(mode, net.minecraft.world.GameType.SURVIVAL);
         }
     }
 
@@ -358,12 +360,12 @@ public class PlayerBackup {
         final boolean showParticles;
         final boolean showIcon;
 
-        EffectSnapshot(net.minecraft.world.effect.MobEffectInstance instance) {
+        EffectSnapshot(net.minecraft.potion.EffectInstance instance) {
             // ForgeRegistries covers both vanilla and modded effects.
             // BuiltInRegistries only covers vanilla — fall back to it just in case.
-            ResourceLocation key = ForgeRegistries.MOB_EFFECTS.getKey(instance.getEffect());
+            ResourceLocation key = ForgeRegistries.POTIONS.getKey(instance.getEffect());
             if (key == null) {
-                key = net.minecraft.core.registries.BuiltInRegistries.MOB_EFFECT.getKey(instance.getEffect());
+                key = net.minecraftforge.registries.ForgeRegistries.POTIONS.getKey(instance.getEffect());
             }
             this.effect = key != null ? key.toString() : "minecraft:speed"; // safe fallback
             this.duration = instance.getDuration();

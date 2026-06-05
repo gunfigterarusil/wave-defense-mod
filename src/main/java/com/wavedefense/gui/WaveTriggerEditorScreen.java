@@ -1,13 +1,16 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.data.WaveConfig;
 import com.wavedefense.data.WaveTrigger;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.resources.language.I18n;
-import net.minecraft.network.chat.Component;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.util.text.ITextComponent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,15 +44,15 @@ public class WaveTriggerEditorScreen extends Screen {
     private List<WaveTrigger> available = new ArrayList<>();
 
     // Per-trigger inputs
-    private EditBox customItemInput;
-    private EditBox customValueInput;
-    private EditBox cooldownValueInput;
-    private EditBox activateFromWaveInput;
+    private TextFieldWidget customItemInput;
+    private TextFieldWidget customValueInput;
+    private TextFieldWidget cooldownValueInput;
+    private TextFieldWidget activateFromWaveInput;
 
     private WaveTrigger selected;
 
     public WaveTriggerEditorScreen(Screen parent, WaveConfig wave, int waveIndex, boolean isPvp) {
-        super(Component.translatable("wavedefense.title.wave_trigger", waveIndex + 1));
+        super(new TranslationTextComponent("wavedefense.title.wave_trigger", waveIndex + 1));
         this.parent    = parent;
         this.wave      = wave;
         this.waveIndex = waveIndex;
@@ -77,24 +80,17 @@ public class WaveTriggerEditorScreen extends Screen {
 
         // ── Вмикач ─────────────────────────────────────────────────────
         boolean enabled = wave.isTriggerEnabled();
-        this.addRenderableWidget(Button.builder(
-            ((enabled) ? Component.translatable("wavedefense.auto.тригерна_хвиля_увімкнена_3f634921") : Component.translatable("wavedefense.auto.тригерна_хвиля_вимкнена_bd77b179")),
-            b -> { wave.setTriggerEnabled(!wave.isTriggerEnabled()); rebuildWidgets(); }
-        ).bounds(cx - btnW / 2, y, btnW, 18).build());
+        this.addButton(new Button(cx - btnW / 2, y, btnW, 18, ((enabled) ? new TranslationTextComponent("wavedefense.auto.тригерна_хвиля_увімкнена_3f634921") : new TranslationTextComponent("wavedefense.auto.тригерна_хвиля_вимкнена_bd77b179")), b -> { wave.setTriggerEnabled(!wave.isTriggerEnabled()); init(); }));
         y += 22;
 
         if (!enabled) {
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.увімкніть_щоб_налаштувати_2abc90f7"), b -> {}
-            ).bounds(cx - btnW / 2, y, btnW, 13).build()).active = false;
+            this.addButton(new Button(cx - btnW / 2, y, btnW, 13, new TranslationTextComponent("wavedefense.auto.увімкніть_щоб_налаштувати_2abc90f7"), b -> {})).active = false;
             addBottomButtons(cx, this.height - 26);
             return;
         }
 
         // ── Підказка AND + активні AND ──────────────────────────────────
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.auto.клік_головний_ctrl_клік_and_умов_25f7352f"), b -> {}
-        ).bounds(cx - btnW / 2, y, btnW, 12).build()).active = false;
+        this.addButton(new Button(cx - btnW / 2, y, btnW, 12, new TranslationTextComponent("wavedefense.auto.клік_головний_ctrl_клік_and_умов_25f7352f"), b -> {})).active = false;
         y += 14;
 
         List<WaveTrigger> extras = wave.getExtraTriggers();
@@ -102,13 +98,8 @@ public class WaveTriggerEditorScreen extends Screen {
             StringBuilder sb = new StringBuilder("§b+AND: ");
             for (WaveTrigger t : extras) sb.append("§f").append(t.label).append("§b  ");
             String s = sb.toString().trim();
-            this.addRenderableWidget(Button.builder(
-                Component.literal(s.length() > 52 ? s.substring(0, 50) + "…" : s), b -> {}
-            ).bounds(cx - btnW / 2, y, btnW - 52, 13).build()).active = false;
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.очистити_and_710932c7"),
-                b -> { wave.setExtraTriggers(new ArrayList<>()); rebuildWidgets(); }
-            ).bounds(cx + btnW / 2 - 50, y, 50, 13).build());
+            this.addButton(new Button(cx - btnW / 2, y, btnW - 52, 13, new StringTextComponent(s.length() > 52 ? s.substring(0, 50) + "…" : s), b -> {})).active = false;
+            this.addButton(new Button(cx + btnW / 2 - 50, y, 50, 13, new TranslationTextComponent("wavedefense.auto.очистити_and_710932c7"), b -> { wave.setExtraTriggers(new ArrayList<>()); init(); }));
             y += 16;
         }
 
@@ -140,40 +131,29 @@ public class WaveTriggerEditorScreen extends Screen {
             final WaveTrigger ft = t;
             // Основна кнопка: коротша якщо не primary (місце для [+AND])
             int mainBtnW = isSel ? btnW : btnW - AND_BTN_W - 2;
-            Button btn = Button.builder(
-                Component.literal(lbl),
-                b -> {
+            Button btn = new Button(cx - btnW / 2, ty, mainBtnW, BTN_H, new StringTextComponent(lbl), b -> {
                     if (ft == selected) return;
                     // Клік по AND-тригеру — він залишається AND (прибирається кнопкою [-AND])
                     // Клік по звичайному — обираємо як primary
                     if (!wave.getExtraTriggers().contains(ft)) {
                         selected = ft;
                         wave.setTriggerType(ft);
-                        rebuildWidgets();
+                        init();
                     }
-                }
-            ).bounds(cx - btnW / 2, ty, mainBtnW, BTN_H).build();
-            btn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                Component.literal("§7" + t.tooltip +
-                    (isExtra ? "\n§b" + net.minecraft.client.resources.language.I18n.get("wavedefense.tooltip.trigger_and_hint") : ""))));
-            this.addRenderableWidget(btn);
+                });
+            /* setTooltip omitted on 1.16.5: btn */
+            this.addButton(btn);
             // [+AND] / [-AND] кнопка для не-primary тригерів
             if (!isSel) {
-                Button andBtn = Button.builder(
-                    isExtra
-                        ? Component.literal("§c-AND")
-                        : Component.literal("§b+AND"),
-                    b -> {
+                Button andBtn = new Button(cx - btnW / 2 + mainBtnW + 2, ty, AND_BTN_W, BTN_H, isExtra
+                        ? new StringTextComponent("§c-AND")
+                        : new StringTextComponent("§b+AND"), b -> {
                         if (isExtra) wave.removeExtraTrigger(ft);
                         else wave.addExtraTrigger(ft);
-                        rebuildWidgets();
-                    }
-                ).bounds(cx - btnW / 2 + mainBtnW + 2, ty, AND_BTN_W, BTN_H).build();
-                andBtn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                    Component.translatable(isExtra
-                        ? "wavedefense.tooltip.remove_and_trigger"
-                        : "wavedefense.tooltip.add_and_trigger")));
-                this.addRenderableWidget(andBtn);
+                        init();
+                    });
+                /* setTooltip omitted on 1.16.5: andBtn */
+                this.addButton(andBtn);
             }
             ty += BTN_H + BTN_GAP;
         }
@@ -222,17 +202,13 @@ public class WaveTriggerEditorScreen extends Screen {
     private int addPerTriggerSettings(int cx, int y, int btnW) {
         // PLAYER_HAS_ITEM
         if (needsItem()) {
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.предмет_и_item_id_через_кому_fa084ffb"), b -> {}
-            ).bounds(cx - btnW / 2, y, btnW - 26, 18).build()).active = false;
-            this.addRenderableWidget(Button.builder(
-                Component.literal("✋"),
-                b -> {
+            this.addButton(new Button(cx - btnW / 2, y, btnW - 26, 18, new TranslationTextComponent("wavedefense.auto.предмет_и_item_id_через_кому_fa084ffb"), b -> {})).active = false;
+            this.addButton(new Button(cx + btnW / 2 - 24, y, 24, 18, new StringTextComponent("✋"), b -> {
                     net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
                     if (mc.player != null && customItemInput != null) {
-                        net.minecraft.world.item.ItemStack held = mc.player.getMainHandItem();
+                        net.minecraft.item.ItemStack held = mc.player.getMainHandItem();
                         if (!held.isEmpty()) {
-                            net.minecraft.resources.ResourceLocation rl =
+                            net.minecraft.util.ResourceLocation rl =
                                 net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(held.getItem());
                             if (rl != null) {
                                 String cur = customItemInput.getValue().trim();
@@ -240,17 +216,15 @@ public class WaveTriggerEditorScreen extends Screen {
                             }
                         }
                     }
-                }
-            ).bounds(cx + btnW / 2 - 24, y, 24, 18).build()
-            ).setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                Component.translatable("wavedefense.auto.вставити_id_з_основної_руки_50646419")));
+                })
+            )/* setTooltip omitted on 1.16.5 */;
             y += 20;
-            customItemInput = new EditBox(this.font, cx - btnW / 2, y, btnW, 18, Component.translatable("wavedefense.auto.id_87ea5dfc"));
+            customItemInput = new TextFieldWidget(this.font, cx - btnW / 2, y, btnW, 18, new TranslationTextComponent("wavedefense.auto.id_87ea5dfc"));
             customItemInput.setMaxLength(256);
             customItemInput.setValue(wave.getTriggerCustomItemId().isEmpty()
                 ? "minecraft:diamond" : wave.getTriggerCustomItemId());
-            customItemInput.setHint(Component.translatable("wavedefense.auto.minecraft_diamond_f20ff3f7"));
-            this.addRenderableWidget(customItemInput);
+        /* customItemInput.setHint(...) omitted on 1.16.5 */
+            this.addButton(customItemInput);
             y += 22;
         }
 
@@ -261,13 +235,11 @@ public class WaveTriggerEditorScreen extends Screen {
             String lbl   = vt == WaveTrigger.TIMER_CUSTOM    ? emoji + " §7" + I18n.get("wavedefense.trigger.label.interval_sec") :
                            vt == WaveTrigger.MOBS_KILLED_N   ? emoji + " §7" + I18n.get("wavedefense.trigger.label.kill_count") :
                                                                 emoji + " §7" + I18n.get("wavedefense.trigger.label.waves_survived");
-            this.addRenderableWidget(Button.builder(
-                Component.literal(lbl), b -> {}
-            ).bounds(cx - btnW / 2, y, 200, 18).build()).active = false;
-            customValueInput = new EditBox(this.font, cx + btnW / 2 - 72, y, 72, 18, Component.literal("60"));
+            this.addButton(new Button(cx - btnW / 2, y, 200, 18, new StringTextComponent(lbl), b -> {})).active = false;
+            customValueInput = new TextFieldWidget(this.font, cx + btnW / 2 - 72, y, 72, 18, new StringTextComponent("60"));
             customValueInput.setMaxLength(6);
             customValueInput.setValue(String.valueOf(wave.getTriggerCustomValue()));
-            this.addRenderableWidget(customValueInput);
+            this.addButton(customValueInput);
             y += 22;
         }
         return y;
@@ -276,71 +248,47 @@ public class WaveTriggerEditorScreen extends Screen {
     private void addCommonSettings(int cx, int y, int btnW) {
         // Разово + Активувати з хвилі
         boolean oneTime = wave.isOneTimeOnly();
-        this.addRenderableWidget(Button.builder(
-            ((oneTime) ? Component.translatable("wavedefense.auto.разово_1_раз_сесія_7d7863f6") : Component.translatable("wavedefense.auto.разово_9e507e8c")),
-            b -> { wave.setOneTimeOnly(!wave.isOneTimeOnly()); rebuildWidgets(); }
-        ).bounds(cx - btnW / 2, y, 150, 18).build());
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.auto.активувати_з_хвилі_a57c9a7c"), b -> {}
-        ).bounds(cx + 4, y, 110, 18).build()).active = false;
-        activateFromWaveInput = new EditBox(this.font, cx + 118, y, 40, 18, Component.literal("0"));
+        this.addButton(new Button(cx - btnW / 2, y, 150, 18, ((oneTime) ? new TranslationTextComponent("wavedefense.auto.разово_1_раз_сесія_7d7863f6") : new TranslationTextComponent("wavedefense.auto.разово_9e507e8c")), b -> { wave.setOneTimeOnly(!wave.isOneTimeOnly()); init(); }));
+        this.addButton(new Button(cx + 4, y, 110, 18, new TranslationTextComponent("wavedefense.auto.активувати_з_хвилі_a57c9a7c"), b -> {})).active = false;
+        activateFromWaveInput = new TextFieldWidget(this.font, cx + 118, y, 40, 18, new StringTextComponent("0"));
         activateFromWaveInput.setValue(String.valueOf(wave.getActivateFromWave()));
         activateFromWaveInput.setMaxLength(3);
-        this.addRenderableWidget(activateFromWaveInput);
+        this.addButton(activateFromWaveInput);
         y += 22;
 
         // Перезарядка
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.auto.перезарядка_мін_5с_4172cb22"), b -> {}
-        ).bounds(cx - btnW / 2, y, 180, 18).build()).active = false;
+        this.addButton(new Button(cx - btnW / 2, y, 180, 18, new TranslationTextComponent("wavedefense.auto.перезарядка_мін_5с_4172cb22"), b -> {})).active = false;
         y += 22;
 
         WaveConfig.CooldownMode cm = wave.getCooldownMode();
         int mW = 76;
-        this.addRenderableWidget(Button.builder(
-            ((cm == WaveConfig.CooldownMode.NONE) ? Component.translatable("wavedefense.auto.немає_331a7c36") : Component.translatable("wavedefense.auto.немає_aad1d2c8")),
-            b -> { wave.setCooldownMode(WaveConfig.CooldownMode.NONE); rebuildWidgets(); }
-        ).bounds(cx - 116, y, mW, 18).build());
-        this.addRenderableWidget(Button.builder(
-            ((cm == WaveConfig.CooldownMode.SECONDS) ? Component.translatable("wavedefense.auto.секунди_454eece8") : Component.translatable("wavedefense.auto.секунди_8913d206")),
-            b -> { wave.setCooldownMode(WaveConfig.CooldownMode.SECONDS); rebuildWidgets(); }
-        ).bounds(cx - 36, y, mW, 18).build());
-        this.addRenderableWidget(Button.builder(
-            ((cm == WaveConfig.CooldownMode.WAVES) ? Component.translatable("wavedefense.auto.хвилі_a1a07f8a") : Component.translatable("wavedefense.auto.хвилі_e76a6167")),
-            b -> { wave.setCooldownMode(WaveConfig.CooldownMode.WAVES); rebuildWidgets(); }
-        ).bounds(cx + 44, y, mW, 18).build());
+        this.addButton(new Button(cx - 116, y, mW, 18, ((cm == WaveConfig.CooldownMode.NONE) ? new TranslationTextComponent("wavedefense.auto.немає_331a7c36") : new TranslationTextComponent("wavedefense.auto.немає_aad1d2c8")), b -> { wave.setCooldownMode(WaveConfig.CooldownMode.NONE); init(); }));
+        this.addButton(new Button(cx - 36, y, mW, 18, ((cm == WaveConfig.CooldownMode.SECONDS) ? new TranslationTextComponent("wavedefense.auto.секунди_454eece8") : new TranslationTextComponent("wavedefense.auto.секунди_8913d206")), b -> { wave.setCooldownMode(WaveConfig.CooldownMode.SECONDS); init(); }));
+        this.addButton(new Button(cx + 44, y, mW, 18, ((cm == WaveConfig.CooldownMode.WAVES) ? new TranslationTextComponent("wavedefense.auto.хвилі_a1a07f8a") : new TranslationTextComponent("wavedefense.auto.хвилі_e76a6167")), b -> { wave.setCooldownMode(WaveConfig.CooldownMode.WAVES); init(); }));
         y += 22;
 
         if (cm != WaveConfig.CooldownMode.NONE) {
             String lbl = cm == WaveConfig.CooldownMode.SECONDS
                 ? "§7" + I18n.get("wavedefense.trigger.label.cooldown_seconds")
                 : "§7" + I18n.get("wavedefense.trigger.label.cooldown_waves");
-            this.addRenderableWidget(Button.builder(
-                Component.literal(lbl), b -> {}
-            ).bounds(cx - 116, y, 80, 18).build()).active = false;
-            cooldownValueInput = new EditBox(this.font, cx - 32, y, 60, 18, Component.literal("0"));
+            this.addButton(new Button(cx - 116, y, 80, 18, new StringTextComponent(lbl), b -> {})).active = false;
+            cooldownValueInput = new TextFieldWidget(this.font, cx - 32, y, 60, 18, new StringTextComponent("0"));
             cooldownValueInput.setValue(String.valueOf(wave.getCooldownValue()));
             cooldownValueInput.setMaxLength(6);
-            this.addRenderableWidget(cooldownValueInput);
+            this.addButton(cooldownValueInput);
         }
     }
 
     private void addBottomButtons(int cx, int y) {
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.auto.зберегти_617e5dc0"),
-            b -> { save(); this.minecraft.setScreen(parent); }
-        ).bounds(cx - 110, y, 100, 20).build());
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.auto.скасувати_8b4c2025"),
-            b -> this.minecraft.setScreen(parent)
-        ).bounds(cx + 10, y, 100, 20).build());
+        this.addButton(new Button(cx - 110, y, 100, 20, new TranslationTextComponent("wavedefense.auto.зберегти_617e5dc0"), b -> { save(); this.minecraft.setScreen(parent); }));
+        this.addButton(new Button(cx + 10, y, 100, 20, new TranslationTextComponent("wavedefense.auto.скасувати_8b4c2025"), b -> this.minecraft.setScreen(parent)));
     }
 
     // ── RENDER ────────────────────────────────────────────────────────────
     @Override
-    public void render(GuiGraphics g, int mx, int my, float pt) {
+    public void render(MatrixStack g, int mx, int my, float pt) {
         GuiTheme.renderBackground(g, this.width, this.height);
-        g.drawCenteredString(this.font, Component.translatable("wavedefense.wave.trigger_title", waveIndex + 1), this.width / 2, 8, GuiTheme.TEXT);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, new TranslationTextComponent("wavedefense.wave.trigger_title", waveIndex + 1), this.width / 2, 8, GuiTheme.TEXT);
 
         if (!wave.isTriggerEnabled() || scrollTop >= scrollBot) {
             super.render(g, mx, my, pt);
@@ -353,7 +301,7 @@ public class WaveTriggerEditorScreen extends Screen {
         // 2) Scissor: список тригерів
         ScissorHelper.enable(0, scrollTop, this.width, scrollBot - scrollTop);
         renderWidgetsBand(g, mx, my, pt, scrollTop, scrollBot);
-        g.flush();
+        com.wavedefense.gui.GuiCompat.flush(g);
         ScissorHelper.disable();
 
         // 3) Статичні елементи ПІСЛЯ списку
@@ -361,10 +309,10 @@ public class WaveTriggerEditorScreen extends Screen {
     }
 
     /** Рендерить тільки widgets чий getY() потрапляє в [yFrom, yTo) */
-    private void renderWidgetsBand(GuiGraphics g, int mx, int my, float pt, int yFrom, int yTo) {
-        for (var r : this.renderables) {
-            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w) {
-                if (w.getY() >= yFrom && w.getY() < yTo) {
+    private void renderWidgetsBand(MatrixStack g, int mx, int my, float pt, int yFrom, int yTo) {
+        for (Object r : this.buttons) {
+            if (r instanceof net.minecraft.client.gui.widget.Widget) { net.minecraft.client.gui.widget.Widget w = (net.minecraft.client.gui.widget.Widget) r;
+                if (w.y >= yFrom && w.y < yTo) {
                     w.render(g, mx, my, pt);
                 }
             }
@@ -376,10 +324,10 @@ public class WaveTriggerEditorScreen extends Screen {
     public boolean mouseScrolled(double mx, double my, double delta) {
         if (!wave.isTriggerEnabled()) return true;
         if (delta > 0) {
-            if (triggerScrollOffset > 0) { triggerScrollOffset--; rebuildWidgets(); }
+            if (triggerScrollOffset > 0) { triggerScrollOffset--; init(); }
         } else {
             int visible = Math.max(1, (scrollBot - scrollTop) / (BTN_H + BTN_GAP));
-            if (triggerScrollOffset + visible < available.size()) { triggerScrollOffset++; rebuildWidgets(); }
+            if (triggerScrollOffset + visible < available.size()) { triggerScrollOffset++; init(); }
         }
         return true;
     }
@@ -387,15 +335,18 @@ public class WaveTriggerEditorScreen extends Screen {
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
         if (button == 0 && hasControlDown()) {
-            for (var widget : this.renderables) {
-                if (widget instanceof Button btn && btn.isMouseOver(mx, my)) {
-                    String msg = btn.getMessage().getString();
-                    for (WaveTrigger t : WaveTrigger.values()) {
-                        if (msg.contains(t.label) && t != selected && !t.name().startsWith("SHOP_")) {
-                            if (wave.getExtraTriggers().contains(t)) wave.removeExtraTrigger(t);
-                            else wave.addExtraTrigger(t);
-                            rebuildWidgets();
-                            return true;
+            for (Object widget : this.buttons) {
+                if (widget instanceof Button) {
+                    Button btn = (Button) widget;
+                    if (btn.isMouseOver(mx, my)) {
+                        String msg = btn.getMessage().getString();
+                        for (WaveTrigger t : WaveTrigger.values()) {
+                            if (msg.contains(t.label) && t != selected && !t.name().startsWith("SHOP_")) {
+                                if (wave.getExtraTriggers().contains(t)) wave.removeExtraTrigger(t);
+                                else wave.addExtraTrigger(t);
+                                init();
+                                return true;
+                            }
                         }
                     }
                 }

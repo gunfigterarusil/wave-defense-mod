@@ -1,7 +1,7 @@
 package com.wavedefense.data;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.nbt.CompoundNBT;
 
 import java.util.UUID;
 
@@ -53,8 +53,8 @@ public class CapturePoint {
 
     // ── NBT ───────────────────────────────────────────────────────────────
 
-    public CompoundTag save() {
-        CompoundTag tag = new CompoundTag();
+    public CompoundNBT save() {
+        CompoundNBT tag = new CompoundNBT();
         tag.putString("id",            id);
         tag.putString("name",          name);
         if (pos != null) tag.putLong("pos", pos.asLong());
@@ -65,7 +65,7 @@ public class CapturePoint {
         return tag;
     }
 
-    public static CapturePoint load(CompoundTag tag) {
+    public static CapturePoint load(CompoundNBT tag) {
         CapturePoint cp = new CapturePoint();
         cp.id            = tag.contains("id")   ? tag.getString("id")   : UUID.randomUUID().toString();
         cp.name          = tag.contains("name") ? tag.getString("name") : "Point";

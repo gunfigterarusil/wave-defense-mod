@@ -1,6 +1,6 @@
 package com.wavedefense.config;
 
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.ServerPlayerEntity;
 
 /**
  * Керує дозволом входу на локації для звичайних гравців.
@@ -31,7 +31,7 @@ public class WaveGameRules {
      * що дозволяє адміністратору повністю зупинити вхід перед подією.
      * Адміни можуть обійти через /wavedefense tp.
      */
-    public static boolean isLocationEntryAllowed(ServerPlayer player) {
+    public static boolean isLocationEntryAllowed(ServerPlayerEntity player) {
         return locationEntryAllowed;
     }
 }

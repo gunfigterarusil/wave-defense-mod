@@ -1,7 +1,7 @@
 package com.wavedefense.gui;
 
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
 
 import java.util.*;
 
@@ -39,7 +39,7 @@ public class ClientPvpStateManager {
         return lastUpdateMs < 0 ? -1L : (System.currentTimeMillis() - lastUpdateMs);
     }
 
-    public static void update(CompoundTag tag) {
+    public static void update(CompoundNBT tag) {
         lastUpdateMs = System.currentTimeMillis();
         location      = tag.getString("location");
         phase         = tag.getString("phase");
@@ -49,13 +49,13 @@ public class ClientPvpStateManager {
         myTeam        = tag.getString("myTeam");
 
         teamWins.clear();
-        CompoundTag wins = tag.getCompound("teamWins");
+        CompoundNBT wins = tag.getCompound("teamWins");
         for (String key : wins.getAllKeys()) teamWins.put(key, wins.getInt(key));
 
         players.clear();
-        ListTag pl = tag.getList("players", 10);
+        ListNBT pl = tag.getList("players", 10);
         for (int i = 0; i < pl.size(); i++) {
-            CompoundTag pe = pl.getCompound(i);
+            CompoundNBT pe = pl.getCompound(i);
             players.add(new PlayerRow(
                 pe.getString("name"), pe.getString("team"),
                 pe.getInt("kills"), pe.getInt("deaths"), pe.getInt("assists"),
@@ -66,7 +66,7 @@ public class ClientPvpStateManager {
         // v0.2.62: ready-check player set (may be absent in non-READY_CHECK syncs)
         readyNames.clear();
         if (tag.contains("readyPlayers")) {
-            ListTag rl = tag.getList("readyPlayers", 8); // 8 = StringTag
+            ListNBT rl = tag.getList("readyPlayers", 8); // 8 = StringNBT
             for (int i = 0; i < rl.size(); i++) readyNames.add(rl.getString(i));
         }
     }

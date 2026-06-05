@@ -1,14 +1,16 @@
 package com.wavedefense.gui;
 
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.resources.language.I18n;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.*;
-import net.minecraftforge.common.CreativeModeTabRegistry;
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.item.*;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.*;
@@ -17,7 +19,7 @@ import java.util.stream.Collectors;
 
 /**
  * Item picker — shows every item available in the creative inventory,
- * organised into the same {@link CreativeModeTab} structure (same labels,
+ * organised into the same {@link ItemGroup} structure (same labels,
  * same ordering as the creative menu).
  *
  * <p>Tabs are discovered at runtime via {@link CreativeModeTabRegistry}; this
@@ -36,14 +38,14 @@ public class ItemSelectionScreen extends Screen {
     private int COLS      = 10;
 
     /** Sorted list of non-empty creative tabs (vanilla + modded). */
-    private List<CreativeModeTab> creativeTabs = new ArrayList<>();
+    private List<ItemGroup> creativeTabs = new ArrayList<>();
     /** Active tab index; -1 = the virtual "All" aggregate tab. */
     private int     activeTabIndex = -1;
     /** Horizontal scroll within the tab strip (which tab is leftmost on screen). */
     private int     tabRowOffset   = 0;
 
     private String  searchQuery   = "";
-    private EditBox searchBox;
+    private TextFieldWidget searchBox;
     private int     scrollOffset  = 0;
     private float   previewAngle  = 0;
 
@@ -56,7 +58,7 @@ public class ItemSelectionScreen extends Screen {
     private int selectedCount = 0;
 
     public ItemSelectionScreen(Screen parent, Consumer<ItemStack> onSelect, ItemStack currentItem) {
-        super(Component.translatable("wavedefense.title.item_selection"));
+        super(new TranslationTextComponent("wavedefense.title.item_selection"));
         this.parent      = parent;
         this.onSelect    = onSelect;
         this.currentItem = currentItem == null ? ItemStack.EMPTY : currentItem;
@@ -68,17 +70,17 @@ public class ItemSelectionScreen extends Screen {
     }
 
     /**
-     * Captures every loaded {@link CreativeModeTab} that actually contains items.
+     * Captures every loaded {@link ItemGroup} that actually contains items.
      * Forces a build pass first via {@link CreativeTabHelper#forceBuildAllTabs()}
      * because Forge 1.20.1 only populates {@code getDisplayItems()} after
      * {@code BuildCreativeModeTabContentsEvent} fires — which may not have
      * happened by the time the admin opens the picker for the first time.
      */
     private void discoverCreativeTabs() {
-        CreativeTabHelper.forceBuildAllTabs();
+        // 1.16.5: iterate ItemGroup.TABS via CreativeTabHelper.allTabs() — no event needed.
         creativeTabs.clear();
         try {
-            for (CreativeModeTab tab : CreativeModeTabRegistry.getSortedCreativeModeTabs()) {
+            for (ItemGroup tab : CreativeTabHelper.allTabs()) {
                 if (!CreativeTabHelper.safeGetItems(tab).isEmpty()) {
                     creativeTabs.add(tab);
                 }
@@ -97,7 +99,7 @@ public class ItemSelectionScreen extends Screen {
 
         // 1. Aggregate from every creative tab — keeps NBT-distinguished modded stacks
         //    (Tacz guns w/ GunId, MnS gear w/ stats, etc.).
-        for (CreativeModeTab tab : creativeTabs) {
+        for (ItemGroup tab : creativeTabs) {
             for (ItemStack st : CreativeTabHelper.safeGetItems(tab)) {
                 if (st == null || st.isEmpty() || st.getItem() == Items.AIR) continue;
                 String key = stableKey(st);
@@ -134,7 +136,7 @@ public class ItemSelectionScreen extends Screen {
         ResourceLocation rl = ForgeRegistries.ITEMS.getKey(st.getItem());
         String base = rl != null ? rl.toString() : st.getItem().toString();
         if (!st.hasTag()) return base;
-        net.minecraft.nbt.CompoundTag tag = st.getTag().copy();
+        net.minecraft.nbt.CompoundNBT tag = st.getTag().copy();
         tag.remove("display");
         tag.remove("Damage");
         tag.remove("RepairCost");
@@ -147,7 +149,7 @@ public class ItemSelectionScreen extends Screen {
         if (activeTabIndex < 0 || activeTabIndex >= creativeTabs.size()) {
             return allStacks;
         }
-        CreativeModeTab tab = creativeTabs.get(activeTabIndex);
+        ItemGroup tab = creativeTabs.get(activeTabIndex);
         List<ItemStack> out = new ArrayList<>();
         Set<String> seen = new LinkedHashSet<>();
         for (ItemStack st : CreativeTabHelper.safeGetItems(tab)) {
@@ -167,8 +169,8 @@ public class ItemSelectionScreen extends Screen {
         int cx = this.width / 2;
 
         // ── Search box (top) ─────────────────────────────────────────────
-        searchBox = new EditBox(this.font, cx - 80, 24, 200, 16,
-            Component.translatable("wavedefense.label.search"));
+        searchBox = new TextFieldWidget(this.font, cx - 80, 24, 200, 16,
+            new TranslationTextComponent("wavedefense.label.search"));
         searchBox.setMaxLength(64);
         searchBox.setValue(searchQuery);
         searchBox.setResponder(s -> {
@@ -176,7 +178,7 @@ public class ItemSelectionScreen extends Screen {
             scrollOffset = 0;
             applyFilter();
         });
-        this.addRenderableWidget(searchBox);
+        this.addButton(searchBox);
         this.setInitialFocus(searchBox);
 
         // ── Creative-tab strip (y=44, scrollable horizontally) ───────────
@@ -196,11 +198,9 @@ public class ItemSelectionScreen extends Screen {
         if (tabRowOffset < 0) tabRowOffset = 0;
 
         // ◄ left scroll
-        Button leftBtn = Button.builder(Component.literal("◄"),
-            b -> { if (tabRowOffset > 0) { tabRowOffset--; rebuildWidgets(); } }
-        ).bounds(stripX, 44, navW, 14).build();
+        Button leftBtn = new Button(stripX, 44, navW, 14, new StringTextComponent("◄"), b -> { if (tabRowOffset > 0) { tabRowOffset--; init(); } });
         leftBtn.active = tabRowOffset > 0;
-        this.addRenderableWidget(leftBtn);
+        this.addButton(leftBtn);
 
         int curX = stripX + navW + tabGap;
         for (int i = 0; i < visibleTabs; i++) {
@@ -220,48 +220,37 @@ public class ItemSelectionScreen extends Screen {
             }
             if (label.length() > 10) label = label.substring(0, 9) + "…";
             String coloured = (active ? "§e§l" : "§7") + label;
-            this.addRenderableWidget(Button.builder(
-                Component.literal(coloured),
-                b -> { activeTabIndex = idx; scrollOffset = 0; applyFilter(); }
-            ).bounds(curX, 44, tabW, 14).build());
+            this.addButton(new Button(curX, 44, tabW, 14, new StringTextComponent(coloured), b -> { activeTabIndex = idx; scrollOffset = 0; applyFilter(); }));
             curX += tabW + tabGap;
         }
 
         // ► right scroll
-        Button rightBtn = Button.builder(Component.literal("►"),
-            b -> { if (tabRowOffset < maxOffset) { tabRowOffset++; rebuildWidgets(); } }
-        ).bounds(stripX + stripW - navW, 44, navW, 14).build();
+        Button rightBtn = new Button(stripX + stripW - navW, 44, navW, 14, new StringTextComponent("►"), b -> { if (tabRowOffset < maxOffset) { tabRowOffset++; init(); } });
         rightBtn.active = tabRowOffset < maxOffset;
-        this.addRenderableWidget(rightBtn);
+        this.addButton(rightBtn);
 
         // ── Confirm + Cancel (top-right) ─────────────────────────────────
         // Confirm: send current selection (with click-counted count) back to the parent.
-        Button confirmBtn = Button.builder(
-                Component.literal("§a✓ " + I18n.get("wavedefense.button.confirm")),
-                b -> {
+        Button confirmBtn = new Button(this.width - 144, 24, 68, 16, new StringTextComponent("§a✓ " + I18n.get("wavedefense.button.confirm")), b -> {
                     if (!currentItem.isEmpty() && onSelect != null) {
                         ItemStack out = currentItem.copy();
                         out.setCount(Math.max(1, Math.min(64, selectedCount)));
                         onSelect.accept(out);
                     }
                     this.minecraft.setScreen(parent);
-                }
-        ).bounds(this.width - 144, 24, 68, 16).build();
+                });
         confirmBtn.active = !currentItem.isEmpty();
-        this.addRenderableWidget(confirmBtn);
+        this.addButton(confirmBtn);
 
-        this.addRenderableWidget(Button.builder(
-                Component.literal("§c✕ " + I18n.get("wavedefense.button.cancel")),
-                b -> this.minecraft.setScreen(parent)
-        ).bounds(this.width - 72, 24, 68, 16).build());
+        this.addButton(new Button(this.width - 72, 24, 68, 16, new StringTextComponent("§c✕ " + I18n.get("wavedefense.button.cancel")), b -> this.minecraft.setScreen(parent)));
     }
 
     private void applyFilter() {
         List<ItemStack> source = stacksForActiveTab();
         filteredStacks = source.stream()
                 .filter(this::matchesSearch)
-                .collect(Collectors.toList());
-        rebuildWidgets();
+                .collect(java.util.stream.Collectors.toList());
+        init();
     }
 
     private boolean matchesSearch(ItemStack stack) {
@@ -297,7 +286,7 @@ public class ItemSelectionScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
+    public void render(MatrixStack g, int mouseX, int mouseY, float partial) {
         GuiTheme.renderBackground(g, this.width, this.height);
         GuiTheme.renderHeader(g, this.font, this.title, this.width);
         previewAngle = (previewAngle + 0.5f) % 360f;
@@ -314,17 +303,17 @@ public class ItemSelectionScreen extends Screen {
         // Counter + click-hint (footer)
         String counter = filteredStacks.size() + " " + I18n.get("wavedefense.item.count_suffix");
         if (!searchQuery.isEmpty()) counter += " (\"" + searchQuery + "\")";
-        g.drawString(this.font, counter, PREVIEW_W + 8, this.height - 12, GuiTheme.TEXT_MUTED, false);
+        com.wavedefense.gui.GuiCompat.drawString(g, this.font, counter, PREVIEW_W + 8, this.height - 12, GuiTheme.TEXT_MUTED, false);
 
         // Click-hint and current selection count — right-aligned in the footer.
         String hint = I18n.get("wavedefense.item.click_hint");
         int hintW = this.font.width(hint);
-        g.drawString(this.font, hint,
+        com.wavedefense.gui.GuiCompat.drawString(g, this.font, hint,
             this.width - hintW - 12 - 80, this.height - 12, GuiTheme.TEXT_MUTED, false);
         if (!currentItem.isEmpty() && selectedCount > 0) {
             String sel = I18n.get("wavedefense.item.selected_count", selectedCount);
             int selW = this.font.width(sel);
-            g.drawString(this.font, sel,
+            com.wavedefense.gui.GuiCompat.drawString(g, this.font, sel,
                 this.width - selW - 12, this.height - 12, 0xFFFFD700, false);
         }
 
@@ -343,12 +332,12 @@ public class ItemSelectionScreen extends Screen {
             int sy = gridY + row * SLOT_SIZE;
 
             // Slot background
-            g.fill(sx, sy, sx + SLOT_SIZE, sy + SLOT_SIZE, GuiTheme.BORDER);
-            g.fill(sx + 1, sy + 1, sx + SLOT_SIZE - 1, sy + SLOT_SIZE - 1, GuiTheme.PANEL_DARK);
+            com.wavedefense.gui.GuiCompat.fill(g, sx, sy, sx + SLOT_SIZE, sy + SLOT_SIZE, GuiTheme.BORDER);
+            com.wavedefense.gui.GuiCompat.fill(g, sx + 1, sy + 1, sx + SLOT_SIZE - 1, sy + SLOT_SIZE - 1, GuiTheme.PANEL_DARK);
 
             boolean isSelected = !currentItem.isEmpty()
                     && currentItem.getItem() == stack.getItem()
-                    && ItemStack.isSameItemSameTags(currentItem, stack);
+                    && ItemStack.matches(currentItem, stack);
 
             // Render icon + use a copy with our click-counted count so vanilla decoration
             // draws the proper "×N" number in the corner of the slot.
@@ -357,11 +346,11 @@ public class ItemSelectionScreen extends Screen {
             ItemStack visual = isSelected
                 ? withCount(stack, Math.max(1, selectedCount))
                 : stack;
-            g.renderItem(visual, iconX, iconY);
-            g.renderItemDecorations(this.font, visual, iconX, iconY);
+            com.wavedefense.gui.GuiCompat.renderItem(g, visual, iconX, iconY);
+            com.wavedefense.gui.GuiCompat.renderItemDecorations(g, this.font, visual, iconX, iconY);
 
             if (mouseX >= sx && mouseX < sx + SLOT_SIZE && mouseY >= sy && mouseY < sy + SLOT_SIZE) {
-                g.fill(sx, sy, sx + SLOT_SIZE, sy + SLOT_SIZE, 0x44FFFFFF);
+                com.wavedefense.gui.GuiCompat.fill(g, sx, sy, sx + SLOT_SIZE, sy + SLOT_SIZE, 0x44FFFFFF);
                 hoveredStack = stack;
             }
 
@@ -369,35 +358,37 @@ public class ItemSelectionScreen extends Screen {
             // Drawn LAST so it sits on top of the hover overlay and the icon.
             if (isSelected) {
                 int c = 0xFFFFD700;
-                g.fill(sx,             sy,             sx + SLOT_SIZE, sy + 1,             c); // top
-                g.fill(sx,             sy + SLOT_SIZE - 1, sx + SLOT_SIZE, sy + SLOT_SIZE, c); // bottom
-                g.fill(sx,             sy,             sx + 1,         sy + SLOT_SIZE,     c); // left
-                g.fill(sx + SLOT_SIZE - 1, sy,         sx + SLOT_SIZE, sy + SLOT_SIZE,     c); // right
+                com.wavedefense.gui.GuiCompat.fill(g, sx,             sy,             sx + SLOT_SIZE, sy + 1,             c); // top
+                com.wavedefense.gui.GuiCompat.fill(g, sx,             sy + SLOT_SIZE - 1, sx + SLOT_SIZE, sy + SLOT_SIZE, c); // bottom
+                com.wavedefense.gui.GuiCompat.fill(g, sx,             sy,             sx + 1,         sy + SLOT_SIZE,     c); // left
+                com.wavedefense.gui.GuiCompat.fill(g, sx + SLOT_SIZE - 1, sy,         sx + SLOT_SIZE, sy + SLOT_SIZE,     c); // right
             }
         }
-        for (var r : this.renderables) {
-            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
-                    && w.getX() >= gridX
-                    && w.getY() + w.getHeight() > gridY && w.getY() < gridBottom)
-                w.render(g, mouseX, mouseY, partial);
+        for (Object r : this.buttons) {
+            if (r instanceof net.minecraft.client.gui.widget.Widget) {
+                net.minecraft.client.gui.widget.Widget w = (net.minecraft.client.gui.widget.Widget) r;
+                if (w.x >= gridX
+                    && w.y + w.getHeight() > gridY && w.y < gridBottom) w.render(g, mouseX, mouseY, partial);
+            }
         }
         ScissorHelper.disable();
 
         // Static widgets (search, tabs, close)
-        for (var r : this.renderables) {
-            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
-                    && (w.getY() < gridY || w.getX() < gridX))
-                w.render(g, mouseX, mouseY, partial);
+        for (Object r : this.buttons) {
+            if (r instanceof net.minecraft.client.gui.widget.Widget) {
+                net.minecraft.client.gui.widget.Widget w = (net.minecraft.client.gui.widget.Widget) r;
+                if ((w.y < gridY || w.x < gridX)) w.render(g, mouseX, mouseY, partial);
+            }
         }
 
         // Tooltip
         if (!hoveredStack.isEmpty())
-            g.renderTooltip(this.font, hoveredStack, mouseX, mouseY);
+            com.wavedefense.gui.GuiCompat.renderTooltip(this, g, this.font, hoveredStack, mouseX, mouseY);
 
         renderItemPreview(g);
     }
 
-    private void renderItemPreview(GuiGraphics g) {
+    private void renderItemPreview(MatrixStack g) {
         int px = 4, py = 64;
         int pw = PREVIEW_W - 4;
         int ph = Math.min(pw, this.height - py - 40);
@@ -409,16 +400,16 @@ public class ItemSelectionScreen extends Screen {
 
         int iconX = px + (pw - 16) / 2;
         int iconY = py + (ph - 16) / 2;
-        g.renderItem(preview, iconX, iconY);
-        g.renderItemDecorations(this.font, preview, iconX, iconY);
+        com.wavedefense.gui.GuiCompat.renderItem(g, preview, iconX, iconY);
+        com.wavedefense.gui.GuiCompat.renderItemDecorations(g, this.font, preview, iconX, iconY);
 
         String name = preview.getHoverName().getString();
         if (name.length() > 12) name = name.substring(0, 11) + "…";
-        g.drawCenteredString(this.font, name, px + pw / 2, py + ph + 2, GuiTheme.TEXT);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, name, px + pw / 2, py + ph + 2, GuiTheme.TEXT);
 
         ResourceLocation key = ForgeRegistries.ITEMS.getKey(preview.getItem());
         if (key != null && !key.getNamespace().equals("minecraft")) {
-            g.drawCenteredString(this.font, "[" + key.getNamespace() + "]",
+            com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, "[" + key.getNamespace() + "]",
                     px + pw / 2, py + ph + 12, GuiTheme.TEXT_MUTED);
         }
     }
@@ -449,7 +440,7 @@ public class ItemSelectionScreen extends Screen {
             ItemStack clicked = filteredStacks.get(idx);
             boolean same = !currentItem.isEmpty()
                 && currentItem.getItem() == clicked.getItem()
-                && ItemStack.isSameItemSameTags(currentItem, clicked);
+                && ItemStack.matches(currentItem, clicked);
 
             // Switching to a different item resets the counter to 0 so the first
             // click increments it to 1 below — this avoids surprise "I just clicked
@@ -473,7 +464,7 @@ public class ItemSelectionScreen extends Screen {
                     if (selectedCount == 0) currentItem = ItemStack.EMPTY;
                 }
             }
-            rebuildWidgets(); // refresh confirm-button active state
+            init(); // refresh confirm-button active state
             return true;
         }
         return super.mouseClicked(mx, my, button);

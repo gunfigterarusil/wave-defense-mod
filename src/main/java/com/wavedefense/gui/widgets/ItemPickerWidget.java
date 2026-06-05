@@ -1,17 +1,20 @@
 package com.wavedefense.gui.widgets;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.gui.GuiTheme;
 import com.wavedefense.gui.ItemSelectionScreen;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.AbstractWidget;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.components.Tooltip;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.gui.FontRenderer;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.Widget;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.item.ItemStack;
 
 import java.util.function.Consumer;
 
@@ -28,13 +31,13 @@ import java.util.function.Consumer;
  * - <b>Select item</b> button opens {@link ItemSelectionScreen} (creative-tab picker).
  * - <b>Hand</b> button copies the player's main-hand item.
  * - <b>Clear</b> button removes the item.
- * - <b>Count box</b> EditBox (1-64) sets stack count.
+ * - <b>Count box</b> TextFieldWidget (1-64) sets stack count.
  *
  * <h3>Usage</h3>
  * <pre>{@code
  * ItemPickerWidget picker = new ItemPickerWidget(this, this.font, x, y, totalWidth,
- *         currentStack, newStack -> { items[i] = newStack; rebuildWidgets(); });
- * picker.addToScreen(this::addRenderableWidget);
+ *         currentStack, newStack -> { items[i] = newStack; init(); });
+ * picker.addToScreen(this::addButton);
  * // In render(): picker.renderIcon(g, mouseX, mouseY);
  * }</pre>
  */
@@ -48,7 +51,7 @@ public class ItemPickerWidget {
 
     private final Screen parent;
     private final Minecraft mc;
-    private final Font font;
+    private final FontRenderer font;
     private final int x, y, totalWidth, height;
     private ItemStack current;
     private int count;
@@ -57,7 +60,7 @@ public class ItemPickerWidget {
     private Button selectBtn;
     private Button handBtn;
     private Button clearBtn;
-    private EditBox countBox;
+    private TextFieldWidget countBox;
 
     /**
      * @param parent     screen this picker lives on (used to push the picker overlay)
@@ -67,7 +70,7 @@ public class ItemPickerWidget {
      * @param current    initial stack (may be empty)
      * @param onChange   callback whenever stack OR count changes
      */
-    public ItemPickerWidget(Screen parent, Font font, int x, int y, int totalWidth,
+    public ItemPickerWidget(Screen parent, FontRenderer font, int x, int y, int totalWidth,
                              ItemStack current, Consumer<ItemStack> onChange) {
         this.parent     = parent;
         this.mc         = Minecraft.getInstance();
@@ -82,29 +85,25 @@ public class ItemPickerWidget {
     }
 
     /** Registers all sub-widgets onto the parent screen. */
-    public void addToScreen(Consumer<AbstractWidget> adder) {
+    public void addToScreen(Consumer<Widget> adder) {
         // Reserve space for icon (rendered manually via renderIcon, not a widget)
         int curX = x + ICON_W + GAP;
         int selectW = Math.max(40, totalWidth - ICON_W - HAND_W - CLEAR_W - COUNT_W - GAP * 5);
 
         // Select item — opens the creative-tab picker
-        selectBtn = Button.builder(
-            current.isEmpty()
-                ? Component.translatable("wavedefense.picker.select")
-                : Component.literal("§a✓ " + trunc(current.getHoverName().getString(), Math.max(3, selectW / 6))),
-            b -> mc.setScreen(new ItemSelectionScreen(parent, picked -> {
+        selectBtn = new Button(curX, y, selectW, height, current.isEmpty()
+                ? new TranslationTextComponent("wavedefense.picker.select")
+                : new StringTextComponent("§a✓ " + trunc(current.getHoverName().getString(), Math.max(3, selectW / 6))), b -> mc.setScreen(new ItemSelectionScreen(parent, picked -> {
                 current = picked == null ? ItemStack.EMPTY : picked.copy();
                 count = current.isEmpty() ? 1 : Math.max(1, Math.min(64, current.getCount()));
                 if (countBox != null) countBox.setValue(String.valueOf(count));
                 fire();
-            }, current))
-        ).bounds(curX, y, selectW, height).build();
+            }, current)));
         adder.accept(selectBtn);
         curX += selectW + GAP;
 
         // Hand — copy mainhand item
-        handBtn = Button.builder(Component.literal("§7✋"),
-            b -> {
+        handBtn = new Button(curX, y, HAND_W, height, new StringTextComponent("§7✋"), b -> {
                 if (mc.player != null) {
                     ItemStack held = mc.player.getMainHandItem();
                     if (!held.isEmpty()) {
@@ -114,27 +113,22 @@ public class ItemPickerWidget {
                         fire();
                     }
                 }
-            }
-        ).bounds(curX, y, HAND_W, height).build();
-        handBtn.setTooltip(Tooltip.create(
-            Component.translatable("wavedefense.picker.hand_tooltip")));
+            });
+        /* setTooltip omitted on 1.16.5: handBtn */
         adder.accept(handBtn);
         curX += HAND_W + GAP;
 
         // Clear — remove item
-        clearBtn = Button.builder(Component.literal("§c×"),
-            b -> { current = ItemStack.EMPTY; count = 1;
+        clearBtn = new Button(curX, y, CLEAR_W, height, new StringTextComponent("§c×"), b -> { current = ItemStack.EMPTY; count = 1;
                    if (countBox != null) countBox.setValue("1");
-                   fire(); }
-        ).bounds(curX, y, CLEAR_W, height).build();
-        clearBtn.setTooltip(Tooltip.create(
-            Component.translatable("wavedefense.picker.clear_tooltip")));
+                   fire(); });
+        /* setTooltip omitted on 1.16.5: clearBtn */
         adder.accept(clearBtn);
         curX += CLEAR_W + GAP;
 
         // Count box (1-64)
-        countBox = new EditBox(font, curX, y, COUNT_W, height,
-            Component.translatable("wavedefense.picker.count"));
+        countBox = new TextFieldWidget(font, curX, y, COUNT_W, height,
+            new TranslationTextComponent("wavedefense.picker.count"));
         countBox.setMaxLength(2);
         countBox.setValue(String.valueOf(count));
         countBox.setResponder(s -> {
@@ -144,24 +138,23 @@ public class ItemPickerWidget {
                 fire();
             } catch (NumberFormatException ignored) {}
         });
-        countBox.setTooltip(Tooltip.create(
-            Component.translatable("wavedefense.picker.count_tooltip")));
+        /* setTooltip omitted on 1.16.5: countBox */
         adder.accept(countBox);
     }
 
     /** Renders the 16×16 icon at the left of the widget row. Call from screen render(). */
-    public void renderIcon(GuiGraphics g, int mouseX, int mouseY) {
+    public void renderIcon(MatrixStack g, int mouseX, int mouseY) {
         int iconX = x + 1;
         int iconY = y;
-        g.fill(iconX - 1, iconY - 1, iconX + 17, iconY + 17, GuiTheme.BORDER);
-        g.fill(iconX, iconY, iconX + 16, iconY + 16, GuiTheme.PANEL_DARK);
+        com.wavedefense.gui.GuiCompat.fill(g, iconX - 1, iconY - 1, iconX + 17, iconY + 17, GuiTheme.BORDER);
+        com.wavedefense.gui.GuiCompat.fill(g, iconX, iconY, iconX + 16, iconY + 16, GuiTheme.PANEL_DARK);
         if (!current.isEmpty()) {
             ItemStack visual = current.copy();
             visual.setCount(Math.max(1, count));
-            g.renderItem(visual, iconX, iconY);
-            g.renderItemDecorations(font, visual, iconX, iconY);
+            com.wavedefense.gui.GuiCompat.renderItem(g, visual, iconX, iconY);
+            com.wavedefense.gui.GuiCompat.renderItemDecorations(g, font, visual, iconX, iconY);
             if (mouseX >= iconX && mouseX < iconX + 16 && mouseY >= iconY && mouseY < iconY + 16) {
-                g.renderTooltip(font, visual, mouseX, mouseY);
+                /* item tooltip on widget not directly supported on 1.16.5: visual */;
             }
         }
     }

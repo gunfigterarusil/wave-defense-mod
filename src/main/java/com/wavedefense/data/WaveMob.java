@@ -1,15 +1,15 @@
 package com.wavedefense.data;
 
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Mob configuration for a wave.
+ * MobEntity configuration for a wave.
  * Supports: armor (4 slots), weapon (in hand), effects.
  */
 public class WaveMob {
@@ -74,8 +74,8 @@ public class WaveMob {
 
     public boolean hasEffects() { return !effects.isEmpty(); }
 
-    public CompoundTag save() {
-        CompoundTag tag = new CompoundTag();
+    public CompoundNBT save() {
+        CompoundNBT tag = new CompoundNBT();
         tag.putString("mobType", mobType.toString());
         tag.putInt("count", count);
         tag.putInt("growthPerWave", growthPerWave);
@@ -91,9 +91,9 @@ public class WaveMob {
         saveItem(tag, "offHand",    offHand);
 
         if (!effects.isEmpty()) {
-            ListTag efList = new ListTag();
+            ListNBT efList = new ListNBT();
             for (String e : effects) {
-                net.minecraft.nbt.StringTag st = net.minecraft.nbt.StringTag.valueOf(e);
+                net.minecraft.nbt.StringNBT st = net.minecraft.nbt.StringNBT.valueOf(e);
                 efList.add(st);
             }
             tag.put("effects", efList);
@@ -101,11 +101,11 @@ public class WaveMob {
         return tag;
     }
 
-    private static void saveItem(CompoundTag parent, String key, ItemStack item) {
-        if (!item.isEmpty()) parent.put(key, item.save(new CompoundTag()));
+    private static void saveItem(CompoundNBT parent, String key, ItemStack item) {
+        if (!item.isEmpty()) parent.put(key, item.save(new CompoundNBT()));
     }
 
-    public static WaveMob load(CompoundTag tag) {
+    public static WaveMob load(CompoundNBT tag) {
         WaveMob mob = new WaveMob(
                 new ResourceLocation(tag.getString("mobType")),
                 tag.getInt("count"),
@@ -121,7 +121,7 @@ public class WaveMob {
         if (tag.contains("mainHand"))   mob.mainHand   = ItemStack.of(tag.getCompound("mainHand"));
         if (tag.contains("offHand"))    mob.offHand    = ItemStack.of(tag.getCompound("offHand"));
         if (tag.contains("effects")) {
-            ListTag efList = tag.getList("effects", 8);
+            ListNBT efList = tag.getList("effects", 8);
             for (int i = 0; i < efList.size(); i++) mob.effects.add(efList.getString(i));
         }
         return mob;

@@ -1,7 +1,7 @@
 package com.wavedefense.data;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.nbt.CompoundNBT;
 
 /**
  * A mob spawn point with an individual scatter radius.
@@ -34,14 +34,14 @@ public class MobSpawnPoint {
         return pos.offset(dx, 0, dz);
     }
 
-    public CompoundTag save() {
-        CompoundTag tag = new CompoundTag();
+    public CompoundNBT save() {
+        CompoundNBT tag = new CompoundNBT();
         tag.putLong("pos", pos.asLong());
         if (radius > 0) tag.putInt("radius", radius);
         return tag;
     }
 
-    public static MobSpawnPoint load(CompoundTag tag) {
+    public static MobSpawnPoint load(CompoundNBT tag) {
         BlockPos pos = BlockPos.of(tag.getLong("pos"));
         int radius = tag.contains("radius") ? tag.getInt("radius") : 0;
         return new MobSpawnPoint(pos, radius);

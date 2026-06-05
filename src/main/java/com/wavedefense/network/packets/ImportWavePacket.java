@@ -1,14 +1,16 @@
 package com.wavedefense.network.packets;
 
-import com.wavedefense.WaveDefenseMod;
+import net.minecraft.util.text.ITextComponent;
+
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.data.Location;
 import com.wavedefense.data.WaveConfig;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtIo;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
+import net.minecraft.nbt.CompressedStreamTools;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraftforge.fml.network.NetworkEvent;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -33,43 +35,43 @@ public class ImportWavePacket {
         this.insertMode = insertMode;
     }
 
-    public static void encode(ImportWavePacket p, FriendlyByteBuf buf) {
+    public static void encode(ImportWavePacket p, PacketBuffer buf) {
         buf.writeUtf(p.fileName);
         buf.writeUtf(p.locationName);
         buf.writeUtf(p.insertMode);
     }
 
-    public static ImportWavePacket decode(FriendlyByteBuf buf) {
+    public static ImportWavePacket decode(PacketBuffer buf) {
         return new ImportWavePacket(buf.readUtf(), buf.readUtf(), buf.readUtf());
     }
 
     public static void handle(ImportWavePacket p, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
-            ServerPlayer player = ctx.get().getSender();
+            ServerPlayerEntity player = ctx.get().getSender();
             if (player == null || !player.hasPermissions(2)) return;
 
-            Location loc = WaveDefenseMod.locationManager.getLocation(p.locationName);
+            Location loc = WaveDefenceMod.locationManager.getLocation(p.locationName);
             if (loc == null) {
-                player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.error.location_not_found", p.locationName), false);
+                player.displayClientMessage(new net.minecraft.util.text.TranslationTextComponent("wavedefense.error.location_not_found", p.locationName), false);
                 return;
             }
 
-            File dir = new File(WaveDefenseMod.getServer()
-                .getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).toFile(),
+            File dir = new File(WaveDefenceMod.getServer()
+                .getWorldPath(net.minecraft.world.storage.FolderName.ROOT).toFile(),
                 "wavedefense/wave_export");
             File file = new File(dir, p.fileName + ".nbt");
             if (!file.exists()) {
-                player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.auto.файл_не_знайдено_value_e8d8c6cc", p.fileName + ".nbt"), false);
+                player.displayClientMessage(new net.minecraft.util.text.TranslationTextComponent("wavedefense.auto.файл_не_знайдено_value_e8d8c6cc", p.fileName + ".nbt"), false);
                 return;
             }
 
             try {
-                CompoundTag root = NbtIo.readCompressed(file);
+                CompoundNBT root = CompressedStreamTools.readCompressed(file);
                 List<WaveConfig> imported = new ArrayList<>();
 
                 if (root.contains("waves")) {
                     // Файл з кількома хвилями
-                    ListTag list = root.getList("waves", 10);
+                    ListNBT list = root.getList("waves", 10);
                     for (int i = 0; i < list.size(); i++) {
                         imported.add(WaveConfig.load(list.getCompound(i)));
                     }
@@ -77,12 +79,12 @@ public class ImportWavePacket {
                     // Файл з однією хвилею
                     imported.add(WaveConfig.load(root.getCompound("wave")));
                 } else {
-                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.auto.неправильний_формат_файлу_69c73738"), false);
+                    player.displayClientMessage(new net.minecraft.util.text.TranslationTextComponent("wavedefense.auto.неправильний_формат_файлу_69c73738"), false);
                     return;
                 }
 
                 if (imported.isEmpty()) {
-                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.auto.файл_не_містить_хвиль_ed0312f7"), false);
+                    player.displayClientMessage(new net.minecraft.util.text.TranslationTextComponent("wavedefense.auto.файл_не_містить_хвиль_ed0312f7"), false);
                     return;
                 }
 
@@ -119,16 +121,16 @@ public class ImportWavePacket {
                     renumberAll(waves);
                 }
 
-                WaveDefenseMod.locationManager.saveToFile();
-                WaveDefenseMod.waveManager.broadcastLocationData();
+                WaveDefenceMod.locationManager.saveToFile();
+                WaveDefenceMod.waveManager.broadcastLocationData();
 
-                player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                player.displayClientMessage(new net.minecraft.util.text.TranslationTextComponent(
                     "wavedefense.msg.wave_import_success",
                     imported.size(), p.fileName, p.locationName, waves.size()), false);
 
             } catch (Exception e) {
-                WaveDefenseMod.LOGGER.error("ImportWavePacket error", e);
-                player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                WaveDefenceMod.LOGGER.error("ImportWavePacket error", e);
+                player.displayClientMessage(new net.minecraft.util.text.TranslationTextComponent(
                     "wavedefense.msg.import_error", e.getMessage()), false);
             }
         });
@@ -151,7 +153,7 @@ public class ImportWavePacket {
 
     /** Повертає копію WaveConfig зі зміненим номером хвилі. */
     private static WaveConfig rebuildWithNumber(WaveConfig src, int number) {
-        net.minecraft.nbt.CompoundTag tag = src.save();
+        net.minecraft.nbt.CompoundNBT tag = src.save();
         tag.putInt("waveNumber", number);
         return WaveConfig.load(tag);
     }

@@ -1,11 +1,13 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.data.GameStats;
 import com.wavedefense.data.PlayerStats;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.util.text.ITextComponent;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -18,7 +20,7 @@ public class StatsScreen extends Screen {
     private final Map<UUID, String> playerNameCache = new HashMap<>();
 
     public StatsScreen() {
-        super(Component.translatable("wavedefense.title.stats"));
+        super(new TranslationTextComponent("wavedefense.title.stats"));
         this.stats = ClientStatsManager.getStats();
     }
 
@@ -29,19 +31,16 @@ public class StatsScreen extends Screen {
         if (stats != null) {
             net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
             for (UUID uuid : stats.getPlayerStats().keySet()) {
-                net.minecraft.client.multiplayer.PlayerInfo info =
+                net.minecraft.client.network.play.NetworkPlayerInfo info =
                     (mc.getConnection() != null) ? mc.getConnection().getPlayerInfo(uuid) : null;
                 playerNameCache.put(uuid, info != null ? info.getProfile().getName() : uuid.toString());
             }
         }
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.close"),
-                button -> this.onClose()
-        ).bounds(this.width / 2 - 50, this.height - 30, 100, 20).build());
+        this.addButton(new Button(this.width / 2 - 50, this.height - 30, 100, 20, new TranslationTextComponent("wavedefense.button.close"), button -> this.onClose()));
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void render(MatrixStack graphics, int mouseX, int mouseY, float partialTick) {
         GuiTheme.renderBackground(graphics, this.width, this.height);
         GuiTheme.renderHeader(graphics, this.font, this.title, this.width);
 
@@ -50,7 +49,7 @@ public class StatsScreen extends Screen {
         int panelW = 240;
 
         if (stats == null) {
-            graphics.drawCenteredString(this.font, Component.translatable("wavedefense.stats.no_data"), cx, 50, GuiTheme.TEXT_MUTED);
+            com.wavedefense.gui.GuiCompat.drawCenteredString(graphics, this.font, new TranslationTextComponent("wavedefense.stats.no_data"), cx, 50, GuiTheme.TEXT_MUTED);
             super.render(graphics, mouseX, mouseY, partialTick);
             return;
         }
@@ -60,9 +59,9 @@ public class StatsScreen extends Screen {
 
         int y = 44;
         // Загальна статистика сесії
-        GuiTheme.sectionLabel(graphics, this.font, Component.translatable("wavedefense.stats.waves_completed", stats.getWavesCompleted()), panelX, y);
+        GuiTheme.sectionLabel(graphics, this.font, new TranslationTextComponent("wavedefense.stats.waves_completed", stats.getWavesCompleted()), panelX, y);
         y += 14;
-        graphics.drawString(this.font, Component.translatable("wavedefense.stats.mobs_killed", stats.getMobsKilled()), panelX, y, GuiTheme.TEXT_MUTED, false);
+        com.wavedefense.gui.GuiCompat.drawString(graphics, this.font, new TranslationTextComponent("wavedefense.stats.mobs_killed", stats.getMobsKilled()), panelX, y, GuiTheme.TEXT_MUTED, false);
         y += 18;
 
         // Рядки гравців
@@ -71,11 +70,11 @@ public class StatsScreen extends Screen {
             PlayerStats playerStats = entry.getValue();
             boolean hovered = mouseY >= y - 2 && mouseY <= y + 38;
             GuiTheme.card(graphics, panelX - 2, y - 2, panelX + panelW + 2, y + 38, hovered);
-            graphics.drawString(this.font, Component.translatable("wavedefense.stats.player", playerName), panelX + 2, y, GuiTheme.TEXT, false);
+            com.wavedefense.gui.GuiCompat.drawString(graphics, this.font, new TranslationTextComponent("wavedefense.stats.player", playerName), panelX + 2, y, GuiTheme.TEXT, false);
             y += 12;
-            graphics.drawString(this.font, Component.translatable("wavedefense.stats.player_mobs", playerStats.getMobsKilled()), panelX + 8, y, GuiTheme.TEXT_MUTED, false);
+            com.wavedefense.gui.GuiCompat.drawString(graphics, this.font, new TranslationTextComponent("wavedefense.stats.player_mobs", playerStats.getMobsKilled()), panelX + 8, y, GuiTheme.TEXT_MUTED, false);
             y += 12;
-            graphics.drawString(this.font, Component.translatable("wavedefense.stats.player_points", playerStats.getPointsEarned()), panelX + 8, y, GuiTheme.ACCENT_ALT, false);
+            com.wavedefense.gui.GuiCompat.drawString(graphics, this.font, new TranslationTextComponent("wavedefense.stats.player_points", playerStats.getPointsEarned()), panelX + 8, y, GuiTheme.ACCENT_ALT, false);
             y += 18;
         }
 

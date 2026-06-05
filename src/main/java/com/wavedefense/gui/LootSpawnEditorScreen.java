@@ -1,17 +1,20 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.data.Location;
 import com.wavedefense.data.LootSpawn;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.UpdateLocationPacket;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.core.BlockPos;
-import net.minecraft.client.resources.language.I18n;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.item.ItemStack;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -33,10 +36,10 @@ public class LootSpawnEditorScreen extends Screen {
     private int     listIconsY    = 56;  // Y перший рядок у списку (синхронізується з init)   // Y координата слотів предметів (для render())
 
     private List<ItemStack> editItems = new ArrayList<>();
-    private EditBox chanceInput;
-    private EditBox countInput;
+    private TextFieldWidget chanceInput;
+    private TextFieldWidget countInput;
     // Координати точки спавну луту
-    private EditBox lootXInput, lootYInput, lootZInput;
+    private TextFieldWidget lootXInput, lootYInput, lootZInput;
 
     private int scrollOffset = 0;
     private static final int PER_PAGE = 5;
@@ -48,7 +51,7 @@ public class LootSpawnEditorScreen extends Screen {
     private static final int SLOT_GAP = 6;
 
     public LootSpawnEditorScreen(Location location, Screen parent) {
-        super(Component.translatable("wavedefense.title.loot_spawns")
+        super(new TranslationTextComponent("wavedefense.title.loot_spawns")
                 .append(": ").append(location.getName()));
         this.location = location;
         this.parent   = parent;
@@ -72,15 +75,9 @@ public class LootSpawnEditorScreen extends Screen {
         // ── Список точок ─────────────────────────────────────────────
         int btnW = Math.min(340, this.width - 60);
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.add_loot_point"),
-                button -> startAddAtPlayerPos()
-        ).bounds(cx - btnW / 2, y, btnW - 100, 20).build());
+        this.addButton(new Button(cx - btnW / 2, y, btnW - 100, 20, new TranslationTextComponent("wavedefense.button.add_loot_point"), button -> startAddAtPlayerPos()));
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.label.loot_spawn_count", location.getLootSpawns().size()),
-                b -> {}
-        ).bounds(cx + btnW / 2 - 95, y, 95, 20).build()).active = false;
+        this.addButton(new Button(cx + btnW / 2 - 95, y, 95, 20, new TranslationTextComponent("wavedefense.label.loot_spawn_count", location.getLootSpawns().size()), b -> {})).active = false;
 
         y += 26;
 
@@ -95,9 +92,9 @@ public class LootSpawnEditorScreen extends Screen {
 
             BlockPos pos = ls.getPos();
             List<ItemStack> items = ls.getItems().stream()
-                    .filter(it -> !it.isEmpty()).collect(Collectors.toList());
+                    .filter(it -> !it.isEmpty()).collect(java.util.stream.Collectors.toList());
             String firstName = items.isEmpty()
-                    ? net.minecraft.client.resources.language.I18n.get("wavedefense.label.loot_empty")
+                    ? net.minecraft.client.resources.I18n.get("wavedefense.label.loot_empty")
                     : items.get(0).getHoverName().getString();
             if (firstName.length() > 14) firstName = firstName.substring(0, 12) + "…";
             if (items.size() > 1) firstName += " (+" + (items.size() - 1) + ")";
@@ -116,52 +113,37 @@ public class LootSpawnEditorScreen extends Screen {
             // yPos:    placeholder під іконки (рендеряться в render())
             // yPos+18: назва + позиція
             // yPos+30: тригери
-            this.addRenderableWidget(Button.builder(
-                    Component.literal(lbl), b -> {}
-            ).bounds(cx - btnW / 2 + 4*20 + 4, yPos, btnW - 48 - 4*20 - 4, 14).build()).active = false;
+            this.addButton(new Button(cx - btnW / 2 + 4*20 + 4, yPos, btnW - 48 - 4*20 - 4, 14, new StringTextComponent(lbl), b -> {})).active = false;
 
             // Тригери рядок
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("§8⚡" + trigStr), b -> {}
-            ).bounds(cx - btnW / 2, yPos + 18, btnW - 48, 14).build()).active = false;
+            this.addButton(new Button(cx - btnW / 2, yPos + 18, btnW - 48, 14, new StringTextComponent("§8⚡" + trigStr), b -> {})).active = false;
 
             final int fIdx = idx;
             boolean isPendingDelLoot = (pendingDeleteLootIndex == fIdx);
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("✎"), button -> { pendingDeleteLootIndex = -1; startEditItem(fIdx); }
-            ).bounds(cx + btnW / 2 - 45, yPos, 22, 38).build());
+            this.addButton(new Button(cx + btnW / 2 - 45, yPos, 22, 38, new StringTextComponent("✎"), button -> { pendingDeleteLootIndex = -1; startEditItem(fIdx); }));
             // Ширина розширюється при підтвердженні (35px як у AdminMenuScreen)
             int delLootW = isPendingDelLoot ? 35 : 22;
             int delLootX = isPendingDelLoot ? cx + btnW / 2 - 35 : cx + btnW / 2 - 20; // правий край cx+btnW/2
-            this.addRenderableWidget(Button.builder(
-                    isPendingDelLoot
-                        ? Component.translatable("wavedefense.button.confirm_delete")
-                        : Component.literal("§c✕"),
-                    button -> {
+            this.addButton(new Button(delLootX, yPos, delLootW, 38, isPendingDelLoot
+                        ? new TranslationTextComponent("wavedefense.button.confirm_delete")
+                        : new StringTextComponent("§c✕"), button -> {
                         if (isPendingDelLoot) {
                             pendingDeleteLootIndex = -1;
                             location.removeLootSpawn(fIdx);
-                            rebuildWidgets();
+                            init();
                         } else {
                             pendingDeleteLootIndex = fIdx;
-                            rebuildWidgets();
+                            init();
                         }
-                    }
-            ).bounds(delLootX, yPos, delLootW, 38).build());
+                    }));
         }
 
         if (spawns.size() > PER_PAGE) {
-            this.addRenderableWidget(Button.builder(Component.literal("▲"),
-                    b -> { if (scrollOffset > 0) { scrollOffset--; rebuildWidgets(); } }
-            ).bounds(cx + this.width / 2 - 24, y, 18, 18).build());
-            this.addRenderableWidget(Button.builder(Component.literal("▼"),
-                    b -> { if (scrollOffset + PER_PAGE < spawns.size()) { scrollOffset++; rebuildWidgets(); } }
-            ).bounds(cx + this.width / 2 - 24, y + (PER_PAGE - 1) * rowH, 18, 18).build());
+            this.addButton(new Button(cx + this.width / 2 - 24, y, 18, 18, new StringTextComponent("▲"), b -> { if (scrollOffset > 0) { scrollOffset--; init(); } }));
+            this.addButton(new Button(cx + this.width / 2 - 24, y + (PER_PAGE - 1) * rowH, 18, 18, new StringTextComponent("▼"), b -> { if (scrollOffset + PER_PAGE < spawns.size()) { scrollOffset++; init(); } }));
         }
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.save_back"), b -> saveAndBack()
-        ).bounds(cx - 110, this.height - 26, 220, 20).build());
+        this.addButton(new Button(cx - 110, this.height - 26, 220, 20, new TranslationTextComponent("wavedefense.button.save_back"), b -> saveAndBack()));
     }
 
     // ── Режим редагування точки луту ──────────────────────────────────
@@ -169,9 +151,7 @@ public class LootSpawnEditorScreen extends Screen {
         int btnW = Math.min(340, this.width - 40);
 
         // ── Слоти предметів ────────────────────────────────────────────
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.предмети_луту_87a19179"), b -> {}
-        ).bounds(cx - btnW / 2, y, 120, 14).build()).active = false;
+        this.addButton(new Button(cx - btnW / 2, y, 120, 14, new TranslationTextComponent("wavedefense.auto.предмети_луту_87a19179"), b -> {})).active = false;
 
         y += 4;
 
@@ -186,119 +166,94 @@ public class LootSpawnEditorScreen extends Screen {
             int xPos = slotsL + i * (SLOT_W + SLOT_GAP);
             final int si = i;
             ItemStack it = i < editItems.size() ? editItems.get(i) : ItemStack.EMPTY;
-            String slotLbl = it.isEmpty() ? "§8[" + net.minecraft.client.resources.language.I18n.get("wavedefense.label.empty") + "]" : "§a✓ " + it.getHoverName().getString();
+            String slotLbl = it.isEmpty() ? "§8[" + net.minecraft.client.resources.I18n.get("wavedefense.label.empty") + "]" : "§a✓ " + it.getHoverName().getString();
             if (slotLbl.length() > 14) slotLbl = slotLbl.substring(0, 13) + "…";
 
             // Вибрати через ItemSelectionScreen (кнопка нижче іконки)
-            this.addRenderableWidget(Button.builder(
-                    Component.literal(slotLbl),
-                    b -> minecraft.setScreen(new ItemSelectionScreen(this, stack -> {
+            this.addButton(new Button(xPos, y, dynSlotW, SLOT_H, new StringTextComponent(slotLbl), b -> minecraft.setScreen(new ItemSelectionScreen(this, stack -> {
                         editItems.set(si, stack);
-                        rebuildWidgets();
-                    }, it))
-            ).bounds(xPos, y, dynSlotW, SLOT_H).build());
+                        init();
+                    }, it))));
 
-            this.addRenderableWidget(Button.builder(
-                    Component.translatable("wavedefense.button.clear_item"),
-                    b -> { editItems.set(si, ItemStack.EMPTY); rebuildWidgets(); }
-            ).bounds(xPos, y + SLOT_H + 2, dynSlotW, SLOT_H).build());
+            this.addButton(new Button(xPos, y + SLOT_H + 2, dynSlotW, SLOT_H, new TranslationTextComponent("wavedefense.button.clear_item"), b -> { editItems.set(si, ItemStack.EMPTY); init(); }));
 
             // Кнопка "←" взяти з руки — під кожним слотом
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("←"),
-                    b -> {
+            this.addButton(new Button(xPos, y + SLOT_H * 2 + 4, dynSlotW, SLOT_H, new StringTextComponent("←"), b -> {
                         if (minecraft.player != null) {
-                            net.minecraft.world.item.ItemStack held = minecraft.player.getMainHandItem();
+                            net.minecraft.item.ItemStack held = minecraft.player.getMainHandItem();
                             if (!held.isEmpty()) {
-                                while (editItems.size() <= si) editItems.add(net.minecraft.world.item.ItemStack.EMPTY);
+                                while (editItems.size() <= si) editItems.add(net.minecraft.item.ItemStack.EMPTY);
                                 editItems.set(si, held.copy());
-                                rebuildWidgets();
+                                init();
                             }
                         }
-                    }
-            ).bounds(xPos, y + SLOT_H * 2 + 4, dynSlotW, SLOT_H).build())
-            .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                    Component.translatable("wavedefense.button.from_hand")));
+                    }))
+            /* setTooltip omitted on 1.16.5 */;
         }
         y += SLOT_H * 3 + 16;
 
         // ── Координати точки спавну луту (компактно) ─────────────────
         {
-            net.minecraft.core.BlockPos curPos;
+            net.minecraft.util.math.BlockPos curPos;
             if (editingIndex >= 0 && editingIndex < location.getLootSpawns().size()) {
                 curPos = location.getLootSpawns().get(editingIndex).getPos();
             } else {
-                curPos = minecraft.player != null ? minecraft.player.blockPosition() : net.minecraft.core.BlockPos.ZERO;
+                curPos = minecraft.player != null ? minecraft.player.blockPosition() : net.minecraft.util.math.BlockPos.ZERO;
             }
             int fw = 45;
             int cx2 = cx - btnW / 2;
-            this.addRenderableWidget(Button.builder(Component.translatable("wavedefense.auto.x_be0e6536"), b -> {}).bounds(cx2, y, 28, 14).build()).active = false;
-            lootXInput = new EditBox(this.font, cx2 + 30, y, fw, 14, Component.literal("X"));
+            this.addButton(new Button(cx2, y, 28, 14, new TranslationTextComponent("wavedefense.auto.x_be0e6536"), b -> {})).active = false;
+            lootXInput = new TextFieldWidget(this.font, cx2 + 30, y, fw, 14, new StringTextComponent("X"));
             lootXInput.setValue(String.valueOf(curPos.getX())); lootXInput.setMaxLength(7);
-            this.addRenderableWidget(lootXInput);
+            this.addButton(lootXInput);
 
-            this.addRenderableWidget(Button.builder(Component.literal("§7Y:"), b -> {}).bounds(cx2 + 79, y, 14, 14).build()).active = false;
-            lootYInput = new EditBox(this.font, cx2 + 95, y, fw, 14, Component.literal("Y"));
+            this.addButton(new Button(cx2 + 79, y, 14, 14, new StringTextComponent("§7Y:"), b -> {})).active = false;
+            lootYInput = new TextFieldWidget(this.font, cx2 + 95, y, fw, 14, new StringTextComponent("Y"));
             lootYInput.setValue(String.valueOf(curPos.getY())); lootYInput.setMaxLength(7);
-            this.addRenderableWidget(lootYInput);
+            this.addButton(lootYInput);
 
-            this.addRenderableWidget(Button.builder(Component.literal("§7Z:"), b -> {}).bounds(cx2 + 144, y, 14, 14).build()).active = false;
-            lootZInput = new EditBox(this.font, cx2 + 160, y, fw, 14, Component.literal("Z"));
+            this.addButton(new Button(cx2 + 144, y, 14, 14, new StringTextComponent("§7Z:"), b -> {})).active = false;
+            lootZInput = new TextFieldWidget(this.font, cx2 + 160, y, fw, 14, new StringTextComponent("Z"));
             lootZInput.setValue(String.valueOf(curPos.getZ())); lootZInput.setMaxLength(7);
-            this.addRenderableWidget(lootZInput);
+            this.addButton(lootZInput);
 
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("📌"),
-                    b -> {
+            this.addButton(new Button(cx2 + 210, y, 18, 14, new StringTextComponent("📌"), b -> {
                         if (minecraft.player != null) {
-                            net.minecraft.core.BlockPos pp = minecraft.player.blockPosition();
+                            net.minecraft.util.math.BlockPos pp = minecraft.player.blockPosition();
                             if (lootXInput != null) lootXInput.setValue(String.valueOf(pp.getX()));
                             if (lootYInput != null) lootYInput.setValue(String.valueOf(pp.getY()));
                             if (lootZInput != null) lootZInput.setValue(String.valueOf(pp.getZ()));
                         }
-                    }
-            ).bounds(cx2 + 210, y, 18, 14).build());
+                    }));
             y += 18;
         }
 
         // Шанс
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.шанс_1_100_dd19b46b"), b -> {}
-        ).bounds(cx - btnW / 2, y, 140, 18).build()).active = false;
-        chanceInput = new EditBox(this.font, cx, y, 55, 18, Component.translatable("wavedefense.auto.шанс_7ce3c7bb"));
+        this.addButton(new Button(cx - btnW / 2, y, 140, 18, new TranslationTextComponent("wavedefense.auto.шанс_1_100_dd19b46b"), b -> {})).active = false;
+        chanceInput = new TextFieldWidget(this.font, cx, y, 55, 18, new TranslationTextComponent("wavedefense.auto.шанс_7ce3c7bb"));
         chanceInput.setValue(editingIndex >= 0
                 ? String.valueOf(location.getLootSpawns().get(editingIndex).getSpawnChance()) : "100");
         chanceInput.setMaxLength(3);
-        this.addRenderableWidget(chanceInput);
+        this.addButton(chanceInput);
         y += 24;
 
         // Кількість
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.кількість_e25b1eb1"), b -> {}
-        ).bounds(cx - btnW / 2, y, 140, 18).build()).active = false;
-        countInput = new EditBox(this.font, cx, y, 55, 18, Component.translatable("wavedefense.auto.к_сть_7beea1a7"));
+        this.addButton(new Button(cx - btnW / 2, y, 140, 18, new TranslationTextComponent("wavedefense.auto.кількість_e25b1eb1"), b -> {})).active = false;
+        countInput = new TextFieldWidget(this.font, cx, y, 55, 18, new TranslationTextComponent("wavedefense.auto.к_сть_7beea1a7"));
         countInput.setValue(editingIndex >= 0
                 ? String.valueOf(location.getLootSpawns().get(editingIndex).getCount()) : "1");
         countInput.setMaxLength(4);
-        this.addRenderableWidget(countInput);
+        this.addButton(countInput);
         y += 28;
 
         // Кнопка тригерів
         int trigCount = editingIndex >= 0
                 ? location.getLootSpawns().get(editingIndex).getTriggers().size() : 1;
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.label.loot_trigger_count", trigCount),
-                b -> { showTriggers = true; rebuildWidgets(); }
-        ).bounds(cx - btnW / 2, y, 210, 20).build());
+        this.addButton(new Button(cx - btnW / 2, y, 210, 20, new TranslationTextComponent("wavedefense.label.loot_trigger_count", trigCount), b -> { showTriggers = true; init(); }));
         y += 28;
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.save"), b -> saveItem()
-        ).bounds(cx - 110, y, 100, 20).build());
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.cancel"),
-                b -> { editingItem = false; showTriggers = false; rebuildWidgets(); }
-        ).bounds(cx + 10, y, 100, 20).build());
+        this.addButton(new Button(cx - 110, y, 100, 20, new TranslationTextComponent("wavedefense.button.save"), b -> saveItem()));
+        this.addButton(new Button(cx + 10, y, 100, 20, new TranslationTextComponent("wavedefense.button.cancel"), b -> { editingItem = false; showTriggers = false; init(); }));
     }
 
     // ── Режим вибору тригерів ──────────────────────────────────────────
@@ -319,9 +274,7 @@ public class LootSpawnEditorScreen extends Screen {
         triggerValueTarget = null;
 
         // Підказка
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.auto.клік_увімк_вимк_активний_прокрут_151cf949"), b -> {}
-        ).bounds(cx - btnW / 2, y, btnW, 12).build()).active = false;
+        this.addButton(new Button(cx - btnW / 2, y, btnW, 12, new TranslationTextComponent("wavedefense.auto.клік_увімк_вимк_активний_прокрут_151cf949"), b -> {})).active = false;
         y += 16;
 
         // ── Збираємо доступні тригери по контексту (PvE/PvP) ────────
@@ -365,9 +318,7 @@ public class LootSpawnEditorScreen extends Screen {
                     : editTriggerValues.getOrDefault(ft, 1)) + "]"
                 : "";
             String lbl = (active ? "§a☑ " : "§7☐ ") + I18n.get(ft.label) + valStr;
-            Button btn = Button.builder(
-                Component.literal(lbl),
-                b -> {
+            Button btn = new Button(cx - btnW / 2, ty, btnW, LOOT_BTN_H, new StringTextComponent(lbl), b -> {
                     if (editingIndex >= 0 && editingIndex < location.getLootSpawns().size()) {
                         LootSpawn ls = location.getLootSpawns().get(editingIndex);
                         if (ls.hasTrigger(ft)) ls.removeTrigger(ft);
@@ -376,34 +327,28 @@ public class LootSpawnEditorScreen extends Screen {
                         if (editTriggers.contains(ft)) editTriggers.remove(ft);
                         else                            editTriggers.add(ft);
                     }
-                    rebuildWidgets();
-                }
-            ).bounds(cx - btnW / 2, ty, btnW, LOOT_BTN_H).build();
-            btn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                Component.literal("§7" + I18n.get(ft.tooltip) + (ft.needsValue ? "\n" + I18n.get("wavedefense.loot.trigger.needs_value_hint") : ""))));
-            this.addRenderableWidget(btn);
+                    init();
+                });
+            /* setTooltip omitted on 1.16.5: btn */
+            this.addButton(btn);
             ty += LOOT_BTN_H + LOOT_BTN_GAP;
         }
 
         // ── Per-trigger налаштування (під scissored зоною) ─────────
         if (!valueTriggers.isEmpty()) {
             int sy = lootTrigScrollBot + 4;
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.налаштування_значень_n_b3f05f0e"), b -> {}
-            ).bounds(cx - btnW / 2, sy, btnW, 14).build()).active = false;
+            this.addButton(new Button(cx - btnW / 2, sy, btnW, 14, new TranslationTextComponent("wavedefense.auto.налаштування_значень_n_b3f05f0e"), b -> {})).active = false;
             sy += 16;
             for (LootSpawn.Trigger vt : valueTriggers) {
                 String lbl = vt == LootSpawn.Trigger.WAVE_N      ? I18n.get("wavedefense.loot.trigger.value_wave_n") :
                              vt == LootSpawn.Trigger.MOBS_KILLED_N ? I18n.get("wavedefense.loot.trigger.value_mobs_n") :
                                                                       I18n.get("wavedefense.loot.trigger.value_generic_n");
-                this.addRenderableWidget(Button.builder(
-                    Component.literal(lbl), b -> {}
-                ).bounds(cx - btnW / 2, sy, 200, 18).build()).active = false;
+                this.addButton(new Button(cx - btnW / 2, sy, 200, 18, new StringTextComponent(lbl), b -> {})).active = false;
                 final LootSpawn.Trigger fvt = vt;
                 int currentVal = editingIndex >= 0 && editingIndex < location.getLootSpawns().size()
                     ? location.getLootSpawns().get(editingIndex).getTriggerValue(vt)
                     : editTriggerValues.getOrDefault(vt, 1);
-                EditBox vInput = new EditBox(this.font, cx + btnW / 2 - 66, sy, 66, 18, Component.literal("1"));
+                TextFieldWidget vInput = new TextFieldWidget(this.font, cx + btnW / 2 - 66, sy, 66, 18, new StringTextComponent("1"));
                 vInput.setMaxLength(6);
                 vInput.setValue(String.valueOf(currentVal));
                 vInput.setResponder(s -> {
@@ -416,17 +361,14 @@ public class LootSpawnEditorScreen extends Screen {
                         }
                     } catch (NumberFormatException ignored) {}
                 });
-                this.addRenderableWidget(vInput);
+                this.addButton(vInput);
                 if (triggerValueTarget == null) { triggerValueTarget = vt; triggerValueInput = vInput; }
                 sy += 24;
             }
         }
 
         // ── Кнопка Готово ─────────────────────────────────────────────
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.button.done"),
-            b -> { showTriggers = false; rebuildWidgets(); }
-        ).bounds(cx - 60, this.height - 26, 120, 20).build());
+        this.addButton(new Button(cx - 60, this.height - 26, 120, 20, new TranslationTextComponent("wavedefense.button.done"), b -> { showTriggers = false; init(); }));
     }
 
     // Тригери для нового (ще не збереженого) loot spawn
@@ -434,8 +376,8 @@ public class LootSpawnEditorScreen extends Screen {
             Collections.singleton(LootSpawn.Trigger.WAVE_START));
     // Per-trigger values для нового loot spawn
     private java.util.Map<LootSpawn.Trigger, Integer> editTriggerValues = new java.util.EnumMap<>(LootSpawn.Trigger.class);
-    // EditBox для per-trigger налаштувань (відображається під scissored списком)
-    private EditBox triggerValueInput = null;
+    // TextFieldWidget для per-trigger налаштувань (відображається під scissored списком)
+    private TextFieldWidget triggerValueInput = null;
     private LootSpawn.Trigger triggerValueTarget = null;
 
     private void startAddAtPlayerPos() {
@@ -446,7 +388,7 @@ public class LootSpawnEditorScreen extends Screen {
         editItems     = new ArrayList<>();
         editTriggers  = new LinkedHashSet<>(Collections.singleton(LootSpawn.Trigger.WAVE_START));
         while (editItems.size() < 4) editItems.add(ItemStack.EMPTY);
-        rebuildWidgets();
+        init();
     }
 
     private void startEditItem(int idx) {
@@ -456,7 +398,7 @@ public class LootSpawnEditorScreen extends Screen {
         LootSpawn ls = location.getLootSpawns().get(idx);
         editItems    = new ArrayList<>(ls.getItems());
         while (editItems.size() < 4) editItems.add(ItemStack.EMPTY);
-        rebuildWidgets();
+        init();
     }
 
     private void saveItem() {
@@ -466,11 +408,11 @@ public class LootSpawnEditorScreen extends Screen {
             int count  = Math.max(1,
                     Integer.parseInt(countInput  != null ? countInput.getValue()  : "1"));
             List<ItemStack> finalItems = editItems.stream()
-                    .filter(i -> !i.isEmpty()).collect(Collectors.toList());
+                    .filter(i -> !i.isEmpty()).collect(java.util.stream.Collectors.toList());
             if (finalItems.isEmpty()) {
                 if (minecraft.player != null)
                     minecraft.player.displayClientMessage(
-                        Component.translatable("wavedefense.auto.додайте_хоча_б_один_предмет_aa9e1df5"), true);
+                        new TranslationTextComponent("wavedefense.auto.додайте_хоча_б_один_предмет_aa9e1df5"), true);
                 return;
             }
 
@@ -499,11 +441,11 @@ public class LootSpawnEditorScreen extends Screen {
             }
             editingItem  = false;
             showTriggers = false;
-            rebuildWidgets();
+            init();
         } catch (NumberFormatException e) {
             if (minecraft.player != null)
                 minecraft.player.displayClientMessage(
-                    Component.translatable("wavedefense.auto.невірний_формат_числа_c9f66713"), true);
+                    new TranslationTextComponent("wavedefense.auto.невірний_формат_числа_c9f66713"), true);
         }
     }
 
@@ -511,7 +453,7 @@ public class LootSpawnEditorScreen extends Screen {
         PacketHandler.sendToServer(new UpdateLocationPacket(location));
         if (minecraft.player != null)
             minecraft.player.displayClientMessage(
-                Component.translatable("wavedefense.auto.точки_луту_збережено_099a7605"), true);
+                new TranslationTextComponent("wavedefense.auto.точки_луту_збережено_099a7605"), true);
         this.minecraft.setScreen(parent);
     }
 
@@ -526,61 +468,67 @@ public class LootSpawnEditorScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(MatrixStack g, int mouseX, int mouseY, float partialTick) {
         GuiTheme.renderBackground(g, this.width, this.height);
         int cx = this.width / 2;
-        g.drawCenteredString(this.font, this.title, cx, 10, GuiTheme.TEXT);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, this.title, cx, 10, GuiTheme.TEXT);
 
         // ── Визначаємо межі scissor для поточного режиму ─────────────
         // Список завжди між заголовком (~28) і нижньою кнопкою (height-30)
         int listTop = 28, listBot = this.height - 30;
 
         if (editingItem && showTriggers) {
-            g.drawCenteredString(this.font, Component.translatable("wavedefense.loot.trigger_pick_title"), cx, 16, 0x55FFFF);
+            com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, new TranslationTextComponent("wavedefense.loot.trigger_pick_title"), cx, 16, 0x55FFFF);
             // Статичні елементи ДО scissor (заголовок вже намальований)
-            for (var r : this.renderables) {
-                if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
-                        && w.getY() < lootTrigScrollTop)
-                    w.render(g, mouseX, mouseY, partialTick);
+            for (Object r : this.buttons) {
+                if (r instanceof net.minecraft.client.gui.widget.Widget) {
+                    net.minecraft.client.gui.widget.Widget w = (net.minecraft.client.gui.widget.Widget) r;
+                    if (w.y < lootTrigScrollTop) w.render(g, mouseX, mouseY, partialTick);
+                }
             }
             // Scissored список тригерів
             if (lootTrigScrollTop < lootTrigScrollBot) {
                 ScissorHelper.enable(0, lootTrigScrollTop, this.width,
                         Math.max(1, lootTrigScrollBot - lootTrigScrollTop));
-                for (var r : this.renderables) {
-                    if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
-                            && w.getY() + w.getHeight() > lootTrigScrollTop
-                            && w.getY() < lootTrigScrollBot)
-                        w.render(g, mouseX, mouseY, partialTick);
+                for (Object r : this.buttons) {
+                    if (r instanceof net.minecraft.client.gui.widget.Widget) {
+                        net.minecraft.client.gui.widget.Widget w = (net.minecraft.client.gui.widget.Widget) r;
+                        if (w.y + w.getHeight() > lootTrigScrollTop
+                            && w.y < lootTrigScrollBot) w.render(g, mouseX, mouseY, partialTick);
+                    }
                 }
-                g.flush();
+                com.wavedefense.gui.GuiCompat.flush(g);
                 ScissorHelper.disable();
             }
             // Статичні після scissor (per-trigger налаштування + Готово)
-            for (var r : this.renderables) {
-                if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
-                        && w.getY() >= lootTrigScrollBot)
-                    w.render(g, mouseX, mouseY, partialTick);
+            for (Object r : this.buttons) {
+                if (r instanceof net.minecraft.client.gui.widget.Widget) {
+                    net.minecraft.client.gui.widget.Widget w = (net.minecraft.client.gui.widget.Widget) r;
+                    if (w.y >= lootTrigScrollBot) w.render(g, mouseX, mouseY, partialTick);
+                }
             }
         } else {
             // Список точок луту або режим редагування — scissor між заголовком і футером
-            for (var r : this.renderables) {
-                if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
-                        && w.getY() < listTop)
-                    w.render(g, mouseX, mouseY, partialTick);
+            for (Object r : this.buttons) {
+                if (r instanceof net.minecraft.client.gui.widget.Widget) {
+                    net.minecraft.client.gui.widget.Widget w = (net.minecraft.client.gui.widget.Widget) r;
+                    if (w.y < listTop) w.render(g, mouseX, mouseY, partialTick);
+                }
             }
             ScissorHelper.enable(0, listTop, this.width, Math.max(1, listBot - listTop));
-            for (var r : this.renderables) {
-                if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
-                        && w.getY() + w.getHeight() > listTop && w.getY() < listBot)
-                    w.render(g, mouseX, mouseY, partialTick);
+            for (Object r : this.buttons) {
+                if (r instanceof net.minecraft.client.gui.widget.Widget) {
+                    net.minecraft.client.gui.widget.Widget w = (net.minecraft.client.gui.widget.Widget) r;
+                    if (w.y + w.getHeight() > listTop && w.y < listBot) w.render(g, mouseX, mouseY, partialTick);
+                }
             }
-            g.flush();
+            com.wavedefense.gui.GuiCompat.flush(g);
             ScissorHelper.disable();
-            for (var r : this.renderables) {
-                if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
-                        && w.getY() >= listBot)
-                    w.render(g, mouseX, mouseY, partialTick);
+            for (Object r : this.buttons) {
+                if (r instanceof net.minecraft.client.gui.widget.Widget) {
+                    net.minecraft.client.gui.widget.Widget w = (net.minecraft.client.gui.widget.Widget) r;
+                    if (w.y >= listBot) w.render(g, mouseX, mouseY, partialTick);
+                }
             }
         }
         // Тепер рендеримо іконки ПОВЕРХ кнопок (після super.render)
@@ -598,14 +546,14 @@ public class LootSpawnEditorScreen extends Screen {
                 int iconY = baseY;  // точно на Y кнопки "вибрати"
 
                 // Фон слоту поверх кнопки
-                g.fill(iconX - 1, iconY - 1, iconX + 17, iconY + 17, GuiTheme.BORDER);
-                g.fill(iconX, iconY, iconX + 16, iconY + 16, GuiTheme.PANEL_DARK);
-                g.renderItem(item, iconX, iconY);
-                g.renderItemDecorations(this.font, item, iconX, iconY);
+                com.wavedefense.gui.GuiCompat.fill(g, iconX - 1, iconY - 1, iconX + 17, iconY + 17, GuiTheme.BORDER);
+                com.wavedefense.gui.GuiCompat.fill(g, iconX, iconY, iconX + 16, iconY + 16, GuiTheme.PANEL_DARK);
+                com.wavedefense.gui.GuiCompat.renderItem(g, item, iconX, iconY);
+                com.wavedefense.gui.GuiCompat.renderItemDecorations(g, this.font, item, iconX, iconY);
 
                 if (!item.isEmpty() && mouseX >= iconX && mouseX <= iconX + 16
                         && mouseY >= iconY && mouseY <= iconY + 16) {
-                    g.renderTooltip(this.font, item, mouseX, mouseY);
+                    com.wavedefense.gui.GuiCompat.renderTooltip(this, g, this.font, item, mouseX, mouseY);
                 }
             }
         } else if (!editingItem) {
@@ -619,27 +567,27 @@ public class LootSpawnEditorScreen extends Screen {
                 int idx = i + scrollOffset;
                 if (idx >= spawns.size()) break;
                 List<ItemStack> items = spawns.get(idx).getItems().stream()
-                        .filter(it -> !it.isEmpty()).collect(Collectors.toList());
+                        .filter(it -> !it.isEmpty()).collect(java.util.stream.Collectors.toList());
                 int iconY = listStartY + i * rowH;
                 for (int j = 0; j < Math.min(4, items.size()); j++) {
                     int ix = cx - btnW / 2 + j * 20;
-                    g.renderItem(items.get(j), ix, iconY);
-                    g.renderItemDecorations(this.font, items.get(j), ix, iconY);
+                    com.wavedefense.gui.GuiCompat.renderItem(g, items.get(j), ix, iconY);
+                    com.wavedefense.gui.GuiCompat.renderItemDecorations(g, this.font, items.get(j), ix, iconY);
                 }
             }
-            g.flush();
+            com.wavedefense.gui.GuiCompat.flush(g);
             ScissorHelper.disable();
             // Tooltips поза scissor
             for (int i = 0; i < Math.min(PER_PAGE, spawns.size()); i++) {
                 int idx = i + scrollOffset;
                 if (idx >= spawns.size()) break;
                 List<ItemStack> items = spawns.get(idx).getItems().stream()
-                        .filter(it -> !it.isEmpty()).collect(Collectors.toList());
+                        .filter(it -> !it.isEmpty()).collect(java.util.stream.Collectors.toList());
                 int iconY = listStartY + i * rowH;
                 for (int j = 0; j < Math.min(4, items.size()); j++) {
                     int ix = cx - btnW / 2 + j * 20;
                     if (mouseX >= ix && mouseX <= ix + 16 && mouseY >= iconY && mouseY <= iconY + 16)
-                        g.renderTooltip(this.font, items.get(j), mouseX, mouseY);
+                        com.wavedefense.gui.GuiCompat.renderTooltip(this, g, this.font, items.get(j), mouseX, mouseY);
                 }
             }
         }
@@ -654,14 +602,14 @@ public class LootSpawnEditorScreen extends Screen {
                 .filter(t -> isPvp ? t.pvp : t.pve).count();
             int listH   = Math.max(1, lootTrigScrollBot - lootTrigScrollTop);
             int visible = listH / (LOOT_BTN_H + LOOT_BTN_GAP);
-            if (delta > 0 && lootTriggerScrollOffset > 0) { lootTriggerScrollOffset--; rebuildWidgets(); }
-            else if (delta < 0 && lootTriggerScrollOffset + visible < cnt) { lootTriggerScrollOffset++; rebuildWidgets(); }
+            if (delta > 0 && lootTriggerScrollOffset > 0) { lootTriggerScrollOffset--; init(); }
+            else if (delta < 0 && lootTriggerScrollOffset + visible < cnt) { lootTriggerScrollOffset++; init(); }
             return true;
         }
         if (!editingItem) {
-            if (delta > 0 && scrollOffset > 0) { scrollOffset--; rebuildWidgets(); }
+            if (delta > 0 && scrollOffset > 0) { scrollOffset--; init(); }
             else if (delta < 0 && scrollOffset + PER_PAGE < location.getLootSpawns().size()) {
-                scrollOffset++; rebuildWidgets();
+                scrollOffset++; init();
             }
         }
         return true;

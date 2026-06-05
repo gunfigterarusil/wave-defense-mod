@@ -1,10 +1,10 @@
 package com.wavedefense.network.packets;
 
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.PacketBuffer;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraftforge.fml.network.NetworkEvent;
 
 import java.util.function.Supplier;
 
@@ -18,11 +18,11 @@ public class OpenMenuPacket {
         this.adminMode = adminMode;
     }
 
-    public static void encode(OpenMenuPacket packet, FriendlyByteBuf buf) {
+    public static void encode(OpenMenuPacket packet, PacketBuffer buf) {
         buf.writeBoolean(packet.adminMode);
     }
 
-    public static OpenMenuPacket decode(FriendlyByteBuf buf) {
+    public static OpenMenuPacket decode(PacketBuffer buf) {
         return new OpenMenuPacket(buf.readBoolean());
     }
 

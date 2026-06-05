@@ -1,15 +1,17 @@
 package com.wavedefense.network.packets;
 
-import com.wavedefense.WaveDefenseMod;
+import net.minecraft.util.text.ITextComponent;
+
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.data.Location;
 import com.wavedefense.data.ShopItem;
 import com.wavedefense.data.ShopPoint;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtIo;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
+import net.minecraft.nbt.CompressedStreamTools;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraftforge.fml.network.NetworkEvent;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -31,22 +33,22 @@ public class ImportShopPacket {
         this.targetMode = targetMode;
     }
 
-    public static void encode(ImportShopPacket p, FriendlyByteBuf buf) {
+    public static void encode(ImportShopPacket p, PacketBuffer buf) {
         buf.writeUtf(p.locationName);
         buf.writeUtf(p.fileName);
         buf.writeUtf(p.targetMode);
     }
-    public static ImportShopPacket decode(FriendlyByteBuf buf) {
+    public static ImportShopPacket decode(PacketBuffer buf) {
         return new ImportShopPacket(buf.readUtf(64), buf.readUtf(128), buf.readUtf(128));
     }
 
     public static void handle(ImportShopPacket pkt, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
-            ServerPlayer player = ctx.get().getSender();
+            ServerPlayerEntity player = ctx.get().getSender();
             if (player == null || !player.hasPermissions(2)) return;
-            Location loc = WaveDefenseMod.locationManager.getLocation(pkt.locationName);
+            Location loc = WaveDefenceMod.locationManager.getLocation(pkt.locationName);
             if (loc == null) {
-                player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.auto.локацію_не_знайдено_value_a5c2c216", pkt.locationName), false);
+                player.displayClientMessage(new net.minecraft.util.text.TranslationTextComponent("wavedefense.auto.локацію_не_знайдено_value_a5c2c216", pkt.locationName), false);
                 return;
             }
             try {
@@ -54,18 +56,18 @@ public class ImportShopPacket {
                 File file = new File(shopDir, pkt.fileName + ".nbt");
                 // Path traversal guard: reject filenames that escape the export directory.
                 if (!file.getCanonicalPath().startsWith(shopDir.getCanonicalPath())) {
-                    WaveDefenseMod.LOGGER.warn("[WaveDefense] Rejected path-traversal shop import attempt by {}: {}", player.getName().getString(), pkt.fileName);
+                    WaveDefenceMod.LOGGER.warn("[WaveDefense] Rejected path-traversal shop import attempt by {}: {}", player.getName().getString(), pkt.fileName);
                     return;
                 }
                 if (!file.exists()) {
-                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.auto.файл_не_знайдено_value_e8d8c6cc", pkt.fileName + ".nbt"), false);
+                    player.displayClientMessage(new net.minecraft.util.text.TranslationTextComponent("wavedefense.auto.файл_не_знайдено_value_e8d8c6cc", pkt.fileName + ".nbt"), false);
                     return;
                 }
-                CompoundTag tag = NbtIo.readCompressed(file);
+                CompoundNBT tag = CompressedStreamTools.readCompressed(file);
                 String mode = tag.getString("mode");
 
                 if ("global".equals(mode) && "global".equals(pkt.targetMode)) {
-                    ListTag items = tag.getList("items", 10);
+                    ListNBT items = tag.getList("items", 10);
                     List<ShopItem> loaded = new ArrayList<>();
                     for (int i = 0; i < items.size(); i++) {
                         ShopItem si = ShopItem.load(items.getCompound(i));
@@ -73,12 +75,12 @@ public class ImportShopPacket {
                     }
                     loc.getShopItems().clear();
                     loaded.forEach(loc::addShopItem);
-                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    player.displayClientMessage(new net.minecraft.util.text.TranslationTextComponent(
                         "wavedefense.msg.shop_import_global_success", loaded.size(), pkt.locationName), false);
 
                 } else if ("point".equals(mode)) {
                     ShopPoint sp = ShopPoint.load(tag.getCompound("point"));
-                    if (sp == null) { player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.auto.помилка_читання_точки_62a2ffb4"), false); return; }
+                    if (sp == null) { player.displayClientMessage(new net.minecraft.util.text.TranslationTextComponent("wavedefense.auto.помилка_читання_точки_62a2ffb4"), false); return; }
                     if (pkt.targetMode.startsWith("point:")) {
                         String targetPointName = pkt.targetMode.substring(6);
                         // Якщо існує точка з такою назвою — замінюємо товари, інакше додаємо нову
@@ -92,32 +94,32 @@ public class ImportShopPacket {
                             }
                         }
                         if (!found) loc.addShopPoint(sp);
-                        player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                        player.displayClientMessage(new net.minecraft.util.text.TranslationTextComponent(
                             "wavedefense.msg.shop_import_point_replaced", sp.getName(), pkt.locationName), false);
                     } else {
                         loc.addShopPoint(sp);
-                        player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                        player.displayClientMessage(new net.minecraft.util.text.TranslationTextComponent(
                             "wavedefense.msg.shop_import_point_added", sp.getName(), pkt.locationName), false);
                     }
                 } else {
-                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.error.shop_mode_incompatible", mode, pkt.targetMode), false);
+                    player.displayClientMessage(new net.minecraft.util.text.TranslationTextComponent("wavedefense.error.shop_mode_incompatible", mode, pkt.targetMode), false);
                     return;
                 }
 
-                WaveDefenseMod.locationManager.updateLocation(loc);
-                WaveDefenseMod.waveManager.broadcastLocationData();
+                WaveDefenceMod.locationManager.updateLocation(loc);
+                WaveDefenceMod.waveManager.broadcastLocationData();
                 // Sync shop до гравців на локації
-                CompoundTag locNbt = loc.save();
+                CompoundNBT locNbt = loc.save();
                 com.wavedefense.network.packets.SyncShopPacket syncPkt = new com.wavedefense.network.packets.SyncShopPacket(pkt.locationName, locNbt);
-                for (ServerPlayer p : player.getServer().getPlayerList().getPlayers()) {
-                    com.wavedefense.wave.PlayerWaveData pd = WaveDefenseMod.waveManager.getPlayerData(p.getUUID());
+                for (ServerPlayerEntity p : player.getServer().getPlayerList().getPlayers()) {
+                    com.wavedefense.wave.PlayerWaveData pd = WaveDefenceMod.waveManager.getPlayerData(p.getUUID());
                     if (pd != null && pd.getCurrentLocation() != null && pd.getCurrentLocation().getName().equals(pkt.locationName)) {
                         com.wavedefense.network.PacketHandler.sendToPlayer(p, syncPkt);
                     }
                 }
             } catch (Exception e) {
-                WaveDefenseMod.LOGGER.error("Shop import failed", e);
-                player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                WaveDefenceMod.LOGGER.error("Shop import failed", e);
+                player.displayClientMessage(new net.minecraft.util.text.TranslationTextComponent(
                     "wavedefense.msg.import_error", e.getMessage()), false);
             }
         });

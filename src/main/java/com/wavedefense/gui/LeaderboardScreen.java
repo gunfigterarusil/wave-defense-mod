@@ -1,14 +1,17 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.data.LeaderboardManager;
 import com.wavedefense.data.LeaderboardRecord;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.RequestLeaderboardPacket;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.resources.language.I18n;
-import net.minecraft.network.chat.Component;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.util.text.ITextComponent;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -62,7 +65,7 @@ public class LeaderboardScreen extends Screen {
     private static final SimpleDateFormat DATE_FMT = new SimpleDateFormat("dd.MM.yy");
 
     public LeaderboardScreen(Screen parent) {
-        super(Component.translatable("wavedefense.leaderboard.title"));
+        super(new TranslationTextComponent("wavedefense.leaderboard.title"));
         this.parent = parent;
     }
 
@@ -73,7 +76,7 @@ public class LeaderboardScreen extends Screen {
         // H-7: filter out empty/null location names before adding to list
         locationNames = new ArrayList<>();
         for (String name : ClientLocationManager.getAllLocationNames()) {
-            if (name != null && !name.isBlank()) locationNames.add(name);
+            if (name != null && !name.trim().isEmpty()) locationNames.add(name);
         }
         // Do NOT add "" as fallback — we detect the empty case in render() separately.
 
@@ -95,9 +98,7 @@ public class LeaderboardScreen extends Screen {
         }
 
         // ── Close button ─────────────────────────────────────────────────
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.close"), b -> this.onClose()
-        ).bounds(cx - 40, this.height - 28, 80, 20).build());
+        this.addButton(new Button(cx - 40, this.height - 28, 80, 20, new TranslationTextComponent("wavedefense.button.close"), b -> this.onClose()));
 
         // Request data for initial selection
         if (!locationNames.isEmpty()) {
@@ -118,22 +119,15 @@ public class LeaderboardScreen extends Screen {
             final String name = locationNames.get(idx);
             boolean sel = name.equals(selectedLocation);
             int bx = startX + i * (btnW + btnGap);
-            this.addRenderableWidget(Button.builder(
-                    Component.literal(sel ? "§a§l" + name : "§7" + name),
-                    b -> { selectedLocation = name; locScrollOffset = 0; rebuildWidgets(); requestData(); }
-            ).bounds(bx, 30, btnW, 16).build());
+            this.addButton(new Button(bx, 30, btnW, 16, new StringTextComponent(sel ? "§a§l" + name : "§7" + name), b -> { selectedLocation = name; locScrollOffset = 0; init(); requestData(); }));
         }
 
         // Scroll buttons for locations
         if (locScrollOffset > 0) {
-            this.addRenderableWidget(Button.builder(Component.literal("◀"),
-                    b -> { locScrollOffset = Math.max(0, locScrollOffset - 1); rebuildWidgets(); }
-            ).bounds(cx - this.width / 2 + 5, 30, 16, 16).build());
+            this.addButton(new Button(cx - this.width / 2 + 5, 30, 16, 16, new StringTextComponent("◀"), b -> { locScrollOffset = Math.max(0, locScrollOffset - 1); init(); }));
         }
         if (locScrollOffset + maxVisible < locationNames.size()) {
-            this.addRenderableWidget(Button.builder(Component.literal("▶"),
-                    b -> { locScrollOffset++; rebuildWidgets(); }
-            ).bounds(cx + this.width / 2 - 21, 30, 16, 16).build());
+            this.addButton(new Button(cx + this.width / 2 - 21, 30, 16, 16, new StringTextComponent("▶"), b -> { locScrollOffset++; init(); }));
         }
     }
 
@@ -161,10 +155,7 @@ public class LeaderboardScreen extends Screen {
         for (int vi = 0; vi < visible.size(); vi++) {
             final int idx = visible.get(vi);
             boolean sel = (selectedMode == idx);
-            this.addRenderableWidget(Button.builder(
-                    Component.literal(sel ? "§a§l" + MODE_LABELS[idx] : "§7" + MODE_LABELS[idx]),
-                    b -> { selectedMode = idx; rebuildWidgets(); requestData(); }
-            ).bounds(startX + vi * (tabW + tabGap), 52, tabW, 16).build());
+            this.addButton(new Button(startX + vi * (tabW + tabGap), 52, tabW, 16, new StringTextComponent(sel ? "§a§l" + MODE_LABELS[idx] : "§7" + MODE_LABELS[idx]), b -> { selectedMode = idx; init(); requestData(); }));
         }
     }
 
@@ -182,7 +173,7 @@ public class LeaderboardScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(MatrixStack g, int mouseX, int mouseY, float partialTick) {
         GuiTheme.renderBackground(g, this.width, this.height);
         int cx = this.width / 2;
 
@@ -193,7 +184,7 @@ public class LeaderboardScreen extends Screen {
         if (locationNames.isEmpty()) {
             GuiTheme.renderContentFrame(g, 8, 74 - 2, this.width - 8, this.height - 34 + 2);
             super.render(g, mouseX, mouseY, partialTick);
-            g.drawCenteredString(this.font, I18n.get("wavedefense.leaderboard.no_locations"),
+            com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, I18n.get("wavedefense.leaderboard.no_locations"),
                     cx, this.height / 2 - 5, GuiTheme.TEXT_MUTED);
             return;
         }
@@ -207,27 +198,27 @@ public class LeaderboardScreen extends Screen {
 
         // ── Table header ──────────────────────────────────────────────────
         int headerY = tableTop + 2;
-        g.fill(cx + COL_RANK - 2, headerY - 1, cx + COL_DATE + 30, headerY + this.font.lineHeight + 1, 0xAA222244);
-        g.drawString(this.font, I18n.get("wavedefense.leaderboard.rank"),   cx + COL_RANK,  headerY, 0xAAAAAA);
-        g.drawString(this.font, I18n.get("wavedefense.leaderboard.player"), cx + COL_NAME,  headerY, 0xAAAAAA);
-        g.drawString(this.font, I18n.get("wavedefense.leaderboard.score"),  cx + COL_SCORE, headerY, 0xAAAAAA);
-        g.drawString(this.font, getModeSecondaryLabel(),                     cx + COL_SEC,   headerY, 0xAAAAAA);
-        g.drawString(this.font, I18n.get("wavedefense.leaderboard.time"),   cx + COL_TIME,  headerY, 0xAAAAAA);
-        g.drawString(this.font, I18n.get("wavedefense.leaderboard.date"),   cx + COL_DATE,  headerY, 0xAAAAAA);
+        com.wavedefense.gui.GuiCompat.fill(g, cx + COL_RANK - 2, headerY - 1, cx + COL_DATE + 30, headerY + this.font.lineHeight + 1, 0xAA222244);
+        com.wavedefense.gui.GuiCompat.drawString(g, this.font, I18n.get("wavedefense.leaderboard.rank"),   cx + COL_RANK,  headerY, 0xAAAAAA);
+        com.wavedefense.gui.GuiCompat.drawString(g, this.font, I18n.get("wavedefense.leaderboard.player"), cx + COL_NAME,  headerY, 0xAAAAAA);
+        com.wavedefense.gui.GuiCompat.drawString(g, this.font, I18n.get("wavedefense.leaderboard.score"),  cx + COL_SCORE, headerY, 0xAAAAAA);
+        com.wavedefense.gui.GuiCompat.drawString(g, this.font, getModeSecondaryLabel(),                     cx + COL_SEC,   headerY, 0xAAAAAA);
+        com.wavedefense.gui.GuiCompat.drawString(g, this.font, I18n.get("wavedefense.leaderboard.time"),   cx + COL_TIME,  headerY, 0xAAAAAA);
+        com.wavedefense.gui.GuiCompat.drawString(g, this.font, I18n.get("wavedefense.leaderboard.date"),   cx + COL_DATE,  headerY, 0xAAAAAA);
 
         int dataY = headerY + this.font.lineHeight + 4;
-        g.fill(cx + COL_RANK - 2, dataY - 1, cx + COL_DATE + 30, dataY, 0xFF444466);
+        com.wavedefense.gui.GuiCompat.fill(g, cx + COL_RANK - 2, dataY - 1, cx + COL_DATE + 30, dataY, 0xFF444466);
 
         // ── Rows ──────────────────────────────────────────────────────────
         ScissorHelper.enable(0, dataY, this.width, Math.max(1, tableBot - dataY));
 
         if (ClientLeaderboardCache.isLoading()) {
-            g.drawCenteredString(this.font, I18n.get("wavedefense.leaderboard.loading"),
+            com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, I18n.get("wavedefense.leaderboard.loading"),
                     cx, dataY + 10, GuiTheme.TEXT_MUTED);
         } else {
             List<LeaderboardRecord> records = ClientLeaderboardCache.getRecords();
             if (records.isEmpty()) {
-                g.drawCenteredString(this.font, I18n.get("wavedefense.leaderboard.no_records"),
+                com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, I18n.get("wavedefense.leaderboard.no_records"),
                         cx, dataY + 10, GuiTheme.TEXT_MUTED);
             } else {
                 int rowH = this.font.lineHeight + 4;
@@ -235,7 +226,7 @@ public class LeaderboardScreen extends Screen {
                     LeaderboardRecord rec = records.get(i);
                     int rowY = dataY + i * rowH + 2;
                     boolean even = (i % 2 == 0);
-                    g.fill(cx + COL_RANK - 2, rowY - 1, cx + COL_DATE + 30, rowY + this.font.lineHeight + 1,
+                    com.wavedefense.gui.GuiCompat.fill(g, cx + COL_RANK - 2, rowY - 1, cx + COL_DATE + 30, rowY + this.font.lineHeight + 1,
                             even ? 0x20FFFFFF : 0x10FFFFFF);
 
                     // L-2: podium colors — gold/silver/bronze (not red for bronze)
@@ -245,18 +236,18 @@ public class LeaderboardScreen extends Screen {
                     if (displayName.length() > MAX_NAME_DISPLAY)
                         displayName = displayName.substring(0, MAX_NAME_DISPLAY - 1) + "…";
 
-                    g.drawString(this.font, rankColor + (i + 1),              cx + COL_RANK,  rowY, GuiTheme.TEXT);
-                    g.drawString(this.font, "§f" + displayName,               cx + COL_NAME,  rowY, GuiTheme.TEXT);
-                    g.drawString(this.font, "§a" + rec.primaryScore,          cx + COL_SCORE, rowY, GuiTheme.TEXT);
-                    g.drawString(this.font, "§e" + rec.secondaryScore,        cx + COL_SEC,   rowY, GuiTheme.TEXT);
-                    g.drawString(this.font, "§7" + formatDuration(rec.durationSec), cx + COL_TIME, rowY, GuiTheme.TEXT_MUTED);
-                    g.drawString(this.font, "§8" + (rec.timestamp > 0 ? DATE_FMT.format(new Date(rec.timestamp)) : "-"),
+                    com.wavedefense.gui.GuiCompat.drawString(g, this.font, rankColor + (i + 1),              cx + COL_RANK,  rowY, GuiTheme.TEXT);
+                    com.wavedefense.gui.GuiCompat.drawString(g, this.font, "§f" + displayName,               cx + COL_NAME,  rowY, GuiTheme.TEXT);
+                    com.wavedefense.gui.GuiCompat.drawString(g, this.font, "§a" + rec.primaryScore,          cx + COL_SCORE, rowY, GuiTheme.TEXT);
+                    com.wavedefense.gui.GuiCompat.drawString(g, this.font, "§e" + rec.secondaryScore,        cx + COL_SEC,   rowY, GuiTheme.TEXT);
+                    com.wavedefense.gui.GuiCompat.drawString(g, this.font, "§7" + formatDuration(rec.durationSec), cx + COL_TIME, rowY, GuiTheme.TEXT_MUTED);
+                    com.wavedefense.gui.GuiCompat.drawString(g, this.font, "§8" + (rec.timestamp > 0 ? DATE_FMT.format(new Date(rec.timestamp)) : "-"),
                             cx + COL_DATE, rowY, GuiTheme.TEXT_MUTED);
                 }
             }
         }
 
-        g.flush();
+        com.wavedefense.gui.GuiCompat.flush(g);
         ScissorHelper.disable();
     }
 
@@ -270,12 +261,12 @@ public class LeaderboardScreen extends Screen {
             if (delta < 0) {
                 if (locScrollOffset + maxVisible < locationNames.size()) {
                     locScrollOffset++;
-                    rebuildWidgets();
+                    init();
                 }
             } else if (delta > 0) {
                 if (locScrollOffset > 0) {
                     locScrollOffset--;
-                    rebuildWidgets();
+                    init();
                 }
             }
             return true;
@@ -284,10 +275,10 @@ public class LeaderboardScreen extends Screen {
     }
 
     private String getModeSecondaryLabel() {
-        return switch (selectedMode) {
-            case 0 -> I18n.get("wavedefense.leaderboard.waves");
-            default -> I18n.get("wavedefense.leaderboard.kills");
-        };
+        switch (selectedMode) {
+    case 0: return I18n.get("wavedefense.leaderboard.waves");
+    default: return I18n.get("wavedefense.leaderboard.kills");
+}
     }
 
     private String formatDuration(int totalSec) {

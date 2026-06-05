@@ -1,13 +1,16 @@
 package com.wavedefense.gui.widgets;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.components.AbstractWidget;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.components.Tooltip;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.gui.widget.Widget;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.ITextComponent;
 
 import javax.annotation.Nullable;
 import java.util.function.Consumer;
@@ -15,7 +18,7 @@ import java.util.function.Consumer;
 /**
  * Composite widget combining all the coordinate-entry idioms scattered across
  * the mod: manual XYZ EditBoxes, "📌 use my position" button, optional
- * scatter radius EditBox, and "🗑" clear.
+ * scatter radius TextFieldWidget, and "🗑" clear.
  *
  * <h3>Layout</h3>
  * <pre>
@@ -26,7 +29,7 @@ import java.util.function.Consumer;
  * <pre>{@code
  * coordPicker = new CoordinatePickerWidget(this.font, x, y, currentPos,
  *         currentRadius, /*withRadius=&#42;/true, (pos, radius) -> { ... });
- * coordPicker.addToScreen(this::addRenderableWidget);
+ * coordPicker.addToScreen(this::addButton);
  * }</pre>
  */
 public class CoordinatePickerWidget {
@@ -36,12 +39,12 @@ public class CoordinatePickerWidget {
     private static final int BTN_W   = 18;   // 📌 / 🗑
     private static final int GAP     = 2;
 
-    private final Font font;
+    private final FontRenderer font;
     private final int x, y, height;
     private final boolean withRadius;
     private final Consumer<Result> onChange;
 
-    private EditBox xBox, yBox, zBox, rBox;
+    private TextFieldWidget xBox, yBox, zBox, rBox;
 
     /** Combined (pos, radius) result returned by {@link #getValue()}. */
     public static final class Result {
@@ -57,7 +60,7 @@ public class CoordinatePickerWidget {
         }
     }
 
-    public CoordinatePickerWidget(Font font, int x, int y,
+    public CoordinatePickerWidget(FontRenderer font, int x, int y,
                                     @Nullable BlockPos initialPos, int initialRadius,
                                     boolean withRadius,
                                     Consumer<Result> onChange) {
@@ -77,7 +80,7 @@ public class CoordinatePickerWidget {
     private final int _initialRadius;
 
     /** Registers all sub-widgets onto the parent screen. */
-    public void addToScreen(Consumer<AbstractWidget> adder) {
+    public void addToScreen(Consumer<Widget> adder) {
         int curX = x;
 
         xBox = field(curX + LABEL_W, y, FIELD_W, "X", _initialPos == null ? "" : String.valueOf(_initialPos.getX()));
@@ -96,8 +99,7 @@ public class CoordinatePickerWidget {
         curX += LABEL_W + FIELD_W + GAP;
 
         // 📌 Use my position
-        Button posBtn = Button.builder(Component.literal("§e📌"),
-            b -> {
+        Button posBtn = new Button(curX, y, BTN_W, height, new StringTextComponent("§e📌"), b -> {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.player != null) {
                     BlockPos p = mc.player.blockPosition();
@@ -106,10 +108,8 @@ public class CoordinatePickerWidget {
                     zBox.setValue(String.valueOf(p.getZ()));
                     fire();
                 }
-            }
-        ).bounds(curX, y, BTN_W, height).build();
-        posBtn.setTooltip(Tooltip.create(
-            Component.translatable("wavedefense.coord.use_my_pos")));
+            });
+        /* setTooltip omitted on 1.16.5: posBtn */
         adder.accept(posBtn);
         curX += BTN_W + GAP;
 
@@ -121,23 +121,20 @@ public class CoordinatePickerWidget {
             curX += LABEL_W + FIELD_W - 8 + GAP;
         }
 
-        Button clearBtn = Button.builder(Component.literal("§c🗑"),
-            b -> {
+        Button clearBtn = new Button(curX, y, BTN_W, height, new StringTextComponent("§c🗑"), b -> {
                 xBox.setValue(""); yBox.setValue(""); zBox.setValue("");
                 if (rBox != null) rBox.setValue("0");
                 fire();
-            }
-        ).bounds(curX, y, BTN_W, height).build();
-        clearBtn.setTooltip(Tooltip.create(
-            Component.translatable("wavedefense.coord.clear")));
+            });
+        /* setTooltip omitted on 1.16.5: clearBtn */
         adder.accept(clearBtn);
     }
 
-    /** Creates an EditBox already positioned at (x, y) — 1.20.1's EditBox has
+    /** Creates an TextFieldWidget already positioned at (x, y) — 1.20.1's TextFieldWidget has
      *  no public setBounds, so passing coords via constructor is the cleanest
-     *  way to avoid relying on AbstractWidget's setX/setY/setWidth trio. */
-    private EditBox field(int fx, int fy, int fw, String hint, String initial) {
-        EditBox b = new EditBox(font, fx, fy, fw, height, Component.literal(hint));
+     *  way to avoid relying on Widget's setX/setY/setWidth trio. */
+    private TextFieldWidget field(int fx, int fy, int fw, String hint, String initial) {
+        TextFieldWidget b = new TextFieldWidget(font, fx, fy, fw, height, new StringTextComponent(hint));
         b.setMaxLength(7);
         b.setValue(initial);
         b.setResponder(s -> fire());
@@ -145,7 +142,7 @@ public class CoordinatePickerWidget {
     }
 
     private Button label(int lx, String text) {
-        Button lbl = Button.builder(Component.literal(text), b -> {}).bounds(lx, y, LABEL_W, height).build();
+        Button lbl = new Button(lx, y, LABEL_W, height, new StringTextComponent(text), b -> {});
         lbl.active = false;
         return lbl;
     }

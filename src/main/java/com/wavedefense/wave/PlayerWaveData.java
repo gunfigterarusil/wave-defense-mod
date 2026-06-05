@@ -1,9 +1,9 @@
 package com.wavedefense.wave;
 
 import com.wavedefense.data.Location;
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.item.ItemStack;
 
 import java.util.List;
 import java.util.UUID;
@@ -128,8 +128,8 @@ public class PlayerWaveData {
     public boolean isShowTeammates() { return showTeammates; }
     public void setShowTeammates(boolean v) { this.showTeammates = v; }
 
-    public CompoundTag saveClientData() {
-        CompoundTag tag = new CompoundTag();
+    public CompoundNBT saveClientData() {
+        CompoundNBT tag = new CompoundNBT();
         if (currentLocation != null) tag.put("location", currentLocation.save());
         tag.putInt("currentWave", currentWave);
         tag.putInt("timeUntilNextWave", timeUntilNextWave);
@@ -143,7 +143,7 @@ public class PlayerWaveData {
         return tag;
     }
 
-    public void loadClientData(CompoundTag tag) {
+    public void loadClientData(CompoundNBT tag) {
         // ВАЖЛИВО: завжди скидаємо location на null якщо ключа нема —
         // це сигнал "гравець вийшов з локації" (порожній пакет від surrenderPlayer)
         if (tag.contains("location")) {

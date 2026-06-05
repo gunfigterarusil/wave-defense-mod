@@ -1,14 +1,14 @@
 package com.wavedefense.network;
 
-import com.wavedefense.WaveDefenseMod;
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.network.packets.*;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.network.NetworkDirection;
-import net.minecraftforge.network.NetworkEvent;
-import net.minecraftforge.network.NetworkRegistry;
-import net.minecraftforge.network.PacketDistributor;
-import net.minecraftforge.network.simple.SimpleChannel;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.fml.network.NetworkDirection;
+import net.minecraftforge.fml.network.NetworkEvent;
+import net.minecraftforge.fml.network.NetworkRegistry;
+import net.minecraftforge.fml.network.PacketDistributor;
+import net.minecraftforge.fml.network.simple.SimpleChannel;
 
 import java.util.Optional;
 import java.util.function.BiConsumer;
@@ -18,7 +18,7 @@ import java.util.function.Supplier;
 public class PacketHandler {
     private static final String PROTOCOL_VERSION = "8";
     public static final SimpleChannel INSTANCE = NetworkRegistry.newSimpleChannel(
-            new ResourceLocation(WaveDefenseMod.MODID, "main"),
+            new ResourceLocation(WaveDefenceMod.MODID, "main"),
             () -> PROTOCOL_VERSION,
             PROTOCOL_VERSION::equals,
             PROTOCOL_VERSION::equals
@@ -98,20 +98,20 @@ public class PacketHandler {
             ReplaceShopItemsPacket::decode,
             ReplaceShopItemsPacket::handle);
 
-        WaveDefenseMod.LOGGER.info("Network packets registered");
+        WaveDefenceMod.LOGGER.info("Network packets registered");
     }
 
     private static <MSG> void c2s(Class<MSG> type,
-                                  BiConsumer<MSG, FriendlyByteBuf> encoder,
-                                  Function<FriendlyByteBuf, MSG> decoder,
+                                  BiConsumer<MSG, PacketBuffer> encoder,
+                                  Function<PacketBuffer, MSG> decoder,
                                   BiConsumer<MSG, Supplier<NetworkEvent.Context>> handler) {
         INSTANCE.registerMessage(id(), type, encoder, decoder, handler,
                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
     }
 
     private static <MSG> void s2c(Class<MSG> type,
-                                  BiConsumer<MSG, FriendlyByteBuf> encoder,
-                                  Function<FriendlyByteBuf, MSG> decoder,
+                                  BiConsumer<MSG, PacketBuffer> encoder,
+                                  Function<PacketBuffer, MSG> decoder,
                                   BiConsumer<MSG, Supplier<NetworkEvent.Context>> handler) {
         INSTANCE.registerMessage(id(), type, encoder, decoder, handler,
                 Optional.of(NetworkDirection.PLAY_TO_CLIENT));
@@ -125,7 +125,7 @@ public class PacketHandler {
         INSTANCE.sendToServer(packet);
     }
 
-    public static void sendToPlayer(net.minecraft.server.level.ServerPlayer player, Object packet) {
+    public static void sendToPlayer(net.minecraft.entity.player.ServerPlayerEntity player, Object packet) {
         INSTANCE.send(PacketDistributor.PLAYER.with(() -> player), packet);
     }
 

@@ -1,9 +1,9 @@
 package com.wavedefense.network.packets;
 
-import com.wavedefense.WaveDefenseMod;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkEvent;
+import com.wavedefense.WaveDefenceMod;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraftforge.fml.network.NetworkEvent;
 
 import java.util.function.Supplier;
 
@@ -14,20 +14,20 @@ import java.util.function.Supplier;
  */
 public class LeaveLocationPacket {
 
-    public static void encode(LeaveLocationPacket p, FriendlyByteBuf buf) {}
-    public static LeaveLocationPacket decode(FriendlyByteBuf buf) { return new LeaveLocationPacket(); }
+    public static void encode(LeaveLocationPacket p, PacketBuffer buf) {}
+    public static LeaveLocationPacket decode(PacketBuffer buf) { return new LeaveLocationPacket(); }
 
     public static void handle(LeaveLocationPacket p, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
-            ServerPlayer player = ctx.get().getSender();
+            ServerPlayerEntity player = ctx.get().getSender();
             if (player == null) return;
             // G1 fix: rate-limit leave to once per 5 s (keybind can fire rapidly)
             if (!com.wavedefense.network.PacketRateLimiter.allow(
                     player.getUUID(), LeaveLocationPacket.class, 5_000L)) return;
-            com.wavedefense.wave.PlayerWaveData data = WaveDefenseMod.waveManager.getPlayerData(player.getUUID());
+            com.wavedefense.wave.PlayerWaveData data = WaveDefenceMod.waveManager.getPlayerData(player.getUUID());
             if (data == null || data.getCurrentLocation() == null) return;
             // exitPvpLocation вже є — він universally виконує surrender без пенальті
-            WaveDefenseMod.waveManager.exitPvpLocation(player);
+            WaveDefenceMod.waveManager.exitPvpLocation(player);
         });
         ctx.get().setPacketHandled(true);
     }

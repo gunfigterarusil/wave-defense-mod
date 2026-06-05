@@ -1,10 +1,12 @@
 package com.wavedefense.gui;
 
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.AbstractWidget;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
+import net.minecraft.util.text.StringTextComponent;
+
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.Widget;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.util.text.ITextComponent;
 
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -28,10 +30,10 @@ public abstract class ScrollableScreen extends Screen {
     protected int scrollOffset = 0;
 
     /** Статичні віджети (header/footer) — не скроляться, мають пріоритет кліків. */
-    protected final Set<AbstractWidget> staticWidgets =
+    protected final Set<Widget> staticWidgets =
             Collections.newSetFromMap(new IdentityHashMap<>());
 
-    protected ScrollableScreen(Component title) {
+    protected ScrollableScreen(ITextComponent title) {
         super(title);
     }
 
@@ -52,8 +54,8 @@ public abstract class ScrollableScreen extends Screen {
     // ─── Хелпер для додавання статичних віджетів ───────────────────────
 
     /** Додає віджет як статичний (header/footer) — не обрізається scissor. */
-    protected <T extends AbstractWidget> T addStatic(T widget) {
-        addRenderableWidget(widget);
+    protected <T extends Widget> T addStatic(T widget) {
+        addButton(widget);
         staticWidgets.add(widget);
         return widget;
     }
@@ -73,12 +75,12 @@ public abstract class ScrollableScreen extends Screen {
     public boolean mouseScrolled(double mx, double my, double delta) {
         if (delta > 0 && scrollOffset > 0) {
             scrollOffset--;
-            rebuildWidgets();
+            init();
             return true;
         }
         if (delta < 0 && scrollOffset + getItemsPerPage() < getListSize()) {
             scrollOffset++;
-            rebuildWidgets();
+            init();
             return true;
         }
         return super.mouseScrolled(mx, my, delta);
@@ -94,22 +96,18 @@ public abstract class ScrollableScreen extends Screen {
     /** Додає кнопки ▲/▼ якщо список більший за сторінку. */
     protected void addScrollButtons(int x, int topY, int botY, int btnW, int btnH) {
         if (getListSize() > getItemsPerPage()) {
-            addStatic(Button.builder(Component.literal("▲"),
-                    b -> { if (scrollOffset > 0) { scrollOffset--; rebuildWidgets(); } }
-            ).bounds(x, topY, btnW, btnH).build());
-            addStatic(Button.builder(Component.literal("▼"),
-                    b -> {
+            addStatic(new Button(x, topY, btnW, btnH, new StringTextComponent("▲"), b -> { if (scrollOffset > 0) { scrollOffset--; init(); } }));
+            addStatic(new Button(x, botY, btnW, btnH, new StringTextComponent("▼"), b -> {
                         int max = Math.max(0, getListSize() - getItemsPerPage());
-                        if (scrollOffset < max) { scrollOffset++; rebuildWidgets(); }
-                    }
-            ).bounds(x, botY, btnW, btnH).build());
+                        if (scrollOffset < max) { scrollOffset++; init(); }
+                    }));
         }
     }
 
     // ─── Три-прохідний рендеринг ───────────────────────────────────────
 
     @Override
-    public void render(GuiGraphics g, int mx, int my, float pt) {
+    public void render(MatrixStack g, int mx, int my, float pt) {
         GuiTheme.renderBackground(g, this.width, this.height);
         GuiTheme.renderHeader(g, this.font, this.title, this.width);
         GuiTheme.renderContentFrame(g, 8, getClipTop() - 4, this.width - 8, getClipBot() + 4);
@@ -119,31 +117,37 @@ public abstract class ScrollableScreen extends Screen {
 
         // Прохід 1: контент у scissor-зоні
         ScissorHelper.enable(0, clipTop, this.width, Math.max(1, clipBot - clipTop));
-        for (var r : this.renderables) {
-            if (r instanceof AbstractWidget w && !staticWidgets.contains(w)
-                    && w.getY() + w.getHeight() > clipTop && w.getY() < clipBot)
-                w.render(g, mx, my, pt);
+        for (Object r : this.buttons) {
+            if (r instanceof Widget) {
+                Widget w = (Widget) r;
+                if (!staticWidgets.contains(w)
+                    && w.y + w.getHeight() > clipTop && w.y < clipBot) w.render(g, mx, my, pt);
+            }
         }
         renderContentExtra(g, mx, my, pt);
-        g.flush(); // flush deferred text before scissor change to prevent bleed
+        com.wavedefense.gui.GuiCompat.flush(g); // flush deferred text before scissor change to prevent bleed
         ScissorHelper.disable();
 
         // Прохід 2: header-віджети
         ScissorHelper.enable(0, 0, this.width, clipTop);
-        for (var r : this.renderables) {
-            if (r instanceof AbstractWidget w && staticWidgets.contains(w) && w.getY() < clipTop)
-                w.render(g, mx, my, pt);
+        for (Object r : this.buttons) {
+            if (r instanceof Widget) {
+                Widget w = (Widget) r;
+                if (staticWidgets.contains(w) && w.y < clipTop) w.render(g, mx, my, pt);
+            }
         }
-        g.flush();
+        com.wavedefense.gui.GuiCompat.flush(g);
         ScissorHelper.disable();
 
         // Прохід 3: footer-віджети
         ScissorHelper.enable(0, clipBot, this.width, this.height - clipBot);
-        for (var r : this.renderables) {
-            if (r instanceof AbstractWidget w && staticWidgets.contains(w) && w.getY() >= clipBot)
-                w.render(g, mx, my, pt);
+        for (Object r : this.buttons) {
+            if (r instanceof Widget) {
+                Widget w = (Widget) r;
+                if (staticWidgets.contains(w) && w.y >= clipBot) w.render(g, mx, my, pt);
+            }
         }
-        g.flush();
+        com.wavedefense.gui.GuiCompat.flush(g);
         ScissorHelper.disable();
 
         renderOverlay(g, mx, my, pt);
@@ -158,25 +162,31 @@ public abstract class ScrollableScreen extends Screen {
         int clipTop = getClipTop(), clipBot = getClipBot();
 
         // Статичні віджети — пріоритет
-        for (var child : this.children()) {
-            if (child instanceof AbstractWidget w && staticWidgets.contains(w)) {
-                if (child.mouseClicked(mx, my, button)) {
-                    this.setFocused(child);
-                    if (button == 0) this.setDragging(true);
-                    return true;
+        for (Object child : this.children()) {
+            if (child instanceof Widget) {
+                Widget w = (Widget) child;
+                if (staticWidgets.contains(w)) {
+                    if (((net.minecraft.client.gui.IGuiEventListener) child).mouseClicked(mx, my, button)) {
+                        this.setFocused((net.minecraft.client.gui.IGuiEventListener) child);
+                        if (button == 0) this.setDragging(true);
+                        return true;
+                    }
                 }
             }
         }
 
         // Контентні віджети — тільки у видимій scissor-зоні
-        for (var child : this.children()) {
-            if (child instanceof AbstractWidget w && !staticWidgets.contains(w)) {
-                if (w.getY() + w.getHeight() <= clipTop || w.getY() >= clipBot) continue;
-            }
-            if (child.mouseClicked(mx, my, button)) {
-                this.setFocused(child);
-                if (button == 0) this.setDragging(true);
-                return true;
+        for (Object child : this.children()) {
+            if (child instanceof Widget) {
+                Widget w = (Widget) child;
+                if (!staticWidgets.contains(w)) {
+                    if (w.y + w.getHeight() <= clipTop || w.y >= clipBot) continue;
+                    if (((net.minecraft.client.gui.IGuiEventListener) child).mouseClicked(mx, my, button)) {
+                        this.setFocused((net.minecraft.client.gui.IGuiEventListener) child);
+                        if (button == 0) this.setDragging(true);
+                        return true;
+                    }
+                }
             }
         }
         return false;
@@ -185,13 +195,13 @@ public abstract class ScrollableScreen extends Screen {
     // ─── Хуки для підкласів (опціональні) ──────────────────────────────
 
     /** Рендер заголовку/тексту перед scissor (drawCenteredString тощо). */
-    protected void renderHeader(GuiGraphics g, int mx, int my, float pt) {}
+    protected void renderHeader(MatrixStack g, int mx, int my, float pt) {}
 
     /** Рендер контенту всередині scissor-зони (іконки предметів, роздільники). */
-    protected void renderContentExtra(GuiGraphics g, int mx, int my, float pt) {}
+    protected void renderContentExtra(MatrixStack g, int mx, int my, float pt) {}
 
     /** Рендер поверх усього після scissor (тултіпи, повідомлення про помилки). */
-    protected void renderOverlay(GuiGraphics g, int mx, int my, float pt) {}
+    protected void renderOverlay(MatrixStack g, int mx, int my, float pt) {}
 
     @Override
     public boolean isPauseScreen() { return false; }

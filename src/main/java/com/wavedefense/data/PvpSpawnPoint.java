@@ -1,10 +1,12 @@
 package com.wavedefense.data;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.util.text.TextFormatting;
+
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
+import net.minecraftforge.common.util.Constants;
+import net.minecraft.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,7 +28,7 @@ public class PvpSpawnPoint {
     /** v0.2.64: per-team starting items — applied to team members on spawn.
      *  Empty list = fall back to {@link Location#getStartingItems()}. */
     private final List<ItemStack> startingItems = new ArrayList<>();
-    /** v0.2.65: ChatFormatting color name (e.g. "RED", "BLUE"). null/empty =
+    /** v0.2.65: TextFormatting color name (e.g. "RED", "BLUE"). null/empty =
      *  auto-pick from team-name hash (legacy behaviour). */
     private String colorName = "";
     /** v0.2.65: custom display name shown in HUD, scoreboard, minimap legend.
@@ -57,29 +59,29 @@ public class PvpSpawnPoint {
         String c = getCustomDisplayName();
         return c.isEmpty() ? teamName : c;
     }
-    /** v0.2.65: resolves to ChatFormatting; falls back to hash-derived palette
+    /** v0.2.65: resolves to TextFormatting; falls back to hash-derived palette
      *  if no explicit color is set or the name is invalid. */
-    public net.minecraft.ChatFormatting resolveChatColor() {
+    public net.minecraft.util.text.TextFormatting resolveChatColor() {
         String c = getColorName();
         if (!c.isEmpty()) {
             try {
-                net.minecraft.ChatFormatting cf = net.minecraft.ChatFormatting.valueOf(c.toUpperCase(java.util.Locale.ROOT));
+                net.minecraft.util.text.TextFormatting cf = net.minecraft.util.text.TextFormatting.valueOf(c.toUpperCase(java.util.Locale.ROOT));
                 if (cf.isColor()) return cf;
             } catch (IllegalArgumentException ignored) {}
         }
         // Legacy hash-based fallback
-        net.minecraft.ChatFormatting[] palette = {
-            net.minecraft.ChatFormatting.RED, net.minecraft.ChatFormatting.BLUE,
-            net.minecraft.ChatFormatting.GREEN, net.minecraft.ChatFormatting.YELLOW,
-            net.minecraft.ChatFormatting.LIGHT_PURPLE, net.minecraft.ChatFormatting.AQUA,
-            net.minecraft.ChatFormatting.GOLD, net.minecraft.ChatFormatting.WHITE
+        net.minecraft.util.text.TextFormatting[] palette = {
+            net.minecraft.util.text.TextFormatting.RED, net.minecraft.util.text.TextFormatting.BLUE,
+            net.minecraft.util.text.TextFormatting.GREEN, net.minecraft.util.text.TextFormatting.YELLOW,
+            net.minecraft.util.text.TextFormatting.LIGHT_PURPLE, net.minecraft.util.text.TextFormatting.AQUA,
+            net.minecraft.util.text.TextFormatting.GOLD, net.minecraft.util.text.TextFormatting.WHITE
         };
         int hash = teamName == null ? 0 : Math.abs(teamName.hashCode());
         return palette[hash % palette.length];
     }
 
-    public CompoundTag save() {
-        CompoundTag tag = new CompoundTag();
+    public CompoundNBT save() {
+        CompoundNBT tag = new CompoundNBT();
         tag.putString("teamName", teamName);
         tag.putLong("pos", pos.asLong());
         if (spawnRadius > 0) tag.putInt("spawnRadius", spawnRadius);
@@ -89,10 +91,10 @@ public class PvpSpawnPoint {
             tag.putString("customDisplayName", customDisplayName);
         // v0.2.64: only persist startingItems when non-empty to keep NBT compact
         if (!startingItems.isEmpty()) {
-            ListTag items = new ListTag();
+            ListNBT items = new ListNBT();
             for (ItemStack is : startingItems) {
                 if (is != null && !is.isEmpty()) {
-                    CompoundTag iTag = new CompoundTag();
+                    CompoundNBT iTag = new CompoundNBT();
                     is.save(iTag);
                     items.add(iTag);
                 }
@@ -102,7 +104,7 @@ public class PvpSpawnPoint {
         return tag;
     }
 
-    public static PvpSpawnPoint load(CompoundTag tag) {
+    public static PvpSpawnPoint load(CompoundNBT tag) {
         PvpSpawnPoint sp = new PvpSpawnPoint(
                 tag.getString("teamName"),
                 BlockPos.of(tag.getLong("pos"))
@@ -112,8 +114,8 @@ public class PvpSpawnPoint {
         if (tag.contains("colorName")) sp.colorName = tag.getString("colorName");
         if (tag.contains("customDisplayName")) sp.customDisplayName = tag.getString("customDisplayName");
         // v0.2.64: load per-team starting items
-        if (tag.contains("startingItems", Tag.TAG_LIST)) {
-            ListTag items = tag.getList("startingItems", Tag.TAG_COMPOUND);
+        if (tag.contains("startingItems", Constants.NBT.TAG_LIST)) {
+            ListNBT items = tag.getList("startingItems", Constants.NBT.TAG_COMPOUND);
             for (int i = 0; i < items.size(); i++) {
                 try {
                     ItemStack is = ItemStack.of(items.getCompound(i));

@@ -1,29 +1,29 @@
 package com.wavedefense.network.packets;
 
-import com.wavedefense.WaveDefenseMod;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkEvent;
-import net.minecraftforge.network.PacketDistributor;
+import com.wavedefense.WaveDefenceMod;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraftforge.fml.network.NetworkEvent;
+import net.minecraftforge.fml.network.PacketDistributor;
 
 import java.util.function.Supplier;
 
 public class RequestLocationDataPacket {
     public RequestLocationDataPacket() {}
 
-    public static void encode(RequestLocationDataPacket packet, FriendlyByteBuf buf) {}
+    public static void encode(RequestLocationDataPacket packet, PacketBuffer buf) {}
 
-    public static RequestLocationDataPacket decode(FriendlyByteBuf buf) {
+    public static RequestLocationDataPacket decode(PacketBuffer buf) {
         return new RequestLocationDataPacket();
     }
 
     public static void handle(RequestLocationDataPacket packet, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
-            ServerPlayer player = ctx.get().getSender();
+            ServerPlayerEntity player = ctx.get().getSender();
             if (player != null) {
                 // Send the location data back to the client
-                WaveDefenseMod.packetHandler.send(PacketDistributor.PLAYER.with(() -> player),
-                        new SyncLocationDataPacket(WaveDefenseMod.locationManager.save()));
+                com.wavedefense.network.PacketHandler.INSTANCE.send(PacketDistributor.PLAYER.with(() -> player),
+                        new SyncLocationDataPacket(WaveDefenceMod.locationManager.save()));
             }
         });
         ctx.get().setPacketHandled(true);

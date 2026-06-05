@@ -1,10 +1,10 @@
 package com.wavedefense.network.packets;
 
-import com.wavedefense.WaveDefenseMod;
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.wave.PlayerWaveData;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraftforge.fml.network.NetworkEvent;
 import java.util.function.Supplier;
 
 public class UpdatePlayerSettingsPacket {
@@ -18,27 +18,27 @@ public class UpdatePlayerSettingsPacket {
         this.showTeammates = showTeammates;
     }
 
-    public static void encode(UpdatePlayerSettingsPacket p, FriendlyByteBuf buf) {
+    public static void encode(UpdatePlayerSettingsPacket p, PacketBuffer buf) {
         buf.writeBoolean(p.showTimer);
         buf.writeBoolean(p.showNotifications);
         buf.writeBoolean(p.showTeammates);
     }
 
-    public static UpdatePlayerSettingsPacket decode(FriendlyByteBuf buf) {
+    public static UpdatePlayerSettingsPacket decode(PacketBuffer buf) {
         return new UpdatePlayerSettingsPacket(buf.readBoolean(), buf.readBoolean(), buf.readBoolean());
     }
 
     public static void handle(UpdatePlayerSettingsPacket p, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
-            ServerPlayer player = ctx.get().getSender();
+            ServerPlayerEntity player = ctx.get().getSender();
             if (player != null) {
-                PlayerWaveData data = WaveDefenseMod.waveManager.getPlayerData(player.getUUID());
+                PlayerWaveData data = WaveDefenceMod.waveManager.getPlayerData(player.getUUID());
                 if (data != null) {
                     data.setShowTimer(p.showTimer);
                     data.setShowNotifications(p.showNotifications);
                     data.setShowTeammates(p.showTeammates);
                     // Надсилаємо оновлені дані назад клієнту (щоб HUD одразу відреагував)
-                    WaveDefenseMod.waveManager.syncPlayerData(player);
+                    WaveDefenceMod.waveManager.syncPlayerData(player);
                 }
             }
         });

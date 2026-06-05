@@ -1,13 +1,15 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.data.WaveConfig;
 import com.wavedefense.data.WaveMob;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.EntityType;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.entity.EntityType;
 import net.minecraftforge.registries.ForgeRegistries;
 
 public class WaveMobSettingsScreen extends Screen {
@@ -16,13 +18,13 @@ public class WaveMobSettingsScreen extends Screen {
     private final int mobIndex;
     private final WaveMob mob;
 
-    private EditBox countInput;
-    private EditBox growthInput;
-    private EditBox chanceInput;
-    private EditBox pointsInput;
+    private TextFieldWidget countInput;
+    private TextFieldWidget growthInput;
+    private TextFieldWidget chanceInput;
+    private TextFieldWidget pointsInput;
 
     public WaveMobSettingsScreen(Screen parentScreen, WaveConfig waveConfig, int mobIndex) {
-        super(Component.translatable("wavedefense.auto.налаштування_моба_67f0a0ef"));
+        super(new TranslationTextComponent("wavedefense.auto.налаштування_моба_67f0a0ef"));
         this.parentScreen = parentScreen;
         this.waveConfig = waveConfig;
         this.mobIndex = mobIndex;
@@ -36,67 +38,46 @@ public class WaveMobSettingsScreen extends Screen {
         int centerX = this.width / 2;
         int startY = 60;
 
-        EntityType<?> entityType = ForgeRegistries.ENTITY_TYPES.getValue(mob.getMobType());
+        EntityType<?> entityType = ForgeRegistries.ENTITIES.getValue(mob.getMobType());
         String mobName = entityType != null ? entityType.getDescription().getString() : "???";
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.моб_value_07edda18", mobName),
-                button -> {}
-        ).bounds(centerX - 150, 30, 300, 20).build()).active = false;
+        this.addButton(new Button(centerX - 150, 30, 300, 20, new TranslationTextComponent("wavedefense.auto.моб_value_07edda18", mobName), button -> {})).active = false;
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.кількість_мобів_f530588e"),
-                button -> {}
-        ).bounds(centerX - 150, startY, 120, 20).build()).active = false;
+        this.addButton(new Button(centerX - 150, startY, 120, 20, new TranslationTextComponent("wavedefense.auto.кількість_мобів_f530588e"), button -> {})).active = false;
 
-        countInput = new EditBox(this.font, centerX - 25, startY, 80, 20,
-                Component.translatable("wavedefense.auto.кількість_df256936"));
+        countInput = new TextFieldWidget(this.font, centerX - 25, startY, 80, 20,
+                new TranslationTextComponent("wavedefense.auto.кількість_df256936"));
         countInput.setValue(String.valueOf(mob.getCount()));
         countInput.setMaxLength(3);
-        this.addRenderableWidget(countInput);
+        this.addButton(countInput);
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.приріст_за_хвилю_9514cfe7"),
-                button -> {}
-        ).bounds(centerX - 150, startY + 35, 120, 20).build()).active = false;
+        this.addButton(new Button(centerX - 150, startY + 35, 120, 20, new TranslationTextComponent("wavedefense.auto.приріст_за_хвилю_9514cfe7"), button -> {})).active = false;
 
-        growthInput = new EditBox(this.font, centerX - 25, startY + 35, 80, 20,
-                Component.translatable("wavedefense.auto.приріст_5779238f"));
+        growthInput = new TextFieldWidget(this.font, centerX - 25, startY + 35, 80, 20,
+                new TranslationTextComponent("wavedefense.auto.приріст_5779238f"));
         growthInput.setValue(String.valueOf(mob.getGrowthPerWave()));
         growthInput.setMaxLength(3);
-        this.addRenderableWidget(growthInput);
+        this.addButton(growthInput);
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.шанс_появи_1_100_8c7961cd"),
-                button -> {}
-        ).bounds(centerX - 150, startY + 70, 140, 20).build()).active = false;
+        this.addButton(new Button(centerX - 150, startY + 70, 140, 20, new TranslationTextComponent("wavedefense.auto.шанс_появи_1_100_8c7961cd"), button -> {})).active = false;
 
-        chanceInput = new EditBox(this.font, centerX - 5, startY + 70, 80, 20,
-                Component.translatable("wavedefense.auto.шанс_7ce3c7bb"));
+        chanceInput = new TextFieldWidget(this.font, centerX - 5, startY + 70, 80, 20,
+                new TranslationTextComponent("wavedefense.auto.шанс_7ce3c7bb"));
         chanceInput.setValue(String.valueOf(mob.getSpawnChance()));
         chanceInput.setMaxLength(3);
-        this.addRenderableWidget(chanceInput);
+        this.addButton(chanceInput);
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.поінтів_за_вбивство_04cc709e"),
-                button -> {}
-        ).bounds(centerX - 150, startY + 105, 140, 20).build()).active = false;
+        this.addButton(new Button(centerX - 150, startY + 105, 140, 20, new TranslationTextComponent("wavedefense.auto.поінтів_за_вбивство_04cc709e"), button -> {})).active = false;
 
-        pointsInput = new EditBox(this.font, centerX - 5, startY + 105, 80, 20,
-                Component.translatable("wavedefense.auto.поінти_66d72273"));
+        pointsInput = new TextFieldWidget(this.font, centerX - 5, startY + 105, 80, 20,
+                new TranslationTextComponent("wavedefense.auto.поінти_66d72273"));
         pointsInput.setValue(String.valueOf(mob.getPointsPerKill()));
         pointsInput.setMaxLength(4);
-        this.addRenderableWidget(pointsInput);
+        this.addButton(pointsInput);
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.зберегти_bf610d49"),
-                button -> save()
-        ).bounds(centerX - 110, this.height - 30, 100, 20).build());
+        this.addButton(new Button(centerX - 110, this.height - 30, 100, 20, new TranslationTextComponent("wavedefense.auto.зберегти_bf610d49"), button -> save()));
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.скасувати_8b4c2025"),
-                button -> this.minecraft.setScreen(parentScreen)
-        ).bounds(centerX + 10, this.height - 30, 100, 20).build());
+        this.addButton(new Button(centerX + 10, this.height - 30, 100, 20, new TranslationTextComponent("wavedefense.auto.скасувати_8b4c2025"), button -> this.minecraft.setScreen(parentScreen)));
     }
 
     private void save() {
@@ -129,9 +110,9 @@ public class WaveMobSettingsScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void render(MatrixStack graphics, int mouseX, int mouseY, float partialTick) {
         GuiTheme.renderBackground(graphics, this.width, this.height);
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, 10, GuiTheme.TEXT);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(graphics, this.font, this.title, this.width / 2, 10, GuiTheme.TEXT);
         super.render(graphics, mouseX, mouseY, partialTick);
     }
 

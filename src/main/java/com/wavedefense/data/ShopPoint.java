@@ -1,9 +1,9 @@
 package com.wavedefense.data;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
+import net.minecraft.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -54,20 +54,20 @@ public class ShopPoint {
     }
 
     // ── NBT Serialization ────────────────────────────────────────────
-    public CompoundTag save() {
-        CompoundTag tag = new CompoundTag();
+    public CompoundNBT save() {
+        CompoundNBT tag = new CompoundNBT();
         tag.putString("name", name);
         if (pos != null) tag.putLong("pos", pos.asLong());
         tag.putInt("radius", radius);
 
-        ListTag itemsList = new ListTag();
+        ListNBT itemsList = new ListNBT();
         for (ShopItem item : items) itemsList.add(item.save());
         tag.put("items", itemsList);
 
         return tag;
     }
 
-    public static ShopPoint load(CompoundTag tag) {
+    public static ShopPoint load(CompoundNBT tag) {
         String   name   = tag.contains("name")   ? tag.getString("name")          : "Shop";
         BlockPos pos    = tag.contains("pos")    ? BlockPos.of(tag.getLong("pos")) : null;
         int      radius = tag.contains("radius") ? tag.getInt("radius")            : 5;
@@ -75,7 +75,7 @@ public class ShopPoint {
         ShopPoint sp = new ShopPoint(name, pos, radius);
 
         if (tag.contains("items")) {
-            ListTag list = tag.getList("items", 10);
+            ListNBT list = tag.getList("items", 10);
             for (int i = 0; i < list.size(); i++) {
                 sp.items.add(ShopItem.load(list.getCompound(i)));
             }

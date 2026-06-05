@@ -1,13 +1,13 @@
 package com.wavedefense.data;
 
 /**
- * Тригери для хвиль та запуску локацій.
- * Розширений набір порівняно з LootSpawn.Trigger —
- * додані дії гравця (відкриття скрині, дверей, ресурси, тощо).
+ * Triggers for waves and location activation.
+ * Extended set compared to LootSpawn.Trigger — includes player actions
+ * (open chest, open door, hold resources, etc.).
  */
 public enum WaveTrigger {
 
-    // ── Базові (хвилі) ───────────────────────────────────────────────
+    // ── Base (waves) ─────────────────────────────────────────────────
     WAVE_COMPLETE       ("wavedefense.trigger.wave.wave_complete",       true,  true,
         "wavedefense.trigger.wave.wave_complete.tip"),
     MOBS_REMAINING_LOW  ("wavedefense.trigger.wave.mobs_remaining_low",  true,  false,
@@ -35,7 +35,7 @@ public enum WaveTrigger {
     MOBS_KILLED_100     ("wavedefense.trigger.wave.mobs_killed_100",     true,  false,
         "wavedefense.trigger.wave.mobs_killed_100.tip"),
 
-    // ── Дії гравця ───────────────────────────────────────────────────
+    // ── Player actions ───────────────────────────────────────────────
     PLAYER_OPEN_CHEST   ("wavedefense.trigger.wave.player_open_chest",   true,  true,
         "wavedefense.trigger.wave.player_open_chest.tip"),
     PLAYER_OPEN_DOOR    ("wavedefense.trigger.wave.player_open_door",    true,  true,
@@ -55,7 +55,7 @@ public enum WaveTrigger {
     PLAYER_ENTER_ZONE   ("wavedefense.trigger.wave.player_enter_zone",   true,  true,
         "wavedefense.trigger.wave.player_enter_zone.tip"),
 
-    // ── PvP специфічні ───────────────────────────────────────────────
+    // ── PvP-specific ─────────────────────────────────────────────────
     ROUND_START         ("wavedefense.trigger.wave.round_start",         false,  true,
         "wavedefense.trigger.wave.round_start.tip"),
     ROUND_END           ("wavedefense.trigger.wave.round_end",           false,  true,
@@ -67,7 +67,7 @@ public enum WaveTrigger {
     KILL_STREAK_3       ("wavedefense.trigger.wave.kill_streak_3",       false,  true,
         "wavedefense.trigger.wave.kill_streak_3.tip"),
 
-    // ── Кастомні порогові тригери ────────────────────────────────────
+    // ── Custom-value triggers ────────────────────────────────────────
     TIMER_CUSTOM        ("wavedefense.trigger.wave.timer_custom",        true,  false,
         "wavedefense.trigger.wave.timer_custom.tip"),
     MOBS_KILLED_N       ("wavedefense.trigger.wave.mobs_killed_n",       true,  false,
@@ -75,7 +75,7 @@ public enum WaveTrigger {
     WAVES_SURVIVED_N    ("wavedefense.trigger.wave.waves_survived_n",    true,  false,
         "wavedefense.trigger.wave.waves_survived_n.tip"),
 
-    // ── Магазин ──────────────────────────────────────────────────────
+    // ── Shop ─────────────────────────────────────────────────────────
     SHOP_WAVE_START     ("wavedefense.trigger.wave.shop_wave_start",     true,  false,
         "wavedefense.trigger.wave.shop_wave_start.tip"),
     SHOP_WAVE_N         ("wavedefense.trigger.wave.shop_wave_n",         true,  false,

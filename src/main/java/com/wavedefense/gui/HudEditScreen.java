@@ -1,10 +1,13 @@
 package com.wavedefense.gui;
 
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.resources.language.I18n;
-import net.minecraft.network.chat.Component;
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.util.text.ITextComponent;
 
 /**
  * Екран редагування позиції HUD.
@@ -29,7 +32,7 @@ public class HudEditScreen extends Screen {
     private int previewX, previewY;
 
     public HudEditScreen(Screen parent) {
-        super(Component.translatable("wavedefense.title.hud_edit"));
+        super(new TranslationTextComponent("wavedefense.title.hud_edit"));
         this.parent = parent;
         this.layout = HudLayout.get();
     }
@@ -46,28 +49,17 @@ public class HudEditScreen extends Screen {
         for (int i = 0; i < presets.length - 1; i++) {
             final HudLayout.Preset p = presets[i];
             boolean active = layout.preset == p;
-            this.addRenderableWidget(Button.builder(
-                Component.literal(active ? "§a☑ " : "§7☐ ").append(Component.translatable(p.key)),
-                b -> { layout.preset = p; layout.blockX = -1; layout.blockY = -1; recalcPreviewPos(); rebuildWidgets(); }
-            ).bounds(bx + i * 120, by, 118, 16).build());
+            this.addButton(new Button(bx + i * 120, by, 118, 16, new StringTextComponent(active ? "§a☑ " : "§7☐ ").append(new TranslationTextComponent(p.key)), b -> { layout.preset = p; layout.blockX = -1; layout.blockY = -1; recalcPreviewPos(); init(); }));
         }
 
         // Зберегти / скасувати
         int cx = this.width / 2;
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.button.save"),
-            b -> { layout.save(); minecraft.setScreen(parent); }
-        ).bounds(cx - 110, this.height - 28, 100, 20).build());
+        this.addButton(new Button(cx - 110, this.height - 28, 100, 20, new TranslationTextComponent("wavedefense.button.save"), b -> { layout.save(); minecraft.setScreen(parent); }));
 
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.button.cancel"),
-            b -> { HudLayout.invalidate(); minecraft.setScreen(parent); }
-        ).bounds(cx - 5, this.height - 28, 100, 20).build());
+        this.addButton(new Button(cx - 5, this.height - 28, 100, 20, new TranslationTextComponent("wavedefense.button.cancel"), b -> { HudLayout.invalidate(); minecraft.setScreen(parent); }));
 
         // Підказка
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.hud.drag_hint"), b -> {}
-        ).bounds(cx - 150, this.height - 55, 300, 12).build()).active = false;
+        this.addButton(new Button(cx - 150, this.height - 55, 300, 12, new TranslationTextComponent("wavedefense.hud.drag_hint"), b -> {})).active = false;
     }
 
     private void recalcPreviewPos() {
@@ -94,7 +86,7 @@ public class HudEditScreen extends Screen {
             layout.preset  = HudLayout.Preset.CUSTOM;
             layout.blockX  = previewX;
             layout.blockY  = previewY;
-            rebuildWidgets();
+            init();
             return true;
         }
         return super.mouseDragged(mx, my, btn, dx, dy);
@@ -112,12 +104,12 @@ public class HudEditScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
+    public void render(MatrixStack g, int mouseX, int mouseY, float partial) {
         // Напівпрозорий фон
         GuiTheme.renderBackground(g, this.width, this.height);
 
         // Заголовок
-        g.drawCenteredString(this.font, this.title, this.width / 2, 8, 0xFFFFFF);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, this.title, this.width / 2, 8, 0xFFFFFF);
 
         // ── Прев'ю HUD-блоку ──────────────────────────────────────
         boolean hover = isOverPreview(mouseX, mouseY) || dragging;
@@ -125,26 +117,26 @@ public class HudEditScreen extends Screen {
         int brdColor = hover ? 0xFF00FF88 : 0xFF4488FF;
 
         // Фон блоку
-        g.fill(previewX,     previewY,     previewX + PREVIEW_W,     previewY + PREVIEW_H,     bgColor);
+        com.wavedefense.gui.GuiCompat.fill(g, previewX,     previewY,     previewX + PREVIEW_W,     previewY + PREVIEW_H,     bgColor);
         // Рамка
-        g.fill(previewX - 1, previewY - 1, previewX + PREVIEW_W + 1, previewY,                 brdColor);
-        g.fill(previewX - 1, previewY + PREVIEW_H, previewX + PREVIEW_W + 1, previewY + PREVIEW_H + 1, brdColor);
-        g.fill(previewX - 1, previewY,     previewX,                 previewY + PREVIEW_H,     brdColor);
-        g.fill(previewX + PREVIEW_W, previewY, previewX + PREVIEW_W + 1, previewY + PREVIEW_H, brdColor);
+        com.wavedefense.gui.GuiCompat.fill(g, previewX - 1, previewY - 1, previewX + PREVIEW_W + 1, previewY,                 brdColor);
+        com.wavedefense.gui.GuiCompat.fill(g, previewX - 1, previewY + PREVIEW_H, previewX + PREVIEW_W + 1, previewY + PREVIEW_H + 1, brdColor);
+        com.wavedefense.gui.GuiCompat.fill(g, previewX - 1, previewY,     previewX,                 previewY + PREVIEW_H,     brdColor);
+        com.wavedefense.gui.GuiCompat.fill(g, previewX + PREVIEW_W, previewY, previewX + PREVIEW_W + 1, previewY + PREVIEW_H, brdColor);
 
         // Вміст прев'ю
         int ty = previewY + 6;
-        g.drawCenteredString(this.font, I18n.get("wavedefense.hud.preview.location"),  previewX + PREVIEW_W / 2, ty, 0xFFFFFF); ty += 12;
-        g.drawCenteredString(this.font, I18n.get("wavedefense.hud.preview.next_wave"), previewX + PREVIEW_W / 2, ty, 0xFFFFFF); ty += 12;
-        g.drawCenteredString(this.font, I18n.get("wavedefense.hud.preview.mobs"),      previewX + PREVIEW_W / 2, ty, 0xFFFFFF); ty += 12;
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, I18n.get("wavedefense.hud.preview.location"),  previewX + PREVIEW_W / 2, ty, 0xFFFFFF); ty += 12;
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, I18n.get("wavedefense.hud.preview.next_wave"), previewX + PREVIEW_W / 2, ty, 0xFFFFFF); ty += 12;
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, I18n.get("wavedefense.hud.preview.mobs"),      previewX + PREVIEW_W / 2, ty, 0xFFFFFF); ty += 12;
         // Полоса прогресу
         int bw = PREVIEW_W - 20;
-        g.fill(previewX + 10, ty, previewX + 10 + bw, ty + 4, 0xFF333333);
-        g.fill(previewX + 10, ty, previewX + 10 + bw / 2, ty + 4, 0xFF00CC00);
+        com.wavedefense.gui.GuiCompat.fill(g, previewX + 10, ty, previewX + 10 + bw, ty + 4, 0xFF333333);
+        com.wavedefense.gui.GuiCompat.fill(g, previewX + 10, ty, previewX + 10 + bw / 2, ty + 4, 0xFF00CC00);
 
         // Підпис «перетягніть»
         if (hover) {
-            g.drawCenteredString(this.font, I18n.get("wavedefense.hud.drag_label"),
+            com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, I18n.get("wavedefense.hud.drag_label"),
                 previewX + PREVIEW_W / 2, previewY + PREVIEW_H / 2 - 4, 0xFFFFAA00);
         }
 

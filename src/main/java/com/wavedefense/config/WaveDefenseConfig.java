@@ -259,9 +259,9 @@ public class WaveDefenseConfig {
     }
 
     /** Returns the GameType configured for locations (survival or adventure). */
-    public static net.minecraft.world.level.GameType getLocationGameType() {
+    public static net.minecraft.world.GameType getLocationGameType() {
         String val = LOCATION_GAME_MODE.get();
-        if ("adventure".equalsIgnoreCase(val)) return net.minecraft.world.level.GameType.ADVENTURE;
-        return net.minecraft.world.level.GameType.SURVIVAL; // default
+        if ("adventure".equalsIgnoreCase(val)) return net.minecraft.world.GameType.ADVENTURE;
+        return net.minecraft.world.GameType.SURVIVAL; // default
     }
 }

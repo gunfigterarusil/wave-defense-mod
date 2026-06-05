@@ -1,8 +1,8 @@
 package com.wavedefense.data;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.item.ItemStack;
 
 import java.util.*;
 
@@ -107,8 +107,8 @@ public class Location {
     // When set, the location has a defined 3D box area (e.g. for tactical PvP minimap).
     // Both corners must be non-null for bbox-dependent features to activate.
     // bbox is independent of the (radius-based) boundary system — admin can use either or both.
-    net.minecraft.core.BlockPos bboxMin = null;
-    net.minecraft.core.BlockPos bboxMax = null;
+    net.minecraft.util.math.BlockPos bboxMin = null;
+    net.minecraft.util.math.BlockPos bboxMax = null;
     boolean minimapEnabled = false;     // show tactical minimap in PvP
     boolean bboxOutlineEnabled = false; // show particle outline of bbox top edges in-world
 
@@ -151,7 +151,7 @@ public class Location {
 
     // ── Auto-activation zone (extended) ───────────────────────────────
     // Zone centre: if null, playerSpawn is used
-    net.minecraft.core.BlockPos zoneCenter   = null;
+    net.minecraft.util.math.BlockPos zoneCenter   = null;
     int  zoneActivationTimeSec  = 0;    // 0 = instant; >0 = timer after first player enters zone
     // How long (sec) the zone stays open AFTER the location starts (0 = close immediately)
     int  zoneOpenAfterStartSec  = 0;    // 0 = close immediately after teleport
@@ -176,10 +176,10 @@ public class Location {
 
     // Portal entry point (server-side; not serialized — stored in WaveManager.portalEntryPositions)
     // Auto-activation: separate entry point (if null, playerSpawn is used)
-    net.minecraft.core.BlockPos autoActivateEntryPos = null;
+    net.minecraft.util.math.BlockPos autoActivateEntryPos = null;
     // Exit points after completion and surrender (null = return to previous position)
-    net.minecraft.core.BlockPos victoryExitPos  = null;  // after victory
-    net.minecraft.core.BlockPos surrenderExitPos = null; // after surrender
+    net.minecraft.util.math.BlockPos victoryExitPos  = null;  // after victory
+    net.minecraft.util.math.BlockPos surrenderExitPos = null; // after surrender
     // Hidden from players (admins always see it)
     boolean hiddenFromPlayers = false;
     // Delay before the first wave starts after the lobby ends (seconds)
@@ -362,27 +362,27 @@ public class Location {
     }
 
     // ── BBox area (optional, for tactical minimap) ───────────────────
-    public net.minecraft.core.BlockPos getBboxMin() { return bboxMin; }
-    public void setBboxMin(net.minecraft.core.BlockPos p) { this.bboxMin = p; }
-    public net.minecraft.core.BlockPos getBboxMax() { return bboxMax; }
-    public void setBboxMax(net.minecraft.core.BlockPos p) { this.bboxMax = p; }
+    public net.minecraft.util.math.BlockPos getBboxMin() { return bboxMin; }
+    public void setBboxMin(net.minecraft.util.math.BlockPos p) { this.bboxMin = p; }
+    public net.minecraft.util.math.BlockPos getBboxMax() { return bboxMax; }
+    public void setBboxMax(net.minecraft.util.math.BlockPos p) { this.bboxMax = p; }
     public boolean hasBbox() { return bboxMin != null && bboxMax != null; }
     public boolean isMinimapEnabled() { return minimapEnabled && hasBbox(); }
     public void setMinimapEnabled(boolean v) { this.minimapEnabled = v; }
     public boolean isBboxOutlineEnabled() { return bboxOutlineEnabled && hasBbox(); }
     public void setBboxOutlineEnabled(boolean v) { this.bboxOutlineEnabled = v; }
     /** @return min-corner of the bbox with components min()-ed pairwise (handles arbitrary corner pairs) */
-    public net.minecraft.core.BlockPos getBboxLowCorner() {
+    public net.minecraft.util.math.BlockPos getBboxLowCorner() {
         if (!hasBbox()) return null;
-        return new net.minecraft.core.BlockPos(
+        return new net.minecraft.util.math.BlockPos(
             Math.min(bboxMin.getX(), bboxMax.getX()),
             Math.min(bboxMin.getY(), bboxMax.getY()),
             Math.min(bboxMin.getZ(), bboxMax.getZ()));
     }
     /** @return max-corner of the bbox with components max()-ed pairwise */
-    public net.minecraft.core.BlockPos getBboxHighCorner() {
+    public net.minecraft.util.math.BlockPos getBboxHighCorner() {
         if (!hasBbox()) return null;
-        return new net.minecraft.core.BlockPos(
+        return new net.minecraft.util.math.BlockPos(
             Math.max(bboxMin.getX(), bboxMax.getX()),
             Math.max(bboxMin.getY(), bboxMax.getY()),
             Math.max(bboxMin.getZ(), bboxMax.getZ()));
@@ -440,8 +440,8 @@ public class Location {
         return infoPanel;
     }
 
-    public net.minecraft.core.BlockPos getAutoActivateEntryPos() { return autoActivateEntryPos; }
-    public void setAutoActivateEntryPos(net.minecraft.core.BlockPos pos) { this.autoActivateEntryPos = pos; }
+    public net.minecraft.util.math.BlockPos getAutoActivateEntryPos() { return autoActivateEntryPos; }
+    public void setAutoActivateEntryPos(net.minecraft.util.math.BlockPos pos) { this.autoActivateEntryPos = pos; }
 
     // ── Victory screen ────────────────────────────────────────────────
     public boolean isVictoryScreenEnabled()         { return victoryScreenEnabled; }
@@ -450,8 +450,8 @@ public class Location {
     public void    setVictoryLingerTimeSec(int s)    { this.victoryLingerTimeSec = Math.max(0, s); }
 
     // ── Zone activation extended ──────────────────────────────────────
-    public net.minecraft.core.BlockPos getZoneCenter() { return zoneCenter; }
-    public void    setZoneCenter(net.minecraft.core.BlockPos p) { this.zoneCenter = p; }
+    public net.minecraft.util.math.BlockPos getZoneCenter() { return zoneCenter; }
+    public void    setZoneCenter(net.minecraft.util.math.BlockPos p) { this.zoneCenter = p; }
     public boolean isZoneUsesCustomCenter()          { return zoneUsesCustomCenter; }
     public void    setZoneUsesCustomCenter(boolean v){ this.zoneUsesCustomCenter = v; }
     public int     getZoneActivationTimeSec()        { return zoneActivationTimeSec; }
@@ -459,7 +459,7 @@ public class Location {
     public int     getZoneOpenAfterStartSec()        { return zoneOpenAfterStartSec; }
     public void    setZoneOpenAfterStartSec(int s)   { this.zoneOpenAfterStartSec = Math.max(0, s); }
     /** Центр зони активації: якщо кастомний — zoneCenter, інакше playerSpawn */
-    public net.minecraft.core.BlockPos getEffectiveZoneCenter() {
+    public net.minecraft.util.math.BlockPos getEffectiveZoneCenter() {
         if (zoneUsesCustomCenter && zoneCenter != null) return zoneCenter;
         return playerSpawn; // fallback to playerSpawn
     }
@@ -469,10 +469,10 @@ public class Location {
     public void setPortalOpenAfterStartSec(int s)    { this.portalOpenAfterStartSec = s; }
 
     // ── Exit points ───────────────────────────────────────────────────
-    public net.minecraft.core.BlockPos getVictoryExitPos()              { return victoryExitPos; }
-    public void setVictoryExitPos(net.minecraft.core.BlockPos p)        { this.victoryExitPos = p; }
-    public net.minecraft.core.BlockPos getSurrenderExitPos()            { return surrenderExitPos; }
-    public void setSurrenderExitPos(net.minecraft.core.BlockPos p)      { this.surrenderExitPos = p; }
+    public net.minecraft.util.math.BlockPos getVictoryExitPos()              { return victoryExitPos; }
+    public void setVictoryExitPos(net.minecraft.util.math.BlockPos p)        { this.victoryExitPos = p; }
+    public net.minecraft.util.math.BlockPos getSurrenderExitPos()            { return surrenderExitPos; }
+    public void setSurrenderExitPos(net.minecraft.util.math.BlockPos p)      { this.surrenderExitPos = p; }
 
     // ── Visibility ────────────────────────────────────────────────────
     public boolean isHiddenFromPlayers()                                { return hiddenFromPlayers; }
@@ -484,7 +484,7 @@ public class Location {
 
     // ── Zone particles ────────────────────────────────────────────────
     public String getZoneParticleType()                                 { return zoneParticleType != null ? zoneParticleType : "minecraft:squid_ink"; }
-    public void   setZoneParticleType(String t)                         { this.zoneParticleType = (t == null || t.isBlank()) ? null : t; }
+    public void   setZoneParticleType(String t)                         { this.zoneParticleType = (t == null || t.trim().isEmpty()) ? null : t; }
     public int    getZoneParticleCount()                                { return zoneParticleCount; }
     public void   setZoneParticleCount(int n)                          { this.zoneParticleCount = Math.max(0, Math.min(64, n)); }
     public float  getZoneParticleSpeed()                               { return zoneParticleSpeed; }
@@ -596,12 +596,12 @@ public class Location {
     public void    setEnforceGameMode(boolean v) { this.enforceGameMode = v; }
 
     /** Serializes this location to NBT. Delegated to {@link LocationSerializer}. */
-    public CompoundTag save() {
+    public CompoundNBT save() {
         return LocationSerializer.save(this);
     }
 
     /** Deserializes a location from NBT. Delegated to {@link LocationSerializer}. */
-    public static Location load(CompoundTag tag) {
+    public static Location load(CompoundNBT tag) {
         return LocationSerializer.load(tag);
     }
 

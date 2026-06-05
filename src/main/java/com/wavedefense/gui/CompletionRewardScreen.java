@@ -1,17 +1,20 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.data.Location;
 import com.wavedefense.data.ShopItem;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.UpdateLocationPacket;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.AbstractWidget;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.resources.language.I18n;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.Widget;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,7 +26,7 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
     private boolean editingItem = false;
     private int editingIndex = -1;
     private List<ItemStack> editItems = new ArrayList<>();
-    private EditBox minPointsInput;
+    private TextFieldWidget minPointsInput;
     private int pendingDeleteRewardIndex = -1;
 
     private static final int ITEMS_PER_PAGE = 4;
@@ -35,7 +38,7 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
     private static final int SLOT_GAP = 6;
 
     public CompletionRewardScreen(Location location, Screen parent) {
-        super(Component.translatable("wavedefense.title.completion_rewards")
+        super(new TranslationTextComponent("wavedefense.title.completion_rewards")
                 .append(": ").append(location.getName()), parent);
         this.location = location;
     }
@@ -63,14 +66,10 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
         }
 
         // ── Header (static) ──────────────────────────────────────────
-        addStatic(Button.builder(
-                Component.translatable("wavedefense.label.rewards_hint"), button -> {}
-        ).bounds(cx - 160, y, 340, 16).build()).active = false;
+        addStatic(new Button(cx - 160, y, 340, 16, new TranslationTextComponent("wavedefense.label.rewards_hint"), button -> {})).active = false;
         y += 22;
 
-        addStatic(Button.builder(
-                Component.translatable("wavedefense.button.add_wave_reward"), button -> startAddItem()
-        ).bounds(cx - 160, y, 210, 20).build());
+        addStatic(new Button(cx - 160, y, 210, 20, new TranslationTextComponent("wavedefense.button.add_wave_reward"), button -> startAddItem()));
 
         // ── Content (scrollable) ──────────────────────────────────────
         buildVisibleRows();
@@ -79,13 +78,8 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
                 LIST_Y + (ITEMS_PER_PAGE - 1) * ROW_H, 18, 18);
 
         // ── Footer (static) ───────────────────────────────────────────
-        addStatic(Button.builder(
-                Component.translatable("wavedefense.button.save_back"), button -> saveAndBack()
-        ).bounds(cx - 160, this.height - 28, 150, 20).build());
-        addStatic(Button.builder(
-                Component.translatable("wavedefense.button.cancel"),
-                button -> this.minecraft.setScreen(parent)
-        ).bounds(cx - 5, this.height - 28, 110, 20).build());
+        addStatic(new Button(cx - 160, this.height - 28, 150, 20, new TranslationTextComponent("wavedefense.button.save_back"), button -> saveAndBack()));
+        addStatic(new Button(cx - 5, this.height - 28, 110, 20, new TranslationTextComponent("wavedefense.button.cancel"), button -> this.minecraft.setScreen(parent)));
     }
 
     // ─── Row builder ───────────────────────────────────────────────────────
@@ -108,53 +102,40 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
 
         String rowLabel = I18n.get("wavedefense.label.reward_row", reward.getBuyPrice(), allNames);
 
-        this.addRenderableWidget(Button.builder(
-                Component.literal(rowLabel), button -> {}
-        ).bounds(cx - 160, y, 260, 18).build()).active = false;
+        this.addButton(new Button(cx - 160, y, 260, 18, new StringTextComponent(rowLabel), button -> {})).active = false;
 
         final int fIdx = index;
-        this.addRenderableWidget(Button.builder(
-                Component.literal("✎"), button -> startEditItem(fIdx)
-        ).bounds(cx + 105, y, 24, 18).build());
+        this.addButton(new Button(cx + 105, y, 24, 18, new StringTextComponent("✎"), button -> startEditItem(fIdx)));
         boolean isPendingDelReward = (pendingDeleteRewardIndex == fIdx);
         int delRewardW = isPendingDelReward ? 50 : 24;
-        this.addRenderableWidget(Button.builder(
-                isPendingDelReward
-                    ? Component.translatable("wavedefense.button.confirm_delete")
-                    : Component.literal("§c✕"),
-                button -> {
+        this.addButton(new Button(cx + 131, y, delRewardW, 18, isPendingDelReward
+                    ? new TranslationTextComponent("wavedefense.button.confirm_delete")
+                    : new StringTextComponent("§c✕"), button -> {
                     if (isPendingDelReward) {
                         pendingDeleteRewardIndex = -1;
                         location.removeCompletionReward(fIdx);
-                        rebuildWidgets();
+                        init();
                     } else {
                         pendingDeleteRewardIndex = fIdx;
-                        rebuildWidgets();
+                        init();
                     }
-                }
-        ).bounds(cx + 131, y, delRewardW, 18).build());
+                }));
 
         for (int j = 0; j < Math.min(4, items.size()); j++) {
-            this.addRenderableWidget(Button.builder(
-                    Component.literal(""), button -> {}
-            ).bounds(cx - 156 + j * 22, y + 20, 20, 20).build()).active = false;
+            this.addButton(new Button(cx - 156 + j * 22, y + 20, 20, 20, new StringTextComponent(""), button -> {})).active = false;
         }
         if (!items.isEmpty()) {
             String itemName = "§7" + items.get(0).getHoverName().getString();
             if (items.size() > 1) itemName += " §8(+" + (items.size() - 1) + ")";
             if (itemName.length() > 40) itemName = itemName.substring(0, 38) + "…";
-            this.addRenderableWidget(Button.builder(
-                    Component.literal(itemName), button -> {}
-            ).bounds(cx - 160, y + 42, 260, 12).build()).active = false;
+            this.addButton(new Button(cx - 160, y + 42, 260, 12, new StringTextComponent(itemName), button -> {})).active = false;
         }
     }
 
     // ─── Edit mode ─────────────────────────────────────────────────────────
 
     private void initEditMode(int cx, int y) {
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.label.rewards_edit_hint"), button -> {}
-        ).bounds(cx - 155, y, 320, 14).build()).active = false;
+        this.addButton(new Button(cx - 155, y, 320, 14, new TranslationTextComponent("wavedefense.label.rewards_edit_hint"), button -> {})).active = false;
         y += 16;
 
         int totalSlotsW = 4 * SLOT_W + 3 * SLOT_GAP;
@@ -163,42 +144,29 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
         for (int i = 0; i < 4; i++) {
             int xPos  = slotsLeft + i * (SLOT_W + SLOT_GAP);
             final int si = i;
-            this.addRenderableWidget(Button.builder(
-                    Component.translatable("wavedefense.button.set_item"),
-                    button -> setItem(si)
-            ).bounds(xPos, y + 20, SLOT_W, SLOT_H).build());
-            this.addRenderableWidget(Button.builder(
-                    Component.translatable("wavedefense.button.clear_item"),
-                    button -> clearItem(si)
-            ).bounds(xPos, y + 20 + SLOT_H + 2, SLOT_W, SLOT_H).build());
+            this.addButton(new Button(xPos, y + 20, SLOT_W, SLOT_H, new TranslationTextComponent("wavedefense.button.set_item"), button -> setItem(si)));
+            this.addButton(new Button(xPos, y + 20 + SLOT_H + 2, SLOT_W, SLOT_H, new TranslationTextComponent("wavedefense.button.clear_item"), button -> clearItem(si)));
         }
         y += 20 + SLOT_H * 2 + 10;
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.label.min_points_reward"), button -> {}
-        ).bounds(cx - 155, y, 310, 18).build()).active = false;
+        this.addButton(new Button(cx - 155, y, 310, 18, new TranslationTextComponent("wavedefense.label.min_points_reward"), button -> {})).active = false;
         y += 20;
-        minPointsInput = new EditBox(this.font, cx - 155, y, 80, 20,
-                Component.translatable("wavedefense.label.points"));
+        minPointsInput = new TextFieldWidget(this.font, cx - 155, y, 80, 20,
+                new TranslationTextComponent("wavedefense.label.points"));
         minPointsInput.setValue(editingIndex >= 0
                 ? String.valueOf(location.getCompletionRewards().get(editingIndex).getBuyPrice()) : "0");
         minPointsInput.setMaxLength(7);
-        this.addRenderableWidget(minPointsInput);
+        this.addButton(minPointsInput);
         y += 30;
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.save"), button -> saveItem()
-        ).bounds(cx - 110, y, 100, 20).build());
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.cancel"),
-                button -> { editingItem = false; rebuildWidgets(); }
-        ).bounds(cx + 10, y, 100, 20).build());
+        this.addButton(new Button(cx - 110, y, 100, 20, new TranslationTextComponent("wavedefense.button.save"), button -> saveItem()));
+        this.addButton(new Button(cx + 10, y, 100, 20, new TranslationTextComponent("wavedefense.button.cancel"), button -> { editingItem = false; init(); }));
     }
 
     // ─── Render ────────────────────────────────────────────────────────────
 
     @Override
-    public void render(GuiGraphics g, int mx, int my, float pt) {
+    public void render(MatrixStack g, int mx, int my, float pt) {
         if (editingItem) {
             renderEditMode(g, mx, my, pt);
             return;
@@ -207,12 +175,12 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
     }
 
     @Override
-    protected void renderHeader(GuiGraphics g, int mx, int my, float pt) {
-        g.drawCenteredString(this.font, this.title, this.width / 2, 10, GuiTheme.TEXT);
+    protected void renderHeader(MatrixStack g, int mx, int my, float pt) {
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, this.title, this.width / 2, 10, GuiTheme.TEXT);
     }
 
     @Override
-    protected void renderContentExtra(GuiGraphics g, int mx, int my, float pt) {
+    protected void renderContentExtra(MatrixStack g, int mx, int my, float pt) {
         int cx = this.width / 2;
         List<ShopItem> rewards = location.getCompletionRewards();
         ItemStack tooltipItem = null;
@@ -224,10 +192,10 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
             for (int j = 0; j < Math.min(4, items.size()); j++) {
                 int ix = cx - 156 + j * 22;
                 int iy = yPos + 20;
-                g.fill(ix - 1, iy - 1, ix + 17, iy + 17, GuiTheme.BORDER);
-                g.fill(ix, iy, ix + 16, iy + 16, GuiTheme.PANEL_DARK);
-                g.renderItem(items.get(j), ix, iy);
-                g.renderItemDecorations(this.font, items.get(j), ix, iy);
+                com.wavedefense.gui.GuiCompat.fill(g, ix - 1, iy - 1, ix + 17, iy + 17, GuiTheme.BORDER);
+                com.wavedefense.gui.GuiCompat.fill(g, ix, iy, ix + 16, iy + 16, GuiTheme.PANEL_DARK);
+                com.wavedefense.gui.GuiCompat.renderItem(g, items.get(j), ix, iy);
+                com.wavedefense.gui.GuiCompat.renderItemDecorations(g, this.font, items.get(j), ix, iy);
                 if (mx >= ix && mx < ix + 16 && my >= iy && my < iy + 16) {
                     tooltipItem = items.get(j);
                 }
@@ -235,15 +203,15 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
         }
         if (tooltipItem != null) {
             ScissorHelper.disable();
-            g.renderTooltip(this.font, tooltipItem, mx, my);
+            com.wavedefense.gui.GuiCompat.renderTooltip(this, g, this.font, tooltipItem, mx, my);
         }
     }
 
     /** Режим редагування — повністю окремий рендер без scissor. */
-    private void renderEditMode(GuiGraphics g, int mx, int my, float pt) {
+    private void renderEditMode(MatrixStack g, int mx, int my, float pt) {
         GuiTheme.renderBackground(g, this.width, this.height);
         int cx   = this.width / 2;
-        g.drawCenteredString(this.font, this.title, cx, 10, GuiTheme.TEXT);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, this.title, cx, 10, GuiTheme.TEXT);
 
         int iconY        = 51;
         int totalSlotsW  = 4 * SLOT_W + 3 * SLOT_GAP;
@@ -252,21 +220,21 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
         for (int i = 0; i < 4; i++) {
             int xPos  = slotsLeft + i * (SLOT_W + SLOT_GAP);
             ItemStack item = editItems.get(i);
-            g.fill(xPos + (SLOT_W - 18) / 2 - 1, iconY - 1,
+            com.wavedefense.gui.GuiCompat.fill(g, xPos + (SLOT_W - 18) / 2 - 1, iconY - 1,
                    xPos + (SLOT_W - 18) / 2 + 19, iconY + 17, GuiTheme.BORDER);
-            g.fill(xPos + (SLOT_W - 18) / 2, iconY,
+            com.wavedefense.gui.GuiCompat.fill(g, xPos + (SLOT_W - 18) / 2, iconY,
                    xPos + (SLOT_W - 18) / 2 + 18, iconY + 16, GuiTheme.PANEL_DARK);
             int iconX = xPos + (SLOT_W - 16) / 2;
-            g.renderItem(item, iconX, iconY);
-            g.renderItemDecorations(this.font, item, iconX, iconY);
+            com.wavedefense.gui.GuiCompat.renderItem(g, item, iconX, iconY);
+            com.wavedefense.gui.GuiCompat.renderItemDecorations(g, this.font, item, iconX, iconY);
             if (!item.isEmpty() && mx >= iconX && mx <= iconX + 16
                     && my >= iconY && my <= iconY + 16) {
-                g.renderTooltip(this.font, item, mx, my);
+                com.wavedefense.gui.GuiCompat.renderTooltip(this, g, this.font, item, mx, my);
             }
         }
 
-        for (var r : this.renderables) {
-            if (r instanceof AbstractWidget w) w.render(g, mx, my, pt);
+        for (Object r : this.buttons) {
+            if (r instanceof Widget) { Widget w = (Widget) r; w.render(g, mx, my, pt); }
         }
     }
 
@@ -277,7 +245,7 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
         editingIndex = -1;
         editItems    = new ArrayList<>();
         while (editItems.size() < 4) editItems.add(ItemStack.EMPTY);
-        rebuildWidgets();
+        init();
     }
 
     private void startEditItem(int idx) {
@@ -285,26 +253,26 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
         editingIndex = idx;
         editItems    = new ArrayList<>(location.getCompletionRewards().get(idx).getItems());
         while (editItems.size() < 4) editItems.add(ItemStack.EMPTY);
-        rebuildWidgets();
+        init();
     }
 
     private void setItem(int slot) {
         if (minecraft.player != null && !minecraft.player.getMainHandItem().isEmpty()) {
             editItems.set(slot, minecraft.player.getMainHandItem().copy());
-            rebuildWidgets();
+            init();
         }
     }
 
     private void clearItem(int slot) {
         editItems.set(slot, ItemStack.EMPTY);
-        rebuildWidgets();
+        init();
     }
 
     private void saveItem() {
         try {
             int minPts = Integer.parseInt(minPointsInput.getValue());
             List<ItemStack> finalItems = editItems.stream()
-                    .filter(i -> !i.isEmpty()).collect(Collectors.toList());
+                    .filter(i -> !i.isEmpty()).collect(java.util.stream.Collectors.toList());
             if (finalItems.isEmpty()) return;
             ShopItem reward = new ShopItem(finalItems, minPts, 0);
             if (editingIndex >= 0) {
@@ -313,7 +281,7 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
                 location.addCompletionReward(reward);
             }
             editingItem = false;
-            rebuildWidgets();
+            init();
         } catch (NumberFormatException ignored) {}
     }
 
@@ -321,7 +289,7 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
         PacketHandler.sendToServer(new UpdateLocationPacket(location));
         if (minecraft.player != null) {
             minecraft.player.displayClientMessage(
-                    Component.translatable("wavedefense.msg.rewards_saved"), true);
+                    new TranslationTextComponent("wavedefense.msg.rewards_saved"), true);
         }
         this.minecraft.setScreen(parent);
     }

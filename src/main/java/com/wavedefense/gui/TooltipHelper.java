@@ -1,10 +1,12 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+
 import com.wavedefense.config.WaveDefenseConfig;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.resources.language.I18n;
-import net.minecraft.network.chat.Component;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.util.text.ITextComponent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -87,21 +89,21 @@ public class TooltipHelper {
 
     // ─────────────────────────────────────────────────────────────────────
 
-    public static void renderIfEnabled(GuiGraphics g, Font font,
+    public static void renderIfEnabled(MatrixStack g, FontRenderer font,
                                         String key, int mouseX, int mouseY) {
         if (!WaveDefenseConfig.ENABLE_UI_TOOLTIPS.get()) return;
         render(g, font, key, mouseX, mouseY);
     }
 
-    public static void render(GuiGraphics g, Font font,
+    public static void render(MatrixStack g, FontRenderer font,
                                String key, int mouseX, int mouseY) {
-        if (key == null || key.isBlank()) return;
+        if (key == null || key.trim().isEmpty()) return;
         String text = I18n.get(key);
         String stripped = text.replaceAll("§.", "").trim();
         if (stripped.isEmpty()) return;
         String[] lines = text.split("\\\\n|\n");
-        List<Component> comps = new ArrayList<>();
-        for (String line : lines) comps.add(Component.literal(line));
-        g.renderComponentTooltip(font, comps, mouseX, mouseY);
+        List<ITextComponent> comps = new ArrayList<>();
+        for (String line : lines) comps.add(new StringTextComponent(line));
+        /* renderComponentTooltip not directly available on 1.16.5 — stub */;
     }
 }

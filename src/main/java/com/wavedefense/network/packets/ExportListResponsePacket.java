@@ -1,10 +1,10 @@
 package com.wavedefense.network.packets;
 
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.PacketBuffer;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraftforge.fml.network.NetworkEvent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,13 +19,13 @@ public class ExportListResponsePacket {
     /** Max name length: 256 chars — matches readUtf limit in decode. */
     private static final int MAX_NAME_LENGTH = 256;
 
-    public static void encode(ExportListResponsePacket pkt, FriendlyByteBuf buf) {
+    public static void encode(ExportListResponsePacket pkt, PacketBuffer buf) {
         buf.writeInt(pkt.names.size());
         // Truncate at MAX_NAME_LENGTH to match the decode limit and prevent DecoderException.
         for (String n : pkt.names) buf.writeUtf(n.length() > MAX_NAME_LENGTH ? n.substring(0, MAX_NAME_LENGTH) : n);
     }
 
-    public static ExportListResponsePacket decode(FriendlyByteBuf buf) {
+    public static ExportListResponsePacket decode(PacketBuffer buf) {
         int size = buf.readInt();
         List<String> names = new ArrayList<>(size);
         for (int i = 0; i < size; i++) names.add(buf.readUtf(MAX_NAME_LENGTH));
@@ -43,9 +43,11 @@ public class ExportListResponsePacket {
     private static class ClientHandler {
         static void handle(ExportListResponsePacket pkt) {
             net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-            if (mc.screen instanceof com.wavedefense.gui.ImportExportScreen screen) {
+            if (mc.screen instanceof com.wavedefense.gui.ImportExportScreen) {
+
+                com.wavedefense.gui.ImportExportScreen screen = (com.wavedefense.gui.ImportExportScreen) mc.screen;
                 screen.setAvailableExports(pkt.names);
-                screen.setStatus(String.format(net.minecraft.client.resources.language.I18n.get("wavedefense.export.status_updated"), pkt.names.size()));
+                screen.setStatus(String.format(net.minecraft.client.resources.I18n.get("wavedefense.export.status_updated"), pkt.names.size()));
             }
         }
     }

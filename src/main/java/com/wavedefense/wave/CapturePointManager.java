@@ -1,17 +1,18 @@
 package com.wavedefense.wave;
 
-import com.wavedefense.WaveDefenseMod;
+import net.minecraft.util.text.TranslationTextComponent;
+
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.data.*;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.SyncCtpStatePacket;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleOptions;
-import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.particles.IParticleData;
+import net.minecraft.particles.ParticleTypes;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.world.server.ServerWorld;
+import net.minecraft.entity.player.ServerPlayerEntity;
 
 import java.util.*;
 
@@ -41,8 +42,8 @@ public class CapturePointManager {
     // ════════════════════════════════════════════════════════════════════
 
     public void tick(WaveManager wm) {
-        if (WaveDefenseMod.getServer() == null) return;
-        if (WaveDefenseMod.locationManager == null) return;
+        if (WaveDefenceMod.getServer() == null) return;
+        if (WaveDefenceMod.locationManager == null) return;
 
         for (Map.Entry<String, LocationSession> entry : ctx.sessions.entrySet()) {
             String locName   = entry.getKey();
@@ -51,17 +52,17 @@ public class CapturePointManager {
             if (state == null) continue;
             if (state.getPhase() != PvpRoundState.Phase.ACTIVE) continue;
 
-            Location location = WaveDefenseMod.locationManager.getLocation(locName);
+            Location location = WaveDefenceMod.locationManager.getLocation(locName);
             if (location == null) continue;
             if (!location.isObjectiveMode()) continue;
 
             List<CapturePoint> points = location.getCapturePoints();
             if (points.isEmpty()) continue;
 
-            List<ServerPlayer> players = wm.getPlayersInLocation(locName);
-            ServerLevel world = players.isEmpty()
-                ? WaveDefenseMod.getServer().overworld()
-                : players.get(0).serverLevel();
+            List<ServerPlayerEntity> players = wm.getPlayersInLocation(locName);
+            ServerWorld world = players.isEmpty()
+                ? WaveDefenceMod.getServer().overworld()
+                : ((net.minecraft.world.server.ServerWorld) players.get(0).level);
 
             // ── Per-point logic ──────────────────────────────────────────
             for (CapturePoint cp : points) {
@@ -80,7 +81,7 @@ public class CapturePointManager {
                 }
                 if (allSame && allOwner != null) {
                     wm.broadcastToLocation(location.getName(),
-                        Component.translatable("wavedefense.msg.ctp_all_points_captured", allOwner));
+                        new TranslationTextComponent("wavedefense.msg.ctp_all_points_captured", allOwner));
                     wm.pvpMgr.declareObjectiveWinner(wm, location, state, allOwner, false);
                     continue;
                 }
@@ -164,10 +165,10 @@ public class CapturePointManager {
     // ════════════════════════════════════════════════════════════════════
 
     private void tickPoint(WaveManager wm, Location location, PvpRoundState state,
-                           CapturePoint cp, List<ServerPlayer> players) {
+                           CapturePoint cp, List<ServerPlayerEntity> players) {
         // Count players per team inside the capture sphere
         Map<String, Integer> teamCounts = new LinkedHashMap<>();
-        for (ServerPlayer p : players) {
+        for (ServerPlayerEntity p : players) {
             String team = location.getPlayerTeam(p.getUUID());
             if (team == null) continue;
             if (isInRadius(p, cp.getPos(), cp.getCaptureRadius())) {
@@ -236,7 +237,7 @@ public class CapturePointManager {
                 state.resetKothHoldTicks(oldOwner);
             }
             wm.broadcastToLocation(location.getName(),
-                Component.translatable("wavedefense.msg.point_captured", capturingTeam, cp.getName()));
+                new TranslationTextComponent("wavedefense.msg.point_captured", capturingTeam, cp.getName()));
         } else {
             state.getCaptureProgress().put(cp.getId(), prog);
         }
@@ -246,7 +247,7 @@ public class CapturePointManager {
     //  Helpers
     // ════════════════════════════════════════════════════════════════════
 
-    private static boolean isInRadius(ServerPlayer player, BlockPos center, int radius) {
+    private static boolean isInRadius(ServerPlayerEntity player, BlockPos center, int radius) {
         if (center == null) return false;
         // M-10: 2D cylinder check (horizontal distance only) so players on different Y levels
         // (e.g. standing on a slope or being pushed up) still count as on the point.
@@ -279,15 +280,15 @@ public class CapturePointManager {
             scoreToWin,
             roundTicksLeft
         );
-        for (ServerPlayer p : wm.getPlayersInLocation(location.getName())) {
+        for (ServerPlayerEntity p : wm.getPlayersInLocation(location.getName())) {
             PacketHandler.sendToPlayer(p, pkt);
         }
     }
 
-    private void spawnPointParticles(ServerLevel world, BlockPos center, int radius,
+    private void spawnPointParticles(ServerWorld world, BlockPos center, int radius,
                                      String particleId, int count) {
         if (center == null || world == null) return;
-        ParticleOptions particle = resolveParticle(particleId);
+        net.minecraft.particles.IParticleData particle = resolveParticle(particleId);
         // Spawn a small cluster around the point center (not a full ring — keep it lightweight)
         double cx = center.getX() + 0.5;
         double cy = center.getY() + 1.0;
@@ -303,26 +304,26 @@ public class CapturePointManager {
         }
     }
 
-    static ParticleOptions resolveParticle(String id) {
-        if (id == null || id.isBlank()) return ParticleTypes.SMOKE;
+    static net.minecraft.particles.IParticleData resolveParticle(String id) {
+        if (id == null || id.trim().isEmpty()) return ParticleTypes.SMOKE;
         try {
-            var type = BuiltInRegistries.PARTICLE_TYPE.get(new ResourceLocation(id));
-            if (type instanceof net.minecraft.core.particles.SimpleParticleType spt) return spt;
-            if (type instanceof ParticleOptions po) return po;
+            net.minecraft.particles.ParticleType<?> type = net.minecraftforge.registries.ForgeRegistries.PARTICLE_TYPES.getValue(new ResourceLocation(id));
+            if (type instanceof net.minecraft.particles.BasicParticleType) { net.minecraft.particles.BasicParticleType spt = (net.minecraft.particles.BasicParticleType) type; return spt; }
+            if (type instanceof net.minecraft.particles.IParticleData) { net.minecraft.particles.IParticleData po = (net.minecraft.particles.IParticleData) type; return po; }
         } catch (Exception ignored) {}
-        return switch (id) {
-            case "minecraft:flame"          -> ParticleTypes.FLAME;
-            case "minecraft:smoke"          -> ParticleTypes.SMOKE;
-            case "minecraft:crit"           -> ParticleTypes.CRIT;
-            case "minecraft:large_smoke"    -> ParticleTypes.LARGE_SMOKE;
-            case "minecraft:portal"         -> ParticleTypes.PORTAL;
-            case "minecraft:enchant"        -> ParticleTypes.ENCHANT;
-            case "minecraft:end_rod"        -> ParticleTypes.END_ROD;
-            case "minecraft:soul_fire_flame"-> ParticleTypes.SOUL_FIRE_FLAME;
-            case "minecraft:snowflake"      -> ParticleTypes.SNOWFLAKE;
-            case "minecraft:witch"          -> ParticleTypes.WITCH;
-            case "minecraft:happy_villager" -> ParticleTypes.HAPPY_VILLAGER;
-            default                         -> ParticleTypes.SMOKE;
-        };
+        switch (id) {
+            case "minecraft:flame": return ParticleTypes.FLAME;
+            case "minecraft:smoke": return ParticleTypes.SMOKE;
+            case "minecraft:crit": return ParticleTypes.CRIT;
+            case "minecraft:large_smoke": return ParticleTypes.LARGE_SMOKE;
+            case "minecraft:portal": return ParticleTypes.PORTAL;
+            case "minecraft:enchant": return ParticleTypes.ENCHANT;
+            case "minecraft:end_rod": return ParticleTypes.END_ROD;
+            case "minecraft:soul_fire_flame": return ParticleTypes.SOUL_FIRE_FLAME;
+            case "minecraft:witch": return ParticleTypes.WITCH;
+            case "minecraft:happy_villager": return ParticleTypes.HAPPY_VILLAGER;
+            default: return ParticleTypes.SMOKE;
+
+        }
     }
 }

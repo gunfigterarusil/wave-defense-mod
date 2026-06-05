@@ -1,13 +1,13 @@
 package com.wavedefense.network.packets;
 
 import com.wavedefense.data.LeaderboardRecord;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
+import net.minecraft.network.PacketBuffer;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraftforge.fml.network.NetworkEvent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,15 +33,15 @@ public class LeaderboardDataPacket {
     }
 
     // ── Encode ────────────────────────────────────────────────────────────
-    public static void encode(LeaderboardDataPacket p, FriendlyByteBuf buf) {
-        CompoundTag root = new CompoundTag();
+    public static void encode(LeaderboardDataPacket p, PacketBuffer buf) {
+        CompoundNBT root = new CompoundNBT();
         root.putString("loc",  p.locationName);
         root.putString("mode", p.modeKey);
-        ListTag list = new ListTag();
+        ListNBT list = new ListNBT();
         int count = Math.min(MAX_ENTRIES, p.records.size());
         for (int i = 0; i < count; i++) {
             LeaderboardRecord rec = p.records.get(i);
-            CompoundTag rt = rec.save();
+            CompoundNBT rt = rec.save();
             // Enforce max name length client-side safety
             if (rt.getString("name").length() > MAX_NAME_LEN)
                 rt.putString("name", rt.getString("name").substring(0, MAX_NAME_LEN));
@@ -52,13 +52,13 @@ public class LeaderboardDataPacket {
     }
 
     // ── Decode ────────────────────────────────────────────────────────────
-    public static LeaderboardDataPacket decode(FriendlyByteBuf buf) {
-        CompoundTag root = buf.readNbt();
+    public static LeaderboardDataPacket decode(PacketBuffer buf) {
+        CompoundNBT root = buf.readNbt();
         if (root == null) return new LeaderboardDataPacket("", "", new ArrayList<>());
         String loc  = root.getString("loc");
         String mode = root.getString("mode");
         List<LeaderboardRecord> recs = new ArrayList<>();
-        ListTag list = root.getList("records", 10);
+        ListNBT list = root.getList("records", 10);
         for (int i = 0; i < Math.min(MAX_ENTRIES, list.size()); i++) {
             recs.add(LeaderboardRecord.load(list.getCompound(i)));
         }

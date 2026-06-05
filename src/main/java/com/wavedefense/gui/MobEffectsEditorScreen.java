@@ -1,14 +1,19 @@
 package com.wavedefense.gui;
 
+
+import net.minecraft.potion.Effect;
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.data.WaveMob;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.resources.language.I18n;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.effect.MobEffect;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.ResourceLocation;
+
 import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.ArrayList;
@@ -27,29 +32,29 @@ public class MobEffectsEditorScreen extends Screen {
     private final WaveMob mob;
     private List<String> effects;
 
-    private List<MobEffect> allEffects;
-    private List<MobEffect> filteredEffects;
-    private EditBox searchBox;
+    private List<Effect> allEffects;
+    private List<Effect> filteredEffects;
+    private TextFieldWidget searchBox;
     private int effectScrollOffset = 0;
     private int activeScrollOffset = 0;
 
-    private EditBox amplifierInput;
-    private EditBox durationInput;
+    private TextFieldWidget amplifierInput;
+    private TextFieldWidget durationInput;
 
-    private MobEffect selectedEffect = null;
+    private Effect selectedEffect = null;
 
     private static final int EFFECT_ROW_H = 16;
     private static final int ACTIVE_ROW_H = 18;
 
     public MobEffectsEditorScreen(Screen parent, WaveMob mob) {
-        super(Component.translatable("wavedefense.title.mob_effects"));
+        super(new TranslationTextComponent("wavedefense.title.mob_effects"));
         this.parent = parent;
         this.mob = mob;
         this.effects = new ArrayList<>(mob.getEffects());
 
-        allEffects = ForgeRegistries.MOB_EFFECTS.getValues().stream()
+        allEffects = ForgeRegistries.POTIONS.getValues().stream()
                 .sorted((a, b) -> a.getDisplayName().getString().compareTo(b.getDisplayName().getString()))
-                .collect(Collectors.toList());
+                .collect(java.util.stream.Collectors.toList());
         filteredEffects = new ArrayList<>(allEffects);
     }
 
@@ -64,9 +69,7 @@ public class MobEffectsEditorScreen extends Screen {
         int lx = 4;
         int y = 28;
 
-        this.addRenderableWidget(Button.builder(
-                Component.literal(I18n.get("wavedefense.mob_effect.active_header", effects.size())), b -> {}
-        ).bounds(lx, y, leftW - 4, 14).build()).active = false;
+        this.addButton(new Button(lx, y, leftW - 4, 14, new StringTextComponent(I18n.get("wavedefense.mob_effect.active_header", effects.size())), b -> {})).active = false;
         y += 16;
 
         int activeVisibleMax = Math.max(2, (panelH - 100) / ACTIVE_ROW_H);
@@ -83,26 +86,17 @@ public class MobEffectsEditorScreen extends Screen {
             // Скорочуємо якщо довге
             if (label.length() > 22) label = label.substring(0, 20) + "…";
 
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("§e" + label), b -> {}
-            ).bounds(lx, y, leftW - 26, ACTIVE_ROW_H).build()).active = false;
+            this.addButton(new Button(lx, y, leftW - 26, ACTIVE_ROW_H, new StringTextComponent("§e" + label), b -> {})).active = false;
 
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("§c✕"),
-                    b -> { effects.remove(fi); if (activeScrollOffset > 0 && activeScrollOffset >= effects.size()) activeScrollOffset--; rebuildWidgets(); }
-            ).bounds(lx + leftW - 24, y, 20, ACTIVE_ROW_H).build());
+            this.addButton(new Button(lx + leftW - 24, y, 20, ACTIVE_ROW_H, new StringTextComponent("§c✕"), b -> { effects.remove(fi); if (activeScrollOffset > 0 && activeScrollOffset >= effects.size()) activeScrollOffset--; init(); }));
             y += ACTIVE_ROW_H + 1;
         }
 
         // Скрол активних ефектів
         if (effects.size() > activeVisibleMax) {
             int sbX = lx + leftW - 4;
-            this.addRenderableWidget(Button.builder(Component.literal("▲"),
-                    b -> { if (activeScrollOffset > 0) { activeScrollOffset--; rebuildWidgets(); } }
-            ).bounds(sbX, 44, 14, 14).build());
-            this.addRenderableWidget(Button.builder(Component.literal("▼"),
-                    b -> { if (activeScrollOffset + activeVisibleMax < effects.size()) { activeScrollOffset++; rebuildWidgets(); } }
-            ).bounds(sbX, 44 + (activeVisibleMax - 1) * ACTIVE_ROW_H, 14, 14).build());
+            this.addButton(new Button(sbX, 44, 14, 14, new StringTextComponent("▲"), b -> { if (activeScrollOffset > 0) { activeScrollOffset--; init(); } }));
+            this.addButton(new Button(sbX, 44 + (activeVisibleMax - 1) * ACTIVE_ROW_H, 14, 14, new StringTextComponent("▼"), b -> { if (activeScrollOffset + activeVisibleMax < effects.size()) { activeScrollOffset++; init(); } }));
         }
 
         // ── Права панель: вибір ефекту ────────────────────────────────
@@ -110,15 +104,13 @@ public class MobEffectsEditorScreen extends Screen {
         int rightW = this.width - rightX - 4;
         int ry = 28;
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.вибір_ефекту_b7199ce3"), b -> {}
-        ).bounds(rightX, ry, rightW, 14).build()).active = false;
+        this.addButton(new Button(rightX, ry, rightW, 14, new TranslationTextComponent("wavedefense.auto.вибір_ефекту_b7199ce3"), b -> {})).active = false;
         ry += 16;
 
         // Пошук
-        searchBox = new EditBox(this.font, rightX, ry, rightW, 16, Component.translatable("wavedefense.auto.пошук_8375e4ea"));
+        searchBox = new TextFieldWidget(this.font, rightX, ry, rightW, 16, new TranslationTextComponent("wavedefense.auto.пошук_8375e4ea"));
         searchBox.setResponder(s -> { effectScrollOffset = 0; applyFilter(s); });
-        this.addRenderableWidget(searchBox);
+        this.addButton(searchBox);
         ry += 20;
 
         // Список ефектів зі скролом
@@ -132,75 +124,57 @@ public class MobEffectsEditorScreen extends Screen {
         for (int i = 0; i < Math.min(effectVisibleMax, filteredEffects.size()); i++) {
             int idx = effectScrollOffset + i;
             if (idx >= filteredEffects.size()) break;
-            MobEffect ef = filteredEffects.get(idx);
-            final MobEffect fef = ef;
+            Effect ef = filteredEffects.get(idx);
+            final Effect fef = ef;
             boolean sel = ef == selectedEffect;
             // Колір ефекту
             int color = ef.getColor();
             String hex = String.format("%06X", color & 0xFFFFFF);
             String label = (sel ? "§a§l▶ " : "§7") + ef.getDisplayName().getString();
 
-            this.addRenderableWidget(Button.builder(
-                    Component.literal(label),
-                    b -> { selectedEffect = fef; rebuildWidgets(); }
-            ).bounds(rightX, ry + i * EFFECT_ROW_H, rightW - 16, EFFECT_ROW_H - 1).build());
+            this.addButton(new Button(rightX, ry + i * EFFECT_ROW_H, rightW - 16, EFFECT_ROW_H - 1, new StringTextComponent(label), b -> { selectedEffect = fef; init(); }));
         }
 
         // Скрол списку ефектів
         if (filteredEffects.size() > effectVisibleMax) {
             int sbX = rightX + rightW - 14;
-            this.addRenderableWidget(Button.builder(Component.literal("▲"),
-                    b -> { if (effectScrollOffset > 0) { effectScrollOffset--; rebuildWidgets(); } }
-            ).bounds(sbX, ry, 12, 14).build());
-            this.addRenderableWidget(Button.builder(Component.literal("▼"),
-                    b -> { if (effectScrollOffset + effectVisibleMax < filteredEffects.size()) { effectScrollOffset++; rebuildWidgets(); } }
-            ).bounds(sbX, ry + (effectVisibleMax - 1) * EFFECT_ROW_H, 12, 14).build());
+            this.addButton(new Button(sbX, ry, 12, 14, new StringTextComponent("▲"), b -> { if (effectScrollOffset > 0) { effectScrollOffset--; init(); } }));
+            this.addButton(new Button(sbX, ry + (effectVisibleMax - 1) * EFFECT_ROW_H, 12, 14, new StringTextComponent("▼"), b -> { if (effectScrollOffset + effectVisibleMax < filteredEffects.size()) { effectScrollOffset++; init(); } }));
         }
 
         // Нижня частина: рівень, тривалість, додати
         int bottomY = this.height - 58;
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.рівень_0_i_66c640e3"), b -> {}
-        ).bounds(rightX, bottomY, 80, 14).build()).active = false;
-        amplifierInput = new EditBox(this.font, rightX + 82, bottomY, 40, 14, Component.literal("0"));
+        this.addButton(new Button(rightX, bottomY, 80, 14, new TranslationTextComponent("wavedefense.auto.рівень_0_i_66c640e3"), b -> {})).active = false;
+        amplifierInput = new TextFieldWidget(this.font, rightX + 82, bottomY, 40, 14, new StringTextComponent("0"));
         amplifierInput.setValue("0");
         amplifierInput.setMaxLength(2);
-        this.addRenderableWidget(amplifierInput);
+        this.addButton(amplifierInput);
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.тіків_600_30с_90fe954d"), b -> {}
-        ).bounds(rightX, bottomY + 16, 90, 14).build()).active = false;
-        durationInput = new EditBox(this.font, rightX + 92, bottomY + 16, 50, 14, Component.literal("600"));
+        this.addButton(new Button(rightX, bottomY + 16, 90, 14, new TranslationTextComponent("wavedefense.auto.тіків_600_30с_90fe954d"), b -> {})).active = false;
+        durationInput = new TextFieldWidget(this.font, rightX + 92, bottomY + 16, 50, 14, new StringTextComponent("600"));
         durationInput.setValue("600");
         durationInput.setMaxLength(6);
-        this.addRenderableWidget(durationInput);
+        this.addButton(durationInput);
 
         String addLbl = selectedEffect != null
                 ? "§a➕ " + selectedEffect.getDisplayName().getString()
                 : I18n.get("wavedefense.mob_effect.select_hint");
         if (addLbl.length() > 28) addLbl = addLbl.substring(0, 27) + "…";
-        this.addRenderableWidget(Button.builder(
-                Component.literal(addLbl),
-                b -> addSelectedEffect()
-        ).bounds(rightX, bottomY + 32, rightW, 18).build());
+        this.addButton(new Button(rightX, bottomY + 32, rightW, 18, new StringTextComponent(addLbl), b -> addSelectedEffect()));
 
         // ── Кнопки знизу ──────────────────────────────────────────────
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.save"), b -> save()
-        ).bounds(cx - 110, this.height - 24, 100, 20).build());
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.cancel"), b -> this.minecraft.setScreen(parent)
-        ).bounds(cx + 10, this.height - 24, 100, 20).build());
+        this.addButton(new Button(cx - 110, this.height - 24, 100, 20, new TranslationTextComponent("wavedefense.button.save"), b -> save()));
+        this.addButton(new Button(cx + 10, this.height - 24, 100, 20, new TranslationTextComponent("wavedefense.button.cancel"), b -> this.minecraft.setScreen(parent)));
     }
 
     private void applyFilter(String q) {
         filteredEffects = allEffects.stream()
                 .filter(e -> q.isEmpty() ||
                         e.getDisplayName().getString().toLowerCase().contains(q.toLowerCase()) ||
-                        ForgeRegistries.MOB_EFFECTS.getKey(e).toString().toLowerCase().contains(q.toLowerCase()))
-                .collect(Collectors.toList());
-        rebuildWidgets();
+                        ForgeRegistries.POTIONS.getKey(e).toString().toLowerCase().contains(q.toLowerCase()))
+                .collect(java.util.stream.Collectors.toList());
+        init();
     }
 
     private void addSelectedEffect() {
@@ -208,10 +182,10 @@ public class MobEffectsEditorScreen extends Screen {
         try {
             int amp = Integer.parseInt(amplifierInput.getValue().trim());
             int dur = Integer.parseInt(durationInput.getValue().trim());
-            ResourceLocation key = ForgeRegistries.MOB_EFFECTS.getKey(selectedEffect);
+            ResourceLocation key = ForgeRegistries.POTIONS.getKey(selectedEffect);
             if (key != null) {
                 effects.add(key + ":" + amp + ":" + dur);
-                rebuildWidgets();
+                init();
             }
         } catch (NumberFormatException ignored) {}
     }
@@ -225,7 +199,7 @@ public class MobEffectsEditorScreen extends Screen {
             int amp = 0, dur = 0;
             try { amp = Integer.parseInt(parts[2]); } catch (Exception ignored) {}
             try { dur = Integer.parseInt(parts[3]); } catch (Exception ignored) {}
-            MobEffect ef = ForgeRegistries.MOB_EFFECTS.getValue(new ResourceLocation(name));
+            Effect ef = ForgeRegistries.POTIONS.getValue(new ResourceLocation(name));
             String displayName = ef != null ? ef.getDisplayName().getString() : name;
             return displayName + " Lv" + (amp + 1) + " " + dur + "t";
         } else if (parts.length == 3) {
@@ -233,7 +207,7 @@ public class MobEffectsEditorScreen extends Screen {
             int amp = 0, dur = 0;
             try { amp = Integer.parseInt(parts[1]); } catch (Exception ignored) {}
             try { dur = Integer.parseInt(parts[2]); } catch (Exception ignored) {}
-            MobEffect ef = ForgeRegistries.MOB_EFFECTS.getValue(new ResourceLocation(name));
+            Effect ef = ForgeRegistries.POTIONS.getValue(new ResourceLocation(name));
             String displayName = ef != null ? ef.getDisplayName().getString() : name;
             return displayName + " Lv" + (amp + 1) + " " + dur + "t";
         }
@@ -253,13 +227,13 @@ public class MobEffectsEditorScreen extends Screen {
             int panelH = this.height - 60;
             int effectListH = panelH - 110;
             int effectVisibleMax = Math.max(3, effectListH / EFFECT_ROW_H);
-            if (delta > 0 && effectScrollOffset > 0) { effectScrollOffset--; rebuildWidgets(); }
-            else if (delta < 0 && effectScrollOffset + effectVisibleMax < filteredEffects.size()) { effectScrollOffset++; rebuildWidgets(); }
+            if (delta > 0 && effectScrollOffset > 0) { effectScrollOffset--; init(); }
+            else if (delta < 0 && effectScrollOffset + effectVisibleMax < filteredEffects.size()) { effectScrollOffset++; init(); }
         } else {
             int panelH2 = this.height - 60;
             int activeVisibleMax2 = Math.max(2, (panelH2 - 100) / ACTIVE_ROW_H);
-            if (delta > 0 && activeScrollOffset > 0) { activeScrollOffset--; rebuildWidgets(); }
-            else if (delta < 0 && activeScrollOffset + activeVisibleMax2 < effects.size()) { activeScrollOffset++; rebuildWidgets(); }
+            if (delta > 0 && activeScrollOffset > 0) { activeScrollOffset--; init(); }
+            else if (delta < 0 && activeScrollOffset + activeVisibleMax2 < effects.size()) { activeScrollOffset++; init(); }
         }
         return true;
     }
@@ -275,22 +249,22 @@ public class MobEffectsEditorScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
+    public void render(MatrixStack g, int mouseX, int mouseY, float partial) {
         GuiTheme.renderBackground(g, this.width, this.height);
         int cx = this.width / 2;
-        g.drawCenteredString(this.font, this.title, cx, 10, GuiTheme.TEXT);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, this.title, cx, 10, GuiTheme.TEXT);
         // Роздільник між двома панелями
-        g.fill(cx, 24, cx + 1, this.height - 28, GuiTheme.BORDER);
+        com.wavedefense.gui.GuiCompat.fill(g, cx, 24, cx + 1, this.height - 28, GuiTheme.BORDER);
 
         // Scissor: обрізаємо прокручувану зону, щоб елементи не накладались на нижні контролери
         int clipBot = this.height - 62;
         ScissorHelper.enable(0, 24, this.width, Math.max(1, clipBot - 24));
-        ScissorHelper.renderBand(this.renderables, g, mouseX, mouseY, partial, 0, clipBot);
-        g.flush();
+        ScissorHelper.renderBand(this.buttons, g, mouseX, mouseY, partial, 0, clipBot);
+        com.wavedefense.gui.GuiCompat.flush(g);
         ScissorHelper.disable();
 
         // Нижня зона: поля вводу та кнопки — рендер без scissor
-        ScissorHelper.renderBand(this.renderables, g, mouseX, mouseY, partial, clipBot, this.height);
+        ScissorHelper.renderBand(this.buttons, g, mouseX, mouseY, partial, clipBot, this.height);
     }
 
     @Override

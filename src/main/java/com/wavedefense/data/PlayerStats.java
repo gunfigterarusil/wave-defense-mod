@@ -1,6 +1,6 @@
 package com.wavedefense.data;
 
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.CompoundNBT;
 
 public class PlayerStats {
     private int mobsKilled;
@@ -22,14 +22,14 @@ public class PlayerStats {
         return pointsEarned;
     }
 
-    public CompoundTag save() {
-        CompoundTag tag = new CompoundTag();
+    public CompoundNBT save() {
+        CompoundNBT tag = new CompoundNBT();
         tag.putInt("mobsKilled", mobsKilled);
         tag.putInt("pointsEarned", pointsEarned);
         return tag;
     }
 
-    public static PlayerStats load(CompoundTag tag) {
+    public static PlayerStats load(CompoundNBT tag) {
         PlayerStats stats = new PlayerStats();
         stats.mobsKilled = tag.getInt("mobsKilled");
         stats.pointsEarned = tag.getInt("pointsEarned");

@@ -1,13 +1,16 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.data.Location;
 import com.wavedefense.data.ShopPoint;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.ExportShopPacket;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.util.text.ITextComponent;
 
 import java.util.List;
 
@@ -18,7 +21,7 @@ public class ShopPointSelectExportScreen extends Screen {
     private final Screen parent;
 
     public ShopPointSelectExportScreen(Location location, Screen parent) {
-        super(Component.translatable("wavedefense.auto.експорт_точки_магазину_e19a3bbd"));
+        super(new TranslationTextComponent("wavedefense.auto.експорт_точки_магазину_e19a3bbd"));
         this.location = location;
         this.parent = parent;
     }
@@ -31,37 +34,30 @@ public class ShopPointSelectExportScreen extends Screen {
 
         List<ShopPoint> points = location.getShopPoints();
         if (points.isEmpty()) {
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.точок_немає_6ee9d45d"), b -> {}
-            ).bounds(cx - 100, y, 200, 20).build()).active = false;
+            this.addButton(new Button(cx - 100, y, 200, 20, new TranslationTextComponent("wavedefense.auto.точок_немає_6ee9d45d"), b -> {})).active = false;
         } else {
             for (int pi = 0; pi < points.size(); pi++) {
                 ShopPoint sp = points.get(pi);
                 final String pName = sp.getName();
                 final int rowY = y + pi * 26;
-                this.addRenderableWidget(Button.builder(
-                    Component.literal("§e⬆ " + pName + " §7(" + sp.getItems().size() + " " + net.minecraft.client.resources.language.I18n.get("wavedefense.item.count_suffix") + ")"),
-                    b -> {
+                this.addButton(new Button(cx - 130, rowY, 260, 20, new StringTextComponent("§e⬆ " + pName + " §7(" + sp.getItems().size() + " " + net.minecraft.client.resources.I18n.get("wavedefense.item.count_suffix") + ")"), b -> {
                         PacketHandler.sendToServer(new ExportShopPacket(location.getName(), "point:" + pName));
                         if (minecraft.player != null)
                             minecraft.player.displayClientMessage(
-                                Component.translatable("wavedefense.auto.збережено_точку_value_b9ad0158", pName + "»"), true);
+                                new TranslationTextComponent("wavedefense.auto.збережено_точку_value_b9ad0158", pName + "»"), true);
                         minecraft.setScreen(parent);
-                    }
-                ).bounds(cx - 130, rowY, 260, 20).build());
+                    }));
             }
         }
 
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.auto.назад_f6dab074"), b -> minecraft.setScreen(parent)
-        ).bounds(cx - 55, this.height - 28, 110, 20).build());
+        this.addButton(new Button(cx - 55, this.height - 28, 110, 20, new TranslationTextComponent("wavedefense.auto.назад_f6dab074"), b -> minecraft.setScreen(parent)));
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(MatrixStack g, int mouseX, int mouseY, float partialTick) {
         GuiTheme.renderBackground(g, this.width, this.height);
-        g.drawCenteredString(this.font, this.title, this.width / 2, 14, GuiTheme.TEXT);
-        g.drawCenteredString(this.font, Component.translatable("wavedefense.shop.export_pick_point"), this.width / 2, 26, 0xAAAAAA);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, this.title, this.width / 2, 14, GuiTheme.TEXT);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, new TranslationTextComponent("wavedefense.shop.export_pick_point"), this.width / 2, 26, 0xAAAAAA);
         super.render(g, mouseX, mouseY, partialTick);
     }
 

@@ -1,19 +1,21 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.UpdatePlayerSettingsPacket;
 import com.wavedefense.wave.PlayerWaveData;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.Tooltip;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.util.text.ITextComponent;
 
 public class PlayerSettingsScreen extends Screen {
     private final PlayerWaveData playerData;
 
     public PlayerSettingsScreen(PlayerWaveData playerData) {
-        super(Component.translatable("wavedefense.title.hud_settings"));
+        super(new TranslationTextComponent("wavedefense.title.hud_settings"));
         this.playerData = playerData;
     }
 
@@ -25,41 +27,26 @@ public class PlayerSettingsScreen extends Screen {
         final int W = 220, H = 20, GAP = 6;
 
         // ── Таймер ────────────────────────────────────────────────────
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.settings.show_timer",
-                Component.translatable(playerData.isShowTimer() ? "wavedefense.bool.yes" : "wavedefense.bool.no")),
-            b -> { playerData.setShowTimer(!playerData.isShowTimer()); sendUpdate(); rebuildWidgets(); }
-        ).bounds(cx - W/2, y, W, H).build());
+        this.addButton(new Button(cx - W/2, y, W, H, new TranslationTextComponent("wavedefense.settings.show_timer",
+                new TranslationTextComponent(playerData.isShowTimer() ? "wavedefense.bool.yes" : "wavedefense.bool.no")), b -> { playerData.setShowTimer(!playerData.isShowTimer()); sendUpdate(); init(); }));
 
         // ── Сповіщення ────────────────────────────────────────────────
         y += H + GAP;
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.settings.show_notifications",
-                Component.translatable(playerData.isShowNotifications() ? "wavedefense.bool.yes" : "wavedefense.bool.no")),
-            b -> { playerData.setShowNotifications(!playerData.isShowNotifications()); sendUpdate(); rebuildWidgets(); }
-        ).bounds(cx - W/2, y, W, H).build());
+        this.addButton(new Button(cx - W/2, y, W, H, new TranslationTextComponent("wavedefense.settings.show_notifications",
+                new TranslationTextComponent(playerData.isShowNotifications() ? "wavedefense.bool.yes" : "wavedefense.bool.no")), b -> { playerData.setShowNotifications(!playerData.isShowNotifications()); sendUpdate(); init(); }));
 
         // ── Панель союзників (HUD тімейти) ───────────────────────────
         y += H + GAP;
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.settings.show_teammates",
-                Component.translatable(playerData.isShowTeammates() ? "wavedefense.bool.yes" : "wavedefense.bool.no")),
-            b -> { playerData.setShowTeammates(!playerData.isShowTeammates()); sendUpdate(); rebuildWidgets(); }
-        ).bounds(cx - W/2, y, W, H).build())
-        .setTooltip(Tooltip.create(Component.translatable("wavedefense.tooltip.show_teammates")));
+        this.addButton(new Button(cx - W/2, y, W, H, new TranslationTextComponent("wavedefense.settings.show_teammates",
+                new TranslationTextComponent(playerData.isShowTeammates() ? "wavedefense.bool.yes" : "wavedefense.bool.no")), b -> { playerData.setShowTeammates(!playerData.isShowTeammates()); sendUpdate(); init(); }))
+        /* setTooltip omitted on 1.16.5 */;
 
         // ── Позиція HUD ───────────────────────────────────────────────
         y += H + GAP;
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.button.hud_position"),
-            b -> this.minecraft.setScreen(new HudEditScreen(this))
-        ).bounds(cx - W/2, y, W, H).build());
+        this.addButton(new Button(cx - W/2, y, W, H, new TranslationTextComponent("wavedefense.button.hud_position"), b -> this.minecraft.setScreen(new HudEditScreen(this))));
 
         // ── Закрити ───────────────────────────────────────────────────
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.button.close"),
-            b -> this.onClose()
-        ).bounds(cx - 55, this.height - 30, 110, H).build());
+        this.addButton(new Button(cx - 55, this.height - 30, 110, H, new TranslationTextComponent("wavedefense.button.close"), b -> this.onClose()));
     }
 
     private void sendUpdate() {
@@ -71,9 +58,9 @@ public class PlayerSettingsScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(MatrixStack g, int mouseX, int mouseY, float partialTick) {
         GuiTheme.renderBackground(g, this.width, this.height);
-        g.drawCenteredString(this.font, this.title, this.width / 2, 20, GuiTheme.TEXT);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, this.title, this.width / 2, 20, GuiTheme.TEXT);
         super.render(g, mouseX, mouseY, partialTick);
     }
 

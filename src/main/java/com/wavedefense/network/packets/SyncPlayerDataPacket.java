@@ -1,31 +1,31 @@
 package com.wavedefense.network.packets;
 
 import com.wavedefense.wave.PlayerWaveData;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.network.PacketBuffer;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraftforge.fml.network.NetworkEvent;
 
 import java.util.function.Supplier;
 
 public class SyncPlayerDataPacket {
-    private final CompoundTag data;
+    private final CompoundNBT data;
 
     public SyncPlayerDataPacket(PlayerWaveData playerData) {
         this.data = playerData.saveClientData();
     }
 
-    private SyncPlayerDataPacket(CompoundTag data) {
+    private SyncPlayerDataPacket(CompoundNBT data) {
         this.data = data;
     }
 
-    public static void encode(SyncPlayerDataPacket packet, FriendlyByteBuf buf) {
+    public static void encode(SyncPlayerDataPacket packet, PacketBuffer buf) {
         buf.writeNbt(packet.data);
     }
 
-    public static SyncPlayerDataPacket decode(FriendlyByteBuf buf) {
+    public static SyncPlayerDataPacket decode(PacketBuffer buf) {
         return new SyncPlayerDataPacket(buf.readNbt());
     }
 

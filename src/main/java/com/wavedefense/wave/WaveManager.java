@@ -1,6 +1,8 @@
 package com.wavedefense.wave;
 
-import com.wavedefense.WaveDefenseMod;
+import net.minecraft.util.text.ITextComponent;
+
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.data.GameStats;
 import com.wavedefense.data.Location;
 import com.wavedefense.wave.PlayerWaveData;
@@ -18,15 +20,15 @@ import com.wavedefense.data.PvpSpawnPoint;
 import com.wavedefense.network.packets.SyncLocationDataPacket;
 import com.wavedefense.network.packets.SyncPlayerDataPacket;
 import com.wavedefense.network.packets.SyncTeammatesPacket;
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.entity.Mob;
-import net.minecraft.world.level.GameType;
-import org.jetbrains.annotations.Nullable;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.potion.EffectInstance;
+import net.minecraft.potion.Effects;
+import net.minecraft.entity.MobEntity;
+import net.minecraft.world.GameType;
+import javax.annotation.Nullable;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -92,11 +94,11 @@ public class WaveManager {
     //  Player lifecycle
     // ──────────────────────────────────────────────────────────────────────
 
-    public void addPlayerToLocation(ServerPlayer player, Location location) {
+    public void addPlayerToLocation(ServerPlayerEntity player, Location location) {
         sessionMgr.addPlayer(player, location, this);
     }
 
-    public void surrenderPlayer(ServerPlayer player) {
+    public void surrenderPlayer(ServerPlayerEntity player) {
         sessionMgr.surrender(player, this);
     }
 
@@ -106,14 +108,14 @@ public class WaveManager {
 
     public void endSessionForLocation(String locationName) {
         sessionMgr.endSession(locationName,
-            net.minecraft.network.chat.Component.translatable("wavedefense.msg.all_waves_complete"), true, this);
+            new net.minecraft.util.text.TranslationTextComponent("wavedefense.msg.all_waves_complete"), true, this);
     }
 
     // ──────────────────────────────────────────────────────────────────────
     //  Teleport & spawn helpers
     // ──────────────────────────────────────────────────────────────────────
 
-    public void teleportToSafeSpawn(ServerPlayer player, BlockPos pos, int radius) {
+    public void teleportToSafeSpawn(ServerPlayerEntity player, BlockPos pos, int radius) {
         // H-1 fix: apply scatter radius so all players don't stack on the same block.
         // Uses sqrt(rand)*radius for a uniform-area distribution inside the circle.
         if (radius > 0) {
@@ -127,7 +129,7 @@ public class WaveManager {
         }
     }
 
-    public void teleportToSpawnPoint(ServerPlayer player, PvpSpawnPoint spawnPoint) {
+    public void teleportToSpawnPoint(ServerPlayerEntity player, PvpSpawnPoint spawnPoint) {
         if (spawnPoint == null) return;
         int radius = spawnPoint.getSpawnRadius();
         BlockPos pos = spawnPoint.getPos();
@@ -143,12 +145,12 @@ public class WaveManager {
         }
     }
 
-    public void removeWaitEffects(ServerPlayer player) {
-        player.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
-        player.removeEffect(MobEffects.BLINDNESS);
+    public void removeWaitEffects(ServerPlayerEntity player) {
+        player.removeEffect(Effects.MOVEMENT_SLOWDOWN);
+        player.removeEffect(Effects.BLINDNESS);
     }
 
-    public void setSpectator(ServerPlayer player, boolean spectator) {
+    public void setSpectator(ServerPlayerEntity player, boolean spectator) {
         if (spectator) {
             player.setGameMode(GameType.SPECTATOR);
         } else {
@@ -156,17 +158,17 @@ public class WaveManager {
         }
     }
 
-    public void applyWaitEffects(ServerPlayer player) {
-        player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 20 * 60 * 60, 10, false, false));
-        player.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 20 * 60 * 60, 0, false, false));
+    public void applyWaitEffects(ServerPlayerEntity player) {
+        player.addEffect(new EffectInstance(Effects.MOVEMENT_SLOWDOWN, 20 * 60 * 60, 10, false, false));
+        player.addEffect(new EffectInstance(Effects.BLINDNESS, 20 * 60 * 60, 0, false, false));
     }
 
-    public void reapplyWaitEffects(ServerPlayer player) {
+    public void reapplyWaitEffects(ServerPlayerEntity player) {
         removeWaitEffects(player);
         applyWaitEffects(player);
     }
 
-    public void applyMobEquipment(Mob mob, com.wavedefense.data.WaveMob waveMob) {
+    public void applyMobEquipment(MobEntity mob, com.wavedefense.data.WaveMob waveMob) {
         mobSpawnMgr.applyMobEquipment(mob, waveMob);
     }
 
@@ -178,13 +180,13 @@ public class WaveManager {
         // Player lists are calculated from WaveContext on demand.
     }
 
-    public void syncLocationDataToPlayer(ServerPlayer player) {
-        if (WaveDefenseMod.locationManager == null) return;
+    public void syncLocationDataToPlayer(ServerPlayerEntity player) {
+        if (WaveDefenceMod.locationManager == null) return;
         com.wavedefense.network.PacketHandler.sendToPlayer(
-            player, new SyncLocationDataPacket(WaveDefenseMod.locationManager.save()));
+            player, new SyncLocationDataPacket(WaveDefenceMod.locationManager.save()));
     }
 
-    public void syncPlayerData(ServerPlayer player) {
+    public void syncPlayerData(ServerPlayerEntity player) {
         PlayerWaveData data = playerData.get(player.getUUID());
         if (data == null) {
             data = new PlayerWaveData();
@@ -202,7 +204,7 @@ public class WaveManager {
      * Called after mob kills, wave completions, and location joins so the client
      * StatsScreen always shows up-to-date numbers.
      */
-    public void syncPlayerStats(ServerPlayer player) {
+    public void syncPlayerStats(ServerPlayerEntity player) {
         PlayerWaveData data = playerData.get(player.getUUID());
         if (data == null || data.getCurrentLocation() == null) return;
         LocationSession sess = waveCtx.getSession(data.getCurrentLocation().getName());
@@ -212,14 +214,14 @@ public class WaveManager {
     }
 
     public void syncTeammates(String locationName) {
-        List<ServerPlayer> players = getPlayersInLocation(locationName);
-        Location loc = WaveDefenseMod.locationManager != null
-            ? WaveDefenseMod.locationManager.getLocation(locationName) : null;
+        List<ServerPlayerEntity> players = getPlayersInLocation(locationName);
+        Location loc = WaveDefenceMod.locationManager != null
+            ? WaveDefenceMod.locationManager.getLocation(locationName) : null;
 
-        for (ServerPlayer viewer : players) {
+        for (ServerPlayerEntity viewer : players) {
             String viewerTeam = loc != null ? loc.getPlayerTeam(viewer.getUUID()) : null;
             List<SyncTeammatesPacket.PlayerEntry> entries = new ArrayList<>();
-            for (ServerPlayer p : players) {
+            for (ServerPlayerEntity p : players) {
                 String team = loc != null ? loc.getPlayerTeam(p.getUUID()) : null;
                 if (loc != null && loc.isPvp() && viewerTeam != null && team != null && !viewerTeam.equals(team)) {
                     continue;
@@ -231,20 +233,20 @@ public class WaveManager {
                     (int) Math.ceil(p.getMaxHealth()),
                     !p.isDeadOrDying(),
                     team,
-                    p.getX(), p.getY(), p.getZ(), p.getYRot()));
+                    p.getX(), p.getY(), p.getZ(), p.yRot));
             }
             com.wavedefense.network.PacketHandler.sendToPlayer(
                 viewer, SyncTeammatesPacket.build(locationName, entries));
         }
     }
 
-    public void clearTeammatesForPlayer(ServerPlayer player) {
+    public void clearTeammatesForPlayer(ServerPlayerEntity player) {
         com.wavedefense.network.PacketHandler.sendToPlayer(
             player, SyncTeammatesPacket.build("", Collections.emptyList()));
     }
 
-    public void clearTeammatesForAll(java.util.List<ServerPlayer> players) {
-        for (ServerPlayer player : players) {
+    public void clearTeammatesForAll(java.util.List<ServerPlayerEntity> players) {
+        for (ServerPlayerEntity player : players) {
             clearTeammatesForPlayer(player);
         }
     }
@@ -253,27 +255,27 @@ public class WaveManager {
         infoPanelMgr.removeInfoPanelEntities(locationName);
     }
 
-    public java.util.List<ServerPlayer> getPlayersInLocation(String locationName) {
+    public java.util.List<ServerPlayerEntity> getPlayersInLocation(String locationName) {
         return waveCtx.getPlayersInLocation(locationName);
     }
 
-    public void broadcastToLocation(String locationName, net.minecraft.network.chat.Component message) {
-        for (ServerPlayer p : getPlayersInLocation(locationName)) {
+    public void broadcastToLocation(String locationName, net.minecraft.util.text.ITextComponent message) {
+        for (ServerPlayerEntity p : getPlayersInLocation(locationName)) {
             p.displayClientMessage(message, false);
         }
     }
 
     public void broadcastToNearby(BlockPos center, Location location, String message) {
-        broadcastToNearby(center, location, net.minecraft.network.chat.Component.literal(message));
+        broadcastToNearby(center, location, new net.minecraft.util.text.StringTextComponent(message));
     }
 
     /** Component-overload: preserves translatability for every connected client. */
     public void broadcastToNearby(BlockPos center, Location location,
-                                  net.minecraft.network.chat.Component message) {
-        net.minecraft.server.MinecraftServer srv = WaveDefenseMod.getServer();
+                                  net.minecraft.util.text.ITextComponent message) {
+        net.minecraft.server.MinecraftServer srv = WaveDefenceMod.getServer();
         if (srv == null || center == null || message == null) return;
         final double RADIUS_SQ = 80.0 * 80.0;
-        for (net.minecraft.server.level.ServerPlayer p : srv.getPlayerList().getPlayers()) {
+        for (net.minecraft.entity.player.ServerPlayerEntity p : srv.getPlayerList().getPlayers()) {
             if (p.blockPosition().distSqr(center) <= RADIUS_SQ) {
                 p.displayClientMessage(message, false);
             }
@@ -281,18 +283,18 @@ public class WaveManager {
     }
 
     public void debugLog(String message) {
-        WaveDefenseMod.LOGGER.info("[WaveDebug] " + message);
+        WaveDefenceMod.LOGGER.info("[WaveDebug] " + message);
     }
 
     public void debugAdmin(String message) {
-        WaveDefenseMod.LOGGER.info("[WaveAdmin] " + message);
+        WaveDefenceMod.LOGGER.info("[WaveAdmin] " + message);
     }
 
     // ──────────────────────────────────────────────────────────────────────
     //  Loot triggers
     // ──────────────────────────────────────────────────────────────────────
 
-    public void fireLootTrigger(Location loc, net.minecraft.server.level.ServerLevel world,
+    public void fireLootTrigger(Location loc, net.minecraft.world.server.ServerWorld world,
                                  LootSpawn.Trigger trigger) {
         fireLootTrigger(loc, world, trigger, -1);
     }
@@ -302,7 +304,7 @@ public class WaveManager {
      *                      whose stored value for this trigger equals requiredValue.
      *                      Used for WAVE_N and MOBS_KILLED_N triggers.
      */
-    public void fireLootTrigger(Location loc, net.minecraft.server.level.ServerLevel world,
+    public void fireLootTrigger(Location loc, net.minecraft.world.server.ServerWorld world,
                                  LootSpawn.Trigger trigger, int requiredValue) {
         if (loc == null || world == null || trigger == null) return;
         List<LootSpawn> lootSpawns = loc.getLootSpawns();
@@ -314,11 +316,11 @@ public class WaveManager {
             if (rng.nextInt(100) >= ls.getSpawnChance()) continue;  // chance check
             BlockPos spawnPos = ls.getPos();
             if (spawnPos == null) continue;  // no position configured for this loot spawn
-            for (net.minecraft.world.item.ItemStack stack : ls.getItems()) {
+            for (net.minecraft.item.ItemStack stack : ls.getItems()) {
                 if (stack.isEmpty()) continue;
                 for (int i = 0; i < ls.getCount(); i++) {
-                    net.minecraft.world.entity.item.ItemEntity ie =
-                        new net.minecraft.world.entity.item.ItemEntity(
+                    net.minecraft.entity.item.ItemEntity ie =
+                        new net.minecraft.entity.item.ItemEntity(
                             world,
                             spawnPos.getX() + 0.5,
                             spawnPos.getY() + 0.5,
@@ -332,14 +334,14 @@ public class WaveManager {
     }
 
     public void fireLootTriggerByName(String locationName, com.wavedefense.data.LootSpawn.Trigger trigger) {
-        if (WaveDefenseMod.locationManager == null) return;
-        Location loc = WaveDefenseMod.locationManager.getLocation(locationName);
-        if (loc == null || WaveDefenseMod.getServer() == null) return;
+        if (WaveDefenceMod.locationManager == null) return;
+        Location loc = WaveDefenceMod.locationManager.getLocation(locationName);
+        if (loc == null || WaveDefenceMod.getServer() == null) return;
         // Resolve the correct dimension from the players currently in this location
-        List<net.minecraft.server.level.ServerPlayer> inLoc = getPlayersInLocation(locationName);
-        net.minecraft.server.level.ServerLevel world = inLoc.isEmpty()
-            ? WaveDefenseMod.getServer().overworld()
-            : inLoc.get(0).serverLevel();
+        List<net.minecraft.entity.player.ServerPlayerEntity> inLoc = getPlayersInLocation(locationName);
+        net.minecraft.world.server.ServerWorld world = inLoc.isEmpty()
+            ? WaveDefenceMod.getServer().overworld()
+            : ((net.minecraft.world.server.ServerWorld) inLoc.get(0).level);
         fireLootTrigger(loc, world, trigger);
     }
 
@@ -348,13 +350,13 @@ public class WaveManager {
     public void fireLootTriggerByNameWithValue(String locationName,
                                                com.wavedefense.data.LootSpawn.Trigger trigger,
                                                int value) {
-        if (WaveDefenseMod.locationManager == null) return;
-        Location loc = WaveDefenseMod.locationManager.getLocation(locationName);
-        if (loc == null || WaveDefenseMod.getServer() == null) return;
-        List<net.minecraft.server.level.ServerPlayer> inLoc = getPlayersInLocation(locationName);
-        net.minecraft.server.level.ServerLevel world = inLoc.isEmpty()
-            ? WaveDefenseMod.getServer().overworld()
-            : inLoc.get(0).serverLevel();
+        if (WaveDefenceMod.locationManager == null) return;
+        Location loc = WaveDefenceMod.locationManager.getLocation(locationName);
+        if (loc == null || WaveDefenceMod.getServer() == null) return;
+        List<net.minecraft.entity.player.ServerPlayerEntity> inLoc = getPlayersInLocation(locationName);
+        net.minecraft.world.server.ServerWorld world = inLoc.isEmpty()
+            ? WaveDefenceMod.getServer().overworld()
+            : ((net.minecraft.world.server.ServerWorld) inLoc.get(0).level);
         fireLootTrigger(loc, world, trigger, value);
     }
 
@@ -402,7 +404,7 @@ public class WaveManager {
 
     private void tickPendingPvpRespawns() {
         if (pendingPvpRespawns.isEmpty()) return;
-        net.minecraft.server.MinecraftServer srv = WaveDefenseMod.getServer();
+        net.minecraft.server.MinecraftServer srv = WaveDefenceMod.getServer();
         if (srv == null) return;
         Iterator<Map.Entry<UUID, PendingRespawnData>> it = pendingPvpRespawns.entrySet().iterator();
         while (it.hasNext()) {
@@ -412,7 +414,7 @@ public class WaveManager {
             if (data.ticksRemaining > 0) continue;
 
             it.remove();
-            ServerPlayer player = srv.getPlayerList().getPlayer(entry.getKey());
+            ServerPlayerEntity player = srv.getPlayerList().getPlayer(entry.getKey());
             if (player == null) continue;
 
             // Only proceed if still in an active PvP location
@@ -428,9 +430,9 @@ public class WaveManager {
                 teleportToSpawnPoint(player, data.spawnPoint);
             }
             player.invulnerableTime = 60;
-            player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 60, 1, false, false));
+            player.addEffect(new EffectInstance(Effects.REGENERATION, 60, 1, false, false));
             player.displayClientMessage(
-                net.minecraft.network.chat.Component.translatable("wavedefense.msg.respawn_continue"), true);
+                new net.minecraft.util.text.TranslationTextComponent("wavedefense.msg.respawn_continue"), true);
         }
     }
 
@@ -450,8 +452,8 @@ public class WaveManager {
 
     private void tickSession(LocationSession sess) {
         // Session tick logic - delegate to LocationSession
-        if (WaveDefenseMod.locationManager == null) return;
-        Location location = WaveDefenseMod.locationManager.getLocation(sess.locationName);
+        if (WaveDefenceMod.locationManager == null) return;
+        Location location = WaveDefenceMod.locationManager.getLocation(sess.locationName);
         if (location != null) {
             sess.tick(this, location);
         }
@@ -482,11 +484,11 @@ public class WaveManager {
         return pvpMgr.getAutoBalancedSpawnIndex(location, playerUuid);
     }
 
-    public void addPlayerToPvpLocation(ServerPlayer player, Location location, int spawnIdx) {
+    public void addPlayerToPvpLocation(ServerPlayerEntity player, Location location, int spawnIdx) {
         pvpMgr.addPlayerToPvpLocation(this, player, location, spawnIdx);
     }
 
-    public void exitPvpLocation(ServerPlayer player) {
+    public void exitPvpLocation(ServerPlayerEntity player) {
         surrenderPlayer(player);
     }
 
@@ -507,13 +509,13 @@ public class WaveManager {
     }
 
     public void broadcastLocationData() {
-        if (WaveDefenseMod.getServer() == null) return;
-        for (ServerPlayer player : WaveDefenseMod.getServer().getPlayerList().getPlayers()) {
+        if (WaveDefenceMod.getServer() == null) return;
+        for (ServerPlayerEntity player : WaveDefenceMod.getServer().getPlayerList().getPlayers()) {
             syncLocationDataToPlayer(player);
         }
     }
 
-    public void onMobKilled(ServerPlayer player, Mob mob) {
+    public void onMobKilled(ServerPlayerEntity player, MobEntity mob) {
         // Get the location name from the mob's persistent data
         String locationName = mob.getPersistentData().getString("location");
         if (locationName.isEmpty()) {
@@ -551,7 +553,7 @@ public class WaveManager {
                 // Award points for the kill
                 int points = mob.getPersistentData().getInt("points");
                 if (points > 0) {
-                    Location loc = WaveDefenseMod.locationManager.getLocation(locationName);
+                    Location loc = WaveDefenceMod.locationManager.getLocation(locationName);
                     if (loc != null) {
                         loc.addPoints(player.getUUID(), points);
                     }
@@ -588,7 +590,7 @@ public class WaveManager {
                         try {
                             int waveIndex = Integer.parseInt(triggerKey.substring("trigger_".length()));
                             // Trigger mob keys use 0-based waveIndex ("trigger_0", "trigger_1", …)
-                            Location loc = WaveDefenseMod.locationManager.getLocation(locationName);
+                            Location loc = WaveDefenceMod.locationManager.getLocation(locationName);
                             if (loc != null && waveIndex >= 0 && waveIndex < loc.getWaves().size()) {
                                 WaveConfig waveConfig = loc.getWaves().get(waveIndex);
                                 if (waveConfig.isTriggerEnabled()) {
@@ -607,7 +609,7 @@ public class WaveManager {
             // but we can also check here for immediate response
             if (sess.spawnedMobs.isEmpty() && sess.currentWave >= 1) {
                 // All mobs are dead, check if we should progress
-                Location loc = WaveDefenseMod.locationManager.getLocation(locationName);
+                Location loc = WaveDefenceMod.locationManager.getLocation(locationName);
                 if (loc != null) {
                     int delay = loc.getTimeBetweenWaves();
                     if (delay == 0 && sess.currentWave <= loc.getTotalWaves()) {
@@ -628,15 +630,15 @@ public class WaveManager {
         }
     }
 
-    public void onPlayerKilledPlayer(ServerPlayer killer, ServerPlayer victim) {
+    public void onPlayerKilledPlayer(ServerPlayerEntity killer, ServerPlayerEntity victim) {
         pvpMgr.onPlayerKilledPlayer(this, killer, victim);
     }
 
-    public void onPvpPlayerDeath(ServerPlayer victim) {
+    public void onPvpPlayerDeath(ServerPlayerEntity victim) {
         pvpMgr.onPvpPlayerDeath(this, victim);
     }
 
-    public void onPvePlayerDeath(ServerPlayer victim) {
+    public void onPvePlayerDeath(ServerPlayerEntity victim) {
         UUID playerId = victim.getUUID();
         PlayerWaveData data = playerData.get(playerId);
         if (data == null || data.getCurrentLocation() == null) return;
@@ -660,7 +662,7 @@ public class WaveManager {
             waveCtx.removeSession(locName);
         } else {
             syncTeammates(locName);
-            for (ServerPlayer p : getPlayersInLocation(locName)) syncPlayerData(p);
+            for (ServerPlayerEntity p : getPlayersInLocation(locName)) syncPlayerData(p);
         }
 
         data.setCurrentLocation(null);
@@ -669,15 +671,15 @@ public class WaveManager {
         clearTeammatesForPlayer(victim);
 
         try {
-            com.wavedefense.monitor.WaveDefenseMonitor.getInstance().onPlayerDeath(victim);
+            /* monitor not ported on 1.16.5 */;
         } catch (Exception ignored) {}
     }
 
-    public void fireWaveTriggerForPlayer(ServerPlayer player, WaveTrigger trigger) {
+    public void fireWaveTriggerForPlayer(ServerPlayerEntity player, WaveTrigger trigger) {
         triggerEval.fireWaveTriggerForPlayer(this, player, trigger);
     }
 
-    public void fireLocationTrigger(ServerPlayer player, WaveTrigger trigger) {
+    public void fireLocationTrigger(ServerPlayerEntity player, WaveTrigger trigger) {
         triggerEval.fireLocationTrigger(this, player, trigger);
     }
 
@@ -686,19 +688,19 @@ public class WaveManager {
      * Used for wave-specific triggers like trigger mob completion.
      */
     private void fireWaveTriggerForLocation(String locationName, WaveTrigger trigger) {
-        List<ServerPlayer> players = getPlayersInLocation(locationName);
-        for (ServerPlayer player : players) {
+        List<ServerPlayerEntity> players = getPlayersInLocation(locationName);
+        for (ServerPlayerEntity player : players) {
             fireLocationTrigger(player, trigger);
         }
         // Mark as recently fired for AND-condition support
         waveCtx.markRecentlyFired(locationName, trigger);
     }
 
-    public boolean canPvpAttack(ServerPlayer attacker, ServerPlayer target) {
+    public boolean canPvpAttack(ServerPlayerEntity attacker, ServerPlayerEntity target) {
         return pvpMgr.canPvpAttack(attacker, target);
     }
 
-    public void onPvpHit(ServerPlayer attacker, ServerPlayer victim) {
+    public void onPvpHit(ServerPlayerEntity attacker, ServerPlayerEntity victim) {
         pvpMgr.onPvpHit(this, attacker, victim);
     }
 
@@ -710,14 +712,14 @@ public class WaveManager {
      * Серіалізація стану WaveManager для резервного копіювання.
      * Зберігає: сесії, стан гравців, пвп-стан, кордони, портал тощо.
      */
-    public CompoundTag save() {
-        CompoundTag tag = new CompoundTag();
+    public CompoundNBT save() {
+        CompoundNBT tag = new CompoundNBT();
         // Session data
         tag.put("sessions", waveCtx.saveSessions());
         // Player data
-        ListTag playerList = new ListTag();
+        ListNBT playerList = new ListNBT();
         for (Map.Entry<UUID, PlayerWaveData> entry : playerData.entrySet()) {
-            CompoundTag pTag = new CompoundTag();
+            CompoundNBT pTag = new CompoundNBT();
             pTag.putUUID("uuid", entry.getKey());
             pTag.put("data", entry.getValue().saveClientData());
             playerList.add(pTag);
@@ -726,18 +728,18 @@ public class WaveManager {
         // PvP manager state
         tag.put("pvp", pvpMgr.save());
         // Boundary/leave countdowns
-        ListTag leaveList = new ListTag();
+        ListNBT leaveList = new ListNBT();
         for (Map.Entry<UUID, Integer> entry : leaveCountdownTicks.entrySet()) {
-            CompoundTag eTag = new CompoundTag();
+            CompoundNBT eTag = new CompoundNBT();
             eTag.putUUID("uuid", entry.getKey());
             eTag.putInt("ticks", entry.getValue());
             leaveList.add(eTag);
         }
         tag.put("leaveCountdowns", leaveList);
         // Re-entry cooldowns
-        ListTag cooldownList = new ListTag();
+        ListNBT cooldownList = new ListNBT();
         for (Map.Entry<UUID, Long> entry : reEntryCooldowns.entrySet()) {
-            CompoundTag eTag = new CompoundTag();
+            CompoundNBT eTag = new CompoundNBT();
             eTag.putUUID("uuid", entry.getKey());
             eTag.putLong("expiry", entry.getValue());
             cooldownList.add(eTag);
@@ -761,7 +763,7 @@ public class WaveManager {
     /**
      * Відновлення стану WaveManager з резервної копії.
      */
-    public void load(CompoundTag tag) {
+    public void load(CompoundNBT tag) {
         waveCtx.clear();
         playerData.clear();
         leaveCountdownTicks.clear();
@@ -772,9 +774,9 @@ public class WaveManager {
         }
         // Player data
         if (tag.contains("players")) {
-            ListTag playerList = tag.getList("players", 10);
+            ListNBT playerList = tag.getList("players", 10);
             for (int i = 0; i < playerList.size(); i++) {
-                CompoundTag pTag = playerList.getCompound(i);
+                CompoundNBT pTag = playerList.getCompound(i);
                 UUID uuid = pTag.getUUID("uuid");
                 PlayerWaveData data = new PlayerWaveData();
                 data.loadClientData(pTag.getCompound("data"));
@@ -787,17 +789,17 @@ public class WaveManager {
         }
         // Leave countdowns
         if (tag.contains("leaveCountdowns")) {
-            ListTag leaveList = tag.getList("leaveCountdowns", 10);
+            ListNBT leaveList = tag.getList("leaveCountdowns", 10);
             for (int i = 0; i < leaveList.size(); i++) {
-                CompoundTag eTag = leaveList.getCompound(i);
+                CompoundNBT eTag = leaveList.getCompound(i);
                 leaveCountdownTicks.put(eTag.getUUID("uuid"), eTag.getInt("ticks"));
             }
         }
         // Re-entry cooldowns
         if (tag.contains("reEntryCooldowns")) {
-            ListTag cooldownList = tag.getList("reEntryCooldowns", 10);
+            ListNBT cooldownList = tag.getList("reEntryCooldowns", 10);
             for (int i = 0; i < cooldownList.size(); i++) {
-                CompoundTag eTag = cooldownList.getCompound(i);
+                CompoundNBT eTag = cooldownList.getCompound(i);
                 reEntryCooldowns.put(eTag.getUUID("uuid"), eTag.getLong("expiry"));
             }
         }
@@ -829,17 +831,17 @@ public class WaveManager {
      * Серіалізація стану конкретної локації для інкрементного бекапу.
      */
     @Nullable
-    public CompoundTag saveLocationState(String locationName) {
+    public CompoundNBT saveLocationState(String locationName) {
         LocationSession sess = waveCtx.getSession(locationName);
         if (sess == null) return null;
-        CompoundTag tag = new CompoundTag();
+        CompoundNBT tag = new CompoundNBT();
         tag.put("session", sess.save());
         // Player states for this location
-        ListTag playerList = new ListTag();
+        ListNBT playerList = new ListNBT();
         for (Map.Entry<UUID, PlayerWaveData> entry : playerData.entrySet()) {
             if (entry.getValue().getCurrentLocation() != null
                     && entry.getValue().getCurrentLocation().getName().equals(locationName)) {
-                CompoundTag pTag = new CompoundTag();
+                CompoundNBT pTag = new CompoundNBT();
                 pTag.putUUID("uuid", entry.getKey());
                 pTag.put("data", entry.getValue().saveClientData());
                 playerList.add(pTag);
@@ -852,14 +854,14 @@ public class WaveManager {
     /**
      * Відновлення стану конкретної локації з інкрементного бекапу.
      */
-    public void loadLocationState(String locationName, CompoundTag tag) {
+    public void loadLocationState(String locationName, CompoundNBT tag) {
         if (tag.contains("session")) {
             waveCtx.loadSession(locationName, tag.getCompound("session"));
         }
         if (tag.contains("players")) {
-            ListTag playerList = tag.getList("players", 10);
+            ListNBT playerList = tag.getList("players", 10);
             for (int i = 0; i < playerList.size(); i++) {
-                CompoundTag pTag = playerList.getCompound(i);
+                CompoundNBT pTag = playerList.getCompound(i);
                 UUID uuid = pTag.getUUID("uuid");
                 PlayerWaveData data = playerData.computeIfAbsent(uuid, k -> new PlayerWaveData());
                 data.loadClientData(pTag.getCompound("data"));

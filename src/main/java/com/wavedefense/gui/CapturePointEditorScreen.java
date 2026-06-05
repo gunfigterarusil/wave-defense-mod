@@ -1,16 +1,19 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.data.CapturePoint;
 import com.wavedefense.data.Location;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.UpdateLocationPacket;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.resources.language.I18n;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.ITextComponent;
 
 import java.util.List;
 
@@ -36,11 +39,11 @@ public class CapturePointEditorScreen extends Screen {
     private boolean editingPoint    = false;
     private int     editingIndex    = -1;  // -1 = new point
 
-    private EditBox nameInput;
+    private TextFieldWidget nameInput;
     private CoordinateInputField coordField;
-    private EditBox radiusInput;
-    private EditBox captureTimeInput;
-    private EditBox particleCountInput;
+    private TextFieldWidget radiusInput;
+    private TextFieldWidget captureTimeInput;
+    private TextFieldWidget particleCountInput;
     private String  selectedParticle = "minecraft:smoke";
 
     // L-1: error message shown when trying to save with empty name
@@ -57,7 +60,7 @@ public class CapturePointEditorScreen extends Screen {
     };
 
     public CapturePointEditorScreen(Location location, Screen parent) {
-        super(Component.translatable("wavedefense.capture_point.editor.title"));
+        super(new TranslationTextComponent("wavedefense.capture_point.editor.title"));
         this.location = location;
         this.parent   = parent;
     }
@@ -77,16 +80,12 @@ public class CapturePointEditorScreen extends Screen {
 
         // ── Footer ────────────────────────────────────────────────────────
         if (!editingPoint) {
-            this.addRenderableWidget(Button.builder(
-                    Component.translatable("wavedefense.button.save_back"), b -> saveAndClose()
-            ).bounds(cx - 55, this.height - 28, 110, 20).build());
+            this.addButton(new Button(cx - 55, this.height - 28, 110, 20, new TranslationTextComponent("wavedefense.button.save_back"), b -> saveAndClose()));
         }
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.back"), b -> {
-                    if (editingPoint) { editingPoint = false; rebuildWidgets(); }
+        this.addButton(new Button(cx + 60, this.height - 28, 60, 20, new TranslationTextComponent("wavedefense.button.back"), b -> {
+                    if (editingPoint) { editingPoint = false; init(); }
                     else              { this.minecraft.setScreen(parent); }
-                }
-        ).bounds(cx + 60, this.height - 28, 60, 20).build());
+                }));
     }
 
     // ── List mode ─────────────────────────────────────────────────────────
@@ -94,10 +93,7 @@ public class CapturePointEditorScreen extends Screen {
         List<CapturePoint> points = location.getCapturePoints();
 
         // Add button
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.capture_point.add"),
-                b -> { editingPoint = true; editingIndex = -1; selectedParticle = "minecraft:smoke"; rebuildWidgets(); }
-        ).bounds(cx - 155, y, 310, 20).build());
+        this.addButton(new Button(cx - 155, y, 310, 20, new TranslationTextComponent("wavedefense.capture_point.add"), b -> { editingPoint = true; editingIndex = -1; selectedParticle = "minecraft:smoke"; init(); }));
         y += 26;
 
         int rowH = 30;
@@ -113,48 +109,36 @@ public class CapturePointEditorScreen extends Screen {
             String info = "§e" + cp.getName() + "§7  " + posStr
                     + "  r=" + cp.getCaptureRadius()
                     + "  t=" + cp.getCaptureTimeSec() + "s";
-            this.addRenderableWidget(Button.builder(
-                    Component.literal(info), b -> {}
-            ).bounds(cx - 155, rowY, 280, 20).build()).active = false;
+            this.addButton(new Button(cx - 155, rowY, 280, 20, new StringTextComponent(info), b -> {})).active = false;
 
             // Edit button
             final int fIdx = idx;
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("✎"),
-                    b -> { pendingDeleteIndex = -1; startEditPoint(fIdx); }
-            ).bounds(cx + 130, rowY, 22, 20).build());
+            this.addButton(new Button(cx + 130, rowY, 22, 20, new StringTextComponent("✎"), b -> { pendingDeleteIndex = -1; startEditPoint(fIdx); }));
 
             // Delete button (with confirm)
             boolean isPending = (pendingDeleteIndex == fIdx);
             int delW = isPending ? 35 : 22;
             int delX = isPending ? cx + 142 : cx + 155;
-            this.addRenderableWidget(Button.builder(
-                    isPending
-                        ? Component.translatable("wavedefense.button.confirm_delete")
-                        : Component.literal("§c✕"),
-                    b -> {
+            this.addButton(new Button(delX, rowY, delW, 20, isPending
+                        ? new TranslationTextComponent("wavedefense.button.confirm_delete")
+                        : new StringTextComponent("§c✕"), b -> {
                         if (isPending) {
                             pendingDeleteIndex = -1;
                             location.removeCapturePoint(fIdx);
                             scrollOffset = Math.max(0, Math.min(scrollOffset,
                                 Math.max(0, location.getCapturePoints().size() - PER_PAGE)));
-                            rebuildWidgets();
+                            init();
                         } else {
                             pendingDeleteIndex = fIdx;
-                            rebuildWidgets();
+                            init();
                         }
-                    }
-            ).bounds(delX, rowY, delW, 20).build());
+                    }));
         }
 
         // Scroll buttons
         if (points.size() > PER_PAGE) {
-            this.addRenderableWidget(Button.builder(Component.literal("▲"),
-                    b -> { if (scrollOffset > 0) { scrollOffset--; rebuildWidgets(); } }
-            ).bounds(cx + 182, y, 18, 18).build());
-            this.addRenderableWidget(Button.builder(Component.literal("▼"),
-                    b -> { if (scrollOffset + PER_PAGE < points.size()) { scrollOffset++; rebuildWidgets(); } }
-            ).bounds(cx + 182, y + (PER_PAGE - 1) * rowH, 18, 18).build());
+            this.addButton(new Button(cx + 182, y, 18, 18, new StringTextComponent("▲"), b -> { if (scrollOffset > 0) { scrollOffset--; init(); } }));
+            this.addButton(new Button(cx + 182, y + (PER_PAGE - 1) * rowH, 18, 18, new StringTextComponent("▼"), b -> { if (scrollOffset + PER_PAGE < points.size()) { scrollOffset++; init(); } }));
         }
     }
 
@@ -164,52 +148,40 @@ public class CapturePointEditorScreen extends Screen {
                 ? location.getCapturePoints().get(editingIndex) : null;
 
         // Name
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.capture_point.name"), b -> {}
-        ).bounds(cx - 155, y, 100, 14).build()).active = false;
-        nameInput = new EditBox(this.font, cx - 155, y + 15, 200, 18,
-                Component.translatable("wavedefense.capture_point.name"));
+        this.addButton(new Button(cx - 155, y, 100, 14, new TranslationTextComponent("wavedefense.capture_point.name"), b -> {})).active = false;
+        nameInput = new TextFieldWidget(this.font, cx - 155, y + 15, 200, 18,
+                new TranslationTextComponent("wavedefense.capture_point.name"));
         nameInput.setValue(cp != null ? cp.getName() : "");
         nameInput.setMaxLength(20);
-        this.addRenderableWidget(nameInput);
+        this.addButton(nameInput);
         y += 40;
 
         // Position
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.capture_point.pos_hint"), b -> {}
-        ).bounds(cx - 155, y, 280, 14).build()).active = false;
+        this.addButton(new Button(cx - 155, y, 280, 14, new TranslationTextComponent("wavedefense.capture_point.pos_hint"), b -> {})).active = false;
         y += 16;
         coordField = new CoordinateInputField(this.font, cx - 155, y, 14, 52, 16, 73);
         coordField.setValue(cp != null ? cp.getPos() : null);
-        coordField.addToScreen(this::addRenderableWidget);
-        this.addRenderableWidget(Button.builder(Component.literal("📌"),
-                b -> coordField.setFromPlayer(minecraft.player)
-        ).bounds(coordField.getEndX() + 7, y, 30, 16).build());
+        coordField.addToScreen(this::addButton);
+        this.addButton(new Button(coordField.getEndX() + 7, y, 30, 16, new StringTextComponent("📌"), b -> coordField.setFromPlayer(minecraft.player)));
         y += 26;
 
         // Radius
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.capture_point.radius"), b -> {}
-        ).bounds(cx - 155, y, 130, 14).build()).active = false;
-        radiusInput = new EditBox(this.font, cx, y, 50, 14, Component.literal("5"));
+        this.addButton(new Button(cx - 155, y, 130, 14, new TranslationTextComponent("wavedefense.capture_point.radius"), b -> {})).active = false;
+        radiusInput = new TextFieldWidget(this.font, cx, y, 50, 14, new StringTextComponent("5"));
         radiusInput.setValue(String.valueOf(cp != null ? cp.getCaptureRadius() : 5));
         radiusInput.setMaxLength(3);
-        this.addRenderableWidget(radiusInput);
+        this.addButton(radiusInput);
 
         // Capture time
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.capture_point.capture_time"), b -> {}
-        ).bounds(cx + 60, y, 95, 14).build()).active = false;
-        captureTimeInput = new EditBox(this.font, cx + 158, y, 50, 14, Component.literal("10"));
+        this.addButton(new Button(cx + 60, y, 95, 14, new TranslationTextComponent("wavedefense.capture_point.capture_time"), b -> {})).active = false;
+        captureTimeInput = new TextFieldWidget(this.font, cx + 158, y, 50, 14, new StringTextComponent("10"));
         captureTimeInput.setValue(String.valueOf(cp != null ? cp.getCaptureTimeSec() : 10));
         captureTimeInput.setMaxLength(3);
-        this.addRenderableWidget(captureTimeInput);
+        this.addButton(captureTimeInput);
         y += 24;
 
         // Particle selector
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.capture_point.particle"), b -> {}
-        ).bounds(cx - 155, y, 100, 14).build()).active = false;
+        this.addButton(new Button(cx - 155, y, 100, 14, new TranslationTextComponent("wavedefense.capture_point.particle"), b -> {})).active = false;
         if (cp != null) selectedParticle = cp.getParticleType();
         y += 16;
         int pBtnW = 60, pGap = 3;
@@ -218,33 +190,22 @@ public class CapturePointEditorScreen extends Screen {
             final String pid = PARTICLE_IDS[i];
             boolean sel = pid.equals(selectedParticle);
             int row = i / 4, col = i % 4;
-            this.addRenderableWidget(Button.builder(
-                    Component.literal(sel ? "§a§l" + PARTICLE_LABELS[i] : "§7" + PARTICLE_LABELS[i]),
-                    b -> { selectedParticle = pid; rebuildWidgets(); }
-            ).bounds(pStartX + col * (pBtnW + pGap), y + row * 20, pBtnW, 18).build());
+            this.addButton(new Button(pStartX + col * (pBtnW + pGap), y + row * 20, pBtnW, 18, new StringTextComponent(sel ? "§a§l" + PARTICLE_LABELS[i] : "§7" + PARTICLE_LABELS[i]), b -> { selectedParticle = pid; init(); }));
         }
         // M-9: PARTICLE_IDS.length/4 rows needed (8 items → 2 rows, not 3)
         y += (PARTICLE_IDS.length / 4) * 20 + 4;
 
         // Particle count
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.capture_point.count"), b -> {}
-        ).bounds(cx - 155, y, 80, 14).build()).active = false;
-        particleCountInput = new EditBox(this.font, cx - 70, y, 40, 14, Component.literal("4"));
+        this.addButton(new Button(cx - 155, y, 80, 14, new TranslationTextComponent("wavedefense.capture_point.count"), b -> {})).active = false;
+        particleCountInput = new TextFieldWidget(this.font, cx - 70, y, 40, 14, new StringTextComponent("4"));
         particleCountInput.setValue(String.valueOf(cp != null ? cp.getParticleCount() : 4));
         particleCountInput.setMaxLength(2);
-        this.addRenderableWidget(particleCountInput);
+        this.addButton(particleCountInput);
         y += 24;
 
         // Save / Cancel
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.save"),
-                b -> savePoint()
-        ).bounds(cx - 110, y, 100, 20).build());
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.cancel"),
-                b -> { editingPoint = false; rebuildWidgets(); }
-        ).bounds(cx + 10, y, 100, 20).build());
+        this.addButton(new Button(cx - 110, y, 100, 20, new TranslationTextComponent("wavedefense.button.save"), b -> savePoint()));
+        this.addButton(new Button(cx + 10, y, 100, 20, new TranslationTextComponent("wavedefense.button.cancel"), b -> { editingPoint = false; init(); }));
     }
 
     // ── Actions ───────────────────────────────────────────────────────────
@@ -253,7 +214,7 @@ public class CapturePointEditorScreen extends Screen {
         editingIndex  = idx;
         CapturePoint cp = location.getCapturePoints().get(idx);
         selectedParticle = cp.getParticleType();
-        rebuildWidgets();
+        init();
     }
 
     private void savePoint() {
@@ -304,20 +265,20 @@ public class CapturePointEditorScreen extends Screen {
         }
 
         editingPoint = false;
-        rebuildWidgets();
+        init();
     }
 
     private void saveAndClose() {
         PacketHandler.sendToServer(new UpdateLocationPacket(location));
         if (minecraft.player != null)
             minecraft.player.displayClientMessage(
-                Component.translatable("wavedefense.capture_point.saved"), true);
+                new TranslationTextComponent("wavedefense.capture_point.saved"), true);
         this.minecraft.setScreen(parent);
     }
 
     // ── Render ────────────────────────────────────────────────────────────
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(MatrixStack g, int mouseX, int mouseY, float partialTick) {
         GuiTheme.renderBackground(g, this.width, this.height);
         GuiTheme.renderHeader(g, this.font, this.title, this.width);
         int cx = this.width / 2;
@@ -327,13 +288,13 @@ public class CapturePointEditorScreen extends Screen {
         // Point count summary
         if (!editingPoint) {
             int pts = location.getCapturePoints().size();
-            g.drawCenteredString(this.font, "§7" + pts + " point(s) configured",
+            com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, "§7" + pts + " point(s) configured",
                     cx, this.height - 44, GuiTheme.TEXT_MUTED);
         }
 
         // L-1: show save error if present
         if (saveError != null && editingPoint) {
-            g.drawCenteredString(this.font, "§c" + saveError, cx, this.height - 44, 0xFFFF5555);
+            com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, "§c" + saveError, cx, this.height - 44, 0xFFFF5555);
         }
     }
 

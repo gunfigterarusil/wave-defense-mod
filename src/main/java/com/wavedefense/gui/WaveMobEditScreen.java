@@ -1,14 +1,17 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.data.WaveConfig;
 import com.wavedefense.data.WaveMob;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.item.ItemStack;
 import net.minecraftforge.registries.ForgeRegistries;
 
 /**
@@ -22,10 +25,10 @@ public class WaveMobEditScreen extends Screen {
     private final ResourceLocation mobType;
     private final int mobIndex;
 
-    private EditBox countInput;
-    private EditBox growthPerWaveInput;
-    private EditBox spawnChanceInput;
-    private EditBox pointsPerKillInput;
+    private TextFieldWidget countInput;
+    private TextFieldWidget growthPerWaveInput;
+    private TextFieldWidget spawnChanceInput;
+    private TextFieldWidget pointsPerKillInput;
 
     // Поточний стан спорядження (зберігається між перебудовами)
     private WaveMob editMob;
@@ -43,7 +46,7 @@ public class WaveMobEditScreen extends Screen {
     }
 
     public WaveMobEditScreen(Screen parentScreen, WaveConfig waveConfig, int mobIndex) {
-        super(Component.translatable("wavedefense.auto.редагування_моба_a6d30768"));
+        super(new TranslationTextComponent("wavedefense.auto.редагування_моба_a6d30768"));
         this.parentScreen = parentScreen;
         this.waveConfig = waveConfig;
         this.mobIndex = mobIndex;
@@ -71,53 +74,49 @@ public class WaveMobEditScreen extends Screen {
         int cx = this.width / 2;
         int startY = 35;
 
-        var entityType = ForgeRegistries.ENTITY_TYPES.getValue(mobType);
+        net.minecraft.entity.EntityType<?> entityType = ForgeRegistries.ENTITIES.getValue(mobType);
         String mobName = entityType != null ? entityType.getDescription().getString() : "???";
 
         // Назва моба
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.моб_value_07edda18", mobName), button -> {}
-        ).bounds(cx - 150, startY - 20, 300, 18).build()).active = false;
+        this.addButton(new Button(cx - 150, startY - 20, 300, 18, new TranslationTextComponent("wavedefense.auto.моб_value_07edda18", mobName), button -> {})).active = false;
 
         // Кількість мобів
-        addLabeledField(cx, startY, net.minecraft.client.resources.language.I18n.get("wavedefense.label.mob_count_wave"), "count");
-        countInput = new EditBox(this.font, cx + 45, startY, 80, 20, Component.translatable("wavedefense.auto.кількість_df256936"));
+        addLabeledField(cx, startY, net.minecraft.client.resources.I18n.get("wavedefense.label.mob_count_wave"), "count");
+        countInput = new TextFieldWidget(this.font, cx + 45, startY, 80, 20, new TranslationTextComponent("wavedefense.auto.кількість_df256936"));
         countInput.setValue(String.valueOf(editMob.getCount()));
-        this.addRenderableWidget(countInput);
+        this.addButton(countInput);
         startY += 26;
 
         // Приріст
-        addLabeledField(cx, startY, net.minecraft.client.resources.language.I18n.get("wavedefense.label.mob_growth_per_wave"), "growth");
-        growthPerWaveInput = new EditBox(this.font, cx + 45, startY, 80, 20, Component.translatable("wavedefense.auto.приріст_5779238f"));
+        addLabeledField(cx, startY, net.minecraft.client.resources.I18n.get("wavedefense.label.mob_growth_per_wave"), "growth");
+        growthPerWaveInput = new TextFieldWidget(this.font, cx + 45, startY, 80, 20, new TranslationTextComponent("wavedefense.auto.приріст_5779238f"));
         growthPerWaveInput.setValue(String.valueOf(editMob.getGrowthPerWave()));
-        this.addRenderableWidget(growthPerWaveInput);
+        this.addButton(growthPerWaveInput);
         startY += 26;
 
         // Шанс появи
-        addLabeledField(cx, startY, net.minecraft.client.resources.language.I18n.get("wavedefense.label.mob_spawn_chance"), "chance");
-        spawnChanceInput = new EditBox(this.font, cx + 45, startY, 80, 20, Component.translatable("wavedefense.auto.шанс_7ce3c7bb"));
+        addLabeledField(cx, startY, net.minecraft.client.resources.I18n.get("wavedefense.label.mob_spawn_chance"), "chance");
+        spawnChanceInput = new TextFieldWidget(this.font, cx + 45, startY, 80, 20, new TranslationTextComponent("wavedefense.auto.шанс_7ce3c7bb"));
         spawnChanceInput.setValue(String.valueOf(editMob.getSpawnChance()));
-        this.addRenderableWidget(spawnChanceInput);
+        this.addButton(spawnChanceInput);
         startY += 26;
 
         // Поінти за вбивство
-        addLabeledField(cx, startY, net.minecraft.client.resources.language.I18n.get("wavedefense.label.mob_points_per_kill"), "points");
-        pointsPerKillInput = new EditBox(this.font, cx + 45, startY, 80, 20, Component.translatable("wavedefense.auto.поінти_66d72273"));
+        addLabeledField(cx, startY, net.minecraft.client.resources.I18n.get("wavedefense.label.mob_points_per_kill"), "points");
+        pointsPerKillInput = new TextFieldWidget(this.font, cx + 45, startY, 80, 20, new TranslationTextComponent("wavedefense.auto.поінти_66d72273"));
         pointsPerKillInput.setValue(String.valueOf(editMob.getPointsPerKill()));
-        this.addRenderableWidget(pointsPerKillInput);
+        this.addButton(pointsPerKillInput);
         startY += 30;
 
         // ── БРОНЯ ──────────────────────────────────────────────────────────
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.броня_мобів_0998c14b"), b -> {}
-        ).bounds(cx - 150, startY, 300, 12).build()).active = false;
+        this.addButton(new Button(cx - 150, startY, 300, 12, new TranslationTextComponent("wavedefense.auto.броня_мобів_0998c14b"), b -> {})).active = false;
         startY += 14;
 
         String[] armorLabels = {
-            net.minecraft.client.resources.language.I18n.get("wavedefense.label.armor_slot.helmet"),
-            net.minecraft.client.resources.language.I18n.get("wavedefense.label.armor_slot.chest"),
-            net.minecraft.client.resources.language.I18n.get("wavedefense.label.armor_slot.legs"),
-            net.minecraft.client.resources.language.I18n.get("wavedefense.label.armor_slot.boots")
+            net.minecraft.client.resources.I18n.get("wavedefense.label.armor_slot.helmet"),
+            net.minecraft.client.resources.I18n.get("wavedefense.label.armor_slot.chest"),
+            net.minecraft.client.resources.I18n.get("wavedefense.label.armor_slot.legs"),
+            net.minecraft.client.resources.I18n.get("wavedefense.label.armor_slot.boots")
         };
         ItemStack[] armorSlots = {editMob.getHelmet(), editMob.getChestplate(), editMob.getLeggings(), editMob.getBoots()};
         int armorW = 70, armorGap = 4;
@@ -129,9 +128,7 @@ public class WaveMobEditScreen extends Screen {
             int x = armorLeft + i * (armorW + armorGap);
             final ItemStack curSlotItem = armorSlots[i];
 
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("§8" + armorLabels[i]), b -> {}
-            ).bounds(x, startY, armorW, 10).build()).active = false;
+            this.addButton(new Button(x, startY, armorW, 10, new StringTextComponent("§8" + armorLabels[i]), b -> {})).active = false;
 
             // Label показує назву обраного предмета якщо є — виділення
             String slotLbl;
@@ -141,106 +138,68 @@ public class WaveMobEditScreen extends Screen {
                 String nm = curSlotItem.getHoverName().getString();
                 slotLbl = "§6§l▶ §r§a" + (nm.length() > 8 ? nm.substring(0, 7) + "…" : nm);
             }
-            this.addRenderableWidget(Button.builder(
-                    Component.literal(slotLbl),
-                    b -> minecraft.setScreen(new ItemSelectionScreen(this, stack -> {
-                        switch (si) {
-                            case 0 -> editMob.setHelmet(stack);
-                            case 1 -> editMob.setChestplate(stack);
-                            case 2 -> editMob.setLeggings(stack);
-                            case 3 -> editMob.setBoots(stack);
-                        }
-                        rebuildWidgets();
-                    }, curSlotItem))
-            ).bounds(x, startY + 12, armorW - 16, 16).build());
+            this.addButton(new Button(x, startY + 12, armorW - 16, 16, new StringTextComponent(slotLbl), b -> minecraft.setScreen(new ItemSelectionScreen(this, stack -> {
+                        switch (si) { case 0: editMob.setHelmet(stack); break; case 1: editMob.setChestplate(stack); break; case 2: editMob.setLeggings(stack); break; case 3: editMob.setBoots(stack); break; }
+                        init();
+                    }, curSlotItem))));
             // Кнопка очищення слоту броні
-            var clearArmor = this.addRenderableWidget(Button.builder(
-                    Component.literal("§c✕"),
-                    b -> {
-                        switch (si) {
-                            case 0 -> editMob.setHelmet(ItemStack.EMPTY);
-                            case 1 -> editMob.setChestplate(ItemStack.EMPTY);
-                            case 2 -> editMob.setLeggings(ItemStack.EMPTY);
-                            case 3 -> editMob.setBoots(ItemStack.EMPTY);
-                        }
-                        rebuildWidgets();
-                    }
-            ).bounds(x + armorW - 14, startY + 12, 14, 16).build());
+            net.minecraft.client.gui.widget.button.Button clearArmor = this.addButton(new Button(x + armorW - 14, startY + 12, 14, 16, new StringTextComponent("§c✕"), b -> {
+                        switch (si) { case 0: editMob.setHelmet(ItemStack.EMPTY); break; case 1: editMob.setChestplate(ItemStack.EMPTY); break; case 2: editMob.setLeggings(ItemStack.EMPTY); break; case 3: editMob.setBoots(ItemStack.EMPTY); break; }
+                        init();
+                    }));
             clearArmor.active = !curSlotItem.isEmpty();
         }
         startY += 32;
 
         // ── ЗБРОЯ ─────────────────────────────────────────────────────────
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.зброя_мобів_06ba2742"), b -> {}
-        ).bounds(cx - 150, startY, 300, 12).build()).active = false;
+        this.addButton(new Button(cx - 150, startY, 300, 12, new TranslationTextComponent("wavedefense.auto.зброя_мобів_06ba2742"), b -> {})).active = false;
         startY += 14;
 
         {
             final ItemStack curMain = editMob.getMainHand();
             String mainNm = curMain.isEmpty() ? "" : curMain.getHoverName().getString();
             String mainLabel = curMain.isEmpty()
-                ? net.minecraft.client.resources.language.I18n.get("wavedefense.label.mainhand_empty")
+                ? net.minecraft.client.resources.I18n.get("wavedefense.label.mainhand_empty")
                 : "§6§l▶ §r§a" + (mainNm.length() > 9 ? mainNm.substring(0, 8) + "…" : mainNm);
-            this.addRenderableWidget(Button.builder(
-                    Component.literal(mainLabel),
-                    b -> minecraft.setScreen(new ItemSelectionScreen(this, stack -> {
-                        editMob.setMainHand(stack); rebuildWidgets();
-                    }, curMain))
-            ).bounds(cx - 150, startY, 120, 20).build());
+            this.addButton(new Button(cx - 150, startY, 120, 20, new StringTextComponent(mainLabel), b -> minecraft.setScreen(new ItemSelectionScreen(this, stack -> {
+                        editMob.setMainHand(stack); init();
+                    }, curMain))));
             // Кнопка очищення основної руки
-            var clearMain = this.addRenderableWidget(Button.builder(
-                    Component.literal("§c✕"),
-                    b -> { editMob.setMainHand(ItemStack.EMPTY); rebuildWidgets(); }
-            ).bounds(cx - 26, startY, 20, 20).build());
+            net.minecraft.client.gui.widget.button.Button clearMain = this.addButton(new Button(cx - 26, startY, 20, 20, new StringTextComponent("§c✕"), b -> { editMob.setMainHand(ItemStack.EMPTY); init(); }));
             clearMain.active = !curMain.isEmpty();
         }
         {
             final ItemStack curOff = editMob.getOffHand();
             String offNm = curOff.isEmpty() ? "" : curOff.getHoverName().getString();
             String offLabel = curOff.isEmpty()
-                ? net.minecraft.client.resources.language.I18n.get("wavedefense.label.offhand_empty")
+                ? net.minecraft.client.resources.I18n.get("wavedefense.label.offhand_empty")
                 : "§6§l▶ §r§a" + (offNm.length() > 9 ? offNm.substring(0, 8) + "…" : offNm);
-            this.addRenderableWidget(Button.builder(
-                    Component.literal(offLabel),
-                    b -> minecraft.setScreen(new ItemSelectionScreen(this, stack -> {
-                        editMob.setOffHand(stack); rebuildWidgets();
-                    }, curOff))
-            ).bounds(cx + 5, startY, 120, 20).build());
+            this.addButton(new Button(cx + 5, startY, 120, 20, new StringTextComponent(offLabel), b -> minecraft.setScreen(new ItemSelectionScreen(this, stack -> {
+                        editMob.setOffHand(stack); init();
+                    }, curOff))));
             // Кнопка очищення лівої руки
-            var clearOff = this.addRenderableWidget(Button.builder(
-                    Component.literal("§c✕"),
-                    b -> { editMob.setOffHand(ItemStack.EMPTY); rebuildWidgets(); }
-            ).bounds(cx + 129, startY, 20, 20).build());
+            net.minecraft.client.gui.widget.button.Button clearOff = this.addButton(new Button(cx + 129, startY, 20, 20, new StringTextComponent("§c✕"), b -> { editMob.setOffHand(ItemStack.EMPTY); init(); }));
             clearOff.active = !curOff.isEmpty();
         }
         startY += 26;
 
         // ── ЕФЕКТИ ────────────────────────────────────────────────────────
         int effectCount = editMob.getEffects().size();
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.ефекти_value_2868f0cb", effectCount + ")"),
-                b -> minecraft.setScreen(new MobEffectsEditorScreen(this, editMob))
-        ).bounds(cx - 150, startY, 300, 20).build());
+        this.addButton(new Button(cx - 150, startY, 300, 20,
+                new TranslationTextComponent("wavedefense.auto.ефекти_value_2868f0cb", effectCount + ")"),
+                b -> minecraft.setScreen(new MobEffectsEditorScreen(this, editMob))));
 
         // Кнопки збереження
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.зберегти_b7c070cf"), b -> save()
-        ).bounds(cx - 105, this.height - 32, 100, 20).build());
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.скасувати_8b4c2025"), b -> this.minecraft.setScreen(parentScreen)
-        ).bounds(cx + 5, this.height - 32, 100, 20).build());
+        this.addButton(new Button(cx - 105, this.height - 32, 100, 20, new TranslationTextComponent("wavedefense.auto.зберегти_b7c070cf"), b -> save()));
+        this.addButton(new Button(cx + 5, this.height - 32, 100, 20, new TranslationTextComponent("wavedefense.auto.скасувати_8b4c2025"), b -> this.minecraft.setScreen(parentScreen)));
     }
 
     private void addLabeledField(int cx, int y, String text, String tooltipKey) {
         String tipI18nKey = TOOLTIPS.get(tooltipKey);
-        var btn = this.addRenderableWidget(Button.builder(
-                Component.literal(text), b -> {}
-        ).bounds(cx - 150, y, 190, 18).build());
+        net.minecraft.client.gui.widget.button.Button btn = this.addButton(new Button(cx - 150, y, 190, 18, new StringTextComponent(text), b -> {}));
         btn.active = false;
         if (tipI18nKey != null) {
-            btn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                net.minecraft.network.chat.Component.translatable(tipI18nKey)));
+            /* setTooltip omitted on 1.16.5: btn */
         }
     }
 
@@ -272,9 +231,9 @@ public class WaveMobEditScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(MatrixStack g, int mouseX, int mouseY, float partialTick) {
         GuiTheme.renderBackground(g, this.width, this.height);
-        g.drawCenteredString(this.font, this.title, this.width / 2, 12, GuiTheme.TEXT);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, this.title, this.width / 2, 12, GuiTheme.TEXT);
 
         // Рендер іконок спорядження
         renderEquipmentIcons(g, mouseX, mouseY);
@@ -282,7 +241,7 @@ public class WaveMobEditScreen extends Screen {
         super.render(g, mouseX, mouseY, partialTick);
     }
 
-    private void renderEquipmentIcons(GuiGraphics g, int mouseX, int mouseY) {
+    private void renderEquipmentIcons(MatrixStack g, int mouseX, int mouseY) {
         int cx = this.width / 2;
         // Розраховуємо y броні (виходячи з init структури)
         int armorRowY = 35 + 26 * 4 + 14 + 12 + 2; // приблизно
@@ -294,9 +253,9 @@ public class WaveMobEditScreen extends Screen {
         for (int i = 0; i < 4; i++) {
             if (!slots[i].isEmpty()) {
                 int x = armorLeft + i * (armorW + armorGap) + (armorW - 16) / 2;
-                g.renderItem(slots[i], x, armorRowY - 1);
+                com.wavedefense.gui.GuiCompat.renderItem(g, slots[i], x, armorRowY - 1);
                 if (mouseX >= x && mouseX < x + 16 && mouseY >= armorRowY - 1 && mouseY < armorRowY + 15) {
-                    g.renderTooltip(this.font, slots[i], mouseX, mouseY);
+                    com.wavedefense.gui.GuiCompat.renderTooltip(this, g, this.font, slots[i], mouseX, mouseY);
                 }
             }
         }
@@ -304,15 +263,15 @@ public class WaveMobEditScreen extends Screen {
         // Зброя — іконки позиціонуються поряд з кнопками (cx-150 = початок mainHand, cx+5 = початок offHand)
         if (!editMob.getMainHand().isEmpty()) {
             int ix = cx - 150 + 122; // після кнопки 120px + 2px відступ
-            g.renderItem(editMob.getMainHand(), ix, armorRowY + 48);
+            com.wavedefense.gui.GuiCompat.renderItem(g, editMob.getMainHand(), ix, armorRowY + 48);
             if (mouseX >= ix && mouseX < ix + 16 && mouseY >= armorRowY + 48 && mouseY < armorRowY + 64)
-                g.renderTooltip(this.font, editMob.getMainHand(), mouseX, mouseY);
+                com.wavedefense.gui.GuiCompat.renderTooltip(this, g, this.font, editMob.getMainHand(), mouseX, mouseY);
         }
         if (!editMob.getOffHand().isEmpty()) {
             int ix = cx + 5 + 122;
-            g.renderItem(editMob.getOffHand(), ix, armorRowY + 48);
+            com.wavedefense.gui.GuiCompat.renderItem(g, editMob.getOffHand(), ix, armorRowY + 48);
             if (mouseX >= ix && mouseX < ix + 16 && mouseY >= armorRowY + 48 && mouseY < armorRowY + 64)
-                g.renderTooltip(this.font, editMob.getOffHand(), mouseX, mouseY);
+                com.wavedefense.gui.GuiCompat.renderTooltip(this, g, this.font, editMob.getOffHand(), mouseX, mouseY);
         }
     }
 

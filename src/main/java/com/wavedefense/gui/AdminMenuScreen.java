@@ -1,22 +1,25 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.CreateLocationPacket;
 import com.wavedefense.network.packets.DeleteLocationPacket;
 import com.wavedefense.network.packets.RequestLocationDataPacket;
 import com.wavedefense.data.Location;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.resources.language.I18n;
-import net.minecraft.network.chat.Component;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.util.text.ITextComponent;
 
 import java.util.List;
 
 public class AdminMenuScreen extends ListEditorScreen<String> {
 
     private List<String> locationNames;
-    private EditBox locationNameInput;
+    private TextFieldWidget locationNameInput;
     private String pendingInputValue = "";
     private String errorMessage = "";
     private String pendingDeleteName = null;
@@ -30,12 +33,12 @@ public class AdminMenuScreen extends ListEditorScreen<String> {
     private int panelW;
 
     public AdminMenuScreen() {
-        super(Component.translatable("wavedefense.title.admin_menu"));
+        super(new TranslationTextComponent("wavedefense.title.admin_menu"));
     }
 
     // ─── ListEditorScreen / ScrollableScreen API ───────────────────────────
 
-    @Override protected List<String> getItems()    { return locationNames != null ? locationNames : List.of(); }
+    @Override protected List<String> getItems()    { return locationNames != null ? locationNames : java.util.Collections.emptyList(); }
     @Override protected int getRowHeight()         { return ROW_H; }
     @Override protected int getStartY()            { return LIST_START_Y; }
     @Override protected int getClipTop()           { return LIST_START_Y; }
@@ -63,18 +66,15 @@ public class AdminMenuScreen extends ListEditorScreen<String> {
         int startY = 50;
 
         // ── Header (static) ──────────────────────────────────────────
-        locationNameInput = new EditBox(this.font, cx - 100, startY, 200, 20,
-            Component.translatable("wavedefense.label.location_name"));
+        locationNameInput = new TextFieldWidget(this.font, cx - 100, startY, 200, 20,
+            new TranslationTextComponent("wavedefense.label.location_name"));
         locationNameInput.setMaxLength(32);
-        locationNameInput.setHint(Component.translatable("wavedefense.auto.a_z_0_9_aa25a6d8"));
+        /* locationNameInput.setHint(...) omitted on 1.16.5 */
         locationNameInput.setFilter(s -> s.matches("[a-zA-Z0-9_\\-]*"));
         locationNameInput.setValue(pendingInputValue);
         addStatic(locationNameInput);
 
-        addStatic(Button.builder(
-                Component.translatable("wavedefense.label.new_location"),
-                button -> createNewLocation()
-        ).bounds(cx - panelW / 2, startY + 28, panelW, 20).build());
+        addStatic(new Button(cx - panelW / 2, startY + 28, panelW, 20, new TranslationTextComponent("wavedefense.label.new_location"), button -> createNewLocation()));
 
         // ── Content (scrollable) ──────────────────────────────────────
         buildVisibleRows();
@@ -85,20 +85,11 @@ public class AdminMenuScreen extends ListEditorScreen<String> {
         // ── Footer (static) ───────────────────────────────────────────
         // Коли є очікуване видалення — показуємо Cancel на весь footer (замість Import/Close)
         if (pendingDeleteName != null) {
-            addStatic(Button.builder(
-                    Component.translatable("wavedefense.button.cancel_delete"),
-                    button -> { pendingDeleteName = null; rebuildWidgets(); }
-            ).bounds(cx - panelW / 2, this.height - 30, panelW, 20).build());
+            addStatic(new Button(cx - panelW / 2, this.height - 30, panelW, 20, new TranslationTextComponent("wavedefense.button.cancel_delete"), button -> { pendingDeleteName = null; init(); }));
         } else {
-            addStatic(Button.builder(
-                    Component.translatable("wavedefense.button.import_export"),
-                    button -> this.minecraft.setScreen(new ImportExportScreen(this))
-            ).bounds(cx - panelW / 2, this.height - 30, panelW / 2 - 4, 20).build());
+            addStatic(new Button(cx - panelW / 2, this.height - 30, panelW / 2 - 4, 20, new TranslationTextComponent("wavedefense.button.import_export"), button -> this.minecraft.setScreen(new ImportExportScreen(this))));
 
-            addStatic(Button.builder(
-                    Component.translatable("wavedefense.button.close"),
-                    button -> this.onClose()
-            ).bounds(cx + 4, this.height - 30, panelW / 2 - 4, 20).build());
+            addStatic(new Button(cx + 4, this.height - 30, panelW / 2 - 4, 20, new TranslationTextComponent("wavedefense.button.close"), button -> this.onClose()));
         }
     }
 
@@ -109,73 +100,52 @@ public class AdminMenuScreen extends ListEditorScreen<String> {
         final String finalName = name;
 
         // Name button shrunk by 28px to make room for the ⎘ duplicate button.
-        this.addRenderableWidget(Button.builder(
-                Component.literal(name),
-                button -> selectLocation(finalName)
-        ).bounds(cx - panelW / 2, y, panelW - 138, 20).build());
+        this.addButton(new Button(cx - panelW / 2, y, panelW - 138, 20, new StringTextComponent(name), button -> selectLocation(finalName)));
 
         // ⎘ Duplicate location (v0.2.63) — clones via NBT roundtrip with auto-numbered name
-        this.addRenderableWidget(Button.builder(
-                Component.literal("§b⎘"),
-                button -> duplicateLocation(finalName)
-        ).bounds(cx + panelW / 2 - 133, y, 26, 20).build())
-        .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-            Component.translatable("wavedefense.tooltip.duplicate_location", finalName)));
+        this.addButton(new Button(cx + panelW / 2 - 133, y, 26, 20, new StringTextComponent("§b⎘"), button -> duplicateLocation(finalName)))
+        /* setTooltip omitted on 1.16.5 */;
 
         // ✎ Default editor → new UniversalLocationEditor (Sprint 2, v0.2.58+)
-        this.addRenderableWidget(Button.builder(
-                Component.literal("§a✎"),
-                button -> editLocation(finalName)
-        ).bounds(cx + panelW / 2 - 105, y, 28, 20).build())
-        .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-            Component.translatable("wavedefense.tooltip.edit_location", finalName)));
+        this.addButton(new Button(cx + panelW / 2 - 105, y, 28, 20, new StringTextComponent("§a✎"), button -> editLocation(finalName)))
+        /* setTooltip omitted on 1.16.5 */;
 
         // 📜 Legacy editor — kept as fallback, to be removed in next major version
-        this.addRenderableWidget(Button.builder(
-                Component.literal("§e📜"),
-                button -> editLocationLegacy(finalName)
-        ).bounds(cx + panelW / 2 - 75, y, 35, 20).build())
-        .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-            Component.translatable("wavedefense.tooltip.edit_location_legacy", finalName)));
+        this.addButton(new Button(cx + panelW / 2 - 75, y, 35, 20, new StringTextComponent("§e📜"), button -> editLocationLegacy(finalName)))
+        /* setTooltip omitted on 1.16.5 */;
 
         boolean isPendingDel = name.equals(pendingDeleteName);
-        this.addRenderableWidget(Button.builder(
-                isPendingDel
-                    ? Component.translatable("wavedefense.button.confirm_delete")
-                    : Component.literal("§c✕"),
-                button -> {
+        this.addButton(new Button(cx + panelW / 2 - 35, y, 35, 20, isPendingDel
+                    ? new TranslationTextComponent("wavedefense.button.confirm_delete")
+                    : new StringTextComponent("§c✕"), button -> {
                     if (isPendingDel) {
                         deleteLocation(finalName);
                         pendingDeleteName = null;
                     } else {
                         pendingDeleteName = finalName;
-                        rebuildWidgets();
+                        init();
                     }
-                }
-        ).bounds(cx + panelW / 2 - 35, y, 35, 20).build()
-        ).setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-            Component.literal(isPendingDel
-                ? I18n.get("wavedefense.tooltip.confirm_delete", name)
-                : I18n.get("wavedefense.tooltip.delete_location", name))));
+                })
+        )/* setTooltip omitted on 1.16.5 */;
     }
 
     // ─── Render hooks ──────────────────────────────────────────────────────
 
     @Override
-    protected void renderHeader(GuiGraphics g, int mx, int my, float pt) {
+    protected void renderHeader(MatrixStack g, int mx, int my, float pt) {
         int cx = this.width / 2;
-        g.drawCenteredString(this.font, this.title, cx, 15, 0xFFFFFF);
-        g.drawString(this.font, I18n.get("wavedefense.label.name_hint"), cx - 100, 38, 0xFFFFFF);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, this.title, cx, 15, 0xFFFFFF);
+        com.wavedefense.gui.GuiCompat.drawString(g, this.font, I18n.get("wavedefense.label.name_hint"), cx - 100, 38, 0xFFFFFF);
     }
 
     @Override
-    protected void renderOverlay(GuiGraphics g, int mx, int my, float pt) {
+    protected void renderOverlay(MatrixStack g, int mx, int my, float pt) {
         if (!errorMessage.isEmpty()) {
             int cx  = this.width / 2;
             int errY = this.height - 50;
             int errW = this.font.width(errorMessage) + 14;
-            g.fill(cx - errW / 2, errY - 3, cx + errW / 2, errY + this.font.lineHeight + 3, 0xDD000000);
-            g.drawCenteredString(this.font, errorMessage, cx, errY, 0xFFFFFF);
+            com.wavedefense.gui.GuiCompat.fill(g, cx - errW / 2, errY - 3, cx + errW / 2, errY + this.font.lineHeight + 3, 0xDD000000);
+            com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, errorMessage, cx, errY, 0xFFFFFF);
         }
     }
 
@@ -198,7 +168,7 @@ public class AdminMenuScreen extends ListEditorScreen<String> {
         PacketHandler.sendToServer(new RequestLocationDataPacket());
         net.minecraft.client.Minecraft.getInstance().tell(() -> {
             this.locationNames = ClientLocationManager.getAllLocationNames();
-            this.rebuildWidgets();
+            this.init();
         });
     }
 
@@ -225,9 +195,9 @@ public class AdminMenuScreen extends ListEditorScreen<String> {
         Location location = ClientLocationManager.getLocation(name);
         if (location == null) return;
         if (location.getMode() == com.wavedefense.data.LocationMode.PVP) {
-            this.minecraft.setScreen(new PvpLocationEditorScreen(location, this));
+            /* legacy editor not ported on 1.16.5 */ /* this.minecraft.setScreen(new PvpLocationEditorScreen(location, this)); */
         } else {
-            this.minecraft.setScreen(new LocationEditorScreen(location, this));
+            /* legacy editor not ported on 1.16.5 */ /* this.minecraft.setScreen(new LocationEditorScreen(location, this)); */
         }
     }
 
@@ -253,7 +223,7 @@ public class AdminMenuScreen extends ListEditorScreen<String> {
         PacketHandler.sendToServer(new com.wavedefense.network.packets.RequestLocationDataPacket());
         net.minecraft.client.Minecraft.getInstance().tell(() -> {
             this.locationNames = ClientLocationManager.getAllLocationNames();
-            this.rebuildWidgets();
+            this.init();
         });
     }
 
@@ -265,7 +235,7 @@ public class AdminMenuScreen extends ListEditorScreen<String> {
         if (scrollOffset > 0) scrollOffset = Math.max(0, scrollOffset - 1);
         net.minecraft.client.Minecraft.getInstance().tell(() -> {
             this.locationNames = ClientLocationManager.getAllLocationNames();
-            this.rebuildWidgets();
+            this.init();
         });
     }
 

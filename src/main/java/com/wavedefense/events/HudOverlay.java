@@ -1,7 +1,7 @@
 package com.wavedefense.events;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.wavedefense.WaveDefenseMod;
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.data.Location;
 import com.wavedefense.gui.ClientCtpStateManager;
 import com.wavedefense.gui.ClientPlayerDataManager;
@@ -9,21 +9,24 @@ import com.wavedefense.gui.GuiTheme;
 import com.wavedefense.gui.HudLayout;
 import com.wavedefense.wave.PlayerWaveData;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.resources.language.I18n;
-import net.minecraft.world.entity.player.Player;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.RenderGuiOverlayEvent;
+import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
-@Mod.EventBusSubscriber(modid = WaveDefenseMod.MODID, value = Dist.CLIENT)
+@Mod.EventBusSubscriber(modid = WaveDefenceMod.MODID, value = Dist.CLIENT)
 public class HudOverlay {
 
     @SubscribeEvent
-    public static void onRenderHud(RenderGuiOverlayEvent.Post event) {
+    public static void onRenderHud(RenderGameOverlayEvent.Post event) {
+        // 1.16.5: only run once per frame, on HOTBAR overlay
+        if (event.getType() != RenderGameOverlayEvent.ElementType.HOTBAR) return;
+
         Minecraft mc = Minecraft.getInstance();
-        Player player = mc.player;
+        net.minecraft.entity.player.PlayerEntity player = mc.player;
         if (player == null) return;
 
         // ── ВИПРАВЛЕНО: використовуємо клієнтський менеджер, не серверний waveManager ──
@@ -33,7 +36,7 @@ public class HudOverlay {
         Location location = playerData.getCurrentLocation();
         if (location == null) return;
 
-        GuiGraphics graphics = event.getGuiGraphics();
+        MatrixStack graphics = event.getMatrixStack();
         int screenW = mc.getWindow().getGuiScaledWidth();
         int screenH = mc.getWindow().getGuiScaledHeight();
 
@@ -158,7 +161,7 @@ public class HudOverlay {
     }
 
     /** Renders the CtP / KotH HUD panel on the right side of the screen. */
-    private static void renderCtpOverlay(GuiGraphics g, net.minecraft.client.Minecraft mc,
+    private static void renderCtpOverlay(MatrixStack g, net.minecraft.client.Minecraft mc,
                                           int screenW, int screenH) {
         java.util.Map<String, String>  owners    = ClientCtpStateManager.getPointOwners();
         java.util.Map<String, String>  names     = ClientCtpStateManager.getPointNames();
@@ -187,7 +190,7 @@ public class HudOverlay {
         int y = panelY + 3;
 
         // Title row
-        g.drawString(mc.font, "§b§l" + I18n.get("wavedefense.ctp.hud.title"), panelX + padX, y, GuiTheme.ACCENT);
+        com.wavedefense.gui.GuiCompat.drawString(g, mc.font, "§b§l" + I18n.get("wavedefense.ctp.hud.title"), panelX + padX, y, GuiTheme.ACCENT);
         y += lineH + 3;
 
         // Per-point ownership + progress bar
@@ -201,7 +204,7 @@ public class HudOverlay {
             String pointLabel = rawLabel.length() > 12 ? rawLabel.substring(0, 11) + "…" : rawLabel;
             String ownerLabel = owner != null ? "§a" + owner : "§7---";
             String display = "§7" + pointLabel + ": " + ownerLabel;
-            g.drawString(mc.font, display, panelX + padX, y, GuiTheme.TEXT_MUTED);
+            com.wavedefense.gui.GuiCompat.drawString(g, mc.font, display, panelX + padX, y, GuiTheme.TEXT_MUTED);
             y += lineH + 1;
 
             // Progress bar — H-3: use server-supplied capTicks as denominator
@@ -210,8 +213,8 @@ public class HudOverlay {
                 float frac = cap > 0 ? Math.min(1f, (float) Math.abs(prog) / cap) : 0f;
                 int barW = panelW - padX * 2;
                 int barColor = prog > 0 ? 0xFF4488FF : 0xFFFF4444;
-                g.fill(panelX + padX, y, panelX + padX + (int)(barW * frac), y + 2, barColor);
-                g.fill(panelX + padX, y, panelX + padX + barW, y + 2, 0x40FFFFFF);
+                com.wavedefense.gui.GuiCompat.fill(g, panelX + padX, y, panelX + padX + (int)(barW * frac), y + 2, barColor);
+                com.wavedefense.gui.GuiCompat.fill(g, panelX + padX, y, panelX + padX + barW, y + 2, 0x40FFFFFF);
                 y += 4 + 2;
             } else {
                 y += 2;
@@ -219,7 +222,7 @@ public class HudOverlay {
         }
 
         // Separator
-        g.fill(panelX + padX, y, panelX + panelW - padX, y + 1, 0x60AAAAAA);
+        com.wavedefense.gui.GuiCompat.fill(g, panelX + padX, y, panelX + panelW - padX, y + 1, 0x60AAAAAA);
         y += 4;
 
         // Team scores
@@ -230,7 +233,7 @@ public class HudOverlay {
             } else {
                 line = "§e" + e.getKey() + "§7: §f" + e.getValue();
             }
-            g.drawString(mc.font, line, panelX + padX, y, GuiTheme.TEXT);
+            com.wavedefense.gui.GuiCompat.drawString(g, mc.font, line, panelX + padX, y, GuiTheme.TEXT);
             y += lineH + 3;
         }
 
@@ -244,18 +247,18 @@ public class HudOverlay {
             String timerLine = "§c⏱ " + (hrs > 0
                 ? String.format("%d:%02d:%02d", hrs, min, sec)
                 : String.format("%d:%02d", min, sec));
-            g.drawString(mc.font, timerLine, panelX + padX, y, GuiTheme.WARN);
+            com.wavedefense.gui.GuiCompat.drawString(g, mc.font, timerLine, panelX + padX, y, GuiTheme.WARN);
         }
 
         RenderSystem.disableBlend();
     }
 
-    private static void drawLine(GuiGraphics g, Minecraft mc, String text,
+    private static void drawLine(MatrixStack g, Minecraft mc, String text,
                                   int blockX, int blockW, int y, int bg, int color) {
-        g.fill(blockX, y - 2, blockX + blockW, y + mc.font.lineHeight + 2, bg);
+        com.wavedefense.gui.GuiCompat.fill(g, blockX, y - 2, blockX + blockW, y + mc.font.lineHeight + 2, bg);
         // По центру блоку
         int textX = blockX + (blockW - mc.font.width(text)) / 2;
-        g.drawString(mc.font, text, textX, y, color);
+        com.wavedefense.gui.GuiCompat.drawString(g, mc.font, text, textX, y, color);
     }
 
     public static boolean handleClick(double mouseX, double mouseY) {

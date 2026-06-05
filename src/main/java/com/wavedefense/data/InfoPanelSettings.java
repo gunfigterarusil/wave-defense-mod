@@ -1,6 +1,6 @@
 package com.wavedefense.data;
 
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.CompoundNBT;
 
 /**
  * Info-panel settings for a location.
@@ -25,7 +25,7 @@ public class InfoPanelSettings {
     private boolean showFirstWaveTimer  = true;    // countdown to the first wave after lobby ends
     private boolean showLobbyTimer      = true;    // countdown until the location starts (lobby zone panel)
 
-    // ── Mob spawn panels ──────────────────────────────────────────────────
+    // ── MobEntity spawn panels ──────────────────────────────────────────────────
     private boolean mobSpawnPanelEnabled = false;  // toggle
     private float   mobSpawnOffsetY      = 2.5f;   // height above the mob spawn block
 
@@ -68,7 +68,7 @@ public class InfoPanelSettings {
     public boolean isShowLobbyTimer()                { return showLobbyTimer; }
     public void    setShowLobbyTimer(boolean v)      { this.showLobbyTimer = v; }
 
-    // Mob spawn panel
+    // MobEntity spawn panel
     public boolean isMobSpawnPanelEnabled()          { return mobSpawnPanelEnabled; }
     public void    setMobSpawnPanelEnabled(boolean v){ this.mobSpawnPanelEnabled = v; }
     public float   getMobSpawnOffsetY()              { return mobSpawnOffsetY; }
@@ -92,8 +92,8 @@ public class InfoPanelSettings {
 
     // ═══════════════════════ NBT ══════════════════════════════════════════
 
-    public CompoundTag save() {
-        CompoundTag tag = new CompoundTag();
+    public CompoundNBT save() {
+        CompoundNBT tag = new CompoundNBT();
         tag.putBoolean("spawnPanelEnabled",    spawnPanelEnabled);
         tag.putFloat  ("spawnPanelOffsetY",    spawnPanelOffsetY);
         tag.putBoolean("showPlayerCount",      showPlayerCount);
@@ -119,7 +119,7 @@ public class InfoPanelSettings {
         return tag;
     }
 
-    public static InfoPanelSettings load(CompoundTag tag) {
+    public static InfoPanelSettings load(CompoundNBT tag) {
         InfoPanelSettings s = new InfoPanelSettings();
         s.spawnPanelEnabled    = tag.contains("spawnPanelEnabled")    && tag.getBoolean("spawnPanelEnabled");
         s.spawnPanelOffsetY    = tag.contains("spawnPanelOffsetY")    ? tag.getFloat("spawnPanelOffsetY")    : 2.5f;

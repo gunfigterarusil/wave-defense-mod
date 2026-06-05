@@ -1,8 +1,8 @@
 package com.wavedefense.data;
 
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.StringTag;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
+import net.minecraft.nbt.StringNBT;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -311,7 +311,7 @@ public class PvpRoundState {
         for (PvpPlayerStats ps : stats.values()) {
             if (ps == null) continue;
             String t = ps.getTeamName();
-            if (t != null && !t.isBlank()) registeredTeams.add(t);
+            if (t != null && !t.trim().isEmpty()) registeredTeams.add(t);
         }
         if (registeredTeams.size() < 2) return null;
         return firstTeam;
@@ -322,7 +322,7 @@ public class PvpRoundState {
         // the phase transition. Setting ENDED prematurely creates a 1-tick window
         // where the state machine is in ENDED but startBuyPhase() hasn't run yet.
         // Null = draw (no team recorded as winner).
-        if (teamName != null && !teamName.isBlank()) {
+        if (teamName != null && !teamName.trim().isEmpty()) {
             teamWins.merge(teamName, 1, Integer::sum);
         }
     }
@@ -334,8 +334,8 @@ public class PvpRoundState {
     //  Save/Load for backup system
     // ──────────────────────────────────────────────────────────────────────
 
-    public CompoundTag save() {
-        CompoundTag tag = new CompoundTag();
+    public CompoundNBT save() {
+        CompoundNBT tag = new CompoundNBT();
         tag.putString("phase", phase.name());
         tag.putInt("currentRound", currentRound);
         tag.putInt("totalRounds", totalRounds);
@@ -346,28 +346,28 @@ public class PvpRoundState {
             tag.putString("pendingWinner", pendingWinner);
         }
         // Save stats
-        ListTag statsList = new ListTag();
+        ListNBT statsList = new ListNBT();
         for (Map.Entry<UUID, PvpPlayerStats> entry : stats.entrySet()) {
-            CompoundTag entryTag = new CompoundTag();
+            CompoundNBT entryTag = new CompoundNBT();
             entryTag.putUUID("uuid", entry.getKey());
             entryTag.put("stats", entry.getValue().save());
             statsList.add(entryTag);
         }
         tag.put("stats", statsList);
         // Save team wins
-        CompoundTag teamWinsTag = new CompoundTag();
+        CompoundNBT teamWinsTag = new CompoundNBT();
         for (Map.Entry<String, Integer> entry : teamWins.entrySet()) {
             teamWinsTag.putInt(entry.getKey(), entry.getValue());
         }
         tag.put("teamWins", teamWinsTag);
         // Save alive this round
-        ListTag aliveList = new ListTag();
+        ListNBT aliveList = new ListNBT();
         for (UUID uuid : aliveThisRound) {
-            aliveList.add(StringTag.valueOf(uuid.toString()));
+            aliveList.add(StringNBT.valueOf(uuid.toString()));
         }
         tag.put("aliveThisRound", aliveList);
         // Save DM team kills
-        CompoundTag dmKillsTag = new CompoundTag();
+        CompoundNBT dmKillsTag = new CompoundNBT();
         for (Map.Entry<String, Integer> entry : dmTeamKills.entrySet()) {
             dmKillsTag.putInt(entry.getKey(), entry.getValue());
         }
@@ -375,32 +375,32 @@ public class PvpRoundState {
         // Save CtP/KotH state
         tag.putLong("matchStartMs", matchStartMs);
         if (!pointCapturingTeam.isEmpty()) {
-            CompoundTag capTeamTag = new CompoundTag();
+            CompoundNBT capTeamTag = new CompoundNBT();
             for (Map.Entry<String, String> e : pointCapturingTeam.entrySet()) {
                 capTeamTag.putString(e.getKey(), e.getValue());
             }
             tag.put("pointCapturingTeam", capTeamTag);
         }
         if (!objectiveScore.isEmpty()) {
-            CompoundTag objTag = new CompoundTag();
+            CompoundNBT objTag = new CompoundNBT();
             for (Map.Entry<String, Integer> e : objectiveScore.entrySet()) objTag.putInt(e.getKey(), e.getValue());
             tag.put("objectiveScore", objTag);
         }
         if (!pointOwners.isEmpty()) {
-            CompoundTag ownTag = new CompoundTag();
+            CompoundNBT ownTag = new CompoundNBT();
             for (Map.Entry<String, String> e : pointOwners.entrySet()) {
                 ownTag.putString(e.getKey(), e.getValue() != null ? e.getValue() : "");
             }
             tag.put("pointOwners", ownTag);
         }
         if (!captureProgress.isEmpty()) {
-            CompoundTag progTag = new CompoundTag();
+            CompoundNBT progTag = new CompoundNBT();
             for (Map.Entry<String, Integer> e : captureProgress.entrySet()) progTag.putInt(e.getKey(), e.getValue());
             tag.put("captureProgress", progTag);
         }
         tag.putInt("roundDurationTicks", roundDurationTicks);
         if (!kothHoldTicks.isEmpty()) {
-            CompoundTag kothTag = new CompoundTag();
+            CompoundNBT kothTag = new CompoundNBT();
             for (Map.Entry<String, Integer> e : kothHoldTicks.entrySet()) kothTag.putInt(e.getKey(), e.getValue());
             tag.put("kothHoldTicks", kothTag);
         }
@@ -410,7 +410,7 @@ public class PvpRoundState {
     /**
      * Статичний метод для завантаження стану з NBT.
      */
-    public static PvpRoundState load(CompoundTag tag) {
+    public static PvpRoundState load(CompoundNBT tag) {
         PvpRoundState state = new PvpRoundState(
             tag.getInt("totalRounds"),
             tag.getInt("buyTime")
@@ -423,9 +423,9 @@ public class PvpRoundState {
         state.pendingWinner = tag.contains("pendingWinner") ? tag.getString("pendingWinner") : null;
         // Load stats
         if (tag.contains("stats")) {
-            ListTag statsList = tag.getList("stats", 10);
+            ListNBT statsList = tag.getList("stats", 10);
             for (int i = 0; i < statsList.size(); i++) {
-                CompoundTag entryTag = statsList.getCompound(i);
+                CompoundNBT entryTag = statsList.getCompound(i);
                 UUID uuid = entryTag.getUUID("uuid");
                 PvpPlayerStats pps = new PvpPlayerStats();
                 pps.load(entryTag.getCompound("stats"));
@@ -434,21 +434,21 @@ public class PvpRoundState {
         }
         // Load team wins
         if (tag.contains("teamWins")) {
-            CompoundTag teamWinsTag = tag.getCompound("teamWins");
+            CompoundNBT teamWinsTag = tag.getCompound("teamWins");
             for (String key : teamWinsTag.getAllKeys()) {
                 state.teamWins.put(key, teamWinsTag.getInt(key));
             }
         }
         // Load alive this round
         if (tag.contains("aliveThisRound")) {
-            ListTag aliveList = tag.getList("aliveThisRound", 8);
+            ListNBT aliveList = tag.getList("aliveThisRound", 8);
             for (int i = 0; i < aliveList.size(); i++) {
                 state.aliveThisRound.add(UUID.fromString(aliveList.getString(i)));
             }
         }
         // Load DM team kills
         if (tag.contains("dmTeamKills")) {
-            CompoundTag dmKillsTag = tag.getCompound("dmTeamKills");
+            CompoundNBT dmKillsTag = tag.getCompound("dmTeamKills");
             for (String key : dmKillsTag.getAllKeys()) {
                 state.dmTeamKills.put(key, dmKillsTag.getInt(key));
             }
@@ -456,29 +456,29 @@ public class PvpRoundState {
         // Load CtP/KotH state
         state.matchStartMs = NbtHelper.getLong(tag, "matchStartMs", 0L);
         if (tag.contains("pointCapturingTeam")) {
-            CompoundTag capTeamTag = tag.getCompound("pointCapturingTeam");
+            CompoundNBT capTeamTag = tag.getCompound("pointCapturingTeam");
             for (String key : capTeamTag.getAllKeys()) {
                 state.pointCapturingTeam.put(key, capTeamTag.getString(key));
             }
         }
         if (tag.contains("objectiveScore")) {
-            CompoundTag objTag = tag.getCompound("objectiveScore");
+            CompoundNBT objTag = tag.getCompound("objectiveScore");
             for (String key : objTag.getAllKeys()) state.objectiveScore.put(key, objTag.getInt(key));
         }
         if (tag.contains("pointOwners")) {
-            CompoundTag ownTag = tag.getCompound("pointOwners");
+            CompoundNBT ownTag = tag.getCompound("pointOwners");
             for (String key : ownTag.getAllKeys()) {
                 String val = ownTag.getString(key);
                 state.pointOwners.put(key, val.isEmpty() ? null : val);
             }
         }
         if (tag.contains("captureProgress")) {
-            CompoundTag progTag = tag.getCompound("captureProgress");
+            CompoundNBT progTag = tag.getCompound("captureProgress");
             for (String key : progTag.getAllKeys()) state.captureProgress.put(key, progTag.getInt(key));
         }
         state.roundDurationTicks = NbtHelper.getInt(tag, "roundDurationTicks", 0);
         if (tag.contains("kothHoldTicks")) {
-            CompoundTag kothTag = tag.getCompound("kothHoldTicks");
+            CompoundNBT kothTag = tag.getCompound("kothHoldTicks");
             for (String key : kothTag.getAllKeys()) state.kothHoldTicks.put(key, kothTag.getInt(key));
         }
         return state;

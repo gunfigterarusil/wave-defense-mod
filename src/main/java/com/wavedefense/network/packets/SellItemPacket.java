@@ -1,13 +1,15 @@
 package com.wavedefense.network.packets;
 
-import com.wavedefense.WaveDefenseMod;
+import net.minecraft.util.text.ITextComponent;
+
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.data.Location;
 import com.wavedefense.data.ShopItem;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fml.network.NetworkEvent;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -34,25 +36,25 @@ public class SellItemPacket {
         this.itemIndex      = itemIndex;
     }
 
-    public static void encode(SellItemPacket packet, FriendlyByteBuf buf) {
+    public static void encode(SellItemPacket packet, PacketBuffer buf) {
         buf.writeUtf(packet.locationName);
         buf.writeInt(packet.shopPointIndex);
         buf.writeInt(packet.itemIndex);
     }
 
-    public static SellItemPacket decode(FriendlyByteBuf buf) {
+    public static SellItemPacket decode(PacketBuffer buf) {
         return new SellItemPacket(buf.readUtf(), buf.readInt(), buf.readInt());
     }
 
     public static void handle(SellItemPacket packet, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
-            ServerPlayer player = ctx.get().getSender();
+            ServerPlayerEntity player = ctx.get().getSender();
             if (player == null) return;
             // G1 fix: rate-limit sells to once per 500 ms
             if (!com.wavedefense.network.PacketRateLimiter.allow(
                     player.getUUID(), SellItemPacket.class, 500L)) return;
 
-            Location location = WaveDefenseMod.locationManager.getLocation(packet.locationName);
+            Location location = WaveDefenceMod.locationManager.getLocation(packet.locationName);
             if (location == null) return;
 
             // Resolve source list: global shop or specific shop point
@@ -84,8 +86,8 @@ public class SellItemPacket {
             // Якщо requireNbtMatch=false (типово) — поведінка без змін: будь-який предмет того типу.
             for (Map.Entry<Item, Integer> entry : requiredCounts.entrySet()) {
                 int inInventory = 0;
-                for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-                    ItemStack slot = player.getInventory().getItem(i);
+                for (int i = 0; i < player.inventory.getContainerSize(); i++) {
+                    ItemStack slot = player.inventory.getItem(i);
                     if (!slot.isEmpty() && slot.getItem() == entry.getKey()
                             && shopItem.matchesNbtForSale(slot)) {
                         inInventory += slot.getCount();
@@ -93,7 +95,7 @@ public class SellItemPacket {
                 }
                 if (inInventory < entry.getValue()) {
                     player.displayClientMessage(
-                        net.minecraft.network.chat.Component.translatable("wavedefense.msg.not_enough_items"), false);
+                        new net.minecraft.util.text.TranslationTextComponent("wavedefense.msg.not_enough_items"), false);
                     return;
                 }
             }
@@ -102,15 +104,15 @@ public class SellItemPacket {
             for (Map.Entry<Item, Integer> entry : requiredCounts.entrySet()) {
                 int toRemove = entry.getValue();
                 Item targetItem = entry.getKey();
-                for (int i = 0; i < player.getInventory().getContainerSize() && toRemove > 0; i++) {
-                    ItemStack slot = player.getInventory().getItem(i);
+                for (int i = 0; i < player.inventory.getContainerSize() && toRemove > 0; i++) {
+                    ItemStack slot = player.inventory.getItem(i);
                     if (!slot.isEmpty() && slot.getItem() == targetItem
                             && shopItem.matchesNbtForSale(slot)) {
                         int removeFromSlot = Math.min(slot.getCount(), toRemove);
                         slot.shrink(removeFromSlot);
                         toRemove -= removeFromSlot;
                         if (slot.isEmpty()) {
-                            player.getInventory().setItem(i, ItemStack.EMPTY);
+                            player.inventory.setItem(i, ItemStack.EMPTY);
                         }
                     }
                 }
@@ -119,10 +121,10 @@ public class SellItemPacket {
             // Нараховуємо поінти
             location.addPoints(player.getUUID(), shopItem.getSellPrice());
             // Зберігаємо зміну поінтів на диск, щоб не загубились при рестарті
-            WaveDefenseMod.locationManager.updateLocation(location);
+            WaveDefenceMod.locationManager.updateLocation(location);
 
             // Синхронізуємо гравця
-            WaveDefenseMod.waveManager.syncPlayerData(player);
+            WaveDefenceMod.waveManager.syncPlayerData(player);
         });
         ctx.get().setPacketHandled(true);
     }

@@ -1,8 +1,8 @@
 package com.wavedefense.data;
 
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
+import net.minecraft.item.ItemStack;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -79,12 +79,12 @@ public class ShopItem {
      * Checks the NBT match for a sale: if requireNbtMatch=true, the first matching
      * item in the player's inventory must have the required NBT tags.
      */
-    public boolean matchesNbtForSale(net.minecraft.world.item.ItemStack playerItem) {
-        if (!requireNbtMatch || nbtRequiredTag.isBlank()) return true;
+    public boolean matchesNbtForSale(net.minecraft.item.ItemStack playerItem) {
+        if (!requireNbtMatch || nbtRequiredTag.trim().isEmpty()) return true;
         if (playerItem.isEmpty()) return false;
         try {
-            net.minecraft.nbt.CompoundTag required = net.minecraft.nbt.TagParser.parseTag(nbtRequiredTag);
-            net.minecraft.nbt.CompoundTag actual = playerItem.hasTag() ? playerItem.getTag() : new net.minecraft.nbt.CompoundTag();
+            net.minecraft.nbt.CompoundNBT required = net.minecraft.nbt.JsonToNBT.parseTag(nbtRequiredTag);
+            net.minecraft.nbt.CompoundNBT actual = playerItem.hasTag() ? playerItem.getTag() : new net.minecraft.nbt.CompoundNBT();
             // Check that all keys from required are present and equal in actual (partial match)
             for (String key : required.getAllKeys()) {
                 if (!actual.contains(key)) return false;
@@ -101,36 +101,34 @@ public class ShopItem {
      * @param currentWave current wave number (1-based), 0 = outside a wave
      * @param player player whose inventory to check
      */
-    public boolean isAvailable(int currentWave, net.minecraft.server.level.ServerPlayer player) {
+    public boolean isAvailable(int currentWave, net.minecraft.entity.player.ServerPlayerEntity player) {
         if (availabilityTrigger == null) return true;
-        return switch (availabilityTrigger) {
-            case SHOP_LOCATION_START -> true; // always available
-            case SHOP_WAVE_START     -> currentWave > 0;
-            case SHOP_WAVE_N         -> currentWave == availabilityWave;
-            case SHOP_PLAYER_HAS_ITEM -> {
-                if (player == null || availabilityItemId.isBlank()) yield false;
-                // Multiple items supported via comma — ANY match is sufficient
-                boolean found = false;
+        // 1.16.5 / Java 8 port: classic switch instead of v17 switch expression
+        switch (availabilityTrigger) {
+            case SHOP_LOCATION_START: return true;
+            case SHOP_WAVE_START:     return currentWave > 0;
+            case SHOP_WAVE_N:         return currentWave == availabilityWave;
+            case SHOP_PLAYER_HAS_ITEM:
+                if (player == null || availabilityItemId.trim().isEmpty()) return false;
                 for (String part : availabilityItemId.split(",")) {
                     String id = part.trim();
                     if (id.isEmpty()) continue;
                     try {
-                        net.minecraft.resources.ResourceLocation rl = new net.minecraft.resources.ResourceLocation(id);
-                        net.minecraft.world.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(rl);
-                        if (item != null && player.getInventory().contains(new net.minecraft.world.item.ItemStack(item))) { found = true; break; }
+                        net.minecraft.util.ResourceLocation rl = new net.minecraft.util.ResourceLocation(id);
+                        net.minecraft.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(rl);
+                        if (item != null && player.inventory.contains(new net.minecraft.item.ItemStack(item))) return true;
                     } catch (Exception ignored) {}
                 }
-                yield found;
-            }
-            default -> true;
-        };
+                return false;
+            default: return true;
+        }
     }
 
-    public CompoundTag save() {
-        CompoundTag tag = new CompoundTag();
-        ListTag itemsList = new ListTag();
+    public CompoundNBT save() {
+        CompoundNBT tag = new CompoundNBT();
+        ListNBT itemsList = new ListNBT();
         for (ItemStack item : items) {
-            itemsList.add(item.save(new CompoundTag()));
+            itemsList.add(item.save(new CompoundNBT()));
         }
         tag.put("items", itemsList);
         tag.putInt("buyPrice", buyPrice);
@@ -146,9 +144,9 @@ public class ShopItem {
         return tag;
     }
 
-    public static ShopItem load(CompoundTag tag) {
+    public static ShopItem load(CompoundNBT tag) {
         List<ItemStack> loadedItems = new ArrayList<>();
-        ListTag itemsList = tag.getList("items", 10); // 10 is the NBT type for CompoundTag
+        ListNBT itemsList = tag.getList("items", 10); // 10 is the NBT type for CompoundNBT
         for (int i = 0; i < itemsList.size(); i++) {
             loadedItems.add(ItemStack.of(itemsList.getCompound(i)));
         }

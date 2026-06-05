@@ -1,7 +1,7 @@
 package com.wavedefense.data;
 
 /**
- * Режим локації: PvE (захист від мобів) або PvP (гравці проти гравців).
+ * Location mode: PvE (mob defence) or PvP (players vs players).
  */
 public enum LocationMode {
     PVE,

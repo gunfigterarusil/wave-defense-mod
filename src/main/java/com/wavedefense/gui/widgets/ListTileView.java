@@ -1,11 +1,13 @@
 package com.wavedefense.gui.widgets;
 
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.gui.GuiTheme;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.AbstractWidget;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.network.chat.Component;
+import net.minecraft.client.gui.FontRenderer;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.Widget;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.util.text.ITextComponent;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -49,9 +51,9 @@ public class ListTileView<T> {
     /** Caller-provided rendering strategy. */
     public interface Renderer<T> {
         /** Paint one entry as a full-width list row at (x, y) of size (w, h). */
-        void renderRow(GuiGraphics g, T entry, int x, int y, int w, int h, int mouseX, int mouseY);
+        void renderRow(MatrixStack g, T entry, int x, int y, int w, int h, int mouseX, int mouseY);
         /** Paint one entry as a compact tile at (x, y) of size (w, h). */
-        void renderTile(GuiGraphics g, T entry, int x, int y, int w, int h, int mouseX, int mouseY);
+        void renderTile(MatrixStack g, T entry, int x, int y, int w, int h, int mouseX, int mouseY);
     }
 
     public enum Mode { LIST, TILE }
@@ -78,16 +80,13 @@ public class ListTileView<T> {
     }
 
     /** Adds the view-mode toggle button to the screen. */
-    public AbstractWidget addToggleButton(Consumer<AbstractWidget> adder, int x, int y, int w, int h) {
-        Button btn = Button.builder(
-            Component.translatable(mode == Mode.TILE
-                ? "wavedefense.shop.view_tiles" : "wavedefense.shop.view_list"),
-            b -> {
+    public Widget addToggleButton(Consumer<Widget> adder, int x, int y, int w, int h) {
+        Button btn = new Button(x, y, w, h, new TranslationTextComponent(mode == Mode.TILE
+                ? "wavedefense.shop.view_tiles" : "wavedefense.shop.view_list"), b -> {
                 mode = (mode == Mode.TILE) ? Mode.LIST : Mode.TILE;
                 scrollOffset = 0;
                 if (onModeChange != null) onModeChange.accept(mode);
-            }
-        ).bounds(x, y, w, h).build();
+            });
         adder.accept(btn);
         return btn;
     }
@@ -103,7 +102,7 @@ public class ListTileView<T> {
     }
 
     /** Renders the visible page of entries inside the (x, y, w, h) area. */
-    public void renderEntries(GuiGraphics g, List<T> entries, int x, int y, int w, int h,
+    public void renderEntries(MatrixStack g, List<T> entries, int x, int y, int w, int h,
                                 int mouseX, int mouseY) {
         if (entries == null || entries.isEmpty()) return;
         int perPage = getItemsPerPage(w, h);
@@ -131,7 +130,7 @@ public class ListTileView<T> {
     }
 
     /** Background frame for the visible page — matches GuiTheme. */
-    public void renderFrame(GuiGraphics g, int x, int y, int w, int h) {
+    public void renderFrame(MatrixStack g, int x, int y, int w, int h) {
         GuiTheme.renderContentFrame(g, x - 2, y - 2, x + w + 2, y + h + 2);
     }
 

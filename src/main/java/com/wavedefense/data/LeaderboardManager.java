@@ -1,9 +1,9 @@
 package com.wavedefense.data;
 
-import com.wavedefense.WaveDefenseMod;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtIo;
+import com.wavedefense.WaveDefenceMod;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
+import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.server.MinecraftServer;
 
 import java.io.File;
@@ -36,7 +36,7 @@ public class LeaderboardManager {
     private final File dataFile;
 
     public LeaderboardManager(MinecraftServer server) {
-        this.dataFile = server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT)
+        this.dataFile = server.getWorldPath(net.minecraft.world.storage.FolderName.ROOT)
             .resolve("data/wavedefense_leaderboards.dat").toFile();
     }
 
@@ -72,17 +72,17 @@ public class LeaderboardManager {
 
     /** Returns the top-10 list for the given location/mode (may be empty, never null). */
     public synchronized List<LeaderboardRecord> getTop10(String locationName, String modeKey) {
-        if (locationName == null || modeKey == null) return List.of();
+        if (locationName == null || modeKey == null) return java.util.Collections.emptyList();
         Map<String, List<LeaderboardRecord>> byMode = data.get(locationName);
-        if (byMode == null) return List.of();
+        if (byMode == null) return java.util.Collections.emptyList();
         List<LeaderboardRecord> list = byMode.get(modeKey);
-        return list != null ? Collections.unmodifiableList(new ArrayList<>(list)) : List.of();
+        return list != null ? Collections.unmodifiableList(new ArrayList<>(list)) : java.util.Collections.emptyList();
     }
 
     /** Returns all mode keys that have at least one record for this location. */
     public synchronized List<String> getModesWithRecords(String locationName) {
         Map<String, List<LeaderboardRecord>> byMode = data.get(locationName);
-        if (byMode == null) return List.of();
+        if (byMode == null) return java.util.Collections.emptyList();
         List<String> result = new ArrayList<>();
         for (Map.Entry<String, List<LeaderboardRecord>> e : byMode.entrySet()) {
             if (!e.getValue().isEmpty()) result.add(e.getKey());
@@ -101,9 +101,9 @@ public class LeaderboardManager {
     public synchronized void saveToFile() {
         try {
             dataFile.getParentFile().mkdirs();
-            CompoundTag root = serialize();
+            CompoundNBT root = serialize();
             File tmp = new File(dataFile.getAbsolutePath() + ".tmp");
-            NbtIo.writeCompressed(root, tmp);
+            CompressedStreamTools.writeCompressed(root, tmp);
 
             // H-4 fix: check renameTo return values; on failure try java.nio.Files.move()
             File bak = new File(dataFile.getAbsolutePath() + ".bak");
@@ -113,7 +113,7 @@ public class LeaderboardManager {
                     try { java.nio.file.Files.move(dataFile.toPath(), bak.toPath(),
                             java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                     } catch (Exception ex) {
-                        WaveDefenseMod.LOGGER.warn("[WaveDefense] Could not back up leaderboard file: {}", ex.getMessage());
+                        WaveDefenceMod.LOGGER.warn("[WaveDefense] Could not back up leaderboard file: {}", ex.getMessage());
                         // If we can't back up, don't risk overwriting with tmp
                         tmp.delete();
                         return;
@@ -125,35 +125,35 @@ public class LeaderboardManager {
                 try { java.nio.file.Files.move(tmp.toPath(), dataFile.toPath(),
                         java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                 } catch (Exception ex) {
-                    WaveDefenseMod.LOGGER.error("[WaveDefense] Could not commit leaderboard file — restoring backup: {}", ex.getMessage());
+                    WaveDefenceMod.LOGGER.error("[WaveDefense] Could not commit leaderboard file — restoring backup: {}", ex.getMessage());
                     // Attempt to restore backup
                     if (bak.exists()) bak.renameTo(dataFile);
                 }
             }
         } catch (IOException e) {
-            WaveDefenseMod.LOGGER.error("[WaveDefense] Could not save leaderboard data", e);
+            WaveDefenceMod.LOGGER.error("[WaveDefense] Could not save leaderboard data", e);
         }
     }
 
     public synchronized void loadFromFile() {
         if (!dataFile.exists()) return;
         try {
-            CompoundTag root = NbtIo.readCompressed(dataFile);
+            CompoundNBT root = CompressedStreamTools.readCompressed(dataFile);
             deserialize(root);
         } catch (Exception e) {
-            WaveDefenseMod.LOGGER.error("[WaveDefense] Could not load leaderboard data", e);
+            WaveDefenceMod.LOGGER.error("[WaveDefense] Could not load leaderboard data", e);
         }
     }
 
     // ── Serialization ──────────────────────────────────────────────────────
 
-    private CompoundTag serialize() {
-        CompoundTag root = new CompoundTag();
+    private CompoundNBT serialize() {
+        CompoundNBT root = new CompoundNBT();
         root.putInt("__version__", DATA_VERSION);
         for (Map.Entry<String, Map<String, List<LeaderboardRecord>>> locEntry : data.entrySet()) {
-            CompoundTag locTag = new CompoundTag();
+            CompoundNBT locTag = new CompoundNBT();
             for (Map.Entry<String, List<LeaderboardRecord>> modeEntry : locEntry.getValue().entrySet()) {
-                ListTag listTag = new ListTag();
+                ListNBT listTag = new ListNBT();
                 for (LeaderboardRecord rec : modeEntry.getValue()) listTag.add(rec.save());
                 locTag.put(modeEntry.getKey(), listTag);
             }
@@ -162,18 +162,18 @@ public class LeaderboardManager {
         return root;
     }
 
-    private void deserialize(CompoundTag root) {
+    private void deserialize(CompoundNBT root) {
         int fileVersion = root.contains("__version__") ? root.getInt("__version__") : 0;
         if (fileVersion > DATA_VERSION) {
-            WaveDefenseMod.LOGGER.warn("[WaveDefense] Leaderboard data version {} is newer than supported {}; loading anyway",
+            WaveDefenceMod.LOGGER.warn("[WaveDefense] Leaderboard data version {} is newer than supported {}; loading anyway",
                 fileVersion, DATA_VERSION);
         }
         data.clear();
         for (String locName : root.getAllKeys()) {
             if ("__version__".equals(locName)) continue;
-            CompoundTag locTag = root.getCompound(locName);
+            CompoundNBT locTag = root.getCompound(locName);
             for (String modeKey : locTag.getAllKeys()) {
-                ListTag listTag = locTag.getList(modeKey, 10);
+                ListNBT listTag = locTag.getList(modeKey, 10);
                 List<LeaderboardRecord> list = getOrCreate(locName, modeKey);
                 for (int i = 0; i < listTag.size(); i++) {
                     list.add(LeaderboardRecord.load(listTag.getCompound(i)));

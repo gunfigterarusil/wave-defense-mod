@@ -1,6 +1,8 @@
 package com.wavedefense.wave;
 
-import com.wavedefense.WaveDefenseMod;
+import net.minecraft.util.text.TranslationTextComponent;
+
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.data.GameStats;
 import com.wavedefense.data.LeaderboardManager;
 import com.wavedefense.data.LeaderboardRecord;
@@ -8,11 +10,11 @@ import com.wavedefense.data.Location;
 import com.wavedefense.data.PlayerBackup;
 import com.wavedefense.wave.PlayerWaveData;
 import com.wavedefense.wave.WaveConfigValidator;
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,17 +37,17 @@ public class SessionManager {
 
     // ── Player join ───────────────────────────────────────────────────
 
-    public void addPlayer(ServerPlayer player, Location location, WaveManager wm) {
+    public void addPlayer(ServerPlayerEntity player, Location location, WaveManager wm) {
         UUID playerId = player.getUUID();
         if (ctx.playerData.containsKey(playerId)) {
-            player.displayClientMessage(Component.translatable("wavedefense.msg.already_playing"), false);
+            player.displayClientMessage(new TranslationTextComponent("wavedefense.msg.already_playing"), false);
             return;
         }
         // Перевіряємо КД повторного входу
         Long cooldownEnd = ctx.reEntryCooldowns.get(playerId);
         if (cooldownEnd != null && System.currentTimeMillis() < cooldownEnd) {
             long secsLeft = (cooldownEnd - System.currentTimeMillis()) / 1000 + 1;
-            player.displayClientMessage(Component.translatable(
+            player.displayClientMessage(new TranslationTextComponent(
                 "wavedefense.msg.entry_cooldown", secsLeft, location.getName()), false);
             return;
         }
@@ -58,25 +60,25 @@ public class SessionManager {
             existingSess.graceTicksRemaining = -1;
             // Inform the rejoining player; others will get the broadcast below
             player.displayClientMessage(
-                net.minecraft.network.chat.Component.translatable("wavedefense.msg.grace_cancelled"), false);
+                new net.minecraft.util.text.TranslationTextComponent("wavedefense.msg.grace_cancelled"), false);
             wm.broadcastToLocation(location.getName(),
-                net.minecraft.network.chat.Component.translatable("wavedefense.msg.grace_cancelled"));
+                new net.minecraft.util.text.TranslationTextComponent("wavedefense.msg.grace_cancelled"));
         }
 
         // Н4: validate wave config before letting the first player in
         WaveConfigValidator validator = new WaveConfigValidator(location);
         if (!validator.validate()) {
             for (String err : validator.getErrors()) {
-                WaveDefenseMod.LOGGER.warn("[WaveDefense] Config error for '{}': {}", location.getName(), err);
+                WaveDefenceMod.LOGGER.warn("[WaveDefense] Config error for '{}': {}", location.getName(), err);
             }
             if (!location.isPvp()) {
                 // PvE with no waves — abort
-                player.displayClientMessage(Component.translatable("wavedefense.msg.no_waves_configured"), false);
+                player.displayClientMessage(new TranslationTextComponent("wavedefense.msg.no_waves_configured"), false);
                 return;
             }
         } else {
             for (String w : validator.getWarnings()) {
-                WaveDefenseMod.LOGGER.debug("[WaveDefense] Config warning for '{}': {}", location.getName(), w);
+                WaveDefenceMod.LOGGER.debug("[WaveDefense] Config warning for '{}': {}", location.getName(), w);
             }
         }
 
@@ -85,7 +87,7 @@ public class SessionManager {
             ? location.getAutoActivateEntryPos() : location.getPlayerSpawn();
         if (spawnPos == null) {
             // Локація не налаштована — немає точки спавну
-            player.displayClientMessage(Component.translatable("wavedefense.msg.no_spawn_set"), false);
+            player.displayClientMessage(new TranslationTextComponent("wavedefense.msg.no_spawn_set"), false);
             return;
         }
 
@@ -94,21 +96,21 @@ public class SessionManager {
 
         // Примусовий gamemode (якщо увімкнено для локації)
         if (location.isEnforceGameMode()) {
-            net.minecraft.world.level.GameType requiredMode =
+            net.minecraft.world.GameType requiredMode =
                 com.wavedefense.config.WaveDefenseConfig.getLocationGameType();
-            if (player.gameMode.getGameModeForPlayer() == net.minecraft.world.level.GameType.CREATIVE
+            if (player.gameMode.getGameModeForPlayer() == net.minecraft.world.GameType.CREATIVE
                 || player.gameMode.getGameModeForPlayer() != requiredMode) {
                 player.setGameMode(requiredMode);
-                player.displayClientMessage(Component.translatable(
+                player.displayClientMessage(new TranslationTextComponent(
                     "wavedefense.msg.gamemode_changed_join", requiredMode.getName(), location.getName()), true);
             }
         }
 
         // Очищаємо інвентар і видаємо стартові предмети
         if (!location.isKeepInventory()) {
-            player.getInventory().clearContent();
+            player.inventory.clearContent();
             for (ItemStack item : location.getStartingItems())
-                player.getInventory().add(item.copy());
+                player.inventory.add(item.copy());
         }
         if (location.getStartingPoints() > 0)
             location.addPoints(playerId, location.getStartingPoints());
@@ -136,14 +138,14 @@ public class SessionManager {
             sess.startTimerMs = System.currentTimeMillis() + lobbyTime * 1000L;
             sess.currentWave = 1;
             wm.broadcastToLocation(location.getName(),
-                Component.translatable("wavedefense.msg.lobby_starting", lobbyTime));
+                new TranslationTextComponent("wavedefense.msg.lobby_starting", lobbyTime));
             data.setCurrentWave(1);
             data.setTimerActive(true);
             data.setTimeUntilNextWave(lobbyTime);
         } else if (existSess.startTimerMs > 0) {
             // Новий гравець у лоббі — НЕ перезапускаємо таймер, показуємо залишок часу
             long secsLeft = Math.max(1L, (existSess.startTimerMs - System.currentTimeMillis()) / 1000L + 1L);
-            wm.broadcastToLocation(location.getName(), Component.translatable(
+            wm.broadcastToLocation(location.getName(), new TranslationTextComponent(
                 "wavedefense.msg.player_joined_lobby_countdown",
                 player.getName(), secsLeft));
             data.setCurrentWave(existSess.currentWave);
@@ -154,7 +156,7 @@ public class SessionManager {
             int currentWave = existSess.currentWave;
             data.setCurrentWave(currentWave);
             player.displayClientMessage(
-                Component.translatable("wavedefense.msg.joined_wave", currentWave), false);
+                new TranslationTextComponent("wavedefense.msg.joined_wave", currentWave), false);
             if (existSess.waveTimerTicks > 0) {
                 data.setTimerActive(true);
                 data.setTimeUntilNextWave(existSess.waveTimerTicks / 20);
@@ -169,15 +171,15 @@ public class SessionManager {
         wm.syncPlayerData(player);
         wm.syncTeammates(location.getName());
         // Тригери PLAYER_JOIN для лут-спавну; LOCATION_START fires when wave 1 starts (see spawnWave)
-        List<ServerPlayer> allInLoc = wm.getPlayersInLocation(location.getName());
+        List<ServerPlayerEntity> allInLoc = wm.getPlayersInLocation(location.getName());
         if (!allInLoc.isEmpty()) {
-            net.minecraft.server.level.ServerLevel lootWorld = allInLoc.get(0).serverLevel();
+            net.minecraft.world.server.ServerWorld lootWorld = ((net.minecraft.world.server.ServerWorld) allInLoc.get(0).level);
             wm.fireLootTrigger(location, lootWorld, com.wavedefense.data.LootSpawn.Trigger.PLAYER_JOIN);
         }
 
         // Notify monitoring system
         try {
-            com.wavedefense.monitor.WaveDefenseMonitor.getInstance().onPlayerJoin(player);
+            /* monitor not ported on 1.16.5 */;
         } catch (Exception e) {
             // Monitoring system error - don't break gameplay
         }
@@ -185,7 +187,7 @@ public class SessionManager {
 
     // ── Surrender ─────────────────────────────────────────────────────
 
-    public void surrender(ServerPlayer player, WaveManager wm) {
+    public void surrender(ServerPlayerEntity player, WaveManager wm) {
         UUID playerId = player.getUUID();
         // Знімаємо ефекти очікування PvP і режим спектатора при виході
         wm.removeWaitEffects(player);
@@ -199,17 +201,17 @@ public class SessionManager {
             boolean keepLoot = currentLoc != null && currentLoc.isKeepLootOnExit();
 
             // Якщо гравець у спектаторі (PvP смерть) — відновлюємо survival перед backup.restore
-            if (player.gameMode.getGameModeForPlayer() == net.minecraft.world.level.GameType.SPECTATOR)
-                player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+            if (player.gameMode.getGameModeForPlayer() == net.minecraft.world.GameType.SPECTATOR)
+                player.setGameMode(net.minecraft.world.GameType.SURVIVAL);
 
             if (keepLoot) {
                 List<ItemStack> savedItems = new ArrayList<>();
-                for (int si = 0; si < player.getInventory().getContainerSize(); si++)
-                    savedItems.add(player.getInventory().getItem(si).copy());
+                for (int si = 0; si < player.inventory.getContainerSize(); si++)
+                    savedItems.add(player.inventory.getItem(si).copy());
                 PlayerBackup backup = ctx.playerBackups.remove(playerId);
                 if (backup != null) backup.restore(player);
-                for (int si = 0; si < savedItems.size() && si < player.getInventory().getContainerSize(); si++)
-                    if (!savedItems.get(si).isEmpty()) player.getInventory().setItem(si, savedItems.get(si));
+                for (int si = 0; si < savedItems.size() && si < player.inventory.getContainerSize(); si++)
+                    if (!savedItems.get(si).isEmpty()) player.inventory.setItem(si, savedItems.get(si));
             } else {
                 PlayerBackup backup = ctx.playerBackups.remove(playerId);
                 if (backup != null) backup.restore(player);
@@ -240,7 +242,7 @@ public class SessionManager {
                     }
                 } else {
                     wm.pvpMgr.rebalancePvpTeams(wm, locRef, playerId);
-                    for (ServerPlayer p : wm.getPlayersInLocation(locName)) wm.syncPlayerData(p);
+                    for (ServerPlayerEntity p : wm.getPlayersInLocation(locName)) wm.syncPlayerData(p);
                     wm.syncTeammates(locName);
                 }
             }
@@ -254,7 +256,7 @@ public class SessionManager {
                 player.teleportTo(ep.getX() + 0.5, ep.getY(), ep.getZ() + 0.5);
             }
          }
-        player.displayClientMessage(Component.translatable("wavedefense.msg.surrendered"), false);
+        player.displayClientMessage(new TranslationTextComponent("wavedefense.msg.surrendered"), false);
 
         // Surrender/logout is a clean leave, not a death. Actual deaths are counted
         // from WaveManager.onPvePlayerDeath and the PvP death handlers.
@@ -268,9 +270,9 @@ public class SessionManager {
      * бачать повідомлення, а через вказаний час — endSession.
      */
     public void triggerVictory(String locationName, WaveManager wm) {
-        Location loc = WaveDefenseMod.locationManager.getLocation(locationName);
+        Location loc = WaveDefenceMod.locationManager.getLocation(locationName);
         if (loc == null) {
-            endSession(locationName, Component.translatable("wavedefense.msg.all_waves_complete"), true, wm);
+            endSession(locationName, new TranslationTextComponent("wavedefense.msg.all_waves_complete"), true, wm);
             return;
         }
 
@@ -284,8 +286,8 @@ public class SessionManager {
                 if (d.getCurrentLocation() != null && d.getCurrentLocation().getName().equals(locationName)) {
                     loc.addPoints(d.getPlayerUUID(), pts);
                     if (d.getPlayerUUID() != null) {
-                        if (WaveDefenseMod.getServer() == null) { endSession(locationName, Component.translatable("wavedefense.msg.all_waves_complete"), true, wm); return; }
-                        ServerPlayer rp = WaveDefenseMod.getServer().getPlayerList().getPlayer(d.getPlayerUUID());
+                        if (WaveDefenceMod.getServer() == null) { endSession(locationName, new TranslationTextComponent("wavedefense.msg.all_waves_complete"), true, wm); return; }
+                        ServerPlayerEntity rp = WaveDefenceMod.getServer().getPlayerList().getPlayer(d.getPlayerUUID());
                         if (rp != null) wm.syncPlayerData(rp);
                     }
                 }
@@ -296,7 +298,7 @@ public class SessionManager {
         wm.fireLootTriggerByName(locationName, com.wavedefense.data.LootSpawn.Trigger.LOCATION_END);
 
         // ── Leaderboard: record PvE session results ───────────────────────
-        if (WaveDefenseMod.leaderboardManager != null) {
+        if (WaveDefenceMod.leaderboardManager != null) {
             LocationSession sess = ctx.getSession(locationName);
             int wavesCompleted = sess != null ? sess.currentWave : loc.getWaves().size();
             // gameStartMs is set when the lobby ends and wave 1 begins (fix H-5: was using
@@ -309,29 +311,31 @@ public class SessionManager {
                 UUID pid = entry.getKey();
                 int points = loc.getPlayerPoints(pid);
                 String pname = "Unknown";
-                net.minecraft.server.MinecraftServer srv = WaveDefenseMod.getServer();
+                net.minecraft.server.MinecraftServer srv = WaveDefenceMod.getServer();
                 if (srv != null) {
-                    net.minecraft.server.level.ServerPlayer sp = srv.getPlayerList().getPlayer(pid);
+                    net.minecraft.entity.player.ServerPlayerEntity sp = srv.getPlayerList().getPlayer(pid);
                     if (sp != null) pname = sp.getName().getString();
                 }
-                WaveDefenseMod.leaderboardManager.addRecord(locationName,
+                WaveDefenceMod.leaderboardManager.addRecord(locationName,
                     LeaderboardManager.MODE_PVE,
                     new LeaderboardRecord(pid, pname, points, wavesCompleted, durationSec));
             }
-            WaveDefenseMod.leaderboardManager.saveToFile();
+            WaveDefenceMod.leaderboardManager.saveToFile();
         }
 
         if (loc.isVictoryScreenEnabled() && loc.getVictoryLingerTimeSec() > 0) {
             // Відображаємо title "ПЕРЕМОГА" всім гравцям на локації
-            net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket anim =
-                new net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket(20, 60, 40);
-            net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket titlePkt =
-                new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(
-                    Component.translatable("wavedefense.msg.victory"));
-            net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket subPkt =
-                new net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket(
-                    Component.translatable("wavedefense.msg.all_waves_done"));
-            for (ServerPlayer p : wm.getPlayersInLocation(locationName)) {
+            net.minecraft.network.play.server.STitlePacket anim =
+                new net.minecraft.network.play.server.STitlePacket(20, 60, 40);
+            net.minecraft.network.play.server.STitlePacket titlePkt =
+                new net.minecraft.network.play.server.STitlePacket(
+                    net.minecraft.network.play.server.STitlePacket.Type.TITLE,
+                    new TranslationTextComponent("wavedefense.msg.victory"));
+            net.minecraft.network.play.server.STitlePacket subPkt =
+                new net.minecraft.network.play.server.STitlePacket(
+                    net.minecraft.network.play.server.STitlePacket.Type.SUBTITLE,
+                    new TranslationTextComponent("wavedefense.msg.all_waves_done"));
+            for (ServerPlayerEntity p : wm.getPlayersInLocation(locationName)) {
                 p.connection.send(anim);
                 p.connection.send(titlePkt);
                 p.connection.send(subPkt);
@@ -341,14 +345,14 @@ public class SessionManager {
             LocationSession victorySess = ctx.getOrCreateSession(locationName, loc);
             victorySess.victoryLingerTicks = lingerTicks;
             wm.broadcastToLocation(locationName,
-                Component.translatable("wavedefense.msg.victory_closing", loc.getVictoryLingerTimeSec()));
+                new TranslationTextComponent("wavedefense.msg.victory_closing", loc.getVictoryLingerTimeSec()));
          } else {
-            endSession(locationName, Component.translatable("wavedefense.msg.all_waves_complete"), true, wm);
+            endSession(locationName, new TranslationTextComponent("wavedefense.msg.all_waves_complete"), true, wm);
         }
 
         // Notify monitoring system - all waves completed
         try {
-            com.wavedefense.monitor.WaveDefenseMonitor.getInstance().onWaveComplete(locationName, loc.getWaves().size());
+            /* monitor not ported on 1.16.5 */;
         } catch (Exception e) {
             // Monitoring system error - don't break gameplay
         }
@@ -356,22 +360,22 @@ public class SessionManager {
 
     // ── End session ───────────────────────────────────────────────────
 
-    public void endSession(String locationName, Component component, boolean isVictory, WaveManager wm) {
+    public void endSession(String locationName, ITextComponent component, boolean isVictory, WaveManager wm) {
         // Скидаємо oneTimeOnly лічильники для всіх тригерних хвиль цієї локації
-        Location loc0 = WaveDefenseMod.locationManager.getLocation(locationName);
+        Location loc0 = WaveDefenceMod.locationManager.getLocation(locationName);
         if (loc0 != null) {
             for (com.wavedefense.data.WaveConfig wc : loc0.getWaves())
                 if (wc.isOneTimeOnly()) wc.setFiredThisSession(false);
         }
 
         // Зберігаємо лічильник вбитих мобів у постійну статистику локації
-        Location locStats = WaveDefenseMod.locationManager.getLocation(locationName);
+        Location locStats = WaveDefenceMod.locationManager.getLocation(locationName);
         {
             LocationSession endSess = ctx.getSession(locationName);
             int sessionKills = endSess != null ? endSess.mobsKilled : 0;
             if (locStats != null) {
                 locStats.addTotalMobsKilled(sessionKills);
-                WaveDefenseMod.locationManager.saveToFile();
+                WaveDefenceMod.locationManager.saveToFile();
                 wm.debugLog("Location '" + locationName + "': session kills=" + sessionKills
                     + ", total=" + locStats.getTotalMobsKilledAllTime());
             }
@@ -383,7 +387,7 @@ public class SessionManager {
         BlockPos portalReturnPos = endSess2 != null ? endSess2.portalEntryPosition : null;
 
         // Знімаємо знімок поінтів ДО відновлення гравців
-        Location locReward = WaveDefenseMod.locationManager.getLocation(locationName);
+        Location locReward = WaveDefenceMod.locationManager.getLocation(locationName);
         Map<UUID, Integer> pointsSnapshot = new HashMap<>();
         List<UUID> playersToRemove = new ArrayList<>();
         for (Map.Entry<UUID, PlayerWaveData> entry : ctx.playerData.entrySet()) {
@@ -396,22 +400,22 @@ public class SessionManager {
             }
         }
 
-        Location locCd = WaveDefenseMod.locationManager.getLocation(locationName);
+        Location locCd = WaveDefenceMod.locationManager.getLocation(locationName);
         int cdSec = locCd != null ? locCd.getReEntryCooldownSec() : 0;
 
         // H-5 fix: cache server reference once — getServer() may return null during shutdown
-        net.minecraft.server.MinecraftServer _endSrv = WaveDefenseMod.getServer();
+        net.minecraft.server.MinecraftServer _endSrv = WaveDefenceMod.getServer();
 
         // Збираємо онлайн-гравців для очищення тімейт-панелі
-        List<ServerPlayer> onlinePlayers = new ArrayList<>();
+        List<ServerPlayerEntity> onlinePlayers = new ArrayList<>();
         for (UUID pid : playersToRemove) {
-            ServerPlayer sp = _endSrv != null ? _endSrv.getPlayerList().getPlayer(pid) : null;
+            ServerPlayerEntity sp = _endSrv != null ? _endSrv.getPlayerList().getPlayer(pid) : null;
             if (sp != null) onlinePlayers.add(sp);
         }
         wm.clearTeammatesForAll(onlinePlayers);
 
         for (UUID playerId : playersToRemove) {
-            ServerPlayer player = _endSrv != null ? _endSrv.getPlayerList().getPlayer(playerId) : null;
+            ServerPlayerEntity player = _endSrv != null ? _endSrv.getPlayerList().getPlayer(playerId) : null;
             // Встановлюємо КД незалежно від того чи гравець онлайн
             if (cdSec > 0) ctx.reEntryCooldowns.put(playerId, System.currentTimeMillis() + cdSec * 1000L);
             if (player != null) {
@@ -420,7 +424,7 @@ public class SessionManager {
                 PlayerWaveData data = ctx.playerData.remove(playerId);
                 if (data != null) { data.setCurrentLocation(null); }
                 // Точка виходу: окремо для перемоги і здачі, без cross-fallback
-                Location locExit = WaveDefenseMod.locationManager.getLocation(locationName);
+                Location locExit = WaveDefenceMod.locationManager.getLocation(locationName);
                 // isVictory передається явно — не залежимо від вмісту рядка
                 BlockPos exitPos = null;
                 if (locExit != null)
@@ -442,7 +446,7 @@ public class SessionManager {
                     for (com.wavedefense.data.ShopItem reward : locReward.getCompletionRewards()) {
                         if (playerPts >= reward.getBuyPrice()) {
                             for (ItemStack item : reward.getItems()) {
-                                if (!item.isEmpty()) player.getInventory().add(item.copy());
+                                if (!item.isEmpty()) player.inventory.add(item.copy());
                             }
                         }
                     }
@@ -474,21 +478,21 @@ public class SessionManager {
     private void despawnSessionMobs(String locationName) {
         LocationSession sess = ctx.getSession(locationName);
         if (sess == null || sess.spawnedMobs.isEmpty()) return;
-        net.minecraft.server.MinecraftServer srv = WaveDefenseMod.getServer();
+        net.minecraft.server.MinecraftServer srv = WaveDefenceMod.getServer();
         if (srv == null) return;
         int despawned = 0;
         for (UUID uuid : sess.spawnedMobs) {
             // Search all loaded levels — location may be in Nether or End
-            for (net.minecraft.server.level.ServerLevel world : srv.getAllLevels()) {
-                net.minecraft.world.entity.Entity e = world.getEntity(uuid);
+            for (net.minecraft.world.server.ServerWorld world : srv.getAllLevels()) {
+                net.minecraft.entity.Entity e = world.getEntity(uuid);
                 if (e != null) {
-                    e.discard();
+                    e.remove();
                     despawned++;
                     break;
                 }
             }
         }
-        WaveDefenseMod.LOGGER.info("[WaveDefense] Despawned {} mobs for ended session '{}'",
+        WaveDefenceMod.LOGGER.info("[WaveDefense] Despawned {} mobs for ended session '{}'",
             despawned, locationName);
     }
 
@@ -497,15 +501,15 @@ public class SessionManager {
     // ─────────────────────────────────────────────────────────────────
 
     /** Серіалізація стану SessionManager (мінімальна — переважно через WaveContext). */
-    public CompoundTag save() {
-        CompoundTag tag = new CompoundTag();
+    public CompoundNBT save() {
+        CompoundNBT tag = new CompoundNBT();
         // SessionManager не має власних полів, які потребують збереження
         // Усі дані вже збережені через WaveContext
         return tag;
     }
 
     /** Відновлення стану SessionManager. */
-    public void load(CompoundTag tag) {
+    public void load(CompoundNBT tag) {
         // Немає стану для відновлення
     }
 }

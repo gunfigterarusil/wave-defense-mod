@@ -1,13 +1,16 @@
 package com.wavedefense.wave;
 
-import com.wavedefense.WaveDefenseMod;
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.data.*;
 import com.wavedefense.network.packets.SyncPvpStatePacket;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.StringTag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
+import net.minecraft.nbt.StringNBT;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.entity.player.ServerPlayerEntity;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -64,7 +67,7 @@ public class PvpRoundManager {
      * @param teamSpawn fallback spawn (player's team spawn point) — used for TEAM_SPAWN
      * @return the chosen spawn point, or {@code teamSpawn} when no other candidate exists
      */
-    public PvpSpawnPoint pickDmSpawn(Location location, ServerPlayer player, PvpSpawnPoint teamSpawn) {
+    public PvpSpawnPoint pickDmSpawn(Location location, ServerPlayerEntity player, PvpSpawnPoint teamSpawn) {
         if (location == null) return teamSpawn;
         Location.DmSpawnMode mode = location.getDmSpawnMode();
         java.util.List<PvpSpawnPoint> spawns = location.getPvpSpawnPoints();
@@ -78,15 +81,15 @@ public class PvpRoundManager {
 
         // SMART_SPAWN: pick the candidate with the largest minimum-distance to any living enemy.
         // Try up to 10 random candidates; settle on the best so far.
-        java.util.List<ServerPlayer> enemies = new java.util.ArrayList<>();
+        java.util.List<ServerPlayerEntity> enemies = new java.util.ArrayList<>();
         if (player != null) {
             for (PlayerWaveData d : ctx.playerData.values()) {
                 if (d.getPlayerUUID() == null) continue;
                 if (d.getPlayerUUID().equals(player.getUUID())) continue;
                 if (d.getCurrentLocation() == null
                         || !d.getCurrentLocation().getName().equals(location.getName())) continue;
-                ServerPlayer ep = WaveDefenseMod.getServer() == null ? null
-                        : WaveDefenseMod.getServer().getPlayerList().getPlayer(d.getPlayerUUID());
+                ServerPlayerEntity ep = WaveDefenceMod.getServer() == null ? null
+                        : WaveDefenceMod.getServer().getPlayerList().getPlayer(d.getPlayerUUID());
                 if (ep == null || !ep.isAlive()) continue;
                 // In DM, anyone not on my team counts as enemy
                 String myTeam    = location.getPlayerTeam(player.getUUID());
@@ -112,7 +115,7 @@ public class PvpRoundManager {
             PvpSpawnPoint cand = spawns.get(idx);
             if (cand.getPos() == null) continue;
             double minDist = Double.MAX_VALUE;
-            for (ServerPlayer enemy : enemies) {
+            for (ServerPlayerEntity enemy : enemies) {
                 double d = enemy.blockPosition().distSqr(cand.getPos());
                 if (d < minDist) minDist = d;
             }
@@ -131,12 +134,12 @@ public class PvpRoundManager {
      * Додає гравця до PvP локації, призначає команду і ставить у WAITING фазу.
      * Викликається з WaveManager.addPlayerToPvpLocation (public delegation).
      */
-    public void addPlayerToPvpLocation(WaveManager wm, ServerPlayer player,
+    public void addPlayerToPvpLocation(WaveManager wm, ServerPlayerEntity player,
                                        Location location, int spawnIndex) {
         UUID playerId = player.getUUID();
         if (ctx.playerData.containsKey(playerId)) {
             player.displayClientMessage(
-                Component.translatable("wavedefense.msg.already_playing"), false);
+                new TranslationTextComponent("wavedefense.msg.already_playing"), false);
             return;
         }
 
@@ -151,7 +154,7 @@ public class PvpRoundManager {
                  && ph != PvpRoundState.Phase.READY_CHECK
                  && ph != PvpRoundState.Phase.ENDED) {
                     player.displayClientMessage(
-                        Component.translatable("wavedefense.msg.br_match_locked"), false);
+                        new TranslationTextComponent("wavedefense.msg.br_match_locked"), false);
                     return;
                 }
             }
@@ -161,20 +164,20 @@ public class PvpRoundManager {
 
         // ── Примусовий gamemode (якщо увімкнено для локації) ─────────────
         if (location.isEnforceGameMode()) {
-            net.minecraft.world.level.GameType requiredMode =
+            net.minecraft.world.GameType requiredMode =
                 com.wavedefense.config.WaveDefenseConfig.getLocationGameType();
-            if (player.gameMode.getGameModeForPlayer() == net.minecraft.world.level.GameType.CREATIVE
+            if (player.gameMode.getGameModeForPlayer() == net.minecraft.world.GameType.CREATIVE
                 || player.gameMode.getGameModeForPlayer() != requiredMode) {
                 player.setGameMode(requiredMode);
-                player.displayClientMessage(Component.translatable(
+                player.displayClientMessage(new TranslationTextComponent(
                     "wavedefense.msg.gamemode_changed_join_pvp", requiredMode.getName(), location.getName()), true);
             }
         }
 
         if (!location.isKeepInventory()) {
-            player.getInventory().clearContent();
-            for (net.minecraft.world.item.ItemStack item : location.getStartingItems())
-                player.getInventory().add(item.copy());
+            player.inventory.clearContent();
+            for (net.minecraft.item.ItemStack item : location.getStartingItems())
+                player.inventory.add(item.copy());
         }
 
         // Стартові поінти для покупок у магазині
@@ -186,15 +189,15 @@ public class PvpRoundManager {
         // mid-session removing a spawn point. Falls back to 0 with a log warning.
         java.util.List<PvpSpawnPoint> spawns = location.getPvpSpawnPoints();
         if (spawns.isEmpty()) {
-            WaveDefenseMod.LOGGER.warn("[WD] PvP join rejected — location '{}' has no spawn points",
+            WaveDefenceMod.LOGGER.warn("[WD] PvP join rejected — location '{}' has no spawn points",
                 location.getName());
             player.displayClientMessage(
-                Component.translatable("wavedefense.msg.pvp_no_spawn_points"), false);
+                new TranslationTextComponent("wavedefense.msg.pvp_no_spawn_points"), false);
             ctx.playerBackups.remove(playerId);
             return;
         }
         if (spawnIndex < 0 || spawnIndex >= spawns.size()) {
-            WaveDefenseMod.LOGGER.warn(
+            WaveDefenceMod.LOGGER.warn(
                 "[WD] PvP join: spawnIndex {} out of range for '{}' ({} points) — using 0",
                 spawnIndex, location.getName(), spawns.size());
             spawnIndex = 0;
@@ -208,8 +211,8 @@ public class PvpRoundManager {
         // can leave global empty and put items only on a specific team, or vice
         // versa. Inventory was cleared earlier so duplicates aren't a concern.
         if (!location.isKeepInventory() && !spawnPoint.getStartingItems().isEmpty()) {
-            for (net.minecraft.world.item.ItemStack item : spawnPoint.getStartingItems()) {
-                if (item != null && !item.isEmpty()) player.getInventory().add(item.copy());
+            for (net.minecraft.item.ItemStack item : spawnPoint.getStartingItems()) {
+                if (item != null && !item.isEmpty()) player.inventory.add(item.copy());
             }
         }
 
@@ -248,7 +251,7 @@ public class PvpRoundManager {
             // immediately after the BUY phase if nobody scores. Warn loudly.
             if (!location.isDeathmatch() && !location.isBattleRoyale()
                     && !location.isObjectiveMode() && rounds == 1) {
-                WaveDefenseMod.LOGGER.warn(
+                WaveDefenceMod.LOGGER.warn(
                     "[WD/PvP] Location '{}' is Standard mode with totalRounds=1. "
                     + "The match will end after a single round — first draw or kill "
                     + "ends the entire match. Set totalRounds >= 3 for typical play.",
@@ -271,7 +274,7 @@ public class PvpRoundManager {
         // BR: ініціалізуємо кордон
         if (location.isBattleRoyale()) wm.brManager.initLocation(location);
 
-        player.displayClientMessage(Component.translatable(
+        player.displayClientMessage(new TranslationTextComponent(
             "wavedefense.msg.team_assigned", spawnPoint.getTeamName()),
             false);
 
@@ -318,7 +321,7 @@ public class PvpRoundManager {
             LocationSession session = entry.getValue();
             PvpRoundState state = session.pvpState;
             if (state == null) continue;
-            Location location = WaveDefenseMod.locationManager.getLocation(locName);
+            Location location = WaveDefenceMod.locationManager.getLocation(locName);
             if (location == null) continue;
 
             // v0.2.61: READY_CHECK tick — count down timeout; advance when all alive ready
@@ -346,7 +349,7 @@ public class PvpRoundManager {
                         state.setPhase(PvpRoundState.Phase.WAITING);
                         state.clearReadyPlayers();
                         wm.broadcastToLocation(location.getName(),
-                            Component.translatable("wavedefense.msg.pvp_ready_check_failed"));
+                            new TranslationTextComponent("wavedefense.msg.pvp_ready_check_failed"));
                         broadcastPvpSync(wm, location);
                     }
                 }
@@ -360,7 +363,7 @@ public class PvpRoundManager {
                     if (delay > 0) {
                         state.startCountdown(delay);
                         wm.broadcastToLocation(location.getName(),
-                            Component.translatable("wavedefense.msg.pvp_round_starting", delay));
+                            new TranslationTextComponent("wavedefense.msg.pvp_round_starting", delay));
                         broadcastPvpSync(wm, location);
                     } else {
                         startActiveRound(wm, location, state);
@@ -371,7 +374,7 @@ public class PvpRoundManager {
                 state.tickDown();
                 if (state.getTimerTicks() % 20 == 0 && state.getTimerTicks() > 0) {
                     wm.broadcastToLocation(location.getName(),
-                        Component.translatable("wavedefense.msg.pvp_round_countdown",
+                        new TranslationTextComponent("wavedefense.msg.pvp_round_countdown",
                             state.getCurrentRound(), state.getTimerSeconds()));
                     broadcastPvpSync(wm, location);
                 }
@@ -387,7 +390,7 @@ public class PvpRoundManager {
                         state.setPendingWinner(winner);
                         state.startRoundEndDelay(5);
                         wm.broadcastToLocation(location.getName(),
-                            Component.translatable("wavedefense.msg.pvp_team_wins_round", winner));
+                            new TranslationTextComponent("wavedefense.msg.pvp_team_wins_round", winner));
                         broadcastPvpSync(wm, location);
                     } else if (state.getAliveThisRound().isEmpty()) {
                         // X2 fix: covers both Standard mode (previously missed) and BR (H3).
@@ -396,9 +399,9 @@ public class PvpRoundManager {
                         // or the ACTIVE phase runs forever with zero alive players.
                         state.setPendingWinner(null);
                         state.startRoundEndDelay(5);
-                        Component drawMsg = location.isBattleRoyale()
-                            ? Component.translatable("wavedefense.msg.pvp_br_draw")
-                            : Component.translatable("wavedefense.msg.pvp_draw");
+                        net.minecraft.util.text.ITextComponent drawMsg = location.isBattleRoyale()
+                            ? new TranslationTextComponent("wavedefense.msg.pvp_br_draw")
+                            : new TranslationTextComponent("wavedefense.msg.pvp_draw");
                         wm.broadcastToLocation(location.getName(), drawMsg);
                         broadcastPvpSync(wm, location);
                     } else if (location.getPvpRoundTimeLimitSec() > 0
@@ -412,7 +415,7 @@ public class PvpRoundManager {
                             if (secsLeft == 60 || secsLeft == 30 || secsLeft == 10
                                     || (secsLeft <= 5 && secsLeft > 0)) {
                                 wm.broadcastToLocation(location.getName(),
-                                    Component.translatable("wavedefense.msg.pvp_time_left", secsLeft));
+                                    new TranslationTextComponent("wavedefense.msg.pvp_time_left", secsLeft));
                             }
                             broadcastPvpSync(wm, location);
                         }
@@ -423,14 +426,14 @@ public class PvpRoundManager {
                             state.startRoundEndDelay(5);
                             if (timeoutWinner != null) {
                                 wm.broadcastToLocation(location.getName(),
-                                    Component.translatable(
+                                    new TranslationTextComponent(
                                         location.isDeathmatch()
                                             ? "wavedefense.msg.pvp_timeout_dm_winner"
                                             : "wavedefense.msg.pvp_timeout_winner",
                                         timeoutWinner));
                             } else {
                                 wm.broadcastToLocation(location.getName(),
-                                    Component.translatable("wavedefense.msg.pvp_timeout_draw"));
+                                    new TranslationTextComponent("wavedefense.msg.pvp_timeout_draw"));
                             }
                             broadcastPvpSync(wm, location);
                         }
@@ -454,7 +457,7 @@ public class PvpRoundManager {
     //  Public API — event handlers (called from EventHandler / WaveManager)
     // ════════════════════════════════════════════════════════════════════
 
-    public void onPlayerKilledPlayer(WaveManager wm, ServerPlayer killer, ServerPlayer victim) {
+    public void onPlayerKilledPlayer(WaveManager wm, ServerPlayerEntity killer, ServerPlayerEntity victim) {
         PlayerWaveData victimData = ctx.playerData.get(victim.getUUID());
         if (victimData == null || victimData.getCurrentLocation() == null) return;
         Location location = victimData.getCurrentLocation();
@@ -474,14 +477,14 @@ public class PvpRoundManager {
         pvpPenaltyDeducted.add(victim.getUUID());
         location.removePoints(victim.getUUID(), location.getPvpDeathPenalty());
 
-        // Kill streak — use Component args so clients receive a translatable component
+        // Kill streak — use net.minecraft.util.text.ITextComponent args so clients receive a translatable component
         int streak = pvpKillStreaks.merge(killer.getUUID(), 1, Integer::sum);
         pvpKillStreaks.remove(victim.getUUID());
-        net.minecraft.network.chat.Component streakSuffix = streak >= 3
-            ? Component.translatable("wavedefense.msg.pvp_kill_streak", streak)
-            : Component.empty();
+        net.minecraft.util.text.ITextComponent streakSuffix = streak >= 3
+            ? new TranslationTextComponent("wavedefense.msg.pvp_kill_streak", streak)
+            : StringTextComponent.EMPTY;
         killer.displayClientMessage(
-            Component.translatable("wavedefense.msg.pvp_kill",
+            new TranslationTextComponent("wavedefense.msg.pvp_kill",
                 kill, victim.getName(), streakSuffix), true);
 
         if (streak % 3 == 0) {
@@ -501,7 +504,7 @@ public class PvpRoundManager {
             state.recordDmKill(killerTeam);
             roundWinner = state.checkDmWinner();
             wm.broadcastToLocation(location.getName(),
-                Component.translatable("wavedefense.msg.pvp_dm_kill",
+                new TranslationTextComponent("wavedefense.msg.pvp_dm_kill",
                     victim.getName().getString(), killer.getName().getString(),
                     killerTeam,
                     state.getDmTeamKills().getOrDefault(killerTeam, 0),
@@ -512,7 +515,7 @@ public class PvpRoundManager {
             UUID brWinnerUuid = state.checkBrWinner();
             int alive = state.getAliveThisRound().size();
             if (brWinnerUuid != null) {
-                ServerPlayer brWinner = WaveDefenseMod.getServer()
+                ServerPlayerEntity brWinner = WaveDefenceMod.getServer()
                     .getPlayerList().getPlayer(brWinnerUuid);
                 // Player names don't need translation; "unknown" key does
                 roundWinner = brWinner != null ? brWinner.getName().getString() : "?";
@@ -523,13 +526,13 @@ public class PvpRoundManager {
                 state.setPendingWinner(null);
                 state.startRoundEndDelay(5);
                 wm.broadcastToLocation(location.getName(),
-                    Component.translatable("wavedefense.msg.pvp_br_draw"));
+                    new TranslationTextComponent("wavedefense.msg.pvp_br_draw"));
                 broadcastPvpSync(wm, location);
-                for (ServerPlayer p : wm.getPlayersInLocation(location.getName())) wm.syncPlayerData(p);
+                for (ServerPlayerEntity p : wm.getPlayersInLocation(location.getName())) wm.syncPlayerData(p);
                 return; // state machine transition already applied
             }
             wm.broadcastToLocation(location.getName(),
-                Component.translatable("wavedefense.msg.pvp_br_out",
+                new TranslationTextComponent("wavedefense.msg.pvp_br_out",
                     victim.getName(), alive));
         } else {
             roundWinner = state.recordDeath(victim.getUUID(), killer.getUUID());
@@ -539,11 +542,11 @@ public class PvpRoundManager {
          if (roundWinner != null) {
             state.setPendingWinner(roundWinner);
             state.startRoundEndDelay(5);
-            net.minecraft.network.chat.Component winnerComp = "?".equals(roundWinner)
-                ? Component.translatable("wavedefense.msg.pvp_unknown")
-                : Component.literal(roundWinner);
+            net.minecraft.util.text.ITextComponent winnerComp = "?".equals(roundWinner)
+                ? new TranslationTextComponent("wavedefense.msg.pvp_unknown")
+                : new StringTextComponent(roundWinner);
             wm.broadcastToLocation(location.getName(),
-                Component.translatable("wavedefense.msg.pvp_team_wins_round", winnerComp));
+                new TranslationTextComponent("wavedefense.msg.pvp_team_wins_round", winnerComp));
             broadcastPvpSync(wm, location);
          } else {
              updatePvpEnemyCounts(location, state);
@@ -552,15 +555,15 @@ public class PvpRoundManager {
 
         // Notify monitoring system
         try {
-            com.wavedefense.monitor.WaveDefenseMonitor.getInstance().onPvpKill(killer, victim);
+            /* monitor not ported on 1.16.5 */;
         } catch (Exception e) {
             // Monitoring system error - don't break gameplay
         }
 
-        for (ServerPlayer p : wm.getPlayersInLocation(location.getName())) wm.syncPlayerData(p);
+        for (ServerPlayerEntity p : wm.getPlayersInLocation(location.getName())) wm.syncPlayerData(p);
     }
 
-    public void onPvpHit(WaveManager wm, ServerPlayer attacker, ServerPlayer victim) {
+    public void onPvpHit(WaveManager wm, ServerPlayerEntity attacker, ServerPlayerEntity victim) {
         PlayerWaveData data = ctx.playerData.get(victim.getUUID());
         if (data == null || data.getCurrentLocation() == null
             || !data.getCurrentLocation().isPvp()) return;
@@ -569,7 +572,7 @@ public class PvpRoundManager {
         if (state != null) state.recordHit(attacker.getUUID(), victim.getUUID());
     }
 
-    public void onPvpPlayerDeath(WaveManager wm, ServerPlayer player) {
+    public void onPvpPlayerDeath(WaveManager wm, ServerPlayerEntity player) {
         PlayerWaveData data = ctx.playerData.get(player.getUUID());
         if (data == null || data.getCurrentLocation() == null
             || !data.getCurrentLocation().isPvp()) return;
@@ -592,7 +595,7 @@ public class PvpRoundManager {
                     state.setPendingWinner(dmWinner);
                     state.startRoundEndDelay(3);
                     wm.broadcastToLocation(location.getName(),
-                        Component.translatable("wavedefense.msg.pvp_dm_winner",
+                        new TranslationTextComponent("wavedefense.msg.pvp_dm_winner",
                             dmWinner, state.getDmKillsToWin()));
                     broadcastPvpSync(wm, location);
                 } else {
@@ -609,16 +612,16 @@ public class PvpRoundManager {
                 int alive = state.getAliveThisRound().size();
                 UUID brWinnerUuid = state.checkBrWinner();
                 if (brWinnerUuid != null) {
-                    ServerPlayer brWinner = WaveDefenseMod.getServer()
+                    ServerPlayerEntity brWinner = WaveDefenceMod.getServer()
                         .getPlayerList().getPlayer(brWinnerUuid);
                     String winName = brWinner != null ? brWinner.getName().getString() : "?";
                     state.setPendingWinner(winName);
                     state.startRoundEndDelay(5);
-                    net.minecraft.network.chat.Component winComp = "?".equals(winName)
-                        ? Component.translatable("wavedefense.msg.pvp_unknown")
-                        : Component.literal(winName);
+                    net.minecraft.util.text.ITextComponent winComp = "?".equals(winName)
+                        ? new TranslationTextComponent("wavedefense.msg.pvp_unknown")
+                        : new StringTextComponent(winName);
                     wm.broadcastToLocation(location.getName(),
-                        Component.translatable("wavedefense.msg.pvp_last_survivor", winComp));
+                        new TranslationTextComponent("wavedefense.msg.pvp_last_survivor", winComp));
                     broadcastPvpSync(wm, location);
                 } else if (alive == 0) {
                     // H3 fix: last two players died simultaneously via environment —
@@ -626,11 +629,11 @@ public class PvpRoundManager {
                     state.setPendingWinner(null);
                     state.startRoundEndDelay(5);
                     wm.broadcastToLocation(location.getName(),
-                        Component.translatable("wavedefense.msg.pvp_br_draw"));
+                        new TranslationTextComponent("wavedefense.msg.pvp_br_draw"));
                     broadcastPvpSync(wm, location);
                 } else {
                     wm.broadcastToLocation(location.getName(),
-                        Component.translatable("wavedefense.msg.pvp_br_out",
+                        new TranslationTextComponent("wavedefense.msg.pvp_br_out",
                             player.getName(), alive));
                     broadcastPvpSync(wm, location);
                 }
@@ -643,7 +646,7 @@ public class PvpRoundManager {
                     state.setPendingWinner(roundWinner);
                     state.startRoundEndDelay(5);
                     wm.broadcastToLocation(location.getName(),
-                        Component.translatable("wavedefense.msg.pvp_team_wins_round", roundWinner));
+                        new TranslationTextComponent("wavedefense.msg.pvp_team_wins_round", roundWinner));
                     broadcastPvpSync(wm, location);
                 } else {
                     updatePvpEnemyCounts(location, state);
@@ -653,7 +656,7 @@ public class PvpRoundManager {
         }
     }
 
-    public boolean canPvpAttack(ServerPlayer attacker, ServerPlayer target) {
+    public boolean canPvpAttack(ServerPlayerEntity attacker, ServerPlayerEntity target) {
         PlayerWaveData data = ctx.playerData.get(attacker.getUUID());
         if (data == null || data.getCurrentLocation() == null) return true;
         Location location = data.getCurrentLocation();
@@ -676,9 +679,9 @@ public class PvpRoundManager {
     void onPlayerLeave(WaveManager wm, UUID playerId, Location locRef, String locName) {
         pvpPendingRespawn.remove(playerId);
         // Remove player from scoreboard team on leave
-        net.minecraft.server.MinecraftServer srv = WaveDefenseMod.getServer();
+        net.minecraft.server.MinecraftServer srv = WaveDefenceMod.getServer();
         if (srv != null) {
-            ServerPlayer leavingPlayer = srv.getPlayerList().getPlayer(playerId);
+            ServerPlayerEntity leavingPlayer = srv.getPlayerList().getPlayer(playerId);
             if (leavingPlayer != null) {
                 removeFromScoreboardTeam(leavingPlayer);
                 // M-1 fix: clear the CtP/KotH HUD overlay for the player who just left.
@@ -705,7 +708,7 @@ public class PvpRoundManager {
                 state.setPendingWinner(winner);
                 state.startRoundEndDelay(5);
                 wm.broadcastToLocation(locRef.getName(),
-                    Component.translatable("wavedefense.msg.pvp_team_wins_round", winner));
+                    new TranslationTextComponent("wavedefense.msg.pvp_team_wins_round", winner));
                 broadcastPvpSync(wm, locRef);
             } else {
                 updatePvpEnemyCounts(locRef, state);
@@ -758,8 +761,8 @@ public class PvpRoundManager {
         if (bigCount - smallCount < 2) return;
 
         UUID toMove = teamPlayers.get(bigTeam).get(0);
-        if (WaveDefenseMod.getServer() == null) return;
-        ServerPlayer sp = WaveDefenseMod.getServer().getPlayerList().getPlayer(toMove);
+        if (WaveDefenceMod.getServer() == null) return;
+        ServerPlayerEntity sp = WaveDefenceMod.getServer().getPlayerList().getPlayer(toMove);
         if (sp == null) return;
 
         PvpSpawnPoint newSpawn = null;
@@ -780,7 +783,7 @@ public class PvpRoundManager {
         removeFromScoreboardTeam(sp);
         assignScoreboardTeam(sp, location.getName(), finalSmallTeam);
         wm.teleportToSpawnPoint(sp, newSpawn);
-        sp.displayClientMessage(Component.translatable(
+        sp.displayClientMessage(new TranslationTextComponent(
             "wavedefense.msg.team_rebalanced", finalSmallTeam), false);
     }
 
@@ -842,7 +845,7 @@ public class PvpRoundManager {
             int timeoutSec = location.getPvpReadyCheckTimeoutSec();
             state.startReadyCheck(timeoutSec);
             wm.broadcastToLocation(location.getName(),
-                Component.translatable("wavedefense.msg.pvp_ready_check_started", timeoutSec));
+                new TranslationTextComponent("wavedefense.msg.pvp_ready_check_started", timeoutSec));
             return;
         }
         // ── Legacy direct-start kept as helper, called only when ready-check
@@ -862,7 +865,7 @@ public class PvpRoundManager {
         if (s == null || s.pvpState == null) return;
         if (s.pvpState.getPhase() != PvpRoundState.Phase.READY_CHECK) return;
         s.pvpState.markPlayerReady(playerId);
-        Location location = WaveDefenseMod.locationManager.getLocation(locationName);
+        Location location = WaveDefenceMod.locationManager.getLocation(locationName);
         if (location != null) broadcastPvpSync(wm, location);
     }
 
@@ -873,7 +876,7 @@ public class PvpRoundManager {
         if (s == null || s.pvpState == null) return;
         if (s.pvpState.getPhase() != PvpRoundState.Phase.READY_CHECK) return;
         s.pvpState.unmarkPlayerReady(playerId);
-        Location location = WaveDefenseMod.locationManager.getLocation(locationName);
+        Location location = WaveDefenceMod.locationManager.getLocation(locationName);
         if (location != null) broadcastPvpSync(wm, location);
     }
 
@@ -882,7 +885,7 @@ public class PvpRoundManager {
     public boolean forceEndPvpLocation(WaveManager wm, String locationName) {
         LocationSession s = ctx.sessions.get(locationName);
         if (s == null || s.pvpState == null) return false;
-        Location location = WaveDefenseMod.locationManager.getLocation(locationName);
+        Location location = WaveDefenceMod.locationManager.getLocation(locationName);
         if (location != null) endPvpMatch(wm, location, s.pvpState);
         return true;
     }
@@ -934,7 +937,7 @@ public class PvpRoundManager {
         LocationSession s = ctx.sessions.get(locationName);
         if (s == null || s.pvpState == null) return;
         if (s.pvpState.getPhase() != PvpRoundState.Phase.READY_CHECK) return;
-        Location location = WaveDefenseMod.locationManager.getLocation(locationName);
+        Location location = WaveDefenceMod.locationManager.getLocation(locationName);
         if (location == null) return;
         long inLoc = ctx.playerData.values().stream()
             .filter(d -> d.getCurrentLocation() != null
@@ -954,9 +957,9 @@ public class PvpRoundManager {
                 int delay = location.getPvpRoundStartDelay();
                 if (delay > 0) {
                     state.startCountdown(delay);
-                    Component msg = location.isBattleRoyale()
-                        ? Component.translatable("wavedefense.msg.pvp_br_starting", delay)
-                        : Component.translatable("wavedefense.msg.pvp_dm_starting", delay);
+                    net.minecraft.util.text.ITextComponent msg = location.isBattleRoyale()
+                        ? new TranslationTextComponent("wavedefense.msg.pvp_br_starting", delay)
+                        : new TranslationTextComponent("wavedefense.msg.pvp_dm_starting", delay);
                     wm.broadcastToLocation(location.getName(), msg);
                 } else {
                     startActiveRound(wm, location, state);
@@ -964,7 +967,7 @@ public class PvpRoundManager {
             } else {
                 state.startBuyPhase();
                 wm.broadcastToLocation(location.getName(),
-                    Component.translatable("wavedefense.msg.pvp_enough_players",
+                    new TranslationTextComponent("wavedefense.msg.pvp_enough_players",
                         location.getPvpBuyTime()));
             }
             broadcastPvpSync(wm, location);
@@ -991,12 +994,12 @@ public class PvpRoundManager {
             java.util.Set<String> teamsPresent = new java.util.HashSet<>();
             for (UUID pid : allInLoc) {
                 String t = location.getPlayerTeam(pid);
-                if (t != null && !t.isBlank()) teamsPresent.add(t);
+                if (t != null && !t.trim().isEmpty()) teamsPresent.add(t);
             }
             if (teamsPresent.size() < 2) {
                 wm.broadcastToLocation(location.getName(),
-                    Component.translatable("wavedefense.msg.pvp_insufficient_teams"));
-                WaveDefenseMod.LOGGER.warn(
+                    new TranslationTextComponent("wavedefense.msg.pvp_insufficient_teams"));
+                WaveDefenceMod.LOGGER.warn(
                     "[WD] Round at '{}' starts with only {} team(s) — checkRoundWinner() will be inert until opponents join",
                     location.getName(), teamsPresent.size());
             }
@@ -1007,7 +1010,7 @@ public class PvpRoundManager {
             if (location.getCapturePoints().isEmpty()) {
                 // H-2 fix: no capture points configured → abort immediately with a warning
                 wm.broadcastToLocation(location.getName(),
-                    Component.translatable("wavedefense.msg.ctp_no_points"));
+                    new TranslationTextComponent("wavedefense.msg.ctp_no_points"));
                 state.setPendingWinner(null);
                 state.startRoundEndDelay(3);
                 return;
@@ -1016,7 +1019,7 @@ public class PvpRoundManager {
         }
 
         for (UUID pid : allInLoc) {
-            ServerPlayer p = WaveDefenseMod.getServer().getPlayerList().getPlayer(pid);
+            ServerPlayerEntity p = WaveDefenceMod.getServer().getPlayerList().getPlayer(pid);
             if (p == null) continue;
             wm.removeWaitEffects(p);
             wm.setSpectator(p, false);
@@ -1034,7 +1037,7 @@ public class PvpRoundManager {
             if (chosen != null) wm.teleportToSpawnPoint(p, chosen);
             if (location.getPvpRoundStartPoints() > 0) {
                 location.addPoints(pid, location.getPvpRoundStartPoints());
-                p.displayClientMessage(Component.translatable(
+                p.displayClientMessage(new TranslationTextComponent(
                     "wavedefense.msg.pvp_round_start_points",
                     location.getPvpRoundStartPoints()), true);
             }
@@ -1053,11 +1056,11 @@ public class PvpRoundManager {
         // DM redesign: no round concept in DM — broadcast a single "match started" message.
         if (location.isDeathmatch()) {
             wm.broadcastToLocation(location.getName(),
-                Component.translatable("wavedefense.msg.pvp_dm_match_started",
+                new TranslationTextComponent("wavedefense.msg.pvp_dm_match_started",
                     state.getDmKillsToWin()));
         } else {
             wm.broadcastToLocation(location.getName(),
-                Component.translatable("wavedefense.msg.pvp_round_started",
+                new TranslationTextComponent("wavedefense.msg.pvp_round_started",
                     state.getCurrentRound(), state.getTotalRounds()));
         }
         broadcastPvpSync(wm, location);
@@ -1066,7 +1069,7 @@ public class PvpRoundManager {
     void endRound(WaveManager wm, Location location, PvpRoundState state, String winnerTeam) {
         // winnerTeam == null means the round ended in a draw (H3 / H4 fix).
         // recordTeamWin() is null-safe and won't record anything for draws.
-        WaveDefenseMod.LOGGER.info(
+        WaveDefenceMod.LOGGER.info(
             "[WD/PvP] endRound @ '{}' — round {}/{}, winner={}, teamWins={}",
             location.getName(), state.getCurrentRound(), state.getTotalRounds(),
             winnerTeam == null ? "(draw)" : winnerTeam, state.getTeamWins());
@@ -1076,12 +1079,12 @@ public class PvpRoundManager {
 
         if (winnerTeam != null) {
             wm.broadcastToLocation(location.getName(),
-                Component.translatable("wavedefense.msg.pvp_round_won",
+                new TranslationTextComponent("wavedefense.msg.pvp_round_won",
                     winnerTeam, formatTeamWins(state)));
         } else {
             // Draw — already broadcast in the caller, but ensure team-wins summary is shown
             wm.broadcastToLocation(location.getName(),
-                Component.translatable("wavedefense.msg.pvp_br_draw"));
+                new TranslationTextComponent("wavedefense.msg.pvp_br_draw"));
         }
 
         // Per-round point rewards — only meaningful when there's an actual winner
@@ -1090,15 +1093,15 @@ public class PvpRoundManager {
                 if (e.getValue().getCurrentLocation() == null
                     || !e.getValue().getCurrentLocation().getName().equals(location.getName())) continue;
                 String team = location.getPlayerTeam(e.getKey());
-                ServerPlayer p = WaveDefenseMod.getServer().getPlayerList().getPlayer(e.getKey());
+                ServerPlayerEntity p = WaveDefenceMod.getServer().getPlayerList().getPlayer(e.getKey());
                 if (team == null) continue;
                 if (team.equals(winnerTeam) && location.getPvpWinPoints() > 0) {
                     location.addPoints(e.getKey(), location.getPvpWinPoints());
-                    if (p != null) p.displayClientMessage(Component.translatable(
+                    if (p != null) p.displayClientMessage(new TranslationTextComponent(
                         "wavedefense.msg.pvp_win_points", location.getPvpWinPoints()), true);
                 } else if (!team.equals(winnerTeam) && location.getPvpLosePoints() > 0) {
                     location.addPoints(e.getKey(), location.getPvpLosePoints());
-                    if (p != null) p.displayClientMessage(Component.translatable(
+                    if (p != null) p.displayClientMessage(new TranslationTextComponent(
                         "wavedefense.msg.pvp_lose_points", location.getPvpLosePoints()), true);
                 }
             }
@@ -1114,7 +1117,7 @@ public class PvpRoundManager {
 
         // Наступний BUY раунд
         state.startBuyPhase();
-        for (ServerPlayer p : wm.getPlayersInLocation(location.getName())) {
+        for (ServerPlayerEntity p : wm.getPlayersInLocation(location.getName())) {
             p.setHealth(p.getMaxHealth());
             p.getFoodData().setFoodLevel(20);
             wm.setSpectator(p, false);
@@ -1133,7 +1136,7 @@ public class PvpRoundManager {
         }
         wm.fireLootTriggerByName(location.getName(), LootSpawn.Trigger.BUY_PHASE);
         wm.broadcastToLocation(location.getName(),
-            Component.translatable("wavedefense.msg.pvp_buy_phase_start",
+            new TranslationTextComponent("wavedefense.msg.pvp_buy_phase_start",
                 location.getPvpBuyTime(), state.getCurrentRound()));
         broadcastPvpSync(wm, location);
     }
@@ -1150,13 +1153,13 @@ public class PvpRoundManager {
         state.setPendingWinner(winnerTeam);
         state.startRoundEndDelay(5);
         if (winnerTeam != null) {
-            Component msg = timerEnd
-                ? Component.translatable("wavedefense.msg.ctp_timer_wins", winnerTeam)
-                : Component.translatable("wavedefense.msg.ctp_wins", winnerTeam);
+            net.minecraft.util.text.ITextComponent msg = timerEnd
+                ? new TranslationTextComponent("wavedefense.msg.ctp_timer_wins", winnerTeam)
+                : new TranslationTextComponent("wavedefense.msg.ctp_wins", winnerTeam);
             wm.broadcastToLocation(location.getName(), msg);
         } else {
             wm.broadcastToLocation(location.getName(),
-                Component.translatable("wavedefense.msg.pvp_br_draw"));
+                new TranslationTextComponent("wavedefense.msg.pvp_br_draw"));
         }
         broadcastPvpSync(wm, location);
     }
@@ -1166,7 +1169,7 @@ public class PvpRoundManager {
         // exits ("we just joined, BUY ended, suddenly we're out" complaints).
         String reason = location.isDeathmatch() ? "DM kill target reached"
             : "all rounds played (" + state.getCurrentRound() + "/" + state.getTotalRounds() + ")";
-        WaveDefenseMod.LOGGER.info(
+        WaveDefenceMod.LOGGER.info(
             "[WD/PvP] endPvpMatch @ '{}' — reason: {} — teamWins={}",
             location.getName(), reason, state.getTeamWins());
         state.setPhase(PvpRoundState.Phase.ENDED);
@@ -1179,17 +1182,17 @@ public class PvpRoundManager {
         String champion = isDraw ? null
             : state.getTeamWins().entrySet().stream()
                 .max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse(null);
-        // Pass Component as arg so clients render pvp_nobody in their own language
-        net.minecraft.network.chat.Component championComp = champion != null
-            ? net.minecraft.network.chat.Component.literal(champion)
-            : Component.translatable("wavedefense.msg.pvp_nobody");
+        // Pass net.minecraft.util.text.ITextComponent as arg so clients render pvp_nobody in their own language
+        net.minecraft.util.text.ITextComponent championComp = champion != null
+            ? new net.minecraft.util.text.StringTextComponent(champion)
+            : new TranslationTextComponent("wavedefense.msg.pvp_nobody");
 
         if (isDraw) {
             wm.broadcastToLocation(location.getName(),
-                Component.translatable("wavedefense.msg.pvp_draw"));
+                new TranslationTextComponent("wavedefense.msg.pvp_draw"));
         }
         wm.broadcastToLocation(location.getName(),
-            Component.translatable("wavedefense.msg.pvp_match_ended", championComp));
+            new TranslationTextComponent("wavedefense.msg.pvp_match_ended", championComp));
         wm.fireLootTriggerByName(location.getName(), LootSpawn.Trigger.MATCH_END);
         broadcastPvpSync(wm, location);
 
@@ -1200,7 +1203,7 @@ public class PvpRoundManager {
                     "", new java.util.LinkedHashMap<>(), new java.util.LinkedHashMap<>(),
                     new java.util.LinkedHashMap<>(), new java.util.LinkedHashMap<>(),
                     new java.util.LinkedHashMap<>(), 0, 0);
-            for (ServerPlayer p : wm.getPlayersInLocation(location.getName())) {
+            for (ServerPlayerEntity p : wm.getPlayersInLocation(location.getName())) {
                 com.wavedefense.network.PacketHandler.sendToPlayer(p, clearPkt);
             }
         }
@@ -1230,7 +1233,7 @@ public class PvpRoundManager {
                     champion == null ? "" : champion,
                     rowList,
                     new java.util.LinkedHashMap<>(state.getTeamWins()));
-            for (ServerPlayer p : wm.getPlayersInLocation(location.getName())) {
+            for (ServerPlayerEntity p : wm.getPlayersInLocation(location.getName())) {
                 com.wavedefense.network.PacketHandler.sendToPlayer(p, pkt);
             }
         }
@@ -1241,25 +1244,25 @@ public class PvpRoundManager {
         List<UUID> toRemove = new ArrayList<>(ctx.playerData.entrySet().stream()
             .filter(e -> e.getValue().getCurrentLocation() != null
                 && e.getValue().getCurrentLocation().getName().equals(location.getName()))
-            .map(Map.Entry::getKey).toList());
+            .map(Map.Entry::getKey).collect(java.util.stream.Collectors.toList()));
 
-        net.minecraft.core.BlockPos victoryExit   = location.getVictoryExitPos();
-        net.minecraft.core.BlockPos surrenderExit = location.getSurrenderExitPos();
+        net.minecraft.util.math.BlockPos victoryExit   = location.getVictoryExitPos();
+        net.minecraft.util.math.BlockPos surrenderExit = location.getSurrenderExitPos();
 
         for (UUID pid : toRemove) {
-            ServerPlayer p = WaveDefenseMod.getServer() != null
-                ? WaveDefenseMod.getServer().getPlayerList().getPlayer(pid) : null;
+            ServerPlayerEntity p = WaveDefenceMod.getServer() != null
+                ? WaveDefenceMod.getServer().getPlayerList().getPlayer(pid) : null;
             pvpPendingRespawn.remove(pid);
             if (p != null) {
                 removeFromScoreboardTeam(p);
                 wm.removeWaitEffects(p);
-                if (p.gameMode.getGameModeForPlayer() == net.minecraft.world.level.GameType.SPECTATOR) {
-                    p.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+                if (p.gameMode.getGameModeForPlayer() == net.minecraft.world.GameType.SPECTATOR) {
+                    p.setGameMode(net.minecraft.world.GameType.SURVIVAL);
                 }
                 PlayerBackup backup = ctx.playerBackups.remove(pid);
                 if (backup != null) backup.restore(p);
                 String team = location.getPlayerTeam(pid);
-                net.minecraft.core.BlockPos exitPos =
+                net.minecraft.util.math.BlockPos exitPos =
                     (team != null && team.equals(winTeam) && victoryExit != null) ? victoryExit
                     : (surrenderExit != null) ? surrenderExit : null;
                 if (exitPos != null) {
@@ -1278,14 +1281,15 @@ public class PvpRoundManager {
         cleanupScoreboardTeams(location.getName());
 
         // ── Leaderboard: record top player per match ──────────────────────
-        if (WaveDefenseMod.leaderboardManager != null) {
-            String modeKey = switch (location.getPvpMode()) {
-                case DEATHMATCH      -> com.wavedefense.data.LeaderboardManager.MODE_DEATHMATCH;
-                case BATTLE_ROYALE   -> com.wavedefense.data.LeaderboardManager.MODE_BATTLE_ROYALE;
-                case CAPTURE_THE_POINT -> com.wavedefense.data.LeaderboardManager.MODE_CTP;
-                case KING_OF_THE_HILL  -> com.wavedefense.data.LeaderboardManager.MODE_KOTH;
-                default              -> com.wavedefense.data.LeaderboardManager.MODE_STANDARD;
-            };
+        if (WaveDefenceMod.leaderboardManager != null) {
+            String modeKey;
+            switch (location.getPvpMode()) {
+                case DEATHMATCH:        modeKey = com.wavedefense.data.LeaderboardManager.MODE_DEATHMATCH; break;
+                case BATTLE_ROYALE:     modeKey = com.wavedefense.data.LeaderboardManager.MODE_BATTLE_ROYALE; break;
+                case CAPTURE_THE_POINT: modeKey = com.wavedefense.data.LeaderboardManager.MODE_CTP; break;
+                case KING_OF_THE_HILL:  modeKey = com.wavedefense.data.LeaderboardManager.MODE_KOTH; break;
+                default:                modeKey = com.wavedefense.data.LeaderboardManager.MODE_STANDARD;
+            }
             // C-1 fix: matchStartMs is recorded in PvpRoundState.startActiveRound()
             long matchStartMs = state.getMatchStartMs();
             int matchDurationSec = matchStartMs > 0
@@ -1300,9 +1304,9 @@ public class PvpRoundManager {
                     new com.wavedefense.data.LeaderboardRecord(
                         e.getKey(), ps.getPlayerName(), primary, secondary,
                         matchDurationSec);
-                WaveDefenseMod.leaderboardManager.addRecord(location.getName(), modeKey, rec);
+                WaveDefenceMod.leaderboardManager.addRecord(location.getName(), modeKey, rec);
             }
-            WaveDefenseMod.leaderboardManager.saveToFile();
+            WaveDefenceMod.leaderboardManager.saveToFile();
         }
     }
 
@@ -1349,14 +1353,14 @@ public class PvpRoundManager {
             PvpPlayerStats ps = state.getStats(rid);
             if (ps != null) readyNames.add(ps.getPlayerName());
         }
-        for (ServerPlayer p : wm.getPlayersInLocation(location.getName())) {
+        for (ServerPlayerEntity p : wm.getPlayersInLocation(location.getName())) {
             String myTeam = location.getPlayerTeam(p.getUUID());
-            net.minecraft.nbt.CompoundTag tag = SyncPvpStatePacket.build(
+            net.minecraft.nbt.CompoundNBT tag = SyncPvpStatePacket.build(
                 location.getName(), state.getPhase().name(),
                 state.getCurrentRound(), state.getTotalRounds(), state.getTimerSeconds(),
                 state.getTeamWins(), entries, myTeam, readyNames);
-            WaveDefenseMod.packetHandler.send(
-                net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> p),
+            com.wavedefense.network.PacketHandler.INSTANCE.send(
+                net.minecraftforge.fml.network.PacketDistributor.PLAYER.with(() -> p),
                 new SyncPvpStatePacket(tag));
         }
     }
@@ -1376,19 +1380,19 @@ public class PvpRoundManager {
      * Assigns the player to a Minecraft Scoreboard team so the server hides
      * their nameplate from players on other teams.
      */
-    private void assignScoreboardTeam(ServerPlayer player, String locationName, String teamName) {
-        net.minecraft.server.MinecraftServer server = WaveDefenseMod.getServer();
+    private void assignScoreboardTeam(ServerPlayerEntity player, String locationName, String teamName) {
+        net.minecraft.server.MinecraftServer server = WaveDefenceMod.getServer();
         if (server == null) return;
         try {
-            net.minecraft.world.scores.Scoreboard sb = server.getScoreboard();
+            net.minecraft.scoreboard.Scoreboard sb = server.getScoreboard();
             String sbId = WD_TEAM_PREFIX + locationName + "_" + teamName;
-            net.minecraft.world.scores.PlayerTeam sbTeam = sb.getPlayerTeam(sbId);
+            net.minecraft.scoreboard.ScorePlayerTeam sbTeam = sb.getPlayerTeam(sbId);
             if (sbTeam == null) {
                 sbTeam = sb.addPlayerTeam(sbId);
-                sbTeam.setNameTagVisibility(net.minecraft.world.scores.Team.Visibility.HIDE_FOR_OTHER_TEAMS);
+                sbTeam.setNameTagVisibility(net.minecraft.scoreboard.Team.Visible.HIDE_FOR_OTHER_TEAMS);
             }
             // Remove from any previous WD team first
-            net.minecraft.world.scores.PlayerTeam current = sb.getPlayersTeam(player.getScoreboardName());
+            net.minecraft.scoreboard.ScorePlayerTeam current = sb.getPlayersTeam(player.getScoreboardName());
             if (current != null) sb.removePlayerFromTeam(player.getScoreboardName(), current);
             sb.addPlayerToTeam(player.getScoreboardName(), sbTeam);
         } catch (Exception ignored) {}
@@ -1398,12 +1402,12 @@ public class PvpRoundManager {
      * Removes the player from their current Scoreboard team (only if it was
      * assigned by Wave Defense, i.e. starts with the WD prefix).
      */
-    private void removeFromScoreboardTeam(ServerPlayer player) {
-        net.minecraft.server.MinecraftServer server = WaveDefenseMod.getServer();
+    private void removeFromScoreboardTeam(ServerPlayerEntity player) {
+        net.minecraft.server.MinecraftServer server = WaveDefenceMod.getServer();
         if (server == null) return;
         try {
-            net.minecraft.world.scores.Scoreboard sb = server.getScoreboard();
-            net.minecraft.world.scores.PlayerTeam current = sb.getPlayersTeam(player.getScoreboardName());
+            net.minecraft.scoreboard.Scoreboard sb = server.getScoreboard();
+            net.minecraft.scoreboard.ScorePlayerTeam current = sb.getPlayersTeam(player.getScoreboardName());
             if (current != null && current.getName().startsWith(WD_TEAM_PREFIX)) {
                 sb.removePlayerFromTeam(player.getScoreboardName(), current);
             }
@@ -1415,10 +1419,10 @@ public class PvpRoundManager {
      * to keep the Scoreboard clean).
      */
     private void cleanupScoreboardTeams(String locationName) {
-        net.minecraft.server.MinecraftServer server = WaveDefenseMod.getServer();
+        net.minecraft.server.MinecraftServer server = WaveDefenceMod.getServer();
         if (server == null) return;
         try {
-            net.minecraft.world.scores.Scoreboard sb = server.getScoreboard();
+            net.minecraft.scoreboard.Scoreboard sb = server.getScoreboard();
             String prefix = WD_TEAM_PREFIX + locationName + "_";
             new java.util.ArrayList<>(sb.getPlayerTeams()).stream()
                 .filter(t -> t.getName().startsWith(prefix))
@@ -1431,16 +1435,16 @@ public class PvpRoundManager {
     // ─────────────────────────────────────────────────────────────────
 
     /** Серіалізація стану PvP-менеджера. */
-    public CompoundTag save() {
-        CompoundTag tag = new CompoundTag();
+    public CompoundNBT save() {
+        CompoundNBT tag = new CompoundNBT();
         // Pending respawns
-        ListTag pendingList = new ListTag();
+        ListNBT pendingList = new ListNBT();
         for (UUID uuid : pvpPendingRespawn) {
-            pendingList.add(StringTag.valueOf(uuid.toString()));
+            pendingList.add(StringNBT.valueOf(uuid.toString()));
         }
         tag.put("pvpPendingRespawn", pendingList);
         // Kill streaks
-        CompoundTag streaksTag = new CompoundTag();
+        CompoundNBT streaksTag = new CompoundNBT();
         for (Map.Entry<UUID, Integer> entry : pvpKillStreaks.entrySet()) {
             streaksTag.putInt(entry.getKey().toString(), entry.getValue());
         }
@@ -1449,17 +1453,17 @@ public class PvpRoundManager {
     }
 
     /** Відновлення стану PvP-менеджера. */
-    public void load(CompoundTag tag) {
+    public void load(CompoundNBT tag) {
         pvpPendingRespawn.clear();
         pvpKillStreaks.clear();
         if (tag.contains("pvpPendingRespawn")) {
-            ListTag pendingList = tag.getList("pvpPendingRespawn", 8);
+            ListNBT pendingList = tag.getList("pvpPendingRespawn", 8);
             for (int i = 0; i < pendingList.size(); i++) {
                 pvpPendingRespawn.add(UUID.fromString(pendingList.getString(i)));
             }
         }
         if (tag.contains("pvpKillStreaks")) {
-            CompoundTag streaksTag = tag.getCompound("pvpKillStreaks");
+            CompoundNBT streaksTag = tag.getCompound("pvpKillStreaks");
             for (String key : streaksTag.getAllKeys()) {
                 pvpKillStreaks.put(UUID.fromString(key), streaksTag.getInt(key));
             }

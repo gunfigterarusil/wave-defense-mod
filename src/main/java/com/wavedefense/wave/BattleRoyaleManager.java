@@ -1,18 +1,19 @@
 package com.wavedefense.wave;
 
-import com.wavedefense.WaveDefenseMod;
+import net.minecraft.util.text.TranslationTextComponent;
+
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.wave.WaveManager;
 import com.wavedefense.wave.PlayerWaveData;
 import com.wavedefense.data.Location;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleOptions;
-import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.particles.IParticleData;
+import net.minecraft.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.world.server.ServerWorld;
+import net.minecraft.entity.player.ServerPlayerEntity;
 
 import java.util.*;
 
@@ -64,19 +65,19 @@ public class BattleRoyaleManager {
      * Оновлює кордон, відображає частинки, наносить шкоду.
      */
     public void tick(WaveManager wm) {
-        if (WaveDefenseMod.getServer() == null) return;
+        if (WaveDefenceMod.getServer() == null) return;
 
         for (Map.Entry<String, Integer> entry : new HashMap<>(currentRadius).entrySet()) {
             String locName  = entry.getKey();
             int    radius   = entry.getValue();
-            Location loc = WaveDefenseMod.locationManager.getLocation(locName);
+            Location loc = WaveDefenceMod.locationManager.getLocation(locName);
             if (loc == null || !loc.isBattleRoyale()) { clearLocation(locName); continue; }
 
             // Перевіряємо чи є активні гравці
-            List<ServerPlayer> players = wm.getPlayersInLocation(locName);
+            List<ServerPlayerEntity> players = wm.getPlayersInLocation(locName);
             if (players.isEmpty()) continue;
 
-            ServerLevel world = players.get(0).serverLevel();
+            ServerWorld world = ((net.minecraft.world.server.ServerWorld) players.get(0).level);
             BlockPos center = loc.getPlayerSpawn();
             if (center == null) continue;
 
@@ -87,7 +88,7 @@ public class BattleRoyaleManager {
                 initialWaitTicker.put(locName, initWait);
                 if (initWait == 0) {
                     wm.broadcastToLocation(locName,
-                        Component.translatable("wavedefense.msg.br_border_starts"));
+                        new TranslationTextComponent("wavedefense.msg.br_border_starts"));
                 }
                 // Still spawn particles + apply damage even during initial wait
             } else {
@@ -103,11 +104,11 @@ public class BattleRoyaleManager {
                     // Broadcast when crossing thresholds (every 10 blocks or near final)
                     if (newRadius % 10 == 0 || newRadius <= 20 || newRadius == finalR) {
                         wm.broadcastToLocation(locName,
-                            Component.translatable("wavedefense.auto.border_narrowed_radius_value_7b82d92e", newRadius + " §cblocks"));
+                            new TranslationTextComponent("wavedefense.auto.border_narrowed_radius_value_7b82d92e", newRadius + " §cblocks"));
                     }
                     if (newRadius == finalR) {
                         wm.broadcastToLocation(locName,
-                            Component.translatable("wavedefense.msg.br_border_final", finalR));
+                            new TranslationTextComponent("wavedefense.msg.br_border_final", finalR));
                     }
                     radius = newRadius;
                 } else {
@@ -124,12 +125,12 @@ public class BattleRoyaleManager {
             // Damage applies only once initialWaitTicker has counted down to 0.
             boolean shrinkActive = initialWaitTicker.getOrDefault(locName, 0) <= 0;
             if (shrinkActive && loc.isBrBorderDamage() && loc.getBrBorderDamageAmt() > 0) {
-                for (ServerPlayer p : players) {
+                for (ServerPlayerEntity p : players) {
                     double dist = Math.sqrt(p.blockPosition().distSqr(center));
                     if (dist > radius) {
-                        p.hurt(p.damageSources().magic(), loc.getBrBorderDamageAmt());
+                        p.hurt(net.minecraft.util.DamageSource.MAGIC, loc.getBrBorderDamageAmt());
                         p.displayClientMessage(
-                            Component.translatable("wavedefense.msg.outside_zone", loc.getBrBorderDamageAmt()), true);
+                            new TranslationTextComponent("wavedefense.msg.outside_zone", loc.getBrBorderDamageAmt()), true);
                     }
                 }
             }
@@ -138,8 +139,8 @@ public class BattleRoyaleManager {
 
     // ── Приватні методи ──────────────────────────────────────────────────
 
-    private void spawnBorderParticles(ServerLevel world, BlockPos center, int radius, Location loc) {
-        ParticleOptions particle = resolveParticle(loc.getBrBorderParticle());
+    private void spawnBorderParticles(ServerWorld world, BlockPos center, int radius, Location loc) {
+        net.minecraft.particles.IParticleData particle = resolveParticle(loc.getBrBorderParticle());
         int count = loc.getBrBorderParticleCount();
         // Відображаємо кільце частинок по периметру (кожні 3 блоки по окружності)
         int steps = Math.max(8, (int)(2 * Math.PI * radius / 3));
@@ -156,28 +157,28 @@ public class BattleRoyaleManager {
         }
     }
 
-    private static ParticleOptions resolveParticle(String id) {
-        if (id == null || id.isBlank()) return ParticleTypes.FLAME;
+    private static net.minecraft.particles.IParticleData resolveParticle(String id) {
+        if (id == null || id.trim().isEmpty()) return ParticleTypes.FLAME;
         try {
-            var type = BuiltInRegistries.PARTICLE_TYPE.get(new ResourceLocation(id));
-            if (type instanceof ParticleOptions po) return po;
-            // SimpleParticleType
-            if (type instanceof net.minecraft.core.particles.SimpleParticleType spt) return spt;
+            net.minecraft.particles.ParticleType<?> type = net.minecraftforge.registries.ForgeRegistries.PARTICLE_TYPES.getValue(new ResourceLocation(id));
+            if (type instanceof net.minecraft.particles.IParticleData) { net.minecraft.particles.IParticleData po = (net.minecraft.particles.IParticleData) type; return po; }
+            // net.minecraft.particles.BasicParticleType
+            if (type instanceof net.minecraft.particles.BasicParticleType) { net.minecraft.particles.BasicParticleType spt = (net.minecraft.particles.BasicParticleType) type; return spt; }
         } catch (Exception ignored) {}
         // Fallback map
-        return switch (id) {
-            case "minecraft:flame"         -> ParticleTypes.FLAME;
-            case "minecraft:smoke"         -> ParticleTypes.SMOKE;
-            case "minecraft:crit"          -> ParticleTypes.CRIT;
-            case "minecraft:large_smoke"   -> ParticleTypes.LARGE_SMOKE;
-            case "minecraft:portal"        -> ParticleTypes.PORTAL;
-            case "minecraft:enchant"       -> ParticleTypes.ENCHANT;
-            case "minecraft:end_rod"       -> ParticleTypes.END_ROD;
-            case "minecraft:soul_fire_flame"->ParticleTypes.SOUL_FIRE_FLAME;
-            case "minecraft:snowflake"     -> ParticleTypes.SNOWFLAKE;
-            case "minecraft:dripping_lava" -> ParticleTypes.DRIPPING_LAVA;
-            default                        -> ParticleTypes.FLAME;
-        };
+        switch (id) {
+            case "minecraft:flame": return ParticleTypes.FLAME;
+            case "minecraft:smoke": return ParticleTypes.SMOKE;
+            case "minecraft:crit": return ParticleTypes.CRIT;
+            case "minecraft:large_smoke": return ParticleTypes.LARGE_SMOKE;
+            case "minecraft:portal": return ParticleTypes.PORTAL;
+            case "minecraft:enchant": return ParticleTypes.ENCHANT;
+            case "minecraft:end_rod": return ParticleTypes.END_ROD;
+            case "minecraft:soul_fire_flame": return ParticleTypes.SOUL_FIRE_FLAME;
+            case "minecraft:dripping_lava": return ParticleTypes.DRIPPING_LAVA;
+            default: return ParticleTypes.FLAME;
+
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -185,22 +186,22 @@ public class BattleRoyaleManager {
     // ─────────────────────────────────────────────────────────────────
 
     /** Серіалізація стану BattleRoyaleManager. */
-    public CompoundTag save() {
-        CompoundTag tag = new CompoundTag();
+    public CompoundNBT save() {
+        CompoundNBT tag = new CompoundNBT();
         // currentRadius
-        CompoundTag radiusTag = new CompoundTag();
+        CompoundNBT radiusTag = new CompoundNBT();
         for (Map.Entry<String, Integer> entry : currentRadius.entrySet()) {
             radiusTag.putInt(entry.getKey(), entry.getValue());
         }
         tag.put("currentRadius", radiusTag);
         // shrinkTicker
-        CompoundTag shrinkTag = new CompoundTag();
+        CompoundNBT shrinkTag = new CompoundNBT();
         for (Map.Entry<String, Integer> entry : shrinkTicker.entrySet()) {
             shrinkTag.putInt(entry.getKey(), entry.getValue());
         }
         tag.put("shrinkTicker", shrinkTag);
         // initialWaitTicker
-        CompoundTag waitTag = new CompoundTag();
+        CompoundNBT waitTag = new CompoundNBT();
         for (Map.Entry<String, Integer> entry : initialWaitTicker.entrySet()) {
             waitTag.putInt(entry.getKey(), entry.getValue());
         }
@@ -209,24 +210,24 @@ public class BattleRoyaleManager {
     }
 
     /** Відновлення стану BattleRoyaleManager. */
-    public void load(CompoundTag tag) {
+    public void load(CompoundNBT tag) {
         currentRadius.clear();
         shrinkTicker.clear();
         if (tag.contains("currentRadius")) {
-            CompoundTag radiusTag = tag.getCompound("currentRadius");
+            CompoundNBT radiusTag = tag.getCompound("currentRadius");
             for (String key : radiusTag.getAllKeys()) {
                 currentRadius.put(key, radiusTag.getInt(key));
             }
         }
         if (tag.contains("shrinkTicker")) {
-            CompoundTag shrinkTag = tag.getCompound("shrinkTicker");
+            CompoundNBT shrinkTag = tag.getCompound("shrinkTicker");
             for (String key : shrinkTag.getAllKeys()) {
                 shrinkTicker.put(key, shrinkTag.getInt(key));
             }
         }
         initialWaitTicker.clear();
         if (tag.contains("initialWaitTicker")) {
-            CompoundTag waitTag = tag.getCompound("initialWaitTicker");
+            CompoundNBT waitTag = tag.getCompound("initialWaitTicker");
             for (String key : waitTag.getAllKeys()) {
                 initialWaitTicker.put(key, waitTag.getInt(key));
             }

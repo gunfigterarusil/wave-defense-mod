@@ -1,16 +1,19 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.config.WaveDefenseConfig;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.components.Tooltip;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.util.text.ITextComponent;
 
 /**
  * In-game configuration screen for Wave Defense.
- * Registered via ConfigScreenHandler.ConfigScreenFactory in WaveDefenseMod.clientSetup().
+ * Registered via ConfigScreenHandler.ConfigScreenFactory in WaveDefenceMod.clientSetup().
  * Opens from the Forge Mods menu → Wave Defense → Config button.
  *
  * Five tabs: General | PvP | Mobs & Shop | Limits | Debug
@@ -68,7 +71,7 @@ public class WaveDefenseConfigScreen extends Screen {
     // ── Constructor ────────────────────────────────────────────────────────
 
     public WaveDefenseConfigScreen(Screen parent) {
-        super(Component.literal("§6§l").append(Component.translatable("wavedefense.config.title")));
+        super(new StringTextComponent("§6§l").append(new TranslationTextComponent("wavedefense.config.title")));
         this.parent = parent;
         loadFromConfig();
     }
@@ -119,32 +122,17 @@ public class WaveDefenseConfigScreen extends Screen {
         for (int i = 0; i < TAB_KEYS.length; i++) {
             final int ti = i;
             boolean active = (currentTab == ti);
-            this.addRenderableWidget(Button.builder(
-                Component.literal(active ? "§a§l" : "§7")
-                    .append(Component.translatable(TAB_KEYS[ti])),
-                b -> { currentTab = ti; rebuildWidgets(); }
-            ).bounds(tabX + i * (tabW + gap), 24, tabW, 16).build());
+            this.addButton(new Button(tabX + i * (tabW + gap), 24, tabW, 16, new StringTextComponent(active ? "§a§l" : "§7")
+                    .append(new TranslationTextComponent(TAB_KEYS[ti])), b -> { currentTab = ti; init(); }));
         }
 
         // Tab content
-        switch (currentTab) {
-            case 0 -> initGeneralTab(cx);
-            case 1 -> initPvpTab(cx);
-            case 2 -> initMobsShopTab(cx);
-            case 3 -> initLimitsTab(cx);
-            case 4 -> initDebugTab(cx);
-        }
+        switch (currentTab) { case 0: initGeneralTab(cx); break; case 1: initPvpTab(cx); break; case 2: initMobsShopTab(cx); break; case 3: initLimitsTab(cx); break; case 4: initDebugTab(cx); break; }
 
         // Footer
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.config.save_close"),
-            b -> { saveToConfig(); this.minecraft.setScreen(parent); }
-        ).bounds(cx - 116, this.height - 26, 110, 20).build());
+        this.addButton(new Button(cx - 116, this.height - 26, 110, 20, new TranslationTextComponent("wavedefense.config.save_close"), b -> { saveToConfig(); this.minecraft.setScreen(parent); }));
 
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.config.cancel"),
-            b -> this.minecraft.setScreen(parent)
-        ).bounds(cx + 6, this.height - 26, 110, 20).build());
+        this.addButton(new Button(cx + 6, this.height - 26, 110, 20, new TranslationTextComponent("wavedefense.config.cancel"), b -> this.minecraft.setScreen(parent)));
     }
 
     // ── Tab: General ──────────────────────────────────────────────────────
@@ -177,24 +165,20 @@ public class WaveDefenseConfigScreen extends Screen {
 
         label(lx, y, lw, "wavedefense.config.general.game_mode");
         boolean isAdventure = "adventure".equalsIgnoreCase(pendingGameMode);
-        Button gmBtn = Button.builder(
-            Component.literal(isAdventure ? "§e" : "§b")
-                .append(Component.translatable(isAdventure
+        Button gmBtn = new Button(cx + 24, y, rw, 18, new StringTextComponent(isAdventure ? "§e" : "§b")
+                .append(new TranslationTextComponent(isAdventure
                     ? "wavedefense.config.general.game_mode.adventure"
-                    : "wavedefense.config.general.game_mode.survival")),
-            b -> {
+                    : "wavedefense.config.general.game_mode.survival")), b -> {
                 boolean nowAdventure = "adventure".equalsIgnoreCase(pendingGameMode);
                 pendingGameMode = nowAdventure ? "survival" : "adventure";
                 boolean nextAdventure = !nowAdventure;
-                b.setMessage(Component.literal(nextAdventure ? "§e" : "§b")
-                    .append(Component.translatable(nextAdventure
+                b.setMessage(new StringTextComponent(nextAdventure ? "§e" : "§b")
+                    .append(new TranslationTextComponent(nextAdventure
                         ? "wavedefense.config.general.game_mode.adventure"
                         : "wavedefense.config.general.game_mode.survival")));
-            }
-        ).bounds(cx + 24, y, rw, 18).build();
-        gmBtn.setTooltip(Tooltip.create(
-            Component.translatable("wavedefense.config.general.game_mode.tooltip")));
-        this.addRenderableWidget(gmBtn);
+            });
+        /* setTooltip omitted on 1.16.5: gmBtn */
+        this.addButton(gmBtn);
         y += 24;
 
         label(lx, y, lw, "wavedefense.config.general.max_players");
@@ -253,8 +237,8 @@ public class WaveDefenseConfigScreen extends Screen {
         y += 24;
 
         label(lx, y, lw, "wavedefense.config.mobs.armor_drop");
-        EditBox dropBox = new EditBox(this.font, cx + 24, y, rw, 18,
-            Component.literal("0.085"));
+        TextFieldWidget dropBox = new TextFieldWidget(this.font, cx + 24, y, rw, 18,
+            new StringTextComponent("0.085"));
         dropBox.setValue(String.format("%.3f", pendingArmorDrop));
         dropBox.setMaxLength(7);
         dropBox.setResponder(s -> {
@@ -262,9 +246,8 @@ public class WaveDefenseConfigScreen extends Screen {
                 Double.parseDouble(s.trim()))); }
             catch (NumberFormatException ignored) {}
         });
-        dropBox.setTooltip(Tooltip.create(
-            Component.translatable("wavedefense.config.mobs.armor_drop.tooltip")));
-        this.addRenderableWidget(dropBox);
+        /* setTooltip omitted on 1.16.5: dropBox */
+        this.addButton(dropBox);
         y += 24;
 
         label(lx, y, lw, "wavedefense.config.shop.categories");
@@ -378,17 +361,12 @@ public class WaveDefenseConfigScreen extends Screen {
 
     /** Static left-column label backed by a translation key. */
     private void label(int x, int y, int w, String translationKey) {
-        this.addRenderableWidget(Button.builder(
-            Component.literal("§7").append(Component.translatable(translationKey)),
-            b -> {}
-        ).bounds(x, y, w, 18).build()).active = false;
+        this.addButton(new Button(x, y, w, 18, new StringTextComponent("§7").append(new TranslationTextComponent(translationKey)), b -> {})).active = false;
     }
 
     /** Info / hint line centered across the full width (§ color codes live in lang value). */
     private void infoLine(int cx, int y, String translationKey) {
-        this.addRenderableWidget(Button.builder(
-            Component.translatable(translationKey), b -> {}
-        ).bounds(cx - 160, y, 320, 14).build()).active = false;
+        this.addButton(new Button(cx - 160, y, 320, 14, new TranslationTextComponent(translationKey), b -> {})).active = false;
     }
 
     /**
@@ -399,38 +377,35 @@ public class WaveDefenseConfigScreen extends Screen {
     private void addToggle(int x, int y, int w, boolean initial,
                            java.util.function.Consumer<Boolean> setter, String tooltipKey) {
         final boolean[] val = { initial };
-        Button btn = Button.builder(
-            Component.literal(val[0] ? "§a" : "§c")
-                .append(Component.translatable(val[0]
+        Button btn = new Button(x, y, w, 18, new StringTextComponent(val[0] ? "§a" : "§c")
+                .append(new TranslationTextComponent(val[0]
                     ? "wavedefense.config.toggle.enabled"
-                    : "wavedefense.config.toggle.disabled")),
-            b -> {
+                    : "wavedefense.config.toggle.disabled")), b -> {
                 val[0] = !val[0];
                 setter.accept(val[0]);
-                b.setMessage(Component.literal(val[0] ? "§a" : "§c")
-                    .append(Component.translatable(val[0]
+                b.setMessage(new StringTextComponent(val[0] ? "§a" : "§c")
+                    .append(new TranslationTextComponent(val[0]
                         ? "wavedefense.config.toggle.enabled"
                         : "wavedefense.config.toggle.disabled")));
-            }
-        ).bounds(x, y, w, 18).build();
-        btn.setTooltip(Tooltip.create(Component.translatable(tooltipKey)));
-        this.addRenderableWidget(btn);
+            });
+        /* setTooltip omitted on 1.16.5: btn */
+        this.addButton(btn);
     }
 
-    /** Integer EditBox with tooltip. */
+    /** Integer TextFieldWidget with tooltip. */
     private void addIntBox(int x, int y, int w, int initialValue, int min, int max,
                            java.util.function.IntConsumer setter, String tooltipKey) {
-        EditBox box = addIntBox(x, y, w, initialValue, min, max, setter);
-        box.setTooltip(Tooltip.create(Component.translatable(tooltipKey)));
+        TextFieldWidget box = addIntBox(x, y, w, initialValue, min, max, setter);
+        /* setTooltip omitted on 1.16.5: box */
     }
 
     /**
-     * Integer EditBox with responder, clamped to [min, max].
+     * Integer TextFieldWidget with responder, clamped to [min, max].
      * @param setter called on every keystroke with the parsed (clamped) value
      */
-    private EditBox addIntBox(int x, int y, int w, int initialValue, int min, int max,
+    private TextFieldWidget addIntBox(int x, int y, int w, int initialValue, int min, int max,
                            java.util.function.IntConsumer setter) {
-        EditBox box = new EditBox(this.font, x, y, w, 18, Component.literal(""));
+        TextFieldWidget box = new TextFieldWidget(this.font, x, y, w, 18, new StringTextComponent(""));
         box.setValue(String.valueOf(initialValue));
         box.setMaxLength(5);
         box.setResponder(s -> {
@@ -439,27 +414,26 @@ public class WaveDefenseConfigScreen extends Screen {
                 setter.accept(Math.max(min, Math.min(max, v)));
             } catch (NumberFormatException ignored) {}
         });
-        box.setTooltip(Tooltip.create(
-            Component.translatable("wavedefense.config.range", min, max)));
-        this.addRenderableWidget(box);
+        /* setTooltip omitted on 1.16.5: box */
+        this.addButton(box);
         return box;
     }
 
     // ── Render ────────────────────────────────────────────────────────────
 
     @Override
-    public void render(GuiGraphics g, int mx, int my, float pt) {
+    public void render(MatrixStack g, int mx, int my, float pt) {
         GuiTheme.renderBackground(g, this.width, this.height);
         int cx = this.width / 2;
 
         // Title
-        g.drawCenteredString(this.font, this.title, cx, 8, GuiTheme.TEXT);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, this.title, cx, 8, GuiTheme.TEXT);
 
         // Separator below tabs
-        g.fill(cx - 165, 42, cx + 165, 43, GuiTheme.BORDER);
+        com.wavedefense.gui.GuiCompat.fill(g, cx - 165, 42, cx + 165, 43, GuiTheme.BORDER);
 
         // Separator above footer
-        g.fill(cx - 165, this.height - 30, cx + 165, this.height - 29, GuiTheme.BORDER);
+        com.wavedefense.gui.GuiCompat.fill(g, cx - 165, this.height - 30, cx + 165, this.height - 29, GuiTheme.BORDER);
 
         super.render(g, mx, my, pt);
     }

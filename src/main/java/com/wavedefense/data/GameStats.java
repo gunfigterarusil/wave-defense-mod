@@ -1,7 +1,7 @@
 package com.wavedefense.data;
 
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -42,13 +42,13 @@ public class GameStats {
         playerStats.clear();
     }
 
-    public CompoundTag save() {
-        CompoundTag tag = new CompoundTag();
+    public CompoundNBT save() {
+        CompoundNBT tag = new CompoundNBT();
         tag.putInt("wavesCompleted", wavesCompleted);
         tag.putInt("mobsKilled", mobsKilled);
-        ListTag playerStatsList = new ListTag();
+        ListNBT playerStatsList = new ListNBT();
         for (Map.Entry<UUID, PlayerStats> entry : playerStats.entrySet()) {
-            CompoundTag playerTag = new CompoundTag();
+            CompoundNBT playerTag = new CompoundNBT();
             playerTag.putUUID("player", entry.getKey());
             playerTag.put("stats", entry.getValue().save());
             playerStatsList.add(playerTag);
@@ -57,13 +57,13 @@ public class GameStats {
         return tag;
     }
 
-    public static GameStats load(CompoundTag tag) {
+    public static GameStats load(CompoundNBT tag) {
         GameStats stats = new GameStats();
         stats.wavesCompleted = tag.getInt("wavesCompleted");
         stats.mobsKilled = tag.getInt("mobsKilled");
-        ListTag playerStatsList = tag.getList("playerStats", 10);
+        ListNBT playerStatsList = tag.getList("playerStats", 10);
         for (int i = 0; i < playerStatsList.size(); i++) {
-            CompoundTag playerTag = playerStatsList.getCompound(i);
+            CompoundNBT playerTag = playerStatsList.getCompound(i);
             stats.playerStats.put(playerTag.getUUID("player"), PlayerStats.load(playerTag.getCompound("stats")));
         }
         return stats;

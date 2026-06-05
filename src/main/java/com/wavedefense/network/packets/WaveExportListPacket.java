@@ -1,9 +1,9 @@
 package com.wavedefense.network.packets;
 
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.PacketBuffer;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraftforge.fml.network.NetworkEvent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,12 +15,12 @@ public class WaveExportListPacket {
 
     public WaveExportListPacket(List<String> fileNames) { this.fileNames = fileNames; }
 
-    public static void encode(WaveExportListPacket p, FriendlyByteBuf buf) {
+    public static void encode(WaveExportListPacket p, PacketBuffer buf) {
         buf.writeInt(p.fileNames.size());
         for (String s : p.fileNames) buf.writeUtf(s);
     }
 
-    public static WaveExportListPacket decode(FriendlyByteBuf buf) {
+    public static WaveExportListPacket decode(PacketBuffer buf) {
         int sz = buf.readInt();
         List<String> list = new ArrayList<>(sz);
         for (int i = 0; i < sz; i++) list.add(buf.readUtf());

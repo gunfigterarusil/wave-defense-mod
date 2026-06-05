@@ -1,17 +1,20 @@
 package com.wavedefense.gui;
 
-import com.wavedefense.WaveDefenseMod;
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.data.Location;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.ExportLocationPacket;
 import com.wavedefense.network.packets.ImportLocationPacket;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.resources.language.I18n;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.resources.I18n;
 import com.wavedefense.gui.ScissorHelper;
-import net.minecraft.network.chat.Component;
+import net.minecraft.util.text.ITextComponent;
 
 import java.util.List;
 
@@ -22,7 +25,7 @@ import java.util.List;
  */
 public class ImportExportScreen extends Screen {
     private final Screen parent;
-    private EditBox importNameInput;
+    private TextFieldWidget importNameInput;
     private String statusMsg = "";
     /** F6 fix: file that awaits confirmation before import (null = none pending). */
     private String pendingImportFile = null;
@@ -33,7 +36,7 @@ public class ImportExportScreen extends Screen {
     private static final int LIST_PER_PAGE = 6;
 
     public ImportExportScreen(Screen parent) {
-        super(Component.translatable("wavedefense.auto.імпорт_експорт_локацій_ca7d533a"));
+        super(new TranslationTextComponent("wavedefense.auto.імпорт_експорт_локацій_ca7d533a"));
         this.parent = parent;
     }
 
@@ -41,13 +44,13 @@ public class ImportExportScreen extends Screen {
     public void setAvailableExports(List<String> names) {
         this.availableExports = names;
         if (this.minecraft != null)
-            this.minecraft.tell(() -> { if (this.minecraft.screen == this) rebuildWidgets(); });
+            this.minecraft.tell(() -> { if (this.minecraft.screen == this) init(); });
     }
 
     public void setStatus(String msg) {
         this.statusMsg = msg;
         if (this.minecraft != null)
-            this.minecraft.tell(() -> { if (this.minecraft.screen == this) rebuildWidgets(); });
+            this.minecraft.tell(() -> { if (this.minecraft.screen == this) init(); });
     }
 
     @Override
@@ -57,9 +60,7 @@ public class ImportExportScreen extends Screen {
         int y  = 30;
 
         // ── СЕКЦІЯ ЕКСПОРТУ ─────────────────────────────────────────────
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.auto.експорт_db6cfb09"), b -> {}
-        ).bounds(cx - 160, y, 320, 12).build()).active = false;
+        this.addButton(new Button(cx - 160, y, 320, 12, new TranslationTextComponent("wavedefense.auto.експорт_db6cfb09"), b -> {})).active = false;
         y += 16;
 
         // Список активних локацій для експорту
@@ -67,63 +68,45 @@ public class ImportExportScreen extends Screen {
         int lx = cx - 160;
         for (String locName : allLocs) {
             final String ln = locName;
-            this.addRenderableWidget(Button.builder(
-                Component.literal("§a📤 " + locName),
-                b -> {
+            this.addButton(new Button(lx, y, 300, 18, new StringTextComponent("§a📤 " + locName), b -> {
                     PacketHandler.sendToServer(new ExportLocationPacket(ln));
                     statusMsg = String.format(I18n.get("wavedefense.export.status_exporting"), ln);
-                    rebuildWidgets();
-                }
-            ).bounds(lx, y, 300, 18).build());
+                    init();
+                }));
             y += 22;
         }
         if (allLocs.isEmpty()) {
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.немає_локацій_0684a624"), b -> {}
-            ).bounds(lx, y, 200, 14).build()).active = false;
+            this.addButton(new Button(lx, y, 200, 14, new TranslationTextComponent("wavedefense.auto.немає_локацій_0684a624"), b -> {})).active = false;
             y += 18;
         }
         y += 6;
 
         // ── СЕКЦІЯ ІМПОРТУ ─────────────────────────────────────────────
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.auto.імпорт_1edc3386"), b -> {}
-        ).bounds(cx - 160, y, 320, 12).build()).active = false;
+        this.addButton(new Button(cx - 160, y, 320, 12, new TranslationTextComponent("wavedefense.auto.імпорт_1edc3386"), b -> {})).active = false;
         y += 16;
 
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.auto.оновити_список_0f28150f"), b -> {
+        this.addButton(new Button(cx - 160, y, 200, 18, new TranslationTextComponent("wavedefense.auto.оновити_список_0f28150f"), b -> {
                 PacketHandler.sendToServer(new ExportLocationPacket("__list__"));
                 statusMsg = I18n.get("wavedefense.export.status_loading");
-                rebuildWidgets();
-            }
-        ).bounds(cx - 160, y, 200, 18).build());
+                init();
+            }));
         y += 22;
 
         // ── F6 fix: confirmation banner if a file is pending import ────────
         if (pendingImportFile != null) {
             final String pf = pendingImportFile;
             // Warning row
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.import.confirm_overwrite", pf),
-                b -> {}
-            ).bounds(lx, y, 300, 14).build()).active = false;
+            this.addButton(new Button(lx, y, 300, 14, new TranslationTextComponent("wavedefense.import.confirm_overwrite", pf), b -> {})).active = false;
             y += 18;
             // Confirm button
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.confirm"),
-                b -> {
+            this.addButton(new Button(lx, y, 145, 18, new TranslationTextComponent("wavedefense.button.confirm"), b -> {
                     PacketHandler.sendToServer(new ImportLocationPacket(pf));
-                    statusMsg = net.minecraft.client.resources.language.I18n.get(
+                    statusMsg = net.minecraft.client.resources.I18n.get(
                         "wavedefense.import.status_importing", pf);
                     pendingImportFile = null;
-                    rebuildWidgets();
-                }
-            ).bounds(lx, y, 145, 18).build());
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.cancel"),
-                b -> { pendingImportFile = null; rebuildWidgets(); }
-            ).bounds(lx + 155, y, 145, 18).build());
+                    init();
+                }));
+            this.addButton(new Button(lx + 155, y, 145, 18, new TranslationTextComponent("wavedefense.button.cancel"), b -> { pendingImportFile = null; init(); }));
             y += 24;
         }
 
@@ -133,34 +116,23 @@ public class ImportExportScreen extends Screen {
         for (int i = visibleFrom; i < visibleTo; i++) {
             String fname = availableExports.get(i);
             final String fn = fname;
-            this.addRenderableWidget(Button.builder(
-                Component.literal("§b📥 " + fname),
-                b -> {
+            this.addButton(new Button(lx, y, 300, 18, new StringTextComponent("§b📥 " + fname), b -> {
                     // F6 fix: require confirmation before import (prevents accidental overwrite)
                     pendingImportFile = fn;
-                    rebuildWidgets();
-                }
-            ).bounds(lx, y, 300, 18).build());
+                    init();
+                }));
             y += 22;
         }
         if (availableExports.isEmpty()) {
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.немає_файлів_натисніть_оновити_77eada10"), b -> {}
-            ).bounds(lx, y, 300, 14).build()).active = false;
+            this.addButton(new Button(lx, y, 300, 14, new TranslationTextComponent("wavedefense.auto.немає_файлів_натисніть_оновити_77eada10"), b -> {})).active = false;
             y += 18;
         }
         if (availableExports.size() > LIST_PER_PAGE) {
-            this.addRenderableWidget(Button.builder(Component.literal("▲"),
-                b -> { if (scrollOffset > 0) { scrollOffset--; rebuildWidgets(); }}
-            ).bounds(cx + 165, y - (visibleTo - visibleFrom) * 22, 18, 16).build());
-            this.addRenderableWidget(Button.builder(Component.literal("▼"),
-                b -> { if (scrollOffset + LIST_PER_PAGE < availableExports.size()) { scrollOffset++; rebuildWidgets(); }}
-            ).bounds(cx + 165, y - 20, 18, 16).build());
+            this.addButton(new Button(cx + 165, y - (visibleTo - visibleFrom) * 22, 18, 16, new StringTextComponent("▲"), b -> { if (scrollOffset > 0) { scrollOffset--; init(); }}));
+            this.addButton(new Button(cx + 165, y - 20, 18, 16, new StringTextComponent("▼"), b -> { if (scrollOffset + LIST_PER_PAGE < availableExports.size()) { scrollOffset++; init(); }}));
         }
 
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.auto.назад_3fa51863"), b -> this.minecraft.setScreen(parent)
-        ).bounds(cx - 50, this.height - 28, 100, 20).build());
+        this.addButton(new Button(cx - 50, this.height - 28, 100, 20, new TranslationTextComponent("wavedefense.auto.назад_3fa51863"), b -> this.minecraft.setScreen(parent)));
     }
 
     @Override
@@ -174,29 +146,31 @@ public class ImportExportScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
+    public void render(MatrixStack g, int mouseX, int mouseY, float partial) {
         GuiTheme.renderBackground(g, this.width, this.height);
-        g.drawCenteredString(this.font, Component.translatable("wavedefense.import_export.title"), this.width / 2, 10, GuiTheme.TEXT);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, new TranslationTextComponent("wavedefense.import_export.title"), this.width / 2, 10, GuiTheme.TEXT);
         if (!statusMsg.isEmpty())
-            g.drawCenteredString(this.font, statusMsg, this.width / 2, this.height - 44, 0xFFFFFF);
-        g.drawString(this.font, Component.translatable("wavedefense.import_export.path_hint"),
+            com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, statusMsg, this.width / 2, this.height - 44, 0xFFFFFF);
+        com.wavedefense.gui.GuiCompat.drawString(g, this.font, new TranslationTextComponent("wavedefense.import_export.path_hint"),
             this.width / 2 - 160, this.height - 12, 0x888888);
 
         // Scissor: прокручуваний контент між заголовком (24) і нижніми елементами (height-52)
         int listTop = 24, listBot = this.height - 52;
         ScissorHelper.enable(0, listTop, this.width, Math.max(1, listBot - listTop));
-        for (var r : this.renderables) {
-            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
-                    && w.getY() + w.getHeight() > listTop && w.getY() < listBot)
-                w.render(g, mouseX, mouseY, partial);
+        for (Object r : this.buttons) {
+            if (r instanceof net.minecraft.client.gui.widget.Widget) {
+                net.minecraft.client.gui.widget.Widget w = (net.minecraft.client.gui.widget.Widget) r;
+                if (w.y + w.getHeight() > listTop && w.y < listBot) w.render(g, mouseX, mouseY, partial);
+            }
         }
-        g.flush();
+        com.wavedefense.gui.GuiCompat.flush(g);
         ScissorHelper.disable();
         // Static footer (Назад кнопка)
-        for (var r : this.renderables) {
-            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
-                    && (w.getY() < listTop || w.getY() >= listBot))
-                w.render(g, mouseX, mouseY, partial);
+        for (Object r : this.buttons) {
+            if (r instanceof net.minecraft.client.gui.widget.Widget) {
+                net.minecraft.client.gui.widget.Widget w = (net.minecraft.client.gui.widget.Widget) r;
+                if ((w.y < listTop || w.y >= listBot)) w.render(g, mouseX, mouseY, partial);
+            }
         }
     }
 

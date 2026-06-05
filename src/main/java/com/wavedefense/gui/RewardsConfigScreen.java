@@ -1,20 +1,23 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.data.WaveConfig;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.ResourceLocation;
 
 public class RewardsConfigScreen extends Screen {
     private final Screen parentScreen;
     private final WaveConfig waveConfig;
-    private EditBox pointsRewardInput;
-    private EditBox effectInput;     // ID ефекту, наприклад: minecraft:speed
-    private EditBox amplifierInput;  // 0=I, 1=II, тощо
-    private EditBox commandInput;    // команда при завершенні
+    private TextFieldWidget pointsRewardInput;
+    private TextFieldWidget effectInput;     // ID ефекту, наприклад: minecraft:speed
+    private TextFieldWidget amplifierInput;  // 0=I, 1=II, тощо
+    private TextFieldWidget commandInput;    // команда при завершенні
 
     // Популярні ефекти для підказки
     private static final String[] EFFECT_SUGGESTIONS = {
@@ -26,7 +29,7 @@ public class RewardsConfigScreen extends Screen {
     private int suggestionIndex = 0;
 
     public RewardsConfigScreen(Screen parentScreen, WaveConfig waveConfig) {
-        super(Component.translatable("wavedefense.title.wave_rewards", waveConfig.getWaveNumber()));
+        super(new TranslationTextComponent("wavedefense.title.wave_rewards", waveConfig.getWaveNumber()));
         this.parentScreen = parentScreen;
         this.waveConfig = waveConfig;
     }
@@ -38,96 +41,69 @@ public class RewardsConfigScreen extends Screen {
         int y = 38;
 
         // --- Поінти за завершення хвилі ---
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.поінти_за_завершення_хвилі_всім_96a12997"), button -> {}
-        ).bounds(cx - 180, y, 280, 16).build()).active = false;
+        this.addButton(new Button(cx - 180, y, 280, 16, new TranslationTextComponent("wavedefense.auto.поінти_за_завершення_хвилі_всім_96a12997"), button -> {})).active = false;
 
-        pointsRewardInput = new EditBox(this.font, cx + 105, y, 75, 20, Component.translatable("wavedefense.auto.поінти_66d72273"));
+        pointsRewardInput = new TextFieldWidget(this.font, cx + 105, y, 75, 20, new TranslationTextComponent("wavedefense.auto.поінти_66d72273"));
         pointsRewardInput.setValue(String.valueOf(waveConfig.getPointsReward()));
         pointsRewardInput.setMaxLength(7);
-        this.addRenderableWidget(pointsRewardInput);
+        this.addButton(pointsRewardInput);
         y += 30;
 
         // --- Ефект на гравців усю хвилю ---
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.ефект_на_гравців_весь_час_хвилі_ab514b9d"), button -> {}
-        ).bounds(cx - 180, y, 230, 16).build()).active = false;
+        this.addButton(new Button(cx - 180, y, 230, 16, new TranslationTextComponent("wavedefense.auto.ефект_на_гравців_весь_час_хвилі_ab514b9d"), button -> {})).active = false;
         y += 18;
 
-        effectInput = new EditBox(this.font, cx - 180, y, 220, 20, Component.literal("minecraft:speed"));
+        effectInput = new TextFieldWidget(this.font, cx - 180, y, 220, 20, new StringTextComponent("minecraft:speed"));
         effectInput.setValue(waveConfig.hasEffect() ? waveConfig.getWaveEffect().toString() : "");
         effectInput.setMaxLength(100);
-        this.addRenderableWidget(effectInput);
+        this.addButton(effectInput);
 
         // Кнопка очистити ефект
-        this.addRenderableWidget(Button.builder(
-                Component.literal("✕"), button -> { effectInput.setValue(""); amplifierInput.setValue("0"); }
-        ).bounds(cx + 44, y, 18, 20).build());
+        this.addButton(new Button(cx + 44, y, 18, 20, new StringTextComponent("✕"), button -> { effectInput.setValue(""); amplifierInput.setValue("0"); }));
 
         // Кнопки-підказки популярних ефектів
-        this.addRenderableWidget(Button.builder(
-                Component.literal("◀"), button -> {
+        this.addButton(new Button(cx + 68, y, 18, 20, new StringTextComponent("◀"), button -> {
                     suggestionIndex = (suggestionIndex - 1 + EFFECT_SUGGESTIONS.length) % EFFECT_SUGGESTIONS.length;
                     effectInput.setValue(EFFECT_SUGGESTIONS[suggestionIndex]);
-                }
-        ).bounds(cx + 68, y, 18, 20).build());
-        this.addRenderableWidget(Button.builder(
-                Component.literal("▶"), button -> {
+                }));
+        this.addButton(new Button(cx + 88, y, 18, 20, new StringTextComponent("▶"), button -> {
                     suggestionIndex = (suggestionIndex + 1) % EFFECT_SUGGESTIONS.length;
                     effectInput.setValue(EFFECT_SUGGESTIONS[suggestionIndex]);
-                }
-        ).bounds(cx + 88, y, 18, 20).build());
+                }));
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.підбір_43b3ce78"), button -> {}
-        ).bounds(cx + 108, y, 70, 20).build()).active = false;
+        this.addButton(new Button(cx + 108, y, 70, 20, new TranslationTextComponent("wavedefense.auto.підбір_43b3ce78"), button -> {})).active = false;
         y += 24;
 
         // Рівень ефекту
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.рівень_ефекту_0_i_1_ii_2_iii_2a574a95"), button -> {}
-        ).bounds(cx - 180, y, 230, 16).build()).active = false;
-        amplifierInput = new EditBox(this.font, cx + 55, y, 45, 20, Component.literal("0"));
+        this.addButton(new Button(cx - 180, y, 230, 16, new TranslationTextComponent("wavedefense.auto.рівень_ефекту_0_i_1_ii_2_iii_2a574a95"), button -> {})).active = false;
+        amplifierInput = new TextFieldWidget(this.font, cx + 55, y, 45, 20, new StringTextComponent("0"));
         amplifierInput.setValue(String.valueOf(waveConfig.getWaveEffectAmplifier()));
         amplifierInput.setMaxLength(1);
         amplifierInput.setFilter(s -> s.matches("[0-4]?"));
-        this.addRenderableWidget(amplifierInput);
+        this.addButton(amplifierInput);
         y += 28;
 
         // --- Команда при завершенні хвилі ---
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.команда_при_завершенні_хвилі_19a42be6"), button -> {}
-        ).bounds(cx - 180, y, 230, 16).build()).active = false;
+        this.addButton(new Button(cx - 180, y, 230, 16, new TranslationTextComponent("wavedefense.auto.команда_при_завершенні_хвилі_19a42be6"), button -> {})).active = false;
         y += 18;
 
-        commandInput = new EditBox(this.font, cx - 180, y, 360, 20, Component.translatable("wavedefense.auto.say_wave_done_489b73c2"));
+        commandInput = new TextFieldWidget(this.font, cx - 180, y, 360, 20, new TranslationTextComponent("wavedefense.auto.say_wave_done_489b73c2"));
         commandInput.setValue(waveConfig.getCompletionCommand());
         commandInput.setMaxLength(256);
-        this.addRenderableWidget(commandInput);
+        this.addButton(commandInput);
         y += 18;
 
         // Підказки щодо змінних
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.змінні_location_wave_players_0f06cf7b"), button -> {}
-        ).bounds(cx - 180, y, 360, 14).build()).active = false;
+        this.addButton(new Button(cx - 180, y, 360, 14, new TranslationTextComponent("wavedefense.auto.змінні_location_wave_players_0f06cf7b"), button -> {})).active = false;
         y += 6;
 
         // Приклади
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.приклад_say_players_пройшли_хвил_aa4f88d1"),
-                button -> {}
-        ).bounds(cx - 180, y, 360, 14).build()).active = false;
+        this.addButton(new Button(cx - 180, y, 360, 14, new TranslationTextComponent("wavedefense.auto.приклад_say_players_пройшли_хвил_aa4f88d1"), button -> {})).active = false;
 
         // Кнопки
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.зберегти_617e5dc0"),
-                button -> { save(); this.minecraft.setScreen(parentScreen); }
-        ).bounds(cx - 110, this.height - 28, 100, 20).build());
+        this.addButton(new Button(cx - 110, this.height - 28, 100, 20, new TranslationTextComponent("wavedefense.auto.зберегти_617e5dc0"), button -> { save(); this.minecraft.setScreen(parentScreen); }));
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.скасувати_8b4c2025"),
-                button -> this.minecraft.setScreen(parentScreen)
-        ).bounds(cx + 10, this.height - 28, 100, 20).build());
+        this.addButton(new Button(cx + 10, this.height - 28, 100, 20, new TranslationTextComponent("wavedefense.auto.скасувати_8b4c2025"), button -> this.minecraft.setScreen(parentScreen)));
     }
 
     private void save() {
@@ -163,16 +139,16 @@ public class RewardsConfigScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void render(MatrixStack graphics, int mouseX, int mouseY, float partialTick) {
         GuiTheme.renderBackground(graphics, this.width, this.height);
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, 12, GuiTheme.TEXT);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(graphics, this.font, this.title, this.width / 2, 12, GuiTheme.TEXT);
 
         // Показуємо поточний ефект якщо вибраний
         if (effectInput != null && !effectInput.getValue().isEmpty()) {
-            String preview = net.minecraft.client.resources.language.I18n.get(
+            String preview = net.minecraft.client.resources.I18n.get(
                     "wavedefense.label.wave_effect_preview",
                     effectInput.getValue(), waveConfig.getWaveEffectAmplifier() + 1);
-            graphics.drawString(this.font, preview, this.width / 2 - 180, this.height - 48, 0xFFFFFF);
+            com.wavedefense.gui.GuiCompat.drawString(graphics, this.font, preview, this.width / 2 - 180, this.height - 48, 0xFFFFFF);
         }
 
         super.render(graphics, mouseX, mouseY, partialTick);

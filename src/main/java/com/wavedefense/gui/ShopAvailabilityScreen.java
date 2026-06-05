@@ -1,14 +1,17 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.data.Location;
 import com.wavedefense.data.ShopItem;
 import com.wavedefense.data.WaveTrigger;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.resources.language.I18n;
-import net.minecraft.network.chat.Component;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.util.text.ITextComponent;
 
 /**
  * Тригер доступності товару в магазині.
@@ -30,8 +33,8 @@ public class ShopAvailabilityScreen extends Screen {
     private final com.wavedefense.data.ShopPoint shopPoint;
 
     private WaveTrigger selected;
-    private EditBox waveInput;
-    private EditBox itemInput;
+    private TextFieldWidget waveInput;
+    private TextFieldWidget itemInput;
 
     // Scissor bounds
     private int scrollTop = 0;
@@ -55,7 +58,7 @@ public class ShopAvailabilityScreen extends Screen {
 
     public ShopAvailabilityScreen(Screen parent, Location location,
             com.wavedefense.data.ShopPoint shopPoint, int itemIndex) {
-        super(Component.translatable("wavedefense.auto.тригер_доступності_товару_fcf1c654"));
+        super(new TranslationTextComponent("wavedefense.auto.тригер_доступності_товару_fcf1c654"));
         this.parent    = parent;
         this.location  = location;
         this.shopPoint = shopPoint;
@@ -80,9 +83,7 @@ public class ShopAvailabilityScreen extends Screen {
         int y    = 36;
 
         // Підказка
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.auto.оберіть_умову_появи_товару_в_маг_7a185e1b"), b -> {}
-        ).bounds(cx - btnW / 2, y, btnW, 14).build()).active = false;
+        this.addButton(new Button(cx - btnW / 2, y, btnW, 14, new TranslationTextComponent("wavedefense.auto.оберіть_умову_появи_товару_в_маг_7a185e1b"), b -> {})).active = false;
         y += 18;
 
         scrollTop = y; // ── верхня межа scrollable зони
@@ -117,13 +118,9 @@ public class ShopAvailabilityScreen extends Screen {
                 tooltip = I18n.get(t.tooltip);
             }
             final WaveTrigger ft = t;
-            Button btn = Button.builder(
-                Component.literal(lbl),
-                b -> { selected = ft; rebuildWidgets(); }
-            ).bounds(cx - btnW / 2, ty, btnW, BTN_H).build();
-            btn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                Component.literal("§7" + tooltip)));
-            this.addRenderableWidget(btn);
+            Button btn = new Button(cx - btnW / 2, ty, btnW, BTN_H, new StringTextComponent(lbl), b -> { selected = ft; init(); });
+            /* setTooltip omitted on 1.16.5: btn */
+            this.addButton(btn);
             ty += BTN_H + BTN_GAP;
         }
 
@@ -133,29 +130,23 @@ public class ShopAvailabilityScreen extends Screen {
             ? getSourceList().get(itemIndex) : null;
 
         if (selected == WaveTrigger.SHOP_WAVE_N) {
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.тільки_на_хвилі_88738afb"), b -> {}
-            ).bounds(cx - btnW / 2, sy, 160, 18).build()).active = false;
-            waveInput = new EditBox(this.font, cx - btnW / 2 + 164, sy, 60, 18, Component.literal("1"));
+            this.addButton(new Button(cx - btnW / 2, sy, 160, 18, new TranslationTextComponent("wavedefense.auto.тільки_на_хвилі_88738afb"), b -> {})).active = false;
+            waveInput = new TextFieldWidget(this.font, cx - btnW / 2 + 164, sy, 60, 18, new StringTextComponent("1"));
             waveInput.setValue(item != null ? String.valueOf(item.getAvailabilityWave()) : "1");
             waveInput.setMaxLength(3);
-            this.addRenderableWidget(waveInput);
+            this.addButton(waveInput);
             sy += 22;
         }
 
         if (selected == WaveTrigger.SHOP_PLAYER_HAS_ITEM) {
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.предмет_item_id_через_кому_1f69adb0"), b -> {}
-            ).bounds(cx - btnW / 2, sy, btnW - 26, 14).build()).active = false;
+            this.addButton(new Button(cx - btnW / 2, sy, btnW - 26, 14, new TranslationTextComponent("wavedefense.auto.предмет_item_id_через_кому_1f69adb0"), b -> {})).active = false;
             // Кнопка "з руки"
-            this.addRenderableWidget(Button.builder(
-                Component.literal("✋"),
-                b -> {
+            this.addButton(new Button(cx + btnW / 2 - 24, sy, 24, 14, new StringTextComponent("✋"), b -> {
                     net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
                     if (mc.player != null && itemInput != null) {
-                        net.minecraft.world.item.ItemStack held = mc.player.getMainHandItem();
+                        net.minecraft.item.ItemStack held = mc.player.getMainHandItem();
                         if (!held.isEmpty()) {
-                            net.minecraft.resources.ResourceLocation rl =
+                            net.minecraft.util.ResourceLocation rl =
                                 net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(held.getItem());
                             if (rl != null) {
                                 String existing = itemInput.getValue().trim();
@@ -163,55 +154,54 @@ public class ShopAvailabilityScreen extends Screen {
                             }
                         }
                     }
-                }
-            ).bounds(cx + btnW / 2 - 24, sy, 24, 14).build()
-            ).setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                Component.translatable("wavedefense.auto.додати_предмет_з_основної_руки_д_199913a1")));
+                })
+            )/* setTooltip omitted on 1.16.5 */;
             sy += 16;
-            itemInput = new EditBox(this.font, cx - btnW / 2, sy, btnW, 18, Component.translatable("wavedefense.auto.id_87ea5dfc"));
+            itemInput = new TextFieldWidget(this.font, cx - btnW / 2, sy, btnW, 18, new TranslationTextComponent("wavedefense.auto.id_87ea5dfc"));
             itemInput.setMaxLength(256);
             itemInput.setValue(item != null && !item.getAvailabilityItemId().isEmpty()
                 ? item.getAvailabilityItemId() : "minecraft:diamond");
-            itemInput.setHint(Component.translatable("wavedefense.auto.minecraft_diamond_f20ff3f7"));
-            this.addRenderableWidget(itemInput);
+        /* itemInput.setHint(...) omitted on 1.16.5 */
+            this.addButton(itemInput);
             sy += 20;
         }
 
         // ── Кнопки ───────────────────────────────────────────────────
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.auto.зберегти_617e5dc0"), b -> save()
-        ).bounds(cx - 110, this.height - 26, 100, 20).build());
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.auto.скасувати_8b4c2025"), b -> this.minecraft.setScreen(parent)
-        ).bounds(cx + 10, this.height - 26, 100, 20).build());
+        this.addButton(new Button(cx - 110, this.height - 26, 100, 20, new TranslationTextComponent("wavedefense.auto.зберегти_617e5dc0"), b -> save()));
+        this.addButton(new Button(cx + 10, this.height - 26, 100, 20, new TranslationTextComponent("wavedefense.auto.скасувати_8b4c2025"), b -> this.minecraft.setScreen(parent)));
     }
 
     // ── RENDER ────────────────────────────────────────────────────────
     @Override
-    public void render(GuiGraphics g, int mx, int my, float pt) {
+    public void render(MatrixStack g, int mx, int my, float pt) {
         GuiTheme.renderBackground(g, this.width, this.height);
-        g.drawCenteredString(this.font, Component.translatable("wavedefense.shop.availability_title"), this.width / 2, 14, GuiTheme.TEXT);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, new TranslationTextComponent("wavedefense.shop.availability_title"), this.width / 2, 14, GuiTheme.TEXT);
 
         // Статичні до списку
-        for (var r : this.renderables) {
-            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w && w.getY() < scrollTop)
-                w.render(g, mx, my, pt);
+        for (Object r : this.buttons) {
+            if (r instanceof net.minecraft.client.gui.widget.Widget) {
+                net.minecraft.client.gui.widget.Widget w = (net.minecraft.client.gui.widget.Widget) r;
+                if (w.y < scrollTop) w.render(g, mx, my, pt);
+            }
         }
         // Scissored список тригерів
         if (scrollTop < scrollBot) {
             ScissorHelper.enable(0, scrollTop, this.width, Math.max(1, scrollBot - scrollTop));
-            for (var r : this.renderables) {
-                if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
-                        && w.getY() + w.getHeight() > scrollTop && w.getY() < scrollBot)
-                    w.render(g, mx, my, pt);
+            for (Object r : this.buttons) {
+                if (r instanceof net.minecraft.client.gui.widget.Widget) {
+                    net.minecraft.client.gui.widget.Widget w = (net.minecraft.client.gui.widget.Widget) r;
+                    if (w.y + w.getHeight() > scrollTop && w.y < scrollBot) w.render(g, mx, my, pt);
+                }
             }
-            g.flush();
+            com.wavedefense.gui.GuiCompat.flush(g);
             ScissorHelper.disable();
         }
         // Статичні після списку (кнопки Зберегти/Скасувати)
-        for (var r : this.renderables) {
-            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w && w.getY() >= scrollBot)
-                w.render(g, mx, my, pt);
+        for (Object r : this.buttons) {
+            if (r instanceof net.minecraft.client.gui.widget.Widget) {
+                net.minecraft.client.gui.widget.Widget w = (net.minecraft.client.gui.widget.Widget) r;
+                if (w.y >= scrollBot) w.render(g, mx, my, pt);
+            }
         }
     }
 
@@ -219,8 +209,8 @@ public class ShopAvailabilityScreen extends Screen {
     @Override
     public boolean mouseScrolled(double mx, double my, double delta) {
         int visible = Math.max(1, (scrollBot - scrollTop) / (BTN_H + BTN_GAP));
-        if (delta > 0 && scrollOffset > 0) { scrollOffset--; rebuildWidgets(); }
-        else if (delta < 0 && scrollOffset + visible < SHOP_TRIGGERS.length) { scrollOffset++; rebuildWidgets(); }
+        if (delta > 0 && scrollOffset > 0) { scrollOffset--; init(); }
+        else if (delta < 0 && scrollOffset + visible < SHOP_TRIGGERS.length) { scrollOffset++; init(); }
         return true;
     }
 

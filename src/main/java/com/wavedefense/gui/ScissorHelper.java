@@ -2,9 +2,9 @@ package com.wavedefense.gui;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.AbstractWidget;
-import net.minecraft.client.gui.components.Renderable;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.Widget;
+import net.minecraft.client.gui.IRenderable;
 
 import java.util.List;
 
@@ -41,16 +41,16 @@ public final class ScissorHelper {
     }
 
     /**
-     * Рендерить усі AbstractWidget зі списку renderables,
+     * Рендерить усі Widget зі списку renderables,
      * чий getY() належить [yFrom, yTo).
      */
     public static void renderBand(
-            List<? extends Renderable> renderables,
-            GuiGraphics g, int mx, int my, float pt,
+            List<? extends IRenderable> renderables,
+            MatrixStack g, int mx, int my, float pt,
             int yFrom, int yTo) {
-        for (Renderable r : renderables) {
-            if (r instanceof AbstractWidget w) {
-                if (w.getY() >= yFrom && w.getY() < yTo) {
+        for (IRenderable r : renderables) {
+            if (r instanceof Widget) { Widget w = (Widget) r;
+                if (w.y >= yFrom && w.y < yTo) {
                     w.render(g, mx, my, pt);
                 }
             }

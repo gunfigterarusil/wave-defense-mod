@@ -1,8 +1,8 @@
 package com.wavedefense.gui;
 
 import com.wavedefense.data.Location;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -10,9 +10,9 @@ import java.util.stream.Collectors;
 public class ClientLocationManager {
     private static List<Location> locations = new ArrayList<>();
 
-    public static void updateLocations(CompoundTag data) {
+    public static void updateLocations(CompoundNBT data) {
         locations.clear();
-        ListTag locationsList = data.getList("locations", 10);
+        ListNBT locationsList = data.getList("locations", 10);
         for (int i = 0; i < locationsList.size(); i++) {
             locations.add(Location.load(locationsList.getCompound(i)));
         }
@@ -23,7 +23,7 @@ public class ClientLocationManager {
     }
 
     public static List<String> getAllLocationNames() {
-        return locations.stream().map(Location::getName).collect(Collectors.toList());
+        return locations.stream().map(Location::getName).collect(java.util.stream.Collectors.toList());
     }
 
     public static Location getLocation(String name) {

@@ -1,18 +1,20 @@
 package com.wavedefense.gui;
 
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.components.AbstractWidget;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.util.text.StringTextComponent;
+
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.gui.widget.Widget;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.entity.player.PlayerEntity;
 
 import javax.annotation.Nullable;
 import java.util.function.Consumer;
 
 /**
- * Compound X/Y/Z coordinate input — bundles three {@link EditBox} fields and
+ * Compound X/Y/Z coordinate input — bundles three {@link TextFieldWidget} fields and
  * their "§7X:" / "§7Y:" / "§7Z:" label buttons into a single reusable component.
  *
  * <h3>Usage</h3>
@@ -20,10 +22,10 @@ import java.util.function.Consumer;
  * // In init():
  * coordField = new CoordinateInputField(this.font, startX, y, labelW, fieldW, height, stride);
  * coordField.setValue(pos);                          // pre-fill with existing BlockPos (or null to clear)
- * coordField.addToScreen(this::addRenderableWidget); // registers all 6 inner widgets
+ * coordField.addToScreen(this::addButton); // registers all 6 inner widgets
  *
  * // "📌 My position" button right after the fields:
- * addWidget(Button.builder(Component.literal("📌"), b -> coordField.setFromPlayer(minecraft.player))
+ * addWidget(Button.builder(new StringTextComponent("📌"), b -> coordField.setFromPlayer(minecraft.player))
  *         .bounds(coordField.getEndX() + gap, y, btnW, height).build());
  *
  * // In save():
@@ -34,14 +36,14 @@ import java.util.function.Consumer;
  * <pre>
  *  startX
  *   │←labelW→│←── fieldW ──→│← stride - labelW - fieldW →│←labelW→│←── fieldW ──→│ ...
- *  [  §7X:  ][  EditBox X   ]                              [  §7Y:  ][  EditBox Y   ] ...
+ *  [  §7X:  ][  TextFieldWidget X   ]                              [  §7Y:  ][  TextFieldWidget Y   ] ...
  * </pre>
  * {@code stride} = distance from the start of the X-label to the start of the Y-label.
  * Set {@code stride = labelW + fieldW} for zero gap, or add padding as needed.
  */
 public class CoordinateInputField {
 
-    private final EditBox xInput, yInput, zInput;
+    private final TextFieldWidget xInput, yInput, zInput;
 
     // Stored for addToScreen() label positioning
     private final int startX, y, labelW, h, stride;
@@ -53,12 +55,12 @@ public class CoordinateInputField {
      * @param startX  left edge of the "§7X:" label
      * @param y       top Y of all widgets
      * @param labelW  width of each "X:"/"Y:"/"Z:" label button
-     * @param fieldW  width of each EditBox
+     * @param fieldW  width of each TextFieldWidget
      * @param height  height of all widgets
      * @param stride  distance from the start of one label to the start of the next
      *                (stride = labelW + fieldW + gap)
      */
-    public CoordinateInputField(Font font, int startX, int y,
+    public CoordinateInputField(FontRenderer font, int startX, int y,
                                  int labelW, int fieldW, int height, int stride) {
         this.startX = startX;
         this.y      = y;
@@ -74,13 +76,13 @@ public class CoordinateInputField {
     /**
      * Convenience constructor — stride = labelW + fieldW (zero gap between pairs).
      */
-    public CoordinateInputField(Font font, int startX, int y,
+    public CoordinateInputField(FontRenderer font, int startX, int y,
                                  int labelW, int fieldW, int height) {
         this(font, startX, y, labelW, fieldW, height, labelW + fieldW);
     }
 
-    private static EditBox box(Font font, int x, int y, int w, int h, String hint) {
-        EditBox b = new EditBox(font, x, y, w, h, Component.literal(hint));
+    private static TextFieldWidget box(FontRenderer font, int x, int y, int w, int h, String hint) {
+        TextFieldWidget b = new TextFieldWidget(font, x, y, w, h, new StringTextComponent(hint));
         b.setMaxLength(7);
         return b;
     }
@@ -152,7 +154,7 @@ public class CoordinateInputField {
      * Sets all three fields to the player's current block position.
      * No-op if {@code player} is {@code null}.
      */
-    public void setFromPlayer(@Nullable Player player) {
+    public void setFromPlayer(@Nullable PlayerEntity player) {
         if (player != null) setValue(player.blockPosition());
     }
 
@@ -162,7 +164,7 @@ public class CoordinateInputField {
      * Adds all six inner widgets (3 inactive label buttons + 3 EditBoxes) to the screen.
      * Call this from {@code init()} after creating the component.
      */
-    public void addToScreen(Consumer<AbstractWidget> adder) {
+    public void addToScreen(Consumer<Widget> adder) {
         addLabel(adder, "§7X:", startX);
         adder.accept(xInput);
         addLabel(adder, "§7Y:", startX + stride);
@@ -175,14 +177,13 @@ public class CoordinateInputField {
      * Adds all six widgets as static (non-scrollable) elements.
      * Equivalent to calling {@link #addToScreen} with a static-adding consumer.
      */
-    public void addStaticToScreen(Consumer<AbstractWidget> adder) {
+    public void addStaticToScreen(Consumer<Widget> adder) {
         // delegate — same implementation, the adder controls static vs scrollable
         addToScreen(adder);
     }
 
-    private void addLabel(Consumer<AbstractWidget> adder, String text, int lx) {
-        Button lbl = Button.builder(Component.literal(text), b -> {})
-                .bounds(lx, y, labelW, h).build();
+    private void addLabel(Consumer<Widget> adder, String text, int lx) {
+        Button lbl = new Button(lx, y, labelW, h, new StringTextComponent(text), b -> {});
         lbl.active = false;
         adder.accept(lbl);
     }

@@ -1,16 +1,19 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.data.Location;
 import com.wavedefense.data.ShopItem;
 import com.wavedefense.data.ShopPoint;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.UpdateLocationPacket;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.resources.language.I18n;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.item.ItemStack;
 
 import java.util.List;
 
@@ -46,7 +49,7 @@ public class ShopEditorScreen extends Screen {
     private static final int TILE_GAP = 8;
 
     public ShopEditorScreen(Location location, Screen parent) {
-        super(Component.translatable("wavedefense.title.shop_editor")
+        super(new TranslationTextComponent("wavedefense.title.shop_editor")
                 .append(": ").append(location.getName()));
         this.location = location;
         this.parent   = parent;
@@ -59,31 +62,23 @@ public class ShopEditorScreen extends Screen {
 
         // ── Рядок вибору режиму (y=24) ───────────────────────────────
         boolean isPoint = location.isPointShopMode();
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.label.shop_mode"), b -> {}
-        ).bounds(cx - 160, 24, 50, 14).build()).active = false;
+        this.addButton(new Button(cx - 160, 24, 50, 14, new TranslationTextComponent("wavedefense.label.shop_mode"), b -> {})).active = false;
 
-        this.addRenderableWidget(Button.builder(
-            isPoint ? Component.translatable("wavedefense.button.shop_mode_global_off")
-                    : Component.translatable("wavedefense.button.shop_mode_global_on"),
-            b -> {
+        this.addButton(new Button(cx - 106, 24, 100, 14, isPoint ? new TranslationTextComponent("wavedefense.button.shop_mode_global_off")
+                    : new TranslationTextComponent("wavedefense.button.shop_mode_global_on"), b -> {
                 // С6: reset scroll and pending state when switching modes
                 scrollOffsetGlobal = 0; scrollOffsetPoints = 0;
                 pendingDeleteShopIndex = -1; pendingDeletePointIndex = -1;
-                location.setShopMode(Location.ShopMode.GLOBAL); rebuildWidgets();
-            }
-        ).bounds(cx - 106, 24, 100, 14).build());
+                location.setShopMode(Location.ShopMode.GLOBAL); init();
+            }));
 
-        this.addRenderableWidget(Button.builder(
-            isPoint ? Component.translatable("wavedefense.button.shop_mode_point_on")
-                    : Component.translatable("wavedefense.button.shop_mode_point_off"),
-            b -> {
+        this.addButton(new Button(cx - 2, 24, 100, 14, isPoint ? new TranslationTextComponent("wavedefense.button.shop_mode_point_on")
+                    : new TranslationTextComponent("wavedefense.button.shop_mode_point_off"), b -> {
                 // С6: reset scroll and pending state when switching modes
                 scrollOffsetGlobal = 0; scrollOffsetPoints = 0;
                 pendingDeleteShopIndex = -1; pendingDeletePointIndex = -1;
-                location.setShopMode(Location.ShopMode.POINT); rebuildWidgets();
-            }
-        ).bounds(cx - 2, 24, 100, 14).build());
+                location.setShopMode(Location.ShopMode.POINT); init();
+            }));
 
         int y = 42;
         if (!isPoint) {
@@ -92,29 +87,15 @@ public class ShopEditorScreen extends Screen {
             buildPointView(cx, y);
         }
 
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.button.save_back"),
-            b -> saveChanges()
-        ).bounds(cx - 160, this.height - 28, 150, 20).build());
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.button.cancel"),
-            b -> this.minecraft.setScreen(parent)
-        ).bounds(cx - 5, this.height - 28, 110, 20).build());
+        this.addButton(new Button(cx - 160, this.height - 28, 150, 20, new TranslationTextComponent("wavedefense.button.save_back"), b -> saveChanges()));
+        this.addButton(new Button(cx - 5, this.height - 28, 110, 20, new TranslationTextComponent("wavedefense.button.cancel"), b -> this.minecraft.setScreen(parent)));
 
         // Кнопки імпорту/експорту магазину
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.auto.exp_648cf132"),
-            b -> exportShop(isPoint)
-        ).bounds(cx + 110, this.height - 28, 42, 20).build())
-        .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-            Component.translatable("wavedefense.auto.зберегти_магазин_у_файл_server_w_7b502093")));
+        this.addButton(new Button(cx + 110, this.height - 28, 42, 20, new TranslationTextComponent("wavedefense.auto.exp_648cf132"), b -> exportShop(isPoint)))
+        /* setTooltip omitted on 1.16.5 */;
 
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.auto.imp_3d6db024"),
-            b -> minecraft.setScreen(new ShopImportScreen(location, isPoint, this))
-        ).bounds(cx + 156, this.height - 28, 42, 20).build())
-        .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-            Component.translatable("wavedefense.auto.завантажити_магазин_з_файлу_075366bf")));
+        this.addButton(new Button(cx + 156, this.height - 28, 42, 20, new TranslationTextComponent("wavedefense.auto.imp_3d6db024"), b -> minecraft.setScreen(new ShopImportScreen(location, isPoint, this))))
+        /* setTooltip omitted on 1.16.5 */;
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -123,23 +104,14 @@ public class ShopEditorScreen extends Screen {
     private void buildGlobalView(int cx, int startY) {
         // C4: Tacz bulk-add button — visible only when Tacz is loaded.
         // Layout: "Add item" shrinks to make room for the Tacz button on the right.
-        boolean taczOn = com.wavedefense.compat.TaczCompat.isLoaded();
+        boolean taczOn = false /* TaczCompat not ported on 1.16.5 */;
         int addW = taczOn ? 100 : 160;
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.button.add_shop_item"),
-            b -> minecraft.setScreen(new ShopItemEditorScreen(location, -1, this))
-        ).bounds(cx - 100, startY, addW, 18).build());
+        this.addButton(new Button(cx - 100, startY, addW, 18, new TranslationTextComponent("wavedefense.button.add_shop_item"), b -> minecraft.setScreen(new ShopItemEditorScreen(location, -1, this))));
         if (taczOn) {
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.tacz.bulk.open_button"),
-                b -> minecraft.setScreen(new TaczBulkAddScreen(location, this))
-            ).bounds(cx + 6, startY, 50, 18).build());
+            this.addButton(new Button(cx + 6, startY, 50, 18, new TranslationTextComponent("wavedefense.tacz.bulk.open_button"), b -> minecraft.setScreen(/* not ported */ null)));
         }
         // View-mode toggle — matches PlayerShopScreen UX
-        this.addRenderableWidget(Button.builder(
-            Component.translatable(tileMode ? "wavedefense.shop.view_tiles" : "wavedefense.shop.view_list"),
-            b -> { tileMode = !tileMode; scrollOffsetGlobal = 0; rebuildWidgets(); }
-        ).bounds(cx + 60, startY, 40, 18).build());
+        this.addButton(new Button(cx + 60, startY, 40, 18, new TranslationTextComponent(tileMode ? "wavedefense.shop.view_tiles" : "wavedefense.shop.view_list"), b -> { tileMode = !tileMode; scrollOffsetGlobal = 0; init(); }));
         startY += 22;
 
         List<ShopItem> items = location.getShopItems();
@@ -153,51 +125,35 @@ public class ShopEditorScreen extends Screen {
             ShopItem si = items.get(idx);
             int yPos = startY + i * 66;
             String nm = si.getItems().isEmpty()
-                ? net.minecraft.client.resources.language.I18n.get("wavedefense.label.empty")
+                ? net.minecraft.client.resources.I18n.get("wavedefense.label.empty")
                 : si.getItems().get(0).getHoverName().getString();
             if (nm.length() > 25) nm = nm.substring(0, 22) + "...";
             if (si.getItems().size() > 1) nm += " (+" + (si.getItems().size()-1) + ")";
-            this.addRenderableWidget(Button.builder(
-                Component.literal("§e" + nm), b -> {}
-            ).bounds(cx - 140, yPos + 4, 150, 18).build()).active = false;
+            this.addButton(new Button(cx - 140, yPos + 4, 150, 18, new StringTextComponent("§e" + nm), b -> {})).active = false;
             final int fi = idx;
             boolean isPendingDelShop = (pendingDeleteShopIndex == fi);
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.edit"),
-                b -> { pendingDeleteShopIndex = -1; minecraft.setScreen(new ShopItemEditorScreen(location, fi, this)); }
-            ).bounds(cx + 14, yPos, 70, 18).build());
-            this.addRenderableWidget(Button.builder(
-                isPendingDelShop
-                    ? Component.translatable("wavedefense.button.confirm_delete")
-                    : Component.translatable("wavedefense.button.delete"),
-                b -> {
+            this.addButton(new Button(cx + 14, yPos, 70, 18, new TranslationTextComponent("wavedefense.button.edit"), b -> { pendingDeleteShopIndex = -1; minecraft.setScreen(new ShopItemEditorScreen(location, fi, this)); }));
+            this.addButton(new Button(cx + 88, yPos, 70, 18, isPendingDelShop
+                    ? new TranslationTextComponent("wavedefense.button.confirm_delete")
+                    : new TranslationTextComponent("wavedefense.button.delete"), b -> {
                     if (isPendingDelShop) {
                         pendingDeleteShopIndex = -1;
                         location.removeShopItem(fi);
                         scrollOffsetGlobal = Math.max(0, Math.min(scrollOffsetGlobal, Math.max(0, location.getShopItems().size() - ITEMS_PER_PAGE)));
-                        rebuildWidgets();
+                        init();
                     } else {
                         pendingDeleteShopIndex = fi;
-                        rebuildWidgets();
+                        init();
                     }
-                }
-            ).bounds(cx + 88, yPos, 70, 18).build());
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.купити_d_продати_d_05ac8a91", si.getBuyPrice(), si.getSellPrice()),
-                b -> {}
-            ).bounds(cx - 140, yPos + 48, 280, 12).build()).active = false;
+                }));
+            this.addButton(new Button(cx - 140, yPos + 48, 280, 12, new TranslationTextComponent("wavedefense.auto.купити_d_продати_d_05ac8a91", si.getBuyPrice(), si.getSellPrice()), b -> {})).active = false;
             for (int j = 0; j < Math.min(4, si.getItems().size()); j++)
-                this.addRenderableWidget(Button.builder(Component.literal(""), b -> {})
-                    .bounds(cx - 140 + j*20, yPos+24, 18, 18).build()).active = false;
+                this.addButton(new Button(cx - 140 + j*20, yPos+24, 18, 18, new StringTextComponent(""), b -> {})).active = false;
         }
 
         if (items.size() > ITEMS_PER_PAGE) {
-            this.addRenderableWidget(Button.builder(Component.literal("▲"),
-                b -> { if (scrollOffsetGlobal>0){scrollOffsetGlobal--;rebuildWidgets();} }
-            ).bounds(cx + 145, startY, 18, 18).build());
-            this.addRenderableWidget(Button.builder(Component.literal("▼"),
-                b -> { if (scrollOffsetGlobal+ITEMS_PER_PAGE<items.size()){scrollOffsetGlobal++;rebuildWidgets();} }
-            ).bounds(cx + 145, this.height - 52, 18, 18).build());
+            this.addButton(new Button(cx + 145, startY, 18, 18, new StringTextComponent("▲"), b -> { if (scrollOffsetGlobal>0){scrollOffsetGlobal--;init();} }));
+            this.addButton(new Button(cx + 145, this.height - 52, 18, 18, new StringTextComponent("▼"), b -> { if (scrollOffsetGlobal+ITEMS_PER_PAGE<items.size()){scrollOffsetGlobal++;init();} }));
         }
     }
 
@@ -222,38 +178,28 @@ public class ShopEditorScreen extends Screen {
             boolean isPendingDelShop = (pendingDeleteShopIndex == fi);
 
             // Edit button — bottom-left of the tile
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.edit"),
-                b -> { pendingDeleteShopIndex = -1; minecraft.setScreen(new ShopItemEditorScreen(location, fi, this)); }
-            ).bounds(x + 4, y + TILE_H - 22, (TILE_W - 12) / 2, 16).build());
+            this.addButton(new Button(x + 4, y + TILE_H - 22, (TILE_W - 12) / 2, 16, new TranslationTextComponent("wavedefense.button.edit"), b -> { pendingDeleteShopIndex = -1; minecraft.setScreen(new ShopItemEditorScreen(location, fi, this)); }));
 
             // Delete button — bottom-right of the tile, with confirm
-            this.addRenderableWidget(Button.builder(
-                isPendingDelShop
-                    ? Component.translatable("wavedefense.button.confirm_delete")
-                    : Component.translatable("wavedefense.button.delete"),
-                b -> {
+            this.addButton(new Button(x + 4 + (TILE_W - 12) / 2 + 4, y + TILE_H - 22, (TILE_W - 12) / 2, 16, isPendingDelShop
+                    ? new TranslationTextComponent("wavedefense.button.confirm_delete")
+                    : new TranslationTextComponent("wavedefense.button.delete"), b -> {
                     if (isPendingDelShop) {
                         pendingDeleteShopIndex = -1;
                         location.removeShopItem(fi);
                         int maxOff = Math.max(0, location.getShopItems().size() - perPage);
                         scrollOffsetGlobal = Math.max(0, Math.min(scrollOffsetGlobal, maxOff));
-                        rebuildWidgets();
+                        init();
                     } else {
                         pendingDeleteShopIndex = fi;
-                        rebuildWidgets();
+                        init();
                     }
-                }
-            ).bounds(x + 4 + (TILE_W - 12) / 2 + 4, y + TILE_H - 22, (TILE_W - 12) / 2, 16).build());
+                }));
         }
 
         if (items.size() > perPage) {
-            this.addRenderableWidget(Button.builder(Component.literal("▲"),
-                b -> { if (scrollOffsetGlobal > 0) { scrollOffsetGlobal--; rebuildWidgets(); } }
-            ).bounds(gridX + gridW + 4, startY, 18, 18).build());
-            this.addRenderableWidget(Button.builder(Component.literal("▼"),
-                b -> { if (scrollOffsetGlobal + perPage < items.size()) { scrollOffsetGlobal++; rebuildWidgets(); } }
-            ).bounds(gridX + gridW + 4, this.height - 52, 18, 18).build());
+            this.addButton(new Button(gridX + gridW + 4, startY, 18, 18, new StringTextComponent("▲"), b -> { if (scrollOffsetGlobal > 0) { scrollOffsetGlobal--; init(); } }));
+            this.addButton(new Button(gridX + gridW + 4, this.height - 52, 18, 18, new StringTextComponent("▼"), b -> { if (scrollOffsetGlobal + perPage < items.size()) { scrollOffsetGlobal++; init(); } }));
         }
     }
 
@@ -266,24 +212,16 @@ public class ShopEditorScreen extends Screen {
     //  POINT
     // ─────────────────────────────────────────────────────────────────
     private void buildPointView(int cx, int startY) {
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.label.shop_point_hint"),
-            b -> {}
-        ).bounds(cx - 160, startY, 320, 12).build()).active = false;
+        this.addButton(new Button(cx - 160, startY, 320, 12, new TranslationTextComponent("wavedefense.label.shop_point_hint"), b -> {})).active = false;
         startY += 14;
 
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.button.add_shop_point"),
-            b -> minecraft.setScreen(new ShopPointEditorScreen(location, -1, this))
-        ).bounds(cx - 120, startY, 240, 18).build());
+        this.addButton(new Button(cx - 120, startY, 240, 18, new TranslationTextComponent("wavedefense.button.add_shop_point"), b -> minecraft.setScreen(new ShopPointEditorScreen(location, -1, this))));
         startY += 22;
 
         List<ShopPoint> points = location.getShopPoints();
 
         if (points.isEmpty()) {
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.немає_точок_натисніть_нова_точка_6f5d4a78"), b -> {}
-            ).bounds(cx - 160, startY, 320, 18).build()).active = false;
+            this.addButton(new Button(cx - 160, startY, 320, 18, new TranslationTextComponent("wavedefense.auto.немає_точок_натисніть_нова_точка_6f5d4a78"), b -> {})).active = false;
         }
 
         for (int i = 0; i < Math.min(POINTS_PER_PAGE, points.size()); i++) {
@@ -298,55 +236,40 @@ public class ShopEditorScreen extends Screen {
                 : I18n.get("wavedefense.location.shop_no_pos");
             String titleLine = "§6" + sp.getName() + posStr;
             if (titleLine.length() > 60) titleLine = titleLine.substring(0, 58) + "…";
-            this.addRenderableWidget(Button.builder(
-                Component.literal(titleLine), b -> {}
-            ).bounds(cx - 160, yPos, 280, 14).build()).active = false;
+            this.addButton(new Button(cx - 160, yPos, 280, 14, new StringTextComponent(titleLine), b -> {})).active = false;
 
             // Рядок 2: кількість товарів
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.товарів_d_0ca6f904", sp.getItems().size()), b -> {}
-            ).bounds(cx - 160, yPos + 16, 120, 12).build()).active = false;
+            this.addButton(new Button(cx - 160, yPos + 16, 120, 12, new TranslationTextComponent("wavedefense.auto.товарів_d_0ca6f904", sp.getItems().size()), b -> {})).active = false;
 
             final int fi = idx;
             boolean isPendingDelPoint = (pendingDeletePointIndex == fi);
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.edit"),
-                b -> { pendingDeletePointIndex = -1; minecraft.setScreen(new ShopPointEditorScreen(location, fi, this)); }
-            ).bounds(cx + 40, yPos + 2, 60, 20).build());
+            this.addButton(new Button(cx + 40, yPos + 2, 60, 20, new TranslationTextComponent("wavedefense.button.edit"), b -> { pendingDeletePointIndex = -1; minecraft.setScreen(new ShopPointEditorScreen(location, fi, this)); }));
             // В3: two-step confirmation before deleting a shop point
-            this.addRenderableWidget(Button.builder(
-                isPendingDelPoint
-                    ? Component.translatable("wavedefense.button.confirm_delete")
-                    : Component.translatable("wavedefense.button.delete"),
-                b -> {
+            this.addButton(new Button(cx + 104, yPos + 2, 60, 20, isPendingDelPoint
+                    ? new TranslationTextComponent("wavedefense.button.confirm_delete")
+                    : new TranslationTextComponent("wavedefense.button.delete"), b -> {
                     if (isPendingDelPoint) {
                         pendingDeletePointIndex = -1;
                         location.removeShopPoint(fi);
                         scrollOffsetPoints = Math.max(0, Math.min(scrollOffsetPoints, Math.max(0, location.getShopPoints().size() - POINTS_PER_PAGE)));
-                        rebuildWidgets();
+                        init();
                     } else {
                         pendingDeletePointIndex = fi;
-                        rebuildWidgets();
+                        init();
                     }
-                }
-            ).bounds(cx + 104, yPos + 2, 60, 20).build());
+                }));
 
             // Іконки першого товару точки (попередній перегляд)
             if (!sp.getItems().isEmpty()) {
                 List<ItemStack> preview = sp.getItems().get(0).getItems();
                 for (int j = 0; j < Math.min(4, preview.size()); j++)
-                    this.addRenderableWidget(Button.builder(Component.literal(""), b -> {})
-                        .bounds(cx - 160 + j*20, yPos + 32, 18, 18).build()).active = false;
+                    this.addButton(new Button(cx - 160 + j*20, yPos + 32, 18, 18, new StringTextComponent(""), b -> {})).active = false;
             }
         }
 
         if (points.size() > POINTS_PER_PAGE) {
-            this.addRenderableWidget(Button.builder(Component.literal("▲"),
-                b -> { if (scrollOffsetPoints>0){scrollOffsetPoints--;rebuildWidgets();} }
-            ).bounds(cx + 145, startY, 18, 18).build());
-            this.addRenderableWidget(Button.builder(Component.literal("▼"),
-                b -> { if (scrollOffsetPoints+POINTS_PER_PAGE<points.size()){scrollOffsetPoints++;rebuildWidgets();} }
-            ).bounds(cx + 145, this.height - 52, 18, 18).build());
+            this.addButton(new Button(cx + 145, startY, 18, 18, new StringTextComponent("▲"), b -> { if (scrollOffsetPoints>0){scrollOffsetPoints--;init();} }));
+            this.addButton(new Button(cx + 145, this.height - 52, 18, 18, new StringTextComponent("▼"), b -> { if (scrollOffsetPoints+POINTS_PER_PAGE<points.size()){scrollOffsetPoints++;init();} }));
         }
     }
 
@@ -372,10 +295,10 @@ public class ShopEditorScreen extends Screen {
             if (itemCount > CHUNK_THRESHOLD) {
                 int chunks = (itemCount + CHUNK_SIZE - 1) / CHUNK_SIZE;
                 minecraft.player.displayClientMessage(
-                    Component.translatable("wavedefense.msg.shop_chunked", itemCount, chunks), false);
+                    new TranslationTextComponent("wavedefense.msg.shop_chunked", itemCount, chunks), false);
             }
             minecraft.player.displayClientMessage(
-                Component.translatable("wavedefense.auto.магазин_збережено_2ae52f5a"), true);
+                new TranslationTextComponent("wavedefense.auto.магазин_збережено_2ae52f5a"), true);
         }
         minecraft.setScreen(parent);
     }
@@ -415,7 +338,7 @@ public class ShopEditorScreen extends Screen {
                 location.getName(), "global"));
             if (minecraft.player != null)
                 minecraft.player.displayClientMessage(
-                    Component.translatable("wavedefense.auto.відправлено_запит_на_збереження_9fd133ca"), true);
+                    new TranslationTextComponent("wavedefense.auto.відправлено_запит_на_збереження_9fd133ca"), true);
         }
     }
 
@@ -423,18 +346,18 @@ public class ShopEditorScreen extends Screen {
     public boolean mouseScrolled(double mx, double my, double delta) {
         if (!location.isPointShopMode()) {
             int max = Math.max(0, location.getShopItems().size() - ITEMS_PER_PAGE);
-            if (delta > 0 && scrollOffsetGlobal > 0) { scrollOffsetGlobal--; rebuildWidgets(); }
-            else if (delta < 0 && scrollOffsetGlobal < max) { scrollOffsetGlobal++; rebuildWidgets(); }
+            if (delta > 0 && scrollOffsetGlobal > 0) { scrollOffsetGlobal--; init(); }
+            else if (delta < 0 && scrollOffsetGlobal < max) { scrollOffsetGlobal++; init(); }
         } else {
             int max = Math.max(0, location.getShopPoints().size() - POINTS_PER_PAGE);
-            if (delta > 0 && scrollOffsetPoints > 0) { scrollOffsetPoints--; rebuildWidgets(); }
-            else if (delta < 0 && scrollOffsetPoints < max) { scrollOffsetPoints++; rebuildWidgets(); }
+            if (delta > 0 && scrollOffsetPoints > 0) { scrollOffsetPoints--; init(); }
+            else if (delta < 0 && scrollOffsetPoints < max) { scrollOffsetPoints++; init(); }
         }
         return true;
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
+    public void render(MatrixStack g, int mouseX, int mouseY, float partial) {
         GuiTheme.renderBackground(g, this.width, this.height);
         GuiTheme.renderHeader(g, this.font, this.title, this.width);
         int cx = this.width / 2;
@@ -447,13 +370,13 @@ public class ShopEditorScreen extends Screen {
         // Accent underline shows which mode tab is active
         boolean isPointTab = location.isPointShopMode();
         int activeTabX = isPointTab ? cx - 2 : cx - 106;
-        g.fill(activeTabX, 37, activeTabX + 100, 38, GuiTheme.ACCENT);
+        com.wavedefense.gui.GuiCompat.fill(g, activeTabX, 37, activeTabX + 100, 38, GuiTheme.ACCENT);
 
         // ── Прохід 1: прокручений контент зі scissor ─────────────────
         ScissorHelper.enable(0, MODE_BOT, this.width, Math.max(1, BOTTOM_TOP - MODE_BOT));
-        for (var r : this.renderables) {
-            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w) {
-                if (w.getY() + w.getHeight() > MODE_BOT && w.getY() < BOTTOM_TOP)
+        for (Object r : this.buttons) {
+            if (r instanceof net.minecraft.client.gui.widget.Widget) { net.minecraft.client.gui.widget.Widget w = (net.minecraft.client.gui.widget.Widget) r;
+                if (w.y + w.getHeight() > MODE_BOT && w.y < BOTTOM_TOP)
                     w.render(g, mouseX, mouseY, partial);
             }
         }
@@ -482,25 +405,25 @@ public class ShopEditorScreen extends Screen {
                 // Tile background — red tint when pending delete
                 int bg     = isPendingDel ? 0x44440000 : 0x22335533;
                 int border = isPendingDel ? 0x88AA5555 : 0x8855AA55;
-                g.fill(x, y, x + TILE_W, y + TILE_H - 2, bg);
-                g.fill(x, y, x + TILE_W, y + 1, border);
+                com.wavedefense.gui.GuiCompat.fill(g, x, y, x + TILE_W, y + TILE_H - 2, bg);
+                com.wavedefense.gui.GuiCompat.fill(g, x, y, x + TILE_W, y + 1, border);
 
                 // Primary icon (first ItemStack in slot)
                 List<ItemStack> stacks = si.getItems();
                 ItemStack first = stacks.isEmpty() ? ItemStack.EMPTY : stacks.get(0);
                 int iconX = x + TILE_W / 2 - 8;
                 int iconY = y + 6;
-                g.fill(iconX - 1, iconY - 1, iconX + 17, iconY + 17, GuiTheme.BORDER);
-                g.fill(iconX, iconY, iconX + 16, iconY + 16, GuiTheme.PANEL_DARK);
-                g.renderItem(first, iconX, iconY);
-                g.renderItemDecorations(this.font, first, iconX, iconY);
+                com.wavedefense.gui.GuiCompat.fill(g, iconX - 1, iconY - 1, iconX + 17, iconY + 17, GuiTheme.BORDER);
+                com.wavedefense.gui.GuiCompat.fill(g, iconX, iconY, iconX + 16, iconY + 16, GuiTheme.PANEL_DARK);
+                com.wavedefense.gui.GuiCompat.renderItem(g, first, iconX, iconY);
+                com.wavedefense.gui.GuiCompat.renderItemDecorations(g, this.font, first, iconX, iconY);
                 if (mouseX >= iconX && mouseX < iconX + 16 && mouseY >= iconY && mouseY < iconY + 16) {
                     tooltipItem = first; tooltipMx = mouseX; tooltipMy = mouseY;
                 }
 
                 // Item count badge (+N other stacks)
                 if (stacks.size() > 1) {
-                    g.drawString(this.font, "+" + (stacks.size() - 1),
+                    com.wavedefense.gui.GuiCompat.drawString(g, this.font, "+" + (stacks.size() - 1),
                         x + TILE_W - 14, y + 6, 0xFFE680);
                 }
 
@@ -509,18 +432,18 @@ public class ShopEditorScreen extends Screen {
                     ? I18n.get("wavedefense.label.empty")
                     : first.getHoverName().getString();
                 if (nm.length() > 15) nm = nm.substring(0, 13) + "…";
-                g.drawString(this.font, nm, x + 6, y + 26, 0xFFFFFF);
-                g.drawString(this.font, "§e" + si.getBuyPrice() + " §7/ §a" + si.getSellPrice(),
+                com.wavedefense.gui.GuiCompat.drawString(g, this.font, nm, x + 6, y + 26, 0xFFFFFF);
+                com.wavedefense.gui.GuiCompat.drawString(g, this.font, "§e" + si.getBuyPrice() + " §7/ §a" + si.getSellPrice(),
                     x + 6, y + 38, 0xFFFFFF);
                 if (si.hasAvailabilityTrigger()) {
-                    g.drawString(this.font, "§6[§e" + I18n.get(si.getAvailabilityTrigger().label) + "§6]",
+                    com.wavedefense.gui.GuiCompat.drawString(g, this.font, "§6[§e" + I18n.get(si.getAvailabilityTrigger().label) + "§6]",
                         x + 6, y + 50, 0xFFFFAA00);
                 }
             }
             if (tooltipItem != null) {
-                g.flush();
+                com.wavedefense.gui.GuiCompat.flush(g);
                 ScissorHelper.disable();
-                g.renderTooltip(this.font, tooltipItem, tooltipMx, tooltipMy);
+                com.wavedefense.gui.GuiCompat.renderTooltip(this, g, this.font, tooltipItem, tooltipMx, tooltipMy);
                 ScissorHelper.enable(0, MODE_BOT, this.width, Math.max(1, BOTTOM_TOP - MODE_BOT));
             }
         } else if (!location.isPointShopMode()) {
@@ -534,19 +457,19 @@ public class ShopEditorScreen extends Screen {
                 for (int j = 0; j < Math.min(4, stacks.size()); j++) {
                     ItemStack st = stacks.get(j);
                     int ix = cx - 140 + j * 20, iy = yPos + 24;
-                    g.fill(ix-1,iy-1,ix+17,iy+17,GuiTheme.BORDER);
-                    g.fill(ix,iy,ix+16,iy+16,GuiTheme.PANEL_DARK);
-                    g.renderItem(st, ix, iy);
-                    g.renderItemDecorations(this.font, st, ix, iy);
+                    com.wavedefense.gui.GuiCompat.fill(g, ix-1,iy-1,ix+17,iy+17,GuiTheme.BORDER);
+                    com.wavedefense.gui.GuiCompat.fill(g, ix,iy,ix+16,iy+16,GuiTheme.PANEL_DARK);
+                    com.wavedefense.gui.GuiCompat.renderItem(g, st, ix, iy);
+                    com.wavedefense.gui.GuiCompat.renderItemDecorations(g, this.font, st, ix, iy);
                     if (mouseX >= ix && mouseX < ix+16 && mouseY >= iy && mouseY < iy+16) {
-                        g.flush(); // flush renderItemDecorations text before disabling scissor
+                        com.wavedefense.gui.GuiCompat.flush(g); // flush renderItemDecorations text before disabling scissor
                         ScissorHelper.disable();
-                        g.renderTooltip(this.font, st, mouseX, mouseY);
+                        com.wavedefense.gui.GuiCompat.renderTooltip(this, g, this.font, st, mouseX, mouseY);
                         ScissorHelper.enable(0, MODE_BOT, this.width, Math.max(1, BOTTOM_TOP - MODE_BOT));
                     }
                 }
                 if (items.get(idx).hasAvailabilityTrigger())
-                    g.drawString(this.font,
+                    com.wavedefense.gui.GuiCompat.drawString(g, this.font,
                         "§6[§e" + I18n.get(items.get(idx).getAvailabilityTrigger().label) + "§6]",
                         cx - 140 + 84, yPos + 27, 0xFFFFAA00);
             }
@@ -563,20 +486,20 @@ public class ShopEditorScreen extends Screen {
                 for (int j = 0; j < Math.min(4, firstItems.size()); j++) {
                     ItemStack st = firstItems.get(j);
                     int ix = cx - 160 + j * 20, iy = yPos + 32;
-                    g.fill(ix-1,iy-1,ix+17,iy+17,GuiTheme.BORDER);
-                    g.fill(ix,iy,ix+16,iy+16,GuiTheme.PANEL_DARK);
-                    g.renderItem(st, ix, iy);
-                    g.renderItemDecorations(this.font, st, ix, iy);
+                    com.wavedefense.gui.GuiCompat.fill(g, ix-1,iy-1,ix+17,iy+17,GuiTheme.BORDER);
+                    com.wavedefense.gui.GuiCompat.fill(g, ix,iy,ix+16,iy+16,GuiTheme.PANEL_DARK);
+                    com.wavedefense.gui.GuiCompat.renderItem(g, st, ix, iy);
+                    com.wavedefense.gui.GuiCompat.renderItemDecorations(g, this.font, st, ix, iy);
                     if (mouseX >= ix && mouseX < ix+16 && mouseY >= iy && mouseY < iy+16) {
-                        g.flush(); // flush renderItemDecorations text before disabling scissor
+                        com.wavedefense.gui.GuiCompat.flush(g); // flush renderItemDecorations text before disabling scissor
                         ScissorHelper.disable();
-                        g.renderTooltip(this.font, st, mouseX, mouseY);
+                        com.wavedefense.gui.GuiCompat.renderTooltip(this, g, this.font, st, mouseX, mouseY);
                         ScissorHelper.enable(0, MODE_BOT, this.width, Math.max(1, BOTTOM_TOP - MODE_BOT));
                     }
                 }
             }
         }
-        g.flush();
+        com.wavedefense.gui.GuiCompat.flush(g);
         ScissorHelper.disable();
 
         // V3: Scrollbar indicator
@@ -590,20 +513,24 @@ public class ShopEditorScreen extends Screen {
 
         // ── Прохід 2: заголовок + рядок вибору режиму (верхня статична зона) ─
         ScissorHelper.enable(0, 0, this.width, MODE_BOT);
-        for (var r : this.renderables) {
-            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w && w.getY() < MODE_BOT)
-                w.render(g, mouseX, mouseY, partial);
+        for (Object r : this.buttons) {
+            if (r instanceof net.minecraft.client.gui.widget.Widget) {
+                net.minecraft.client.gui.widget.Widget w = (net.minecraft.client.gui.widget.Widget) r;
+                if (w.y < MODE_BOT) w.render(g, mouseX, mouseY, partial);
+            }
         }
-        g.flush();
+        com.wavedefense.gui.GuiCompat.flush(g);
         ScissorHelper.disable();
 
         // ── Прохід 3: нижня статична зона (Зберегти / Exp / Imp) ─────
         ScissorHelper.enable(0, BOTTOM_TOP, this.width, this.height - BOTTOM_TOP);
-        for (var r : this.renderables) {
-            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w && w.getY() >= BOTTOM_TOP)
-                w.render(g, mouseX, mouseY, partial);
+        for (Object r : this.buttons) {
+            if (r instanceof net.minecraft.client.gui.widget.Widget) {
+                net.minecraft.client.gui.widget.Widget w = (net.minecraft.client.gui.widget.Widget) r;
+                if (w.y >= BOTTOM_TOP) w.render(g, mouseX, mouseY, partial);
+            }
         }
-        g.flush();
+        com.wavedefense.gui.GuiCompat.flush(g);
         ScissorHelper.disable();
     }
 

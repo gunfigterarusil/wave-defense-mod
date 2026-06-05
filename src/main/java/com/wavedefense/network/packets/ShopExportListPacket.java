@@ -1,10 +1,10 @@
 package com.wavedefense.network.packets;
 
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.PacketBuffer;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraftforge.fml.network.NetworkEvent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,11 +16,11 @@ public class ShopExportListPacket {
 
     public ShopExportListPacket(List<String> names) { this.names = names; }
 
-    public static void encode(ShopExportListPacket p, FriendlyByteBuf buf) {
+    public static void encode(ShopExportListPacket p, PacketBuffer buf) {
         buf.writeInt(p.names.size());
         for (String n : p.names) buf.writeUtf(n);
     }
-    public static ShopExportListPacket decode(FriendlyByteBuf buf) {
+    public static ShopExportListPacket decode(PacketBuffer buf) {
         int size = buf.readInt();
         List<String> names = new ArrayList<>(size);
         for (int i = 0; i < size; i++) names.add(buf.readUtf(128));

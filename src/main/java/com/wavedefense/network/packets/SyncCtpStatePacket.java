@@ -1,11 +1,11 @@
 package com.wavedefense.network.packets;
 
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.network.PacketBuffer;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraftforge.fml.network.NetworkEvent;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -45,34 +45,34 @@ public class SyncCtpStatePacket {
     }
 
     // ── Encode ────────────────────────────────────────────────────────────
-    public static void encode(SyncCtpStatePacket p, FriendlyByteBuf buf) {
-        CompoundTag tag = new CompoundTag();
+    public static void encode(SyncCtpStatePacket p, PacketBuffer buf) {
+        CompoundNBT tag = new CompoundNBT();
         tag.putString("loc", p.locationName != null ? p.locationName : "");
         tag.putInt("scoreToWin", p.scoreToWin);
         tag.putInt("roundTicksLeft", p.roundTicksLeft);
 
-        CompoundTag ownersTag = new CompoundTag();
+        CompoundNBT ownersTag = new CompoundNBT();
         if (p.pointOwners != null)
             p.pointOwners.forEach((id, team) -> ownersTag.putString(id, team != null ? team : ""));
         tag.put("owners", ownersTag);
 
-        CompoundTag namesTag = new CompoundTag();
+        CompoundNBT namesTag = new CompoundNBT();
         if (p.pointNames != null)
             p.pointNames.forEach(namesTag::putString);
         tag.put("names", namesTag);
 
         // H-3: capture time denominator per point
-        CompoundTag capTicksTag = new CompoundTag();
+        CompoundNBT capTicksTag = new CompoundNBT();
         if (p.captureTimeTicks != null)
             p.captureTimeTicks.forEach((id, t) -> capTicksTag.putInt(id, t));
         tag.put("capTicks", capTicksTag);
 
-        CompoundTag progTag = new CompoundTag();
+        CompoundNBT progTag = new CompoundNBT();
         if (p.captureProgress != null)
             p.captureProgress.forEach((id, prog) -> progTag.putInt(id, prog));
         tag.put("prog", progTag);
 
-        CompoundTag scoreTag = new CompoundTag();
+        CompoundNBT scoreTag = new CompoundNBT();
         if (p.objectiveScore != null)
             p.objectiveScore.forEach((team, score) -> scoreTag.putInt(team, score));
         tag.put("score", scoreTag);
@@ -81,8 +81,8 @@ public class SyncCtpStatePacket {
     }
 
     // ── Decode ────────────────────────────────────────────────────────────
-    public static SyncCtpStatePacket decode(FriendlyByteBuf buf) {
-        CompoundTag tag = buf.readNbt();
+    public static SyncCtpStatePacket decode(PacketBuffer buf) {
+        CompoundNBT tag = buf.readNbt();
         if (tag == null) return new SyncCtpStatePacket("",
                 new LinkedHashMap<>(), new LinkedHashMap<>(),
                 new LinkedHashMap<>(), new LinkedHashMap<>(), new LinkedHashMap<>(), 0, 0);
@@ -92,27 +92,27 @@ public class SyncCtpStatePacket {
         int    rtl      = tag.getInt("roundTicksLeft");
 
         Map<String, String> owners = new LinkedHashMap<>();
-        CompoundTag ownersTag = tag.getCompound("owners");
+        CompoundNBT ownersTag = tag.getCompound("owners");
         for (String key : ownersTag.getAllKeys()) {
             String val = ownersTag.getString(key);
             owners.put(key, val.isEmpty() ? null : val);
         }
 
         Map<String, String> names = new LinkedHashMap<>();
-        CompoundTag namesTag = tag.getCompound("names");
+        CompoundNBT namesTag = tag.getCompound("names");
         for (String key : namesTag.getAllKeys()) names.put(key, namesTag.getString(key));
 
         // H-3: decode capture time denominator
         Map<String, Integer> capTicks = new LinkedHashMap<>();
-        CompoundTag capTicksTag = tag.getCompound("capTicks");
+        CompoundNBT capTicksTag = tag.getCompound("capTicks");
         for (String key : capTicksTag.getAllKeys()) capTicks.put(key, capTicksTag.getInt(key));
 
         Map<String, Integer> prog = new LinkedHashMap<>();
-        CompoundTag progTag = tag.getCompound("prog");
+        CompoundNBT progTag = tag.getCompound("prog");
         for (String key : progTag.getAllKeys()) prog.put(key, progTag.getInt(key));
 
         Map<String, Integer> score = new LinkedHashMap<>();
-        CompoundTag scoreTag = tag.getCompound("score");
+        CompoundNBT scoreTag = tag.getCompound("score");
         for (String key : scoreTag.getAllKeys()) score.put(key, scoreTag.getInt(key));
 
         return new SyncCtpStatePacket(loc, owners, names, capTicks, prog, score, stw, rtl);

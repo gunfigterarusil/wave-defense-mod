@@ -1,15 +1,18 @@
 package com.wavedefense.events;
 
-import com.wavedefense.WaveDefenseMod;
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.gui.ClientPlayerDataManager;
 import com.wavedefense.gui.ClientPvpStateManager;
 import com.wavedefense.wave.PlayerWaveData;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.client.renderer.entity.EntityRendererManager;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.RenderNameTagEvent;
+import net.minecraftforge.client.event.RenderNameplateEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -18,7 +21,7 @@ import net.minecraftforge.fml.common.Mod;
 /**
  * Клієнтські події:
  *  1) Анти-читинг хітбоксів на PvP
- *  2) Приховування нікнеймів ворожих гравців в PvP (RenderNameTagEvent)
+ *  2) Приховування нікнеймів ворожих гравців в PvP (RenderNameplateEvent)
  *     - Союзники: зелений колір ніку
  *     - Вороги під час ACTIVE: ніки не відображаються
  *     - FriendlyFire ON: не відображаються взагалі
@@ -31,8 +34,8 @@ import com.wavedefense.gui.PlayerMenuScreen;
 import com.wavedefense.gui.WaveActionsScreen;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.RequestLocationDataPacket;
-import net.minecraftforge.client.event.RenderGuiOverlayEvent;
-@Mod.EventBusSubscriber(modid = WaveDefenseMod.MODID, value = Dist.CLIENT)
+import net.minecraftforge.client.event.RenderGameOverlayEvent;
+@Mod.EventBusSubscriber(modid = WaveDefenceMod.MODID, value = Dist.CLIENT)
 public class ClientEventHandler {
 
     /** Tracks whether the initial location-data sync has been sent this session. */
@@ -68,11 +71,11 @@ public class ClientEventHandler {
         boolean inActiveLocation = data.isInPvp() || data.isInWave();
         if (!inActiveLocation) return;
 
-        EntityRenderDispatcher erd = mc.getEntityRenderDispatcher();
+        EntityRendererManager erd = mc.getEntityRenderDispatcher();
         if (erd.shouldRenderHitBoxes()) {
             erd.setRenderHitBoxes(false);
             mc.player.displayClientMessage(
-                Component.translatable("wavedefense.msg.hitboxes_blocked"), true);
+                new TranslationTextComponent("wavedefense.msg.hitboxes_blocked"), true);
         }
     }
 
@@ -87,8 +90,8 @@ public class ClientEventHandler {
      *  - Ворог під час BUY/WAITING: показуємо нормально.
      */
     @SubscribeEvent
-    public static void onRenderNameTag(RenderNameTagEvent event) {
-        if (!(event.getEntity() instanceof Player target)) return;
+    public static void onRenderNameTag(RenderNameplateEvent event) {
+        if (!(event.getEntity() instanceof PlayerEntity)) return; PlayerEntity target = (PlayerEntity) event.getEntity();
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
@@ -117,7 +120,7 @@ public class ClientEventHandler {
 
         if (sameTeam) {
             // Союзник: зелений нік
-            Component greenName = Component.literal("§a" + target.getName().getString());
+            net.minecraft.util.text.ITextComponent greenName = new StringTextComponent("§a" + target.getName().getString());
             event.setContent(greenName);
             event.setResult(Event.Result.ALLOW);
         } else if (isActiveRound) {
@@ -127,7 +130,7 @@ public class ClientEventHandler {
         // В BUY/WAITING: показуємо нормально (не втручаємось)
     }
 
-    private static String getTargetTeam(Player target) {
+    private static String getTargetTeam(PlayerEntity target) {
         // Шукаємо команду гравця в ClientPvpStateManager
         for (ClientPvpStateManager.PlayerRow row : ClientPvpStateManager.getPlayers()) {
             if (row.name.equals(target.getName().getString())) {
@@ -143,16 +146,17 @@ public class ClientEventHandler {
     }
 
     @SubscribeEvent
-    public static void onRenderGuiOverlay(RenderGuiOverlayEvent.Post event) {
-        // "hotbar" рендериться кожного кадру (не тільки при Tab)
-        if (!event.getOverlay().id().getPath().equals("hotbar")) return;
+    public static void onRenderGuiOverlay(RenderGameOverlayEvent.Post event) {
+        // 1.16.5: RenderGameOverlayEvent has getType()/getMatrixStack()/getPartialTicks()
+        if (event.getType() != net.minecraftforge.client.event.RenderGameOverlayEvent.ElementType.HOTBAR) return;
         int w = event.getWindow().getGuiScaledWidth();
         int h = event.getWindow().getGuiScaledHeight();
-        PlayerHUD.render(event.getGuiGraphics(), event.getPartialTick(), w, h);
+        com.mojang.blaze3d.matrix.MatrixStack g = event.getMatrixStack();
+        PlayerHUD.render(g, event.getPartialTicks(), w, h);
         // v0.2.62 — ready-check overlay (self-guards on phase != READY_CHECK)
-        com.wavedefense.gui.PvpReadyHud.render(event.getGuiGraphics(), w, h);
+        com.wavedefense.gui.PvpReadyHud.render(g, w, h);
         // v0.2.65 — admin debug HUD (self-guards on F4 toggle + op level)
-        com.wavedefense.gui.AdminDebugHud.render(event.getGuiGraphics(), w, h);
+        com.wavedefense.gui.AdminDebugHud.render(g, w, h);
     }
 
     /**
@@ -164,7 +168,7 @@ public class ClientEventHandler {
         if (mc.player == null) return;
         if (mc.player.isSpectator()) {
             mc.player.displayClientMessage(
-                net.minecraft.network.chat.Component.translatable("wavedefense.auto.ви_в_режимі_спостерігача_зачекай_24ec1d94"), true);
+                new net.minecraft.util.text.TranslationTextComponent("wavedefense.auto.ви_в_режимі_спостерігача_зачекай_24ec1d94"), true);
             return;
         }
         // ── ВИПРАВЛЕНО: використовуємо клієнтський менеджер, не серверний waveManager ──

@@ -1,9 +1,9 @@
 package com.wavedefense.network.packets;
 
-import com.wavedefense.WaveDefenseMod;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkEvent;
+import com.wavedefense.WaveDefenceMod;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraftforge.fml.network.NetworkEvent;
 
 import java.util.function.Supplier;
 
@@ -14,20 +14,20 @@ import java.util.function.Supplier;
  */
 public class ExitPvpPacket {
 
-    public static void encode(ExitPvpPacket p, FriendlyByteBuf buf) {}
+    public static void encode(ExitPvpPacket p, PacketBuffer buf) {}
 
-    public static ExitPvpPacket decode(FriendlyByteBuf buf) {
+    public static ExitPvpPacket decode(PacketBuffer buf) {
         return new ExitPvpPacket();
     }
 
     public static void handle(ExitPvpPacket p, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
-            ServerPlayer player = ctx.get().getSender();
+            ServerPlayerEntity player = ctx.get().getSender();
             if (player == null) return;
             // G1 fix: rate-limit exit to once per 10 s
             if (!com.wavedefense.network.PacketRateLimiter.allow(
                     player.getUUID(), ExitPvpPacket.class, 10_000L)) return;
-            WaveDefenseMod.waveManager.exitPvpLocation(player);
+            WaveDefenceMod.waveManager.exitPvpLocation(player);
         });
         ctx.get().setPacketHandled(true);
     }

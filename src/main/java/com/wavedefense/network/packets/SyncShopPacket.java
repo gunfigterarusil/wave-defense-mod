@@ -1,11 +1,11 @@
 package com.wavedefense.network.packets;
 
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.network.PacketBuffer;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraftforge.fml.network.NetworkEvent;
 
 import java.util.function.Supplier;
 
@@ -14,20 +14,20 @@ import java.util.function.Supplier;
  * Надсилається коли адмін змінює налаштування магазину поки гравці на локації.
  */
 public class SyncShopPacket {
-    private final CompoundTag locationData; // повний NBT локації
+    private final CompoundNBT locationData; // повний NBT локації
     private final String locationName;
 
-    public SyncShopPacket(String locationName, CompoundTag locationData) {
+    public SyncShopPacket(String locationName, CompoundNBT locationData) {
         this.locationName = locationName;
         this.locationData = locationData;
     }
 
-    public static void encode(SyncShopPacket p, FriendlyByteBuf buf) {
+    public static void encode(SyncShopPacket p, PacketBuffer buf) {
         buf.writeUtf(p.locationName);
         buf.writeNbt(p.locationData);
     }
 
-    public static SyncShopPacket decode(FriendlyByteBuf buf) {
+    public static SyncShopPacket decode(PacketBuffer buf) {
         return new SyncShopPacket(buf.readUtf(), buf.readNbt());
     }
 
@@ -48,7 +48,9 @@ public class SyncShopPacket {
 
             // Якщо зараз відкритий магазин цієї локації — оновлюємо його
             net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-            if (mc.screen instanceof com.wavedefense.gui.PlayerShopScreen shopScreen) {
+            if (mc.screen instanceof com.wavedefense.gui.PlayerShopScreen) {
+
+                com.wavedefense.gui.PlayerShopScreen shopScreen = (com.wavedefense.gui.PlayerShopScreen) mc.screen;
                 if (p.locationName.equals(shopScreen.getLocationName())) {
                     com.wavedefense.data.Location loc =
                         com.wavedefense.gui.ClientLocationManager.getLocation(p.locationName);

@@ -1,15 +1,18 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.data.Location;
 import com.wavedefense.data.WaveConfig;
 import com.wavedefense.data.WaveMob;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.EntityType;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.entity.EntityType;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.List;
@@ -18,14 +21,14 @@ public class WaveMobsEditorScreen extends ListEditorScreen<WaveMob> {
     private final Location location;
     private final int waveIndex;
     private final WaveConfig waveConfig;
-    private EditBox mobCountInput;
+    private TextFieldWidget mobCountInput;
 
     private static final int HEADER_Y  = 30;
     private static final int START_Y   = HEADER_Y + 26; // = 56 = getClipTop()
     private static final int ROW_H     = 46;
 
     public WaveMobsEditorScreen(Location location, int waveIndex, Screen parent) {
-        super(Component.translatable("wavedefense.title.wave_mobs", waveIndex + 1), parent);
+        super(new TranslationTextComponent("wavedefense.title.wave_mobs", waveIndex + 1), parent);
         this.location  = location;
         this.waveIndex = waveIndex;
         this.waveConfig = location.getWaves().get(waveIndex);
@@ -49,26 +52,18 @@ public class WaveMobsEditorScreen extends ListEditorScreen<WaveMob> {
         int cx = this.width / 2;
 
         // ── Header (static) ──────────────────────────────────────────
-        addStatic(Button.builder(
-                Component.translatable("wavedefense.auto.кількість_типів_мобів_f1909330"), button -> {}
-        ).bounds(cx - 150, HEADER_Y, 140, 18).build()).active = false;
+        addStatic(new Button(cx - 150, HEADER_Y, 140, 18, new TranslationTextComponent("wavedefense.auto.кількість_типів_мобів_f1909330"), button -> {})).active = false;
 
-        mobCountInput = new EditBox(this.font, cx - 5, HEADER_Y, 50, 20, Component.translatable("wavedefense.auto.к_сть_7beea1a7"));
+        mobCountInput = new TextFieldWidget(this.font, cx - 5, HEADER_Y, 50, 20, new TranslationTextComponent("wavedefense.auto.к_сть_7beea1a7"));
         mobCountInput.setValue(String.valueOf(waveConfig.getMobs().size()));
         mobCountInput.setMaxLength(2);
         addStatic(mobCountInput);
 
-        addStatic(Button.builder(
-                Component.translatable("wavedefense.button.apply"),
-                button -> applyMobCount()
-        ).bounds(cx + 50, HEADER_Y, 90, 20).build());
+        addStatic(new Button(cx + 50, HEADER_Y, 90, 20, new TranslationTextComponent("wavedefense.button.apply"), button -> applyMobCount()));
 
         // ── Content (scrollable) ──────────────────────────────────────
         if (waveConfig.getMobs().isEmpty()) {
-            this.addRenderableWidget(Button.builder(
-                    Component.translatable("wavedefense.auto.моби_не_додані_встановіть_кількі_550ea3f3"),
-                    button -> {}
-            ).bounds(cx - 150, START_Y, 300, 20).build()).active = false;
+            this.addButton(new Button(cx - 150, START_Y, 300, 20, new TranslationTextComponent("wavedefense.auto.моби_не_додані_встановіть_кількі_550ea3f3"), button -> {})).active = false;
         } else {
             buildVisibleRows();
 
@@ -77,65 +72,44 @@ public class WaveMobsEditorScreen extends ListEditorScreen<WaveMob> {
         }
 
         // ── Footer (static) ───────────────────────────────────────────
-        addStatic(Button.builder(
-                Component.translatable("wavedefense.button.done"),
-                button -> this.minecraft.setScreen(parent)
-        ).bounds(cx + 5, this.height - 28, 95, 20).build());
+        addStatic(new Button(cx + 5, this.height - 28, 95, 20, new TranslationTextComponent("wavedefense.button.done"), button -> this.minecraft.setScreen(parent)));
 
-        addStatic(Button.builder(
-                Component.translatable("wavedefense.button.discard"),
-                button -> {
-                    if (parent instanceof WaveConfigScreen wcs) {
+        addStatic(new Button(cx - 105, this.height - 28, 105, 20, new TranslationTextComponent("wavedefense.button.discard"), button -> {
+                    if (parent instanceof WaveConfigScreen) { WaveConfigScreen wcs = (WaveConfigScreen) parent;
                         wcs.discardWaveChanges();
                     }
                     this.minecraft.setScreen(parent);
-                }
-        ).bounds(cx - 105, this.height - 28, 105, 20).build());
+                }));
     }
 
     // ─── Row builder ───────────────────────────────────────────────────────
 
     @Override
     protected void buildRowWidgets(int cx, int y, WaveMob mob, int index) {
-        EntityType<?> entityType = ForgeRegistries.ENTITY_TYPES.getValue(mob.getMobType());
+        EntityType<?> entityType = ForgeRegistries.ENTITIES.getValue(mob.getMobType());
         String mobName = entityType != null ? entityType.getDescription().getString() : "???";
 
         int nameWidth = Math.min(110, cx - 30);
-        this.addRenderableWidget(Button.builder(
-                Component.literal("§e#" + (index + 1) + " " + mobName),
-                button -> {}
-        ).bounds(cx - 150, y, nameWidth, 20).build()).active = false;
+        this.addButton(new Button(cx - 150, y, nameWidth, 20, new StringTextComponent("§e#" + (index + 1) + " " + mobName), button -> {})).active = false;
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.change"),
-                button -> selectMob(index)
-        ).bounds(cx - 150 + nameWidth + 4, y, 65, 20).build());
+        this.addButton(new Button(cx - 150 + nameWidth + 4, y, 65, 20, new TranslationTextComponent("wavedefense.button.change"), button -> selectMob(index)));
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.налашт_b4f0a8a2"),
-                button -> editMob(index)
-        ).bounds(cx - 150 + nameWidth + 73, y, 75, 20).build());
+        this.addButton(new Button(cx - 150 + nameWidth + 73, y, 75, 20, new TranslationTextComponent("wavedefense.auto.налашт_b4f0a8a2"), button -> editMob(index)));
 
-        this.addRenderableWidget(Button.builder(
-                Component.literal("§c✕"),
-                button -> deleteMob(index)
-        ).bounds(cx - 150 + nameWidth + 152, y, 30, 20).build());
+        this.addButton(new Button(cx - 150 + nameWidth + 152, y, 30, 20, new StringTextComponent("§c✕"), button -> deleteMob(index)));
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.wave.mob_info",
-                        mob.getCount(), mob.getGrowthPerWave(), mob.getSpawnChance(), mob.getPointsPerKill()),
-                button -> {}
-        ).bounds(cx - 150, y + 22, 320, 18).build()).active = false;
+        this.addButton(new Button(cx - 150, y + 22, 320, 18, new TranslationTextComponent("wavedefense.wave.mob_info",
+                        mob.getCount(), mob.getGrowthPerWave(), mob.getSpawnChance(), mob.getPointsPerKill()), button -> {})).active = false;
     }
 
     // ─── Render hooks ──────────────────────────────────────────────────────
 
     @Override
-    protected void renderHeader(GuiGraphics g, int mx, int my, float pt) {
+    protected void renderHeader(MatrixStack g, int mx, int my, float pt) {
         int cx = this.width / 2;
-        g.drawCenteredString(this.font, this.title, cx, 10, 0xFFFFFF);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, this.title, cx, 10, 0xFFFFFF);
         if (!waveConfig.getMobs().isEmpty()) {
-            g.drawString(this.font, Component.translatable("wavedefense.wave.mobs_hint"),
+            com.wavedefense.gui.GuiCompat.drawString(g, this.font, new TranslationTextComponent("wavedefense.wave.mobs_hint"),
                     cx - 150, 20, 0xFFFFFF);
         }
     }
@@ -149,7 +123,7 @@ public class WaveMobsEditorScreen extends ListEditorScreen<WaveMob> {
             if (targetCount < 0 || targetCount > 50) {
                 if (minecraft.player != null)
                     minecraft.player.displayClientMessage(
-                        net.minecraft.network.chat.Component.translatable("wavedefense.msg.value_out_of_range", 0, 50), true);
+                        new net.minecraft.util.text.TranslationTextComponent("wavedefense.msg.value_out_of_range", 0, 50), true);
                 return;
             }
 
@@ -165,7 +139,7 @@ public class WaveMobsEditorScreen extends ListEditorScreen<WaveMob> {
                 }
             }
             clampScroll();
-            this.rebuildWidgets();
+            this.init();
         } catch (NumberFormatException ignored) {}
     }
 
@@ -184,7 +158,7 @@ public class WaveMobsEditorScreen extends ListEditorScreen<WaveMob> {
             waveConfig.removeMob(mobIndex);
             mobCountInput.setValue(String.valueOf(waveConfig.getMobs().size()));
             clampScroll();
-            this.rebuildWidgets();
+            this.init();
         }
     }
 

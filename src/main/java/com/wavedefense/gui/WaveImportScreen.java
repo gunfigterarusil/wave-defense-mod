@@ -1,12 +1,15 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.data.Location;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.RequestWaveExportListPacket;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.util.text.ITextComponent;
 
 import java.util.List;
 
@@ -23,7 +26,7 @@ public class WaveImportScreen extends Screen {
     private static final int GAP   = 4;
 
     public WaveImportScreen(Location location, Screen parent) {
-        super(Component.translatable("wavedefense.wave.import_title", location.getName()));
+        super(new TranslationTextComponent("wavedefense.wave.import_title", location.getName()));
         this.location = location;
         this.parent = parent;
     }
@@ -31,14 +34,14 @@ public class WaveImportScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        this.clearWidgets();
+        this.buttons.clear(); this.children.clear();
         // Запитуємо список файлів
         PacketHandler.sendToServer(new RequestWaveExportListPacket());
         buildWidgets();
     }
 
     private void buildWidgets() {
-        this.clearWidgets();
+        this.buttons.clear(); this.children.clear();
         int cx = this.width / 2;
         List<String> files = ClientWaveExportManager.getFiles();
 
@@ -46,10 +49,7 @@ public class WaveImportScreen extends Screen {
         int itemsPerPage = Math.max(3, (this.height - listStartY - 35) / (BTN_H + GAP));
 
         if (files.isEmpty()) {
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.файли_не_знайдено_у_wave_export_4006e193"),
-                b -> {}
-            ).bounds(cx - 130, listStartY, 260, BTN_H).build()).active = false;
+            this.addButton(new Button(cx - 130, listStartY, 260, BTN_H, new TranslationTextComponent("wavedefense.auto.файли_не_знайдено_у_wave_export_4006e193"), b -> {})).active = false;
         } else {
             int max = Math.max(0, files.size() - itemsPerPage);
 
@@ -57,27 +57,17 @@ public class WaveImportScreen extends Screen {
                 int idx = i + scrollOffset;
                 if (idx >= files.size()) break;
                 final String fileName = files.get(idx);
-                this.addRenderableWidget(Button.builder(
-                    Component.literal("§b⬇ " + fileName),
-                    b -> minecraft.setScreen(new WaveImportTargetScreen(location, fileName, this))
-                ).bounds(cx - 130, listStartY + i * (BTN_H + GAP), 260, BTN_H).build());
+                this.addButton(new Button(cx - 130, listStartY + i * (BTN_H + GAP), 260, BTN_H, new StringTextComponent("§b⬇ " + fileName), b -> minecraft.setScreen(new WaveImportTargetScreen(location, fileName, this))));
             }
 
             // Скрол
             if (files.size() > itemsPerPage) {
-                this.addRenderableWidget(Button.builder(Component.literal("▲"),
-                    b -> { if (scrollOffset > 0) { scrollOffset--; rebuildWidgets(); } }
-                ).bounds(cx + 133, listStartY, 18, BTN_H).build());
-                this.addRenderableWidget(Button.builder(Component.literal("▼"),
-                    b -> { if (scrollOffset < max) { scrollOffset++; rebuildWidgets(); } }
-                ).bounds(cx + 133, this.height - 35, 18, BTN_H).build());
+                this.addButton(new Button(cx + 133, listStartY, 18, BTN_H, new StringTextComponent("▲"), b -> { if (scrollOffset > 0) { scrollOffset--; init(); } }));
+                this.addButton(new Button(cx + 133, this.height - 35, 18, BTN_H, new StringTextComponent("▼"), b -> { if (scrollOffset < max) { scrollOffset++; init(); } }));
             }
         }
 
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.auto.скасувати_8b4c2025"),
-            b -> { ClientWaveExportManager.clearOnUpdate(); minecraft.setScreen(parent); }
-        ).bounds(cx - 55, this.height - 28, 110, BTN_H).build());
+        this.addButton(new Button(cx - 55, this.height - 28, 110, BTN_H, new TranslationTextComponent("wavedefense.auto.скасувати_8b4c2025"), b -> { ClientWaveExportManager.clearOnUpdate(); minecraft.setScreen(parent); }));
 
         // Якщо імпорт вже відбувся — повертаємось до WaveConfigScreen автоматично
         ClientWaveExportManager.setOnUpdate(() -> {
@@ -85,9 +75,6 @@ public class WaveImportScreen extends Screen {
             if (minecraft.screen == this) buildWidgets();
         });
     }
-
-    @Override
-    protected void rebuildWidgets() { buildWidgets(); }
 
     @Override
     public void onClose() {
@@ -99,17 +86,17 @@ public class WaveImportScreen extends Screen {
     public boolean mouseScrolled(double x, double y, double delta) {
         int itemsPerPage = Math.max(3, (this.height - 83) / (BTN_H + GAP));
         int max = Math.max(0, ClientWaveExportManager.getFiles().size() - itemsPerPage);
-        if (delta > 0 && scrollOffset > 0) { scrollOffset--; rebuildWidgets(); }
-        else if (delta < 0 && scrollOffset < max) { scrollOffset++; rebuildWidgets(); }
+        if (delta > 0 && scrollOffset > 0) { scrollOffset--; init(); }
+        else if (delta < 0 && scrollOffset < max) { scrollOffset++; init(); }
         return true;
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(MatrixStack g, int mouseX, int mouseY, float partialTick) {
         GuiTheme.renderBackground(g, this.width, this.height);
-        g.drawCenteredString(this.font, this.title, this.width / 2, 12, GuiTheme.TEXT);
-        g.drawCenteredString(this.font,
-            net.minecraft.client.resources.language.I18n.get("wavedefense.wave.import_hint"),
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, this.title, this.width / 2, 12, GuiTheme.TEXT);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font,
+            net.minecraft.client.resources.I18n.get("wavedefense.wave.import_hint"),
             this.width / 2, 24, 0x888888);
         super.render(g, mouseX, mouseY, partialTick);
     }

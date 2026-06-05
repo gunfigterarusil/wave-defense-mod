@@ -1,13 +1,16 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.data.Location;
 import com.wavedefense.data.WaveConfig;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.ImportWavePacket;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.util.text.ITextComponent;
 
 import java.util.List;
 
@@ -29,7 +32,7 @@ public class WaveImportTargetScreen extends Screen {
     private static final int GAP   = 4;
 
     public WaveImportTargetScreen(Location location, String fileName, Screen parent) {
-        super(Component.translatable("wavedefense.wave.import_target_title", fileName, location.getName()));
+        super(new TranslationTextComponent("wavedefense.wave.import_target_title", fileName, location.getName()));
         this.location = location;
         this.fileName = fileName;
         this.parent = parent;
@@ -38,25 +41,18 @@ public class WaveImportTargetScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        this.clearWidgets();
+        this.buttons.clear(); this.children.clear();
         int cx = this.width / 2;
         int y  = 46;
 
         // ── Замінити всі хвилі ────────────────────────────────────────
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.auto.замінити_всі_хвилі_132cdde4"),
-            b -> sendImport("replace_all")
-        ).bounds(cx - 130, y, 260, BTN_H).build())
-        .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-            Component.translatable("wavedefense.auto.видалити_поточні_хвилі_і_вставит_58c1357b")));
+        this.addButton(new Button(cx - 130, y, 260, BTN_H, new TranslationTextComponent("wavedefense.auto.замінити_всі_хвилі_132cdde4"), b -> sendImport("replace_all")))
+        /* setTooltip omitted on 1.16.5 */;
 
         y += BTN_H + GAP + 4;
 
         // ── Додати в кінець ───────────────────────────────────────────
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.wave.import_append", location.getWaves().size()),
-            b -> sendImport("append")
-        ).bounds(cx - 130, y, 260, BTN_H).build());
+        this.addButton(new Button(cx - 130, y, 260, BTN_H, new TranslationTextComponent("wavedefense.wave.import_append", location.getWaves().size()), b -> sendImport("append")));
 
         y += BTN_H + 12;
 
@@ -76,73 +72,57 @@ public class WaveImportTargetScreen extends Screen {
             WaveConfig wc = waves.get(idx);
             final int finalIdx = idx;
 
-            String info = net.minecraft.client.resources.language.I18n.get(
+            String info = net.minecraft.client.resources.I18n.get(
                 "wavedefense.wave.export_wave_line", idx + 1, wc.getMobs().size(), wc.getTimeBetweenWaves(), "");
 
             // Замінити цю хвилю
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.замінити_value_908f6b74", info),
-                b -> sendImport("replace:" + finalIdx)
-            ).bounds(cx - 130, listStartY + i * ((BTN_H + GAP) * 2 + 4), 260, BTN_H).build());
+            this.addButton(new Button(cx - 130, listStartY + i * ((BTN_H + GAP) * 2 + 4), 260, BTN_H, new TranslationTextComponent("wavedefense.auto.замінити_value_908f6b74", info), b -> sendImport("replace:" + finalIdx)));
 
             // Вставити після цієї хвилі
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.після_value_e155ba08", info),
-                b -> sendImport("insert_after:" + finalIdx)
-            ).bounds(cx - 130, listStartY + i * ((BTN_H + GAP) * 2 + 4) + BTN_H + GAP, 260, BTN_H).build());
+            this.addButton(new Button(cx - 130, listStartY + i * ((BTN_H + GAP) * 2 + 4) + BTN_H + GAP, 260, BTN_H, new TranslationTextComponent("wavedefense.auto.після_value_e155ba08", info), b -> sendImport("insert_after:" + finalIdx)));
         }
 
         // ── Скрол ─────────────────────────────────────────────────────
         if (waves.size() > itemsPerPage) {
-            this.addRenderableWidget(Button.builder(Component.literal("▲"),
-                b -> { if (scrollOffset > 0) { scrollOffset--; rebuildWidgets(); } }
-            ).bounds(cx + 133, listStartY, 18, BTN_H).build());
-            this.addRenderableWidget(Button.builder(Component.literal("▼"),
-                b -> {
-                    if (scrollOffset + itemsPerPage < waves.size()) { scrollOffset++; rebuildWidgets(); }
-                }
-            ).bounds(cx + 133, this.height - 35, 18, BTN_H).build());
+            this.addButton(new Button(cx + 133, listStartY, 18, BTN_H, new StringTextComponent("▲"), b -> { if (scrollOffset > 0) { scrollOffset--; init(); } }));
+            this.addButton(new Button(cx + 133, this.height - 35, 18, BTN_H, new StringTextComponent("▼"), b -> {
+                    if (scrollOffset + itemsPerPage < waves.size()) { scrollOffset++; init(); }
+                }));
         }
 
         // ── Скасувати ─────────────────────────────────────────────────
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.auto.назад_3fa51863"),
-            b -> minecraft.setScreen(parent)
-        ).bounds(cx - 55, this.height - 28, 110, BTN_H).build());
+        this.addButton(new Button(cx - 55, this.height - 28, 110, BTN_H, new TranslationTextComponent("wavedefense.auto.назад_3fa51863"), b -> minecraft.setScreen(parent)));
     }
 
     private void sendImport(String insertMode) {
         PacketHandler.sendToServer(new ImportWavePacket(fileName, location.getName(), insertMode));
         if (minecraft.player != null)
             minecraft.player.displayClientMessage(
-                Component.translatable("wavedefense.auto.імпортую_хвилі_з_value_fc238cb7", fileName + "§b..."), true);
+                new TranslationTextComponent("wavedefense.auto.імпортую_хвилі_з_value_fc238cb7", fileName + "§b..."), true);
         // Повертаємось до WaveConfigScreen (пропускаємо WaveImportScreen)
-        Screen target = (parent instanceof WaveImportScreen imp) ? imp.parent : parent;
+        Screen target = (parent instanceof WaveImportScreen) ? ((WaveImportScreen) parent).parent : parent;
         ClientWaveExportManager.clearOnUpdate();
         minecraft.setScreen(target);
     }
 
     @Override
-    protected void rebuildWidgets() { init(); }
-
-    @Override
     public boolean mouseScrolled(double x, double y, double delta) {
         int itemsPerPage = Math.max(2, (this.height - 120) / ((BTN_H + GAP) * 2 + 4));
-        if (delta > 0 && scrollOffset > 0) { scrollOffset--; rebuildWidgets(); }
-        else if (delta < 0 && scrollOffset + itemsPerPage < location.getWaves().size()) { scrollOffset++; rebuildWidgets(); }
+        if (delta > 0 && scrollOffset > 0) { scrollOffset--; init(); }
+        else if (delta < 0 && scrollOffset + itemsPerPage < location.getWaves().size()) { scrollOffset++; init(); }
         return true;
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(MatrixStack g, int mouseX, int mouseY, float partialTick) {
         GuiTheme.renderBackground(g, this.width, this.height);
-        g.drawCenteredString(this.font, this.title, this.width / 2, 10, GuiTheme.TEXT);
-        g.drawCenteredString(this.font, Component.translatable("wavedefense.wave.import_insert_mode"), this.width / 2, 22, 0xAAAAAA);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, this.title, this.width / 2, 10, GuiTheme.TEXT);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, new TranslationTextComponent("wavedefense.wave.import_insert_mode"), this.width / 2, 22, 0xAAAAAA);
 
         // Роздільник між загальними і порядковими
         int divY = 46 + BTN_H + GAP + 4 + BTN_H + GAP + 2;
-        g.fill(this.width / 2 - 130, divY + 8, this.width / 2 + 130, divY + 9, 0x44FFFFFF);
-        g.drawCenteredString(this.font, Component.translatable("wavedefense.wave.import_or_relative"), this.width / 2, divY, 0x666666);
+        com.wavedefense.gui.GuiCompat.fill(g, this.width / 2 - 130, divY + 8, this.width / 2 + 130, divY + 9, 0x44FFFFFF);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, new TranslationTextComponent("wavedefense.wave.import_or_relative"), this.width / 2, divY, 0x666666);
 
         super.render(g, mouseX, mouseY, partialTick);
     }

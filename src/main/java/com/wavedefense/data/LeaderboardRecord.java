@@ -1,6 +1,6 @@
 package com.wavedefense.data;
 
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.CompoundNBT;
 
 import java.util.UUID;
 
@@ -37,8 +37,8 @@ public class LeaderboardRecord {
 
     // ── NBT ───────────────────────────────────────────────────────────────
 
-    public CompoundTag save() {
-        CompoundTag tag = new CompoundTag();
+    public CompoundNBT save() {
+        CompoundNBT tag = new CompoundNBT();
         tag.putUUID("uuid",           playerUuid);
         tag.putString("name",         playerName);
         tag.putInt("primaryScore",    primaryScore);
@@ -48,7 +48,7 @@ public class LeaderboardRecord {
         return tag;
     }
 
-    public static LeaderboardRecord load(CompoundTag tag) {
+    public static LeaderboardRecord load(CompoundNBT tag) {
         LeaderboardRecord r = new LeaderboardRecord();
         r.playerUuid    = tag.hasUUID("uuid") ? tag.getUUID("uuid") : UUID.randomUUID();
         r.playerName    = NbtHelper.getString(tag, "name",          "Unknown");

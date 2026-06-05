@@ -1,15 +1,15 @@
 package com.wavedefense.wave;
 
-import com.wavedefense.WaveDefenseMod;
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.config.WaveDefenseConfig;
 import com.wavedefense.data.Location;
 import com.wavedefense.data.WaveConfig;
 import com.wavedefense.data.WaveMob;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.world.server.ServerWorld;
+import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.*;
@@ -153,7 +153,7 @@ public class WaveConfigValidator {
             int waveMobCount = 0;
             if (wave.getMobs() != null) {
                 for (WaveMob mob : wave.getMobs()) {
-                    if (mob.getMobType() == null || ForgeRegistries.ENTITY_TYPES.getValue(mob.getMobType()) == null) {
+                    if (mob.getMobType() == null || ForgeRegistries.ENTITIES.getValue(mob.getMobType()) == null) {
                         warnings.add("Wave " + (wi + 1) + " references unknown entity type: " + mob.getMobType());
                     }
                     waveMobCount += Math.max(0, mob.getCount());

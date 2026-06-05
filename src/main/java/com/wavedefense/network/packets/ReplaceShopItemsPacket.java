@@ -1,13 +1,13 @@
 package com.wavedefense.network.packets;
 
-import com.wavedefense.WaveDefenseMod;
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.data.Location;
 import com.wavedefense.data.ShopItem;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraftforge.fml.network.NetworkEvent;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -61,25 +61,25 @@ public class ReplaceShopItemsPacket {
         this.items        = items != null ? items : new ArrayList<>();
     }
 
-    public static void encode(ReplaceShopItemsPacket p, FriendlyByteBuf buf) {
+    public static void encode(ReplaceShopItemsPacket p, PacketBuffer buf) {
         buf.writeUtf(p.locationName == null ? "" : p.locationName, 64);
         buf.writeVarInt(p.chunkIndex);
         buf.writeVarInt(p.totalChunks);
-        ListTag list = new ListTag();
+        ListNBT list = new ListNBT();
         for (ShopItem si : p.items) if (si != null) list.add(si.save());
-        CompoundTag tag = new CompoundTag();
+        CompoundNBT tag = new CompoundNBT();
         tag.put("items", list);
         buf.writeNbt(tag);
     }
 
-    public static ReplaceShopItemsPacket decode(FriendlyByteBuf buf) {
+    public static ReplaceShopItemsPacket decode(PacketBuffer buf) {
         String loc   = buf.readUtf(64);
         int chunkIx  = buf.readVarInt();
         int total    = buf.readVarInt();
-        CompoundTag tag = buf.readNbt();
+        CompoundNBT tag = buf.readNbt();
         List<ShopItem> items = new ArrayList<>();
         if (tag != null && tag.contains("items")) {
-            ListTag list = tag.getList("items", 10);
+            ListNBT list = tag.getList("items", 10);
             for (int i = 0; i < list.size(); i++) {
                 try { items.add(ShopItem.load(list.getCompound(i))); }
                 catch (Throwable ignored) {}
@@ -90,12 +90,12 @@ public class ReplaceShopItemsPacket {
 
     public static void handle(ReplaceShopItemsPacket p, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
-            ServerPlayer player = ctx.get().getSender();
+            ServerPlayerEntity player = ctx.get().getSender();
             if (player == null || !player.hasPermissions(2)) return;
-            if (p.locationName == null || p.locationName.isBlank()) return;
+            if (p.locationName == null || p.locationName.trim().isEmpty()) return;
             if (p.totalChunks < 1 || p.chunkIndex < 0 || p.chunkIndex >= p.totalChunks) return;
 
-            Location loc = WaveDefenseMod.locationManager.getLocation(p.locationName);
+            Location loc = WaveDefenceMod.locationManager.getLocation(p.locationName);
             if (loc == null) return;
 
             // Periodic stale cleanup (cheap — runs only on packet arrival)
@@ -123,8 +123,8 @@ public class ReplaceShopItemsPacket {
                 // Persist + sync the rest of the location to clients (same as
                 // existing UpdateLocationPacket flow does, just without the
                 // shop-items payload that's already on the server).
-                WaveDefenseMod.locationManager.save();
-                WaveDefenseMod.waveManager.broadcastLocationData();
+                WaveDefenceMod.locationManager.save();
+                WaveDefenceMod.waveManager.broadcastLocationData();
             }
         });
         ctx.get().setPacketHandled(true);

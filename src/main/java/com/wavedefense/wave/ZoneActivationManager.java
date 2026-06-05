@@ -1,17 +1,19 @@
 package com.wavedefense.wave;
 
-import com.wavedefense.WaveDefenseMod;
+import net.minecraft.util.text.TranslationTextComponent;
+
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.data.Location;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleType;
-import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.core.particles.SimpleParticleType;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.Level;
+import net.minecraft.util.math.BlockPos;
+
+import net.minecraft.particles.ParticleTypes;
+import net.minecraft.particles.BasicParticleType;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.world.server.ServerWorld;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.world.World;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.*;
@@ -42,10 +44,10 @@ public class ZoneActivationManager {
      * Головний тік — викликається з {@code WaveManager.tick()} щотік.
      */
     public void tick(WaveManager wm) {
-        if (WaveDefenseMod.getServer() == null) return;
-        if (WaveDefenseMod.locationManager == null) return;
+        if (WaveDefenceMod.getServer() == null) return;
+        if (WaveDefenceMod.locationManager == null) return;
 
-        for (Location location : WaveDefenseMod.locationManager.getAllLocations()) {
+        for (Location location : WaveDefenceMod.locationManager.getAllLocations()) {
             if (!location.isAutoActivate() || location.isPvp()) continue;
 
             BlockPos center = location.getEffectiveZoneCenter();
@@ -66,11 +68,11 @@ public class ZoneActivationManager {
                     } else {
                         Set<UUID> lateJoiners = collectPlayersInZone(location, center, radius);
                         for (UUID uid : lateJoiners) {
-                            ServerPlayer lp = WaveDefenseMod.getServer()
+                            ServerPlayerEntity lp = WaveDefenceMod.getServer()
                                 .getPlayerList().getPlayer(uid);
                             if (lp != null) {
                                 wm.addPlayerToLocation(lp, location);
-                                lp.displayClientMessage(Component.translatable("wavedefense.auto.ви_приєдналися_до_активної_локації_value_0a929e16", locName),
+                                lp.displayClientMessage(new TranslationTextComponent("wavedefense.auto.ви_приєдналися_до_активної_локації_value_0a929e16", locName),
                                     false);
                             }
                         }
@@ -103,7 +105,7 @@ public class ZoneActivationManager {
                     s.zoneCountdownTicker = 0;
                     s.zoneCountdownStartMs = 0L;
                     wm.broadcastToNearby(center, location,
-                        Component.translatable("wavedefense.zone.activation_cancelled"));
+                        new TranslationTextComponent("wavedefense.zone.activation_cancelled"));
                 }
                 continue;
             }
@@ -121,7 +123,7 @@ public class ZoneActivationManager {
                 s.zoneCountdownTicker = activationDelay * 20;
                 s.zoneCountdownStartMs = System.currentTimeMillis();
                 wm.broadcastToNearby(center, location,
-                    Component.translatable("wavedefense.zone.activating_countdown", locName, activationDelay));
+                    new TranslationTextComponent("wavedefense.zone.activating_countdown", locName, activationDelay));
             }
 
             int ticks = s.zoneCountdownTicker - 1;
@@ -136,7 +138,7 @@ public class ZoneActivationManager {
                     int secsLeft = ticks / 20;
                     if (secsLeft <= 5 || secsLeft % 5 == 0) {
                         wm.broadcastToNearby(center, location,
-                            Component.translatable("wavedefense.msg.zone_activating", secsLeft));
+                            new TranslationTextComponent("wavedefense.msg.zone_activating", secsLeft));
                     }
                 }
             }
@@ -150,7 +152,7 @@ public class ZoneActivationManager {
     /** Збирає UUID гравців що знаходяться в радіусі зони та ще не в грі. */
     private Set<UUID> collectPlayersInZone(Location location, BlockPos center, int radius) {
         Set<UUID> inRange = new HashSet<>();
-        for (ServerPlayer p : WaveDefenseMod.getServer().getPlayerList().getPlayers()) {
+        for (ServerPlayerEntity p : WaveDefenceMod.getServer().getPlayerList().getPlayers()) {
             if (ctx.playerData.containsKey(p.getUUID())) continue;
             Long cdExp = ctx.reEntryCooldowns.get(p.getUUID());
             if (cdExp != null && System.currentTimeMillis() < cdExp) continue;
@@ -170,7 +172,7 @@ public class ZoneActivationManager {
             LocationSession s = ctx.getOrCreateSession(location.getName(), location);
             s.zoneOpenUntilMs = System.currentTimeMillis() + location.getZoneOpenAfterStartSec() * 1000L;
             wm.broadcastToLocation(location.getName(),
-                Component.translatable("wavedefense.msg.zone_open",
+                new TranslationTextComponent("wavedefense.msg.zone_open",
                     location.getZoneOpenAfterStartSec()));
         }
     }
@@ -184,7 +186,7 @@ public class ZoneActivationManager {
 
         int activated = 0;
         for (UUID uid : playerIds) {
-            ServerPlayer player = WaveDefenseMod.getServer().getPlayerList().getPlayer(uid);
+            ServerPlayerEntity player = WaveDefenceMod.getServer().getPlayerList().getPlayer(uid);
             if (player == null) continue;
             wm.addPlayerToLocation(player, location);
             activated++;
@@ -192,7 +194,7 @@ public class ZoneActivationManager {
 
         if (activated > 0) {
             wm.broadcastToNearby(location.getPlayerSpawn(), location,
-                Component.translatable("wavedefense.zone.activated_players", location.getName(), activated));
+                new TranslationTextComponent("wavedefense.zone.activated_players", location.getName(), activated));
         }
     }
 
@@ -210,39 +212,39 @@ public class ZoneActivationManager {
     private void spawnZoneParticlesForLocation(String locName, BlockPos center, int radius) {
         // A5 fix: use the level of players currently in (or near) the location
         // instead of always defaulting to the Overworld.
-        ServerLevel world = null;
+        ServerWorld world = null;
 
         // 1) Any player already inside the session
-        for (ServerPlayer p : ctx.getPlayersInLocation(locName)) {
-            world = p.serverLevel();
+        for (ServerPlayerEntity p : ctx.getPlayersInLocation(locName)) {
+            world = (net.minecraft.world.server.ServerWorld) p.getLevel();
             break;
         }
         // 2) Fallback: any player near the zone center (pre-join countdown)
-        if (world == null && WaveDefenseMod.getServer() != null) {
+        if (world == null && WaveDefenceMod.getServer() != null) {
             double searchSq = (radius + 32.0) * (radius + 32.0);
-            for (ServerPlayer p : WaveDefenseMod.getServer().getPlayerList().getPlayers()) {
+            for (ServerPlayerEntity p : WaveDefenceMod.getServer().getPlayerList().getPlayers()) {
                 if (p.blockPosition().distSqr(center) <= searchSq) {
-                    world = p.serverLevel();
+                    world = (net.minecraft.world.server.ServerWorld) p.getLevel();
                     break;
                 }
             }
         }
         // 3) Last resort: Overworld
         if (world == null) {
-            world = (ServerLevel) WaveDefenseMod.getServer().getLevel(Level.OVERWORLD);
+            world = (ServerWorld) WaveDefenceMod.getServer().getLevel(net.minecraft.world.World.OVERWORLD);
         }
         if (world == null) return;
-        final ServerLevel overworld = world;
+        final ServerWorld overworld = world;
 
-        SimpleParticleType particleType = ParticleTypes.SQUID_INK;
+        net.minecraft.particles.BasicParticleType particleType = ParticleTypes.SQUID_INK;
         if (locName != null) {
-            Location loc = WaveDefenseMod.locationManager.getLocation(locName);
+            Location loc = WaveDefenceMod.locationManager.getLocation(locName);
             if (loc != null && loc.getZoneParticleType() != null
-                    && !loc.getZoneParticleType().isBlank()) {
+                    && !loc.getZoneParticleType().trim().isEmpty()) {
                 try {
                     ResourceLocation rl = new ResourceLocation(loc.getZoneParticleType());
-                    ParticleType<?> pt = ForgeRegistries.PARTICLE_TYPES.getValue(rl);
-                    if (pt instanceof SimpleParticleType spt) particleType = spt;
+                    net.minecraft.particles.ParticleType<?> pt = ForgeRegistries.PARTICLE_TYPES.getValue(rl);
+                    if (pt instanceof net.minecraft.particles.BasicParticleType) { net.minecraft.particles.BasicParticleType spt = (net.minecraft.particles.BasicParticleType) pt; particleType = spt; }
                 } catch (Exception ignored) {}
             }
         }
@@ -250,7 +252,7 @@ public class ZoneActivationManager {
         int steps;
         float speed = 0.02f;
         if (locName != null) {
-            Location loc2 = WaveDefenseMod.locationManager.getLocation(locName);
+            Location loc2 = WaveDefenceMod.locationManager.getLocation(locName);
             int customCount = (loc2 != null) ? loc2.getZoneParticleCount() : 0;
             speed = (loc2 != null) ? loc2.getZoneParticleSpeed() : 0.02f;
             steps = (customCount > 0)
@@ -276,14 +278,14 @@ public class ZoneActivationManager {
     // ─────────────────────────────────────────────────────────────────
 
     /** Серіалізація стану ZoneActivationManager. */
-    public CompoundTag save() {
-        CompoundTag tag = new CompoundTag();
+    public CompoundNBT save() {
+        CompoundNBT tag = new CompoundNBT();
         // Zone state is stored in LocationSession, not here
         return tag;
     }
 
     /** Відновлення стану ZoneActivationManager. */
-    public void load(CompoundTag tag) {
+    public void load(CompoundNBT tag) {
         // No state to restore
     }
 }

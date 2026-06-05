@@ -1,11 +1,11 @@
 package com.wavedefense.wave;
 
-import com.wavedefense.WaveDefenseMod;
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.data.Location;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.particles.ParticleTypes;
+import net.minecraft.world.server.ServerWorld;
+import net.minecraft.entity.player.ServerPlayerEntity;
 
 import java.util.List;
 
@@ -35,19 +35,19 @@ public final class BboxRenderer {
      * particles along the top edges for nearby players to see.
      */
     public static void tick(WaveContext ctx) {
-        if (WaveDefenseMod.getServer() == null) return;
-        if (WaveDefenseMod.locationManager == null) return;
+        if (WaveDefenceMod.getServer() == null) return;
+        if (WaveDefenceMod.locationManager == null) return;
 
         for (LocationSession sess : ctx.sessions.values()) {
-            Location loc = WaveDefenseMod.locationManager.getLocation(sess.locationName);
+            Location loc = WaveDefenceMod.locationManager.getLocation(sess.locationName);
             if (loc == null) continue;
             if (!loc.hasBbox()) continue;
             if (!loc.isBboxOutlineEnabled()) continue;
 
-            List<ServerPlayer> players = ctx.getPlayersInLocation(sess.locationName);
+            List<ServerPlayerEntity> players = ctx.getPlayersInLocation(sess.locationName);
             if (players.isEmpty()) continue;
 
-            ServerLevel world = players.get(0).serverLevel();
+            ServerWorld world = ((net.minecraft.world.server.ServerWorld) players.get(0).level);
             BlockPos low  = loc.getBboxLowCorner();
             BlockPos high = loc.getBboxHighCorner();
             if (low == null || high == null) continue;
@@ -59,7 +59,7 @@ public final class BboxRenderer {
             double zMin = low.getZ() + 0.5;
             double zMax = high.getZ() + 0.5;
 
-            for (ServerPlayer p : players) {
+            for (ServerPlayerEntity p : players) {
                 emitEdgeNear(p, world, xMin, xMax, zMin, y, true);  // top-Z = zMin edge (north)
                 emitEdgeNear(p, world, xMin, xMax, zMax, y, true);  // top-Z = zMax edge (south)
                 emitEdgeNear(p, world, zMin, zMax, xMin, y, false); // top-X = xMin edge (west)
@@ -75,7 +75,7 @@ public final class BboxRenderer {
      * @param horizontal {@code true} if the edge runs along X (vary X, fix Z);
      *                   {@code false} if it runs along Z (vary Z, fix X)
      */
-    private static void emitEdgeNear(ServerPlayer p, ServerLevel world,
+    private static void emitEdgeNear(ServerPlayerEntity p, ServerWorld world,
                                       double aMin, double aMax, double bFixed,
                                       double y, boolean horizontal) {
         for (double a = aMin; a <= aMax; a += EDGE_SPACING) {
@@ -86,7 +86,7 @@ public final class BboxRenderer {
             double dz = pz - p.getZ();
             if (dx * dx + dy * dy + dz * dz > RENDER_RANGE * RENDER_RANGE) continue;
             // sendParticles to just this player (4th-arg single-player form would be cleaner
-            // but ServerLevel.sendParticles broadcasts to a sphere — fine here, we'll let
+            // but ServerWorld.sendParticles broadcasts to a sphere — fine here, we'll let
             // engine de-dupe with the radius=8 limit).
             world.sendParticles(p, ParticleTypes.END_ROD,
                 true, px, y, pz, 1, 0, 0, 0, 0.0);

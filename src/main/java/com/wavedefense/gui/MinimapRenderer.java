@@ -3,8 +3,8 @@ package com.wavedefense.gui;
 import com.wavedefense.data.Location;
 import com.wavedefense.wave.PlayerWaveData;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.core.BlockPos;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 
@@ -52,7 +52,7 @@ public final class MinimapRenderer {
      * @param sw      screen width
      * @param sh      screen height
      */
-    public static void render(GuiGraphics g, PlayerWaveData data, int sw, int sh) {
+    public static void render(MatrixStack g, PlayerWaveData data, int sw, int sh) {
         if (data == null) return;
         if (!data.isInPvp()) return;
         Location loc = data.getCurrentLocation();
@@ -77,12 +77,12 @@ public final class MinimapRenderer {
         int y1 = y0 + mapSize;
 
         // Background + border
-        g.fill(x0, y0, x1, y1, BG);
+        com.wavedefense.gui.GuiCompat.fill(g, x0, y0, x1, y1, BG);
         // 2-pixel border by overdrawing 4 thin strips
-        g.fill(x0,     y0,     x1,     y0 + 1, BORDER);
-        g.fill(x0,     y1 - 1, x1,     y1,     BORDER);
-        g.fill(x0,     y0,     x0 + 1, y1,     BORDER);
-        g.fill(x1 - 1, y0,     x1,     y1,     BORDER);
+        com.wavedefense.gui.GuiCompat.fill(g, x0,     y0,     x1,     y0 + 1, BORDER);
+        com.wavedefense.gui.GuiCompat.fill(g, x0,     y1 - 1, x1,     y1,     BORDER);
+        com.wavedefense.gui.GuiCompat.fill(g, x0,     y0,     x0 + 1, y1,     BORDER);
+        com.wavedefense.gui.GuiCompat.fill(g, x1 - 1, y0,     x1,     y1,     BORDER);
 
         // World-space extents (top-down: X→X, Z→Y)
         int wx = high.getX() - low.getX() + 1;
@@ -99,8 +99,8 @@ public final class MinimapRenderer {
         for (int i = 1; i < 3; i++) {
             int gx = cx0 + innerW * i / 3;
             int gy = cy0 + innerH * i / 3;
-            g.fill(gx, cy0, gx + 1, cy0 + innerH, GRID);
-            g.fill(cx0, gy, cx0 + innerW, gy + 1, GRID);
+            com.wavedefense.gui.GuiCompat.fill(g, gx, cy0, gx + 1, cy0 + innerH, GRID);
+            com.wavedefense.gui.GuiCompat.fill(g, cx0, gy, cx0 + innerW, gy + 1, GRID);
         }
 
         // Helper: world (x, z) → screen pixel (returns null if outside bbox)
@@ -118,7 +118,7 @@ public final class MinimapRenderer {
         // So world-delta → screen-delta is identity:
         //   dx_world = -sin(yaw_rad)
         //   dz_world =  cos(yaw_rad)
-        float yaw = mc.player.getYRot();
+        float yaw = mc.player.yRot;
         int sx = (int) Math.round(cx0 + (px - low.getX()) / (double) wx * innerW);
         int sy = (int) Math.round(cy0 + (pz - low.getZ()) / (double) wz * innerH);
         double yawRad = Math.toRadians(yaw);
@@ -129,7 +129,7 @@ public final class MinimapRenderer {
         plotLine(g, sx, sy, tipX, tipY, SELF_COLOR);
     }
 
-    private static void renderTeammates(GuiGraphics g, Minecraft mc, BlockPos low,
+    private static void renderTeammates(MatrixStack g, Minecraft mc, BlockPos low,
                                          int wx, int wz, int cx0, int cy0,
                                          int innerW, int innerH) {
         java.util.UUID myUuid = mc.player != null ? mc.player.getUUID() : null;
@@ -142,7 +142,7 @@ public final class MinimapRenderer {
     }
 
     /** Plots a small filled square centred on the projected world position, clamped to inside the map. */
-    private static void renderDot(GuiGraphics g, BlockPos low, int wx, int wz,
+    private static void renderDot(MatrixStack g, BlockPos low, int wx, int wz,
                                    int cx0, int cy0, int innerW, int innerH,
                                    double worldX, double worldZ, int color, int radius) {
         double rx = (worldX - low.getX()) / (double) wx;
@@ -150,17 +150,17 @@ public final class MinimapRenderer {
         if (rx < 0 || rx > 1 || rz < 0 || rz > 1) return; // outside bbox — don't render
         int px = (int) Math.round(cx0 + rx * innerW);
         int py = (int) Math.round(cy0 + rz * innerH);
-        g.fill(px - radius, py - radius, px + radius + 1, py + radius + 1, color);
+        com.wavedefense.gui.GuiCompat.fill(g, px - radius, py - radius, px + radius + 1, py + radius + 1, color);
     }
 
     /** Simple Bresenham line plot for the heading indicator. */
-    private static void plotLine(GuiGraphics g, int x0, int y0, int x1, int y1, int color) {
+    private static void plotLine(MatrixStack g, int x0, int y0, int x1, int y1, int color) {
         int dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
         int dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
         int err = dx + dy;
         int safety = 64;
         while (safety-- > 0) {
-            g.fill(x0, y0, x0 + 1, y0 + 1, color);
+            com.wavedefense.gui.GuiCompat.fill(g, x0, y0, x0 + 1, y0 + 1, color);
             if (x0 == x1 && y0 == y1) break;
             int e2 = 2 * err;
             if (e2 >= dy) { err += dy; x0 += sx; }

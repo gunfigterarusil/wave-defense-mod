@@ -1,12 +1,14 @@
 package com.wavedefense.events;
 
-import com.wavedefense.WaveDefenseMod;
+import net.minecraft.util.text.ITextComponent;
+
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.data.Location;
 import com.wavedefense.data.PlayerBackup;
 import com.wavedefense.data.PvpSpawnPoint;
 import com.wavedefense.wave.PlayerWaveData;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.GameType;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.world.GameType;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -25,40 +27,40 @@ import net.minecraftforge.fml.common.Mod;
  * PvE: гравець загинув → виходить з локації (onPvePlayerDeath) →
  *   при respawn → відновлюємо backup (позиція + інвентар до входу).
  */
-@Mod.EventBusSubscriber(modid = WaveDefenseMod.MODID)
+@Mod.EventBusSubscriber(modid = WaveDefenceMod.MODID)
 public class PlayerRespawnHandler {
 
     @SubscribeEvent
     public static void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
-        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        if (!(event.getEntity() instanceof ServerPlayerEntity)) return; ServerPlayerEntity player = (ServerPlayerEntity) event.getEntity();
 
         // ── PvE death restore ──────────────────────────────────────────────
-        PlayerBackup deathRestore = WaveDefenseMod.waveManager.consumePendingDeathRestore(player.getUUID());
+        PlayerBackup deathRestore = WaveDefenceMod.waveManager.consumePendingDeathRestore(player.getUUID());
         if (deathRestore != null) {
             deathRestore.restore(player);
             return;
         }
 
         // ── PvP ───────────────────────────────────────────────────────────
-        PlayerWaveData data = WaveDefenseMod.waveManager.getPlayerData(player.getUUID());
+        PlayerWaveData data = WaveDefenceMod.waveManager.getPlayerData(player.getUUID());
         if (data == null || data.getCurrentLocation() == null) return;
         Location location = data.getCurrentLocation();
         if (!location.isPvp()) return;
 
         // Перевіряємо чи гравець щойно помер у ACTIVE раунді
-        boolean wasPvpDeath = WaveDefenseMod.waveManager.getPvpPendingRespawn()
+        boolean wasPvpDeath = WaveDefenceMod.waveManager.getPvpPendingRespawn()
             .contains(player.getUUID());
-        WaveDefenseMod.waveManager.getPvpPendingRespawn()
+        WaveDefenceMod.waveManager.getPvpPendingRespawn()
             .remove(player.getUUID());
 
         com.wavedefense.data.PvpRoundState pvpState =
-            WaveDefenseMod.waveManager.getPvpState(location.getName());
+            WaveDefenceMod.waveManager.getPvpState(location.getName());
 
         if (pvpState == null ||
             pvpState.getPhase() == com.wavedefense.data.PvpRoundState.Phase.ENDED) {
             // Матч завершено — повертаємо backup (endPvpMatch сам викликає surrenderPlayer,
             // але на всяк випадок якщо гравець відроджується після ENDED)
-            WaveDefenseMod.waveManager.surrenderPlayer(player);
+            WaveDefenceMod.waveManager.surrenderPlayer(player);
             return;
         }
 
@@ -82,40 +84,40 @@ public class PlayerRespawnHandler {
             player.getFoodData().setFoodLevel(20);
             if (location.isDeathmatch()) {
                 // B1: pick spawn point honouring dmSpawnMode (Team / Random / Smart).
-                PvpSpawnPoint dmSpawn = WaveDefenseMod.waveManager.pvpMgr.pickDmSpawn(
+                PvpSpawnPoint dmSpawn = WaveDefenceMod.waveManager.pvpMgr.pickDmSpawn(
                     location, player, teamSpawn);
                 int delaySeconds = com.wavedefense.config.WaveDefenseConfig.PVP_RESPAWN_DELAY_SECONDS.get();
                 if (delaySeconds > 0) {
                     // Затримка респавну: spectator + таймер
                     player.setGameMode(GameType.SPECTATOR);
                     if (dmSpawn != null) {
-                        WaveDefenseMod.waveManager.teleportToSafeSpawn(player, dmSpawn.getPos(), 0);
+                        WaveDefenceMod.waveManager.teleportToSafeSpawn(player, dmSpawn.getPos(), 0);
                     }
-                    WaveDefenseMod.waveManager.schedulePvpRespawn(player.getUUID(), dmSpawn, delaySeconds);
+                    WaveDefenceMod.waveManager.schedulePvpRespawn(player.getUUID(), dmSpawn, delaySeconds);
                     player.displayClientMessage(
-                        net.minecraft.network.chat.Component.translatable("wavedefense.msg.respawn_in", delaySeconds), true);
+                        new net.minecraft.util.text.TranslationTextComponent("wavedefense.msg.respawn_in", delaySeconds), true);
                 } else {
                     // Deathmatch: миттєве відродження на обраній точці (не spectator)
                     if (player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR) {
                         player.setGameMode(GameType.SURVIVAL);
                     }
                     if (dmSpawn != null) {
-                        WaveDefenseMod.waveManager.teleportToSpawnPoint(player, dmSpawn);
+                        WaveDefenceMod.waveManager.teleportToSpawnPoint(player, dmSpawn);
                     }
                     // Невразливість на 3 секунди після відродження (60 тіків)
                     player.invulnerableTime = 60;
                     // Ефект регенерації і вогнестійкості на 3 сек щоб уникнути миттєвої смерті
-                    player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
-                        net.minecraft.world.effect.MobEffects.REGENERATION, 60, 1, false, false));
+                    player.addEffect(new net.minecraft.potion.EffectInstance(
+                        net.minecraft.potion.Effects.REGENERATION, 60, 1, false, false));
                     player.displayClientMessage(
-                        net.minecraft.network.chat.Component.translatable("wavedefense.msg.respawn_continue"), true);
+                        new net.minecraft.util.text.TranslationTextComponent("wavedefense.msg.respawn_continue"), true);
                 }
             } else if (location.isBattleRoyale()) {
                 // BR: player is eliminated permanently — move to spectator at their team spawn.
                 // BR2 fix: removed the dead setGameMode(SURVIVAL) line that was immediately
                 // overridden by setGameMode(SPECTATOR) two lines below.
                 if (teamSpawn != null) {
-                    WaveDefenseMod.waveManager.teleportToSafeSpawn(player, teamSpawn.getPos(), 0);
+                    WaveDefenceMod.waveManager.teleportToSafeSpawn(player, teamSpawn.getPos(), 0);
                 }
                 // In BR a player is eliminated for good — stay as spectator
                 player.setGameMode(GameType.SPECTATOR);
@@ -123,7 +125,7 @@ public class PlayerRespawnHandler {
                 // Standard: spectator на точці спавну
                 player.setGameMode(GameType.SPECTATOR);
                 if (teamSpawn != null) {
-                    WaveDefenseMod.waveManager.teleportToSafeSpawn(player, teamSpawn.getPos(), 0);
+                    WaveDefenceMod.waveManager.teleportToSafeSpawn(player, teamSpawn.getPos(), 0);
                 }
             }
         } else if (isWaiting) {
@@ -134,18 +136,18 @@ public class PlayerRespawnHandler {
                 if (player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR) {
                     player.setGameMode(GameType.SURVIVAL);
                 }
-                WaveDefenseMod.waveManager.reapplyWaitEffects(player);
+                WaveDefenceMod.waveManager.reapplyWaitEffects(player);
             } else {
                 player.setGameMode(GameType.SPECTATOR);
             }
             if (teamSpawn != null) {
-                WaveDefenseMod.waveManager.teleportToSafeSpawn(player, teamSpawn.getPos(), 0);
+                WaveDefenceMod.waveManager.teleportToSafeSpawn(player, teamSpawn.getPos(), 0);
             }
         } else {
             // Fallback: spectator на точці спавну
             player.setGameMode(GameType.SPECTATOR);
             if (teamSpawn != null) {
-                WaveDefenseMod.waveManager.teleportToSafeSpawn(player, teamSpawn.getPos(), 0);
+                WaveDefenceMod.waveManager.teleportToSafeSpawn(player, teamSpawn.getPos(), 0);
             }
         }
     }

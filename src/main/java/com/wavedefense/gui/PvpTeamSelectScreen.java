@@ -1,14 +1,17 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.data.Location;
 import com.wavedefense.data.PvpSpawnPoint;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.TeleportPacket;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
-import net.minecraft.util.Mth;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.math.MathHelper;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -25,16 +28,20 @@ public class PvpTeamSelectScreen extends Screen {
     private final Location location;
     private final Screen parent;
     private int scrollRow;
-    private List<TeamOption> teamOptions = List.of();
+    private List<TeamOption> teamOptions = java.util.Collections.emptyList();
 
     public PvpTeamSelectScreen(Location location, Screen parent) {
-        super(switch (location.getPvpMode()) {
-            case BATTLE_ROYALE -> Component.translatable("wavedefense.pvp.team_select.battle_royale", location.getName());
-            case DEATHMATCH -> Component.translatable("wavedefense.pvp.team_select.deathmatch", location.getName());
-            default -> Component.translatable("wavedefense.pvp.team_select.choose", location.getName());
-        });
+        super(titleFor(location));
         this.location = location;
         this.parent = parent;
+    }
+
+    /** 1.16.5: helper replacing Java 14 switch expression (must be static — called from super(...)). */
+    private static net.minecraft.util.text.ITextComponent titleFor(Location location) {
+        Location.PvpMode m = location.getPvpMode();
+        if (m == Location.PvpMode.BATTLE_ROYALE) return new TranslationTextComponent("wavedefense.pvp.team_select.battle_royale", location.getName());
+        if (m == Location.PvpMode.DEATHMATCH)    return new TranslationTextComponent("wavedefense.pvp.team_select.deathmatch",    location.getName());
+        return new TranslationTextComponent("wavedefense.pvp.team_select.choose", location.getName());
     }
 
     @Override
@@ -47,44 +54,38 @@ public class PvpTeamSelectScreen extends Screen {
         int y = 42;
 
         if (location.isBattleRoyale()) {
-            addLabel(cx - 150, y, 300, Component.translatable("wavedefense.pvp.team_select.br_title"));
+            addLabel(cx - 150, y, 300, new TranslationTextComponent("wavedefense.pvp.team_select.br_title"));
             y += 22;
-            addLabel(cx - 150, y, 300, Component.translatable("wavedefense.pvp.team_select.br_hint"));
+            addLabel(cx - 150, y, 300, new TranslationTextComponent("wavedefense.pvp.team_select.br_hint"));
             y += 28;
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.enter_game"),
-                b -> joinTeam(-1)
-            ).bounds(cx - 80, y, 160, 24).build());
+            this.addButton(new Button(cx - 80, y, 160, 24, new TranslationTextComponent("wavedefense.button.enter_game"), b -> joinTeam(-1)));
         } else {
             addModeSummary(cx, y);
             y += 52; // A3 fix: addModeSummary now has 3 rows (was 2), +18px
             addTeamCards(y);
         }
 
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.button.back"),
-            button -> this.minecraft.setScreen(parent)
-        ).bounds(cx - 50, this.height - 28, 100, 20).build());
+        this.addButton(new Button(cx - 50, this.height - 28, 100, 20, new TranslationTextComponent("wavedefense.button.back"), button -> this.minecraft.setScreen(parent)));
     }
 
     private void addModeSummary(int cx, int y) {
-        Component mode = location.isDeathmatch()
-            ? Component.translatable("wavedefense.pvp.team_select.dm_mode")
-            : Component.translatable("wavedefense.pvp.team_select.team_mode");
-        Component rule = location.isDeathmatch()
-            ? Component.translatable("wavedefense.pvp.team_select.dm_rule", location.getDmKillsToWin())
-            : Component.translatable("wavedefense.pvp.team_select.team_rule");
-        addLabel(cx - 160, y, 320, Component.literal("§e§l").append(mode));
-        addLabel(cx - 160, y + 18, 320, Component.literal("§7").append(rule));
+        ITextComponent mode = location.isDeathmatch()
+            ? new TranslationTextComponent("wavedefense.pvp.team_select.dm_mode")
+            : new TranslationTextComponent("wavedefense.pvp.team_select.team_mode");
+        ITextComponent rule = location.isDeathmatch()
+            ? new TranslationTextComponent("wavedefense.pvp.team_select.dm_rule", location.getDmKillsToWin())
+            : new TranslationTextComponent("wavedefense.pvp.team_select.team_rule");
+        addLabel(cx - 160, y, 320, new StringTextComponent("§e§l").append(mode));
+        addLabel(cx - 160, y + 18, 320, new StringTextComponent("§7").append(rule));
         // A3 fix: show minimum player requirement so players know when the match will start
         addLabel(cx - 160, y + 34, 320,
-            Component.translatable("wavedefense.pvp.team_select.min_players", location.getPvpMinPlayers()));
+            new TranslationTextComponent("wavedefense.pvp.team_select.min_players", location.getPvpMinPlayers()));
     }
 
     private void addTeamCards(int startY) {
         if (teamOptions.isEmpty()) {
             addLabel(this.width / 2 - 155, startY + 10, 310,
-                Component.literal("§c").append(Component.translatable("wavedefense.pvp.team_select.no_teams")));
+                new StringTextComponent("§c").append(new TranslationTextComponent("wavedefense.pvp.team_select.no_teams")));
             return;
         }
 
@@ -103,25 +104,22 @@ public class PvpTeamSelectScreen extends Screen {
             int x = startX + col * (CARD_W + GAP);
             int y = startY + row * (CARD_H + GAP);
 
-            this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.pvp.team_select.card",
+            this.addButton(new Button(x, y, CARD_W, CARD_H, new TranslationTextComponent("wavedefense.pvp.team_select.card",
                     option.colorCode(), shorten(option.teamName(), 18),
-                    option.spawnIndex() + 1, option.spawn().getSpawnRadius()),
-                b -> joinTeam(option.spawnIndex())
-            ).bounds(x, y, CARD_W, CARD_H).build());
+                    option.spawnIndex() + 1, option.spawn().getSpawnRadius()), b -> joinTeam(option.spawnIndex())));
         }
 
         int max = maxScrollRows(startY);
         if (max > 0) {
             int x = startX + totalW + 8;
-            this.addRenderableWidget(Button.builder(Component.literal("▲"), b -> {
+            this.addButton(new Button(x, startY, 22, 20, new StringTextComponent("▲"), b -> {
                 scrollRow = Math.max(0, scrollRow - 1);
-                rebuildWidgets();
-            }).bounds(x, startY, 22, 20).build()).active = scrollRow > 0;
-            this.addRenderableWidget(Button.builder(Component.literal("▼"), b -> {
+                init();
+            })).active = scrollRow > 0;
+            this.addButton(new Button(x, Math.min(this.height - 54, startY + visibleRows * (CARD_H + GAP) - 20), 22, 20, new StringTextComponent("▼"), b -> {
                 scrollRow = Math.min(maxScrollRows(startY), scrollRow + 1);
-                rebuildWidgets();
-            }).bounds(x, Math.min(this.height - 54, startY + visibleRows * (CARD_H + GAP) - 20), 22, 20).build()).active = scrollRow < max;
+                init();
+            })).active = scrollRow < max;
         }
     }
 
@@ -130,7 +128,7 @@ public class PvpTeamSelectScreen extends Screen {
         Map<String, Integer> nameCount = new java.util.LinkedHashMap<>();
         List<PvpSpawnPoint> spawns = location.getPvpSpawnPoints();
         for (PvpSpawnPoint spawn : spawns) {
-            String raw = spawn.getTeamName() == null || spawn.getTeamName().isBlank() ? "" : spawn.getTeamName();
+            String raw = spawn.getTeamName() == null || spawn.getTeamName().trim().isEmpty() ? "" : spawn.getTeamName();
             nameCount.merge(raw, 1, Integer::sum);
         }
         // Track per-name occurrence index for suffix labelling
@@ -139,10 +137,10 @@ public class PvpTeamSelectScreen extends Screen {
         List<TeamOption> result = new ArrayList<>();
         for (int i = 0; i < spawns.size(); i++) {
             PvpSpawnPoint spawn = spawns.get(i);
-            String raw = spawn.getTeamName() == null || spawn.getTeamName().isBlank() ? "" : spawn.getTeamName();
+            String raw = spawn.getTeamName() == null || spawn.getTeamName().trim().isEmpty() ? "" : spawn.getTeamName();
             // Base display name
-            String baseName = raw.isBlank()
-                ? Component.translatable("wavedefense.pvp.team_select.team_fallback", i + 1).getString()
+            String baseName = raw.trim().isEmpty()
+                ? new TranslationTextComponent("wavedefense.pvp.team_select.team_fallback", i + 1).getString()
                 : raw;
             // Append spawn-index suffix only when multiple spawns share the same name
             String displayName;
@@ -186,26 +184,18 @@ public class PvpTeamSelectScreen extends Screen {
     }
 
     private void clampScroll() {
-        scrollRow = Mth.clamp(scrollRow, 0, maxScrollRows(76));
+        scrollRow = MathHelper.clamp(scrollRow, 0, maxScrollRows(76));
     }
 
-    private void addLabel(int x, int y, int w, Component text) {
-        Button label = Button.builder(text, b -> {})
-            .bounds(x, y, w, 16)
-            .build();
+    private void addLabel(int x, int y, int w, ITextComponent text) {
+        Button label = new Button(x, y, w, 16, text, b -> {});
         label.active = false;
-        this.addRenderableWidget(label);
+        this.addButton(label);
     }
 
     private void joinTeam(int spawnIndex) {
         PacketHandler.sendToServer(new TeleportPacket(location.getName(), spawnIndex));
         this.onClose();
-    }
-
-    @Override
-    protected void rebuildWidgets() {
-        this.clearWidgets();
-        this.init();
     }
 
     @Override
@@ -215,20 +205,20 @@ public class PvpTeamSelectScreen extends Screen {
         }
         int max = maxScrollRows(76);
         int next = scrollRow + (delta < 0 ? 1 : -1);
-        scrollRow = Mth.clamp(next, 0, max);
-        rebuildWidgets();
+        scrollRow = MathHelper.clamp(next, 0, max);
+        init();
         return true;
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void render(MatrixStack graphics, int mouseX, int mouseY, float partialTick) {
         GuiTheme.renderBackground(graphics, this.width, this.height);
-        int titleColor = switch (location.getPvpMode()) {
-            case BATTLE_ROYALE -> 0xFF5555;
-            case DEATHMATCH -> 0xFFAA33;
-            default -> 0xFF66AAFF;
-        };
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, 14, titleColor);
+        Location.PvpMode mode = location.getPvpMode();
+        int titleColor;
+        if (mode == Location.PvpMode.BATTLE_ROYALE) titleColor = 0xFF5555;
+        else if (mode == Location.PvpMode.DEATHMATCH) titleColor = 0xFFAA33;
+        else titleColor = 0xFF66AAFF;
+        com.wavedefense.gui.GuiCompat.drawCenteredString(graphics, this.font, this.title, this.width / 2, 14, titleColor);
         super.render(graphics, mouseX, mouseY, partialTick);
     }
 
@@ -237,5 +227,19 @@ public class PvpTeamSelectScreen extends Screen {
         return false;
     }
 
-    private record TeamOption(String teamName, int spawnIndex, PvpSpawnPoint spawn, String colorCode) {}
+    /** 1.16.5 port: record → plain final class with accessor methods. */
+    private static final class TeamOption {
+        public final String teamName;
+        public final int spawnIndex;
+        public final PvpSpawnPoint spawn;
+        public final String colorCode;
+        TeamOption(String teamName, int spawnIndex, PvpSpawnPoint spawn, String colorCode) {
+            this.teamName = teamName; this.spawnIndex = spawnIndex;
+            this.spawn = spawn; this.colorCode = colorCode;
+        }
+        public String  teamName()   { return teamName; }
+        public int     spawnIndex() { return spawnIndex; }
+        public PvpSpawnPoint spawn(){ return spawn; }
+        public String  colorCode()  { return colorCode; }
+    }
 }

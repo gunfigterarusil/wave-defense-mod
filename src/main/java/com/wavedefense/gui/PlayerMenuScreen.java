@@ -1,13 +1,16 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.data.Location;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.RequestLocationDataPacket;
 import com.wavedefense.network.packets.TeleportPacket;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.resources.language.I18n;
-import net.minecraft.network.chat.Component;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.util.text.ITextComponent;
 
 import com.wavedefense.wave.PlayerWaveData;
 
@@ -20,12 +23,12 @@ public class PlayerMenuScreen extends ListEditorScreen<String> {
     private int btnW;
 
     public PlayerMenuScreen() {
-        super(Component.translatable("wavedefense.title.player_menu"));
+        super(new TranslationTextComponent("wavedefense.title.player_menu"));
     }
 
     // ─── ListEditorScreen / ScrollableScreen API ───────────────────────────
 
-    @Override protected List<String> getItems()   { return locationNames != null ? locationNames : List.of(); }
+    @Override protected List<String> getItems()   { return locationNames != null ? locationNames : java.util.Collections.emptyList(); }
     @Override protected int getRowHeight()        { return this.height < 200 ? 20 : 25; }
     @Override protected int getStartY()           { return 40; }
     @Override protected int getClipTop()          { return 36; }
@@ -42,7 +45,7 @@ public class PlayerMenuScreen extends ListEditorScreen<String> {
                 Location loc = ClientLocationManager.getLocation(name);
                 return loc == null || !loc.isHiddenFromPlayers();
             })
-            .collect(Collectors.toList());
+            .collect(java.util.stream.Collectors.toList());
 
         super.init();
 
@@ -61,15 +64,10 @@ public class PlayerMenuScreen extends ListEditorScreen<String> {
         PlayerWaveData pd = ClientPlayerDataManager.getPlayerData();
         boolean notInLocation = (pd == null || pd.getCurrentLocation() == null);
         if (notInLocation) {
-            addStatic(Button.builder(
-                    Component.translatable("wavedefense.leaderboard.button"),
-                    button -> this.minecraft.setScreen(new LeaderboardScreen(this))
-            ).bounds(cx - 55 - 78, this.height - 28, 73, 20).build());
+            addStatic(new Button(cx - 55 - 78, this.height - 28, 73, 20, new TranslationTextComponent("wavedefense.leaderboard.button"), button -> this.minecraft.setScreen(new LeaderboardScreen(this))));
         }
 
-        addStatic(Button.builder(
-                Component.translatable("wavedefense.button.close"), button -> this.onClose()
-        ).bounds(cx - 55, this.height - 28, 110, 20).build());
+        addStatic(new Button(cx - 55, this.height - 28, 110, 20, new TranslationTextComponent("wavedefense.button.close"), button -> this.onClose()));
     }
 
     // ─── Row builder ───────────────────────────────────────────────────────
@@ -89,20 +87,14 @@ public class PlayerMenuScreen extends ListEditorScreen<String> {
         int infoGap = 3;
         int mainW  = btnW - infoW - infoGap;
 
-        Button btn = Button.builder(
-                Component.literal(label),
-                button -> handleLocationClick(name, isPvp, loc)
-        ).bounds(cx - btnW / 2, y, mainW, getRowHeight() - 2).build();
+        Button btn = new Button(cx - btnW / 2, y, mainW, getRowHeight() - 2, new StringTextComponent(label), button -> handleLocationClick(name, isPvp, loc));
         btn.active = pvpReady;
-        this.addRenderableWidget(btn);
+        this.addButton(btn);
 
         // Info button — always active; opens LocationInfoScreen (read-only)
         if (loc != null) {
             final Location locFinal = loc;
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("§bℹ"),
-                    button -> this.minecraft.setScreen(new LocationInfoScreen(locFinal, this))
-            ).bounds(cx - btnW / 2 + mainW + infoGap, y, infoW, getRowHeight() - 2).build());
+            this.addButton(new Button(cx - btnW / 2 + mainW + infoGap, y, infoW, getRowHeight() - 2, new StringTextComponent("§bℹ"), button -> this.minecraft.setScreen(new LocationInfoScreen(locFinal, this))));
         }
     }
 

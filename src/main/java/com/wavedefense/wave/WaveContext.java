@@ -1,13 +1,16 @@
 package com.wavedefense.wave;
 
-import com.wavedefense.WaveDefenseMod;
+import net.minecraft.util.text.TranslationTextComponent;
+import net.minecraft.util.text.ITextComponent;
+
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.data.Location;
 import com.wavedefense.data.PlayerBackup;
 import com.wavedefense.wave.PlayerWaveData;
 import com.wavedefense.data.WaveTrigger;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
+import net.minecraft.entity.player.ServerPlayerEntity;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -78,15 +81,15 @@ public class WaveContext {
     }
 
     /** Повертає список серверних гравців у конкретній локації. */
-    public List<ServerPlayer> getPlayersInLocation(String locationName) {
+    public List<ServerPlayerEntity> getPlayersInLocation(String locationName) {
         // С9: server may be null during shutdown or world reload
-        net.minecraft.server.MinecraftServer srv = WaveDefenseMod.getServer();
+        net.minecraft.server.MinecraftServer srv = WaveDefenceMod.getServer();
         if (srv == null) return java.util.Collections.emptyList();
-        List<ServerPlayer> list = new ArrayList<>();
+        List<ServerPlayerEntity> list = new ArrayList<>();
         for (Map.Entry<UUID, PlayerWaveData> e : playerData.entrySet()) {
             if (e.getValue().getCurrentLocation() != null &&
                     e.getValue().getCurrentLocation().getName().equals(locationName)) {
-                ServerPlayer sp = srv.getPlayerList().getPlayer(e.getKey());
+                ServerPlayerEntity sp = srv.getPlayerList().getPlayer(e.getKey());
                 if (sp != null) list.add(sp);
             }
         }
@@ -94,19 +97,19 @@ public class WaveContext {
     }
 
     /** Розсилає повідомлення всім у локації (Component — preferred overload). */
-    public void broadcastToLocation(String locationName, net.minecraft.network.chat.Component component) {
-        for (ServerPlayer p : getPlayersInLocation(locationName))
+    public void broadcastToLocation(String locationName, net.minecraft.util.text.ITextComponent component) {
+        for (ServerPlayerEntity p : getPlayersInLocation(locationName))
             p.displayClientMessage(component, false);
     }
 
     /**
      * Розсилає вже-перекладений рядок всім у локації.
-     * @deprecated Використовуй {@link #broadcastToLocation(String, net.minecraft.network.chat.Component)}
-     *             з {@code Component.translatable()} щоб повідомлення локалізувалось на стороні клієнта.
+     * @deprecated Використовуй {@link #broadcastToLocation(String, net.minecraft.util.text.ITextComponent)}
+     *             з {@code new TranslationTextComponent()} щоб повідомлення локалізувалось на стороні клієнта.
      */
     @Deprecated
     public void broadcastToLocation(String locationName, String message) {
-        broadcastToLocation(locationName, net.minecraft.network.chat.Component.literal(message));
+        broadcastToLocation(locationName, new net.minecraft.util.text.StringTextComponent(message));
     }
 
     /** Записує нещодавно спрацьований event-triggered тригер у сесію. */
@@ -137,8 +140,8 @@ public class WaveContext {
     }
 
     /** Зберігає всі активні сесії. */
-    public ListTag saveSessions() {
-        ListTag list = new ListTag();
+    public ListNBT saveSessions() {
+        ListNBT list = new ListNBT();
         for (LocationSession sess : sessions.values()) {
             list.add(sess.save());
         }
@@ -146,7 +149,7 @@ public class WaveContext {
     }
 
     /** Відновлює сесії зі списку. */
-    public void loadSessions(ListTag list) {
+    public void loadSessions(ListNBT list) {
         sessions.clear();
         for (int i = 0; i < list.size(); i++) {
             LocationSession sess = LocationSession.load(list.getCompound(i));
@@ -157,7 +160,7 @@ public class WaveContext {
     }
 
     /** Відновлює одну сесію. */
-    public void loadSession(String locationName, CompoundTag tag) {
+    public void loadSession(String locationName, CompoundNBT tag) {
         LocationSession sess = LocationSession.load(tag);
         if (sess != null) {
             sessions.put(locationName, sess);

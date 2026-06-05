@@ -1,10 +1,10 @@
 package com.wavedefense.network.packets;
 
-import com.wavedefense.WaveDefenseMod;
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.wave.PlayerWaveData;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraftforge.fml.network.NetworkEvent;
 
 import java.util.function.Supplier;
 
@@ -25,27 +25,27 @@ public class ReadyCheckPacket {
 
     public ReadyCheckPacket(boolean ready) { this.ready = ready; }
 
-    public static void encode(ReadyCheckPacket p, FriendlyByteBuf buf) {
+    public static void encode(ReadyCheckPacket p, PacketBuffer buf) {
         buf.writeBoolean(p.ready);
     }
 
-    public static ReadyCheckPacket decode(FriendlyByteBuf buf) {
+    public static ReadyCheckPacket decode(PacketBuffer buf) {
         return new ReadyCheckPacket(buf.readBoolean());
     }
 
     public static void handle(ReadyCheckPacket p, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
-            ServerPlayer player = ctx.get().getSender();
-            if (player == null || WaveDefenseMod.waveManager == null) return;
-            PlayerWaveData pd = WaveDefenseMod.waveManager.getPlayerData(player.getUUID());
+            ServerPlayerEntity player = ctx.get().getSender();
+            if (player == null || WaveDefenceMod.waveManager == null) return;
+            PlayerWaveData pd = WaveDefenceMod.waveManager.getPlayerData(player.getUUID());
             if (pd == null || pd.getCurrentLocation() == null) return;
             String locName = pd.getCurrentLocation().getName();
             if (p.ready) {
-                WaveDefenseMod.waveManager.pvpMgr.markPlayerReady(
-                    WaveDefenseMod.waveManager, locName, player.getUUID());
+                WaveDefenceMod.waveManager.pvpMgr.markPlayerReady(
+                    WaveDefenceMod.waveManager, locName, player.getUUID());
             } else {
-                WaveDefenseMod.waveManager.pvpMgr.unmarkPlayerReady(
-                    WaveDefenseMod.waveManager, locName, player.getUUID());
+                WaveDefenceMod.waveManager.pvpMgr.unmarkPlayerReady(
+                    WaveDefenceMod.waveManager, locName, player.getUUID());
             }
         });
         ctx.get().setPacketHandled(true);

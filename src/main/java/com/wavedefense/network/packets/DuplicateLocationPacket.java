@@ -1,10 +1,10 @@
 package com.wavedefense.network.packets;
 
-import com.wavedefense.WaveDefenseMod;
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.data.Location;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraftforge.fml.network.NetworkEvent;
 
 import java.util.function.Supplier;
 
@@ -39,32 +39,32 @@ public class DuplicateLocationPacket {
         this.targetName = targetName;
     }
 
-    public static void encode(DuplicateLocationPacket p, FriendlyByteBuf buf) {
+    public static void encode(DuplicateLocationPacket p, PacketBuffer buf) {
         buf.writeUtf(p.sourceName == null ? "" : p.sourceName, 64);
         buf.writeUtf(p.targetName == null ? "" : p.targetName, 64);
     }
 
-    public static DuplicateLocationPacket decode(FriendlyByteBuf buf) {
+    public static DuplicateLocationPacket decode(PacketBuffer buf) {
         return new DuplicateLocationPacket(buf.readUtf(64), buf.readUtf(64));
     }
 
     public static void handle(DuplicateLocationPacket p, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
-            ServerPlayer player = ctx.get().getSender();
+            ServerPlayerEntity player = ctx.get().getSender();
             if (player == null || !player.hasPermissions(2)) return;
-            if (p.sourceName == null || p.sourceName.isBlank()) return;
-            if (p.targetName == null || p.targetName.isBlank()) return;
+            if (p.sourceName == null || p.sourceName.trim().isEmpty()) return;
+            if (p.targetName == null || p.targetName.trim().isEmpty()) return;
             if (!p.targetName.matches("[a-zA-Z0-9_\\-]+")) return;
 
-            Location src = WaveDefenseMod.locationManager.getLocation(p.sourceName);
+            Location src = WaveDefenceMod.locationManager.getLocation(p.sourceName);
             if (src == null) return;
-            if (WaveDefenseMod.locationManager.getLocation(p.targetName) != null) return; // collision
+            if (WaveDefenceMod.locationManager.getLocation(p.targetName) != null) return; // collision
 
             // Deep copy via NBT roundtrip — same path as editor's Cancel deep-copy
             Location clone = Location.load(src.save());
             clone.setName(p.targetName);
-            WaveDefenseMod.locationManager.addLocation(clone);
-            WaveDefenseMod.waveManager.broadcastLocationData();
+            WaveDefenceMod.locationManager.addLocation(clone);
+            WaveDefenceMod.waveManager.broadcastLocationData();
         });
         ctx.get().setPacketHandled(true);
     }

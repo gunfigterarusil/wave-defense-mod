@@ -1,16 +1,16 @@
 package com.wavedefense.wave;
 
-import com.wavedefense.WaveDefenseMod;
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.data.*;
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.Mob;
-import net.minecraft.world.entity.MobSpawnType;
-import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.world.server.ServerWorld;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.MobEntity;
+import net.minecraft.entity.SpawnReason;
+import net.minecraft.entity.ai.goal.NearestAttackableTargetGoal;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.*;
@@ -32,15 +32,15 @@ public class MobSpawnManager {
 
     public boolean spawnWave(String locationName, WaveConfig waveConfig,
                               int waveNumber, WaveManager wm) {
-        Location location = WaveDefenseMod.locationManager.getLocation(locationName);
+        Location location = WaveDefenceMod.locationManager.getLocation(locationName);
         if (location == null) return false;
 
-        List<ServerPlayer> players = ctx.getPlayersInLocation(locationName);
+        List<ServerPlayerEntity> players = ctx.getPlayersInLocation(locationName);
         if (players.isEmpty()) return false;
 
-        if (WaveDefenseMod.getServer() == null) return false;
+        if (WaveDefenceMod.getServer() == null) return false;
         // Spawn mobs in the same dimension as the players, not hardcoded Overworld.
-        ServerLevel world = players.get(0).serverLevel();
+        ServerWorld world = ((net.minecraft.world.server.ServerWorld) players.get(0).level);
         if (world == null) return false;
         LocationSession sess = ctx.getOrCreateSession(locationName, location);
         Set<UUID> spawnedMobs = sess.spawnedMobs;
@@ -54,7 +54,7 @@ public class MobSpawnManager {
         int preSpawnSize = spawnedMobs.size();
 
         for (WaveMob waveMob : waveConfig.getMobs()) {
-            EntityType<?> entityType = ForgeRegistries.ENTITY_TYPES.getValue(waveMob.getMobType());
+            EntityType<?> entityType = ForgeRegistries.ENTITIES.getValue(waveMob.getMobType());
             if (entityType == null) continue;
 
             int baseCount = waveMob.getCount() + (waveMob.getGrowthPerWave() * (waveNumber - 1));
@@ -83,7 +83,7 @@ public class MobSpawnManager {
                     spawnPos = base;
                 }
 
-                Mob mob = trySpawn(entityType, world, spawnPos, locationName, waveMob);
+                MobEntity mob = trySpawn(entityType, world, spawnPos, locationName, waveMob);
                 if (mob != null) {
                     spawnedMobs.add(mob.getUUID());
                     anySpawned = true;
@@ -100,16 +100,16 @@ public class MobSpawnManager {
 
     /** Spawn mobs around a specific position (portal/trigger waves). */
     public void spawnAroundPos(WaveConfig waveConfig, Location loc,
-                                ServerLevel world, BlockPos center,
+                                ServerWorld world, BlockPos center,
                                 String locationName, int waveNumber) {
         LocationSession sess = ctx.getOrCreateSession(locationName, loc);
         Set<UUID> spawnedMobs = sess.spawnedMobs;
         Random rng = new Random();
         // Вибираємо точки спавну: якщо є конкретні MobSpawnPoints — розподіляємо моби по них
-        var spawnPoints = loc.getMobSpawns();
+        java.util.List<com.wavedefense.data.MobSpawnPoint> spawnPoints = loc.getMobSpawns();
 
         for (WaveMob waveMob : waveConfig.getMobs()) {
-            EntityType<?> entityType = ForgeRegistries.ENTITY_TYPES.getValue(waveMob.getMobType());
+            EntityType<?> entityType = ForgeRegistries.ENTITIES.getValue(waveMob.getMobType());
             if (entityType == null) continue;
 
             int mobCount = waveMob.getCount() + (waveMob.getGrowthPerWave() * (waveNumber - 1));
@@ -118,7 +118,7 @@ public class MobSpawnManager {
                 BlockPos spawnPos;
                 if (!spawnPoints.isEmpty()) {
                     // Використовуємо конкретну точку спавну з її власним радіусом
-                    var sp = spawnPoints.get(rng.nextInt(spawnPoints.size()));
+                    com.wavedefense.data.MobSpawnPoint sp = spawnPoints.get(rng.nextInt(spawnPoints.size()));
                     int r = sp.getRadius() > 0 ? sp.getRadius() : loc.getMobSpawnRadius();
                     spawnPos = r > 0
                         ? sp.getPos().offset(rng.nextInt(r*2+1)-r, 0, rng.nextInt(r*2+1)-r)
@@ -130,7 +130,7 @@ public class MobSpawnManager {
                         ? center.offset(rng.nextInt(r*2+1)-r, 0, rng.nextInt(r*2+1)-r)
                         : center;
                 }
-                Mob mob = trySpawn(entityType, world, spawnPos, locationName, waveMob);
+                MobEntity mob = trySpawn(entityType, world, spawnPos, locationName, waveMob);
                 if (mob != null) spawnedMobs.add(mob.getUUID());
             }
         }
@@ -138,67 +138,66 @@ public class MobSpawnManager {
 
     // ── Internal helpers ──────────────────────────────────────────────
 
-    private Mob trySpawn(EntityType<?> entityType, ServerLevel world,
+    private MobEntity trySpawn(EntityType<?> entityType, ServerWorld world,
                           BlockPos pos, String locationName, WaveMob waveMob) {
         if (!world.isLoaded(pos)) {
-            WaveDefenseMod.LOGGER.debug("[WaveDefense] Skipping spawn at {} — chunk not loaded", pos);
+            WaveDefenceMod.LOGGER.debug("[WaveDefense] Skipping spawn at {} — chunk not loaded", pos);
             return null;
         }
         try {
-            Mob mob = (Mob) entityType.create(world);
+            MobEntity mob = (MobEntity) entityType.create(world);
             if (mob == null) return null;
             mob.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0, 0);
             mob.finalizeSpawn(world, world.getCurrentDifficultyAt(pos),
-                    MobSpawnType.COMMAND, null, null);
+                    SpawnReason.COMMAND, null, null);
             mob.goalSelector.addGoal(2,
-                    new NearestAttackableTargetGoal<>(mob, Player.class, true));
+                    new NearestAttackableTargetGoal<>(mob, PlayerEntity.class, true));
             mob.setPersistenceRequired();
             mob.getPersistentData().putString("location", locationName);
             mob.getPersistentData().putInt("points", waveMob.getPointsPerKill());
             applyMobEquipment(mob, waveMob);
-            com.wavedefense.compat.MineAndSlashCompat.applyToMob(
-                mob, WaveDefenseMod.locationManager.getLocation(locationName));
+            /* MnSCompat not ported */;
             world.addFreshEntity(mob);
             return mob;
         } catch (Exception e) {
-            WaveDefenseMod.LOGGER.warn("[WaveDefense] trySpawn failed for '{}' at {} in '{}': {}",
+            WaveDefenceMod.LOGGER.warn("[WaveDefense] trySpawn failed for '{}' at {} in '{}': {}",
                 entityType.getDescriptionId(), pos, locationName, e.getMessage());
             return null;
         }
     }
 
     public BlockPos getRandomSpawnPoint(Location location) {
-        var spawns = location.getMobSpawns();
+        java.util.List<com.wavedefense.data.MobSpawnPoint> spawns = location.getMobSpawns();
         if (spawns.isEmpty()) return location.getPlayerSpawn();
-        var sp = spawns.get(new Random().nextInt(spawns.size()));
+        com.wavedefense.data.MobSpawnPoint sp = spawns.get(new Random().nextInt(spawns.size()));
         return sp.randomPos(new Random());
     }
 
     // ── Equipment ─────────────────────────────────────────────────────
 
-    public void applyMobEquipment(Mob mob, WaveMob waveMob) {
+    public void applyMobEquipment(MobEntity mob, WaveMob waveMob) {
         if (!com.wavedefense.config.WaveDefenseConfig.MOBS_CAN_HAVE_EQUIPMENT.get()) return;
         float drop = (float) com.wavedefense.config.WaveDefenseConfig.MOB_ARMOR_DROP_CHANCE.get().floatValue();
 
-        if (!waveMob.getHelmet().isEmpty())     forceSetItemSlot(mob, net.minecraft.world.entity.EquipmentSlot.HEAD,     waveMob.getHelmet().copy(),     drop);
-        if (!waveMob.getChestplate().isEmpty()) forceSetItemSlot(mob, net.minecraft.world.entity.EquipmentSlot.CHEST,    waveMob.getChestplate().copy(), drop);
-        if (!waveMob.getLeggings().isEmpty())   forceSetItemSlot(mob, net.minecraft.world.entity.EquipmentSlot.LEGS,     waveMob.getLeggings().copy(),   drop);
-        if (!waveMob.getBoots().isEmpty())      forceSetItemSlot(mob, net.minecraft.world.entity.EquipmentSlot.FEET,     waveMob.getBoots().copy(),      drop);
-        if (!waveMob.getMainHand().isEmpty())   forceSetItemSlot(mob, net.minecraft.world.entity.EquipmentSlot.MAINHAND, waveMob.getMainHand().copy(),   drop);
-        if (!waveMob.getOffHand().isEmpty())    forceSetItemSlot(mob, net.minecraft.world.entity.EquipmentSlot.OFFHAND,  waveMob.getOffHand().copy(),    drop);
+        if (!waveMob.getHelmet().isEmpty())     forceSetItemSlot(mob, net.minecraft.inventory.EquipmentSlotType.HEAD,     waveMob.getHelmet().copy(),     drop);
+        if (!waveMob.getChestplate().isEmpty()) forceSetItemSlot(mob, net.minecraft.inventory.EquipmentSlotType.CHEST,    waveMob.getChestplate().copy(), drop);
+        if (!waveMob.getLeggings().isEmpty())   forceSetItemSlot(mob, net.minecraft.inventory.EquipmentSlotType.LEGS,     waveMob.getLeggings().copy(),   drop);
+        if (!waveMob.getBoots().isEmpty())      forceSetItemSlot(mob, net.minecraft.inventory.EquipmentSlotType.FEET,     waveMob.getBoots().copy(),      drop);
+        if (!waveMob.getMainHand().isEmpty())   forceSetItemSlot(mob, net.minecraft.inventory.EquipmentSlotType.MAINHAND, waveMob.getMainHand().copy(),   drop);
+        if (!waveMob.getOffHand().isEmpty())    forceSetItemSlot(mob, net.minecraft.inventory.EquipmentSlotType.OFFHAND,  waveMob.getOffHand().copy(),    drop);
 
         for (String effectStr : waveMob.getEffects()) {
             try {
                 String[] parts = effectStr.split(":");
                 if (parts.length == 4) {
-                    net.minecraft.resources.ResourceLocation id =
-                        new net.minecraft.resources.ResourceLocation(parts[0], parts[1]);
+                    net.minecraft.util.ResourceLocation id =
+                        new net.minecraft.util.ResourceLocation(parts[0], parts[1]);
                     int amp = Integer.parseInt(parts[2]);
                     int dur = Integer.parseInt(parts[3]);
-                    net.minecraft.world.effect.MobEffect effect =
-                        net.minecraftforge.registries.ForgeRegistries.MOB_EFFECTS.getValue(id);
+                    net.minecraft.potion.Effect effect =
+                        net.minecraftforge.registries.ForgeRegistries.POTIONS.getValue(id);
                     if (effect != null)
-                        mob.addEffect(new net.minecraft.world.effect.MobEffectInstance(effect, dur, amp));
+                        mob.addEffect(new net.minecraft.potion.EffectInstance(effect, dur, amp));
                 }
             } catch (Exception ignored) {}
         }
@@ -207,39 +206,39 @@ public class MobSpawnManager {
     /**
      * Встановлює предмет у слот моба з NBT-fallback для GeckoLib/tacz мобів.
      */
-    public void forceSetItemSlot(Mob mob, net.minecraft.world.entity.EquipmentSlot slot,
-                                  net.minecraft.world.item.ItemStack item, float dropChance) {
+    public void forceSetItemSlot(MobEntity mob, net.minecraft.inventory.EquipmentSlotType slot,
+                                  net.minecraft.item.ItemStack item, float dropChance) {
         mob.setItemSlot(slot, item);
         mob.setDropChance(slot, dropChance);
         try {
-            net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+            net.minecraft.nbt.CompoundNBT tag = new net.minecraft.nbt.CompoundNBT();
             mob.save(tag);
-            net.minecraft.nbt.ListTag armor = tag.contains("ArmorItems")
-                ? tag.getList("ArmorItems", 10) : new net.minecraft.nbt.ListTag();
-            net.minecraft.nbt.ListTag hand = tag.contains("HandItems")
-                ? tag.getList("HandItems", 10) : new net.minecraft.nbt.ListTag();
-            while (armor.size() < 4) armor.add(new net.minecraft.nbt.CompoundTag());
-            while (hand.size() < 2)  hand.add(new net.minecraft.nbt.CompoundTag());
-            net.minecraft.nbt.CompoundTag itemTag = item.save(new net.minecraft.nbt.CompoundTag());
+            net.minecraft.nbt.ListNBT armor = tag.contains("ArmorItems")
+                ? tag.getList("ArmorItems", 10) : new net.minecraft.nbt.ListNBT();
+            net.minecraft.nbt.ListNBT hand = tag.contains("HandItems")
+                ? tag.getList("HandItems", 10) : new net.minecraft.nbt.ListNBT();
+            while (armor.size() < 4) armor.add(new net.minecraft.nbt.CompoundNBT());
+            while (hand.size() < 2)  hand.add(new net.minecraft.nbt.CompoundNBT());
+            net.minecraft.nbt.CompoundNBT itemTag = item.save(new net.minecraft.nbt.CompoundNBT());
             switch (slot) {
-                case MAINHAND -> hand.set(0, itemTag);
-                case OFFHAND  -> hand.set(1, itemTag);
-                case FEET     -> armor.set(0, itemTag);
-                case LEGS     -> armor.set(1, itemTag);
-                case CHEST    -> armor.set(2, itemTag);
-                case HEAD     -> armor.set(3, itemTag);
+                case MAINHAND: hand.set(0, itemTag); break;
+                case OFFHAND:  hand.set(1, itemTag); break;
+                case FEET:     armor.set(0, itemTag); break;
+                case LEGS:     armor.set(1, itemTag); break;
+                case CHEST:    armor.set(2, itemTag); break;
+                case HEAD:     armor.set(3, itemTag); break;
             }
             tag.put("ArmorItems", armor);
             tag.put("HandItems",  hand);
-            net.minecraft.nbt.ListTag ad = new net.minecraft.nbt.ListTag();
-            net.minecraft.nbt.ListTag hd = new net.minecraft.nbt.ListTag();
-            for (int i = 0; i < 4; i++) ad.add(net.minecraft.nbt.FloatTag.valueOf(dropChance));
-            for (int i = 0; i < 2; i++) hd.add(net.minecraft.nbt.FloatTag.valueOf(dropChance));
+            net.minecraft.nbt.ListNBT ad = new net.minecraft.nbt.ListNBT();
+            net.minecraft.nbt.ListNBT hd = new net.minecraft.nbt.ListNBT();
+            for (int i = 0; i < 4; i++) ad.add(net.minecraft.nbt.FloatNBT.valueOf(dropChance));
+            for (int i = 0; i < 2; i++) hd.add(net.minecraft.nbt.FloatNBT.valueOf(dropChance));
             tag.put("ArmorDropChances", ad);
             tag.put("HandDropChances",  hd);
             mob.load(tag);
         } catch (Exception e) {
-            com.wavedefense.WaveDefenseMod.LOGGER.warn(
+            com.wavedefense.WaveDefenceMod.LOGGER.warn(
                 "[WaveDefense] NBT-fallback for mob equipment failed (slot={}, mob={}): {}",
                 slot, mob.getType().getDescriptionId(), e.getMessage());
         }
@@ -250,15 +249,15 @@ public class MobSpawnManager {
     // ─────────────────────────────────────────────────────────────────
 
     /** Серіалізація стану MobSpawnManager. */
-    public CompoundTag save() {
-        CompoundTag tag = new CompoundTag();
+    public CompoundNBT save() {
+        CompoundNBT tag = new CompoundNBT();
         // MobSpawnManager не має власних полів, які потребують збереження
         // Усі дані вже збережені через WaveContext/LocationSession
         return tag;
     }
 
     /** Відновлення стану MobSpawnManager. */
-    public void load(CompoundTag tag) {
+    public void load(CompoundNBT tag) {
         // Немає стану для відновлення
     }
 }

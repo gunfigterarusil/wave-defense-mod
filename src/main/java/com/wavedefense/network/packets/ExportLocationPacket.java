@@ -1,13 +1,15 @@
 package com.wavedefense.network.packets;
 
-import com.wavedefense.WaveDefenseMod;
+import net.minecraft.util.text.ITextComponent;
+
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.data.Location;
 import com.wavedefense.data.LocationManager;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkEvent;
-import net.minecraft.nbt.NbtIo;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraftforge.fml.network.NetworkEvent;
+import net.minecraft.nbt.CompressedStreamTools;
+import net.minecraft.nbt.CompoundNBT;
 
 import java.io.File;
 import java.util.function.Supplier;
@@ -23,17 +25,17 @@ public class ExportLocationPacket {
         this.locationName = locationName;
     }
 
-    public static void encode(ExportLocationPacket pkt, FriendlyByteBuf buf) {
+    public static void encode(ExportLocationPacket pkt, PacketBuffer buf) {
         buf.writeUtf(pkt.locationName);
     }
 
-    public static ExportLocationPacket decode(FriendlyByteBuf buf) {
+    public static ExportLocationPacket decode(PacketBuffer buf) {
         return new ExportLocationPacket(buf.readUtf(64));
     }
 
     public static void handle(ExportLocationPacket pkt, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
-            ServerPlayer player = ctx.get().getSender();
+            ServerPlayerEntity player = ctx.get().getSender();
             if (player == null || !player.hasPermissions(2)) return;
 
             if ("__list__".equals(pkt.locationName)) {
@@ -53,32 +55,32 @@ public class ExportLocationPacket {
                 return;
             }
 
-            Location loc = WaveDefenseMod.locationManager.getLocation(pkt.locationName);
+            Location loc = WaveDefenceMod.locationManager.getLocation(pkt.locationName);
             if (loc == null) {
                 player.displayClientMessage(
-                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.location_invalid"), false);
+                    new net.minecraft.util.text.TranslationTextComponent("wavedefense.msg.location_invalid"), false);
                 return;
             }
             try {
                 File exportDir = getExportDir();
                 exportDir.mkdirs();
                 File file = new File(exportDir, pkt.locationName + ".nbt");
-                CompoundTag nbt = loc.save();
-                NbtIo.writeCompressed(nbt, file);
+                CompoundNBT nbt = loc.save();
+                CompressedStreamTools.writeCompressed(nbt, file);
                 player.displayClientMessage(
-                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.export_ok", file.getPath()), false);
+                    new net.minecraft.util.text.TranslationTextComponent("wavedefense.msg.export_ok", file.getPath()), false);
             } catch (Exception e) {
-                WaveDefenseMod.LOGGER.error("Export failed", e);
+                WaveDefenceMod.LOGGER.error("Export failed", e);
                 player.displayClientMessage(
-                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.export_error", e.getMessage()), false);
+                    new net.minecraft.util.text.TranslationTextComponent("wavedefense.msg.export_error", e.getMessage()), false);
             }
         });
         ctx.get().setPacketHandled(true);
     }
 
     public static File getExportDir() {
-        if (WaveDefenseMod.getServer() == null) return new File("wavedefense/export");
-        return new File(WaveDefenseMod.getServer().getWorldPath(
-            net.minecraft.world.level.storage.LevelResource.ROOT).toFile(), "wavedefense/export");
+        if (WaveDefenceMod.getServer() == null) return new File("wavedefense/export");
+        return new File(WaveDefenceMod.getServer().getWorldPath(
+            net.minecraft.world.storage.FolderName.ROOT).toFile(), "wavedefense/export");
     }
 }

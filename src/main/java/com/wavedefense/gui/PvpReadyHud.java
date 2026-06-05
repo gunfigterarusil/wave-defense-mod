@@ -1,9 +1,11 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.resources.language.I18n;
-import net.minecraft.network.chat.Component;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.util.text.ITextComponent;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -33,7 +35,7 @@ public class PvpReadyHud {
     private static final int BORDER_COLOR = 0xFF606060;
     private static final int PAD          = 6;
 
-    public static void render(GuiGraphics g, int width, int height) {
+    public static void render(MatrixStack g, int width, int height) {
         if (!"READY_CHECK".equals(ClientPvpStateManager.getPhase())) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.options.hideGui) return;
@@ -75,9 +77,9 @@ public class PvpReadyHud {
             : I18n.get("wavedefense.hud.ready_no_timeout");
 
         // ── Compute bounding box (max of 3 line widths) ───────────────
-        int w1 = mc.font.width(Component.literal(line1));
-        int w2 = mc.font.width(Component.literal(line2));
-        int w3 = mc.font.width(Component.literal(line3));
+        int w1 = mc.font.width(new StringTextComponent(line1));
+        int w2 = mc.font.width(new StringTextComponent(line2));
+        int w3 = mc.font.width(new StringTextComponent(line3));
         int maxW = Math.max(w1, Math.max(w2, w3));
         int boxW = maxW + 2 * PAD;
         int boxH = mc.font.lineHeight * 3 + 4 + 2 * PAD;
@@ -85,18 +87,18 @@ public class PvpReadyHud {
         int y = height / 5; // 20% from top — above hotbar/crosshair
 
         // Background + border
-        g.fill(x, y, x + boxW, y + boxH, BG_COLOR);
-        g.fill(x, y, x + boxW, y + 1, BORDER_COLOR);
-        g.fill(x, y + boxH - 1, x + boxW, y + boxH, BORDER_COLOR);
-        g.fill(x, y, x + 1, y + boxH, BORDER_COLOR);
-        g.fill(x + boxW - 1, y, x + boxW, y + boxH, BORDER_COLOR);
+        com.wavedefense.gui.GuiCompat.fill(g, x, y, x + boxW, y + boxH, BG_COLOR);
+        com.wavedefense.gui.GuiCompat.fill(g, x, y, x + boxW, y + 1, BORDER_COLOR);
+        com.wavedefense.gui.GuiCompat.fill(g, x, y + boxH - 1, x + boxW, y + boxH, BORDER_COLOR);
+        com.wavedefense.gui.GuiCompat.fill(g, x, y, x + 1, y + boxH, BORDER_COLOR);
+        com.wavedefense.gui.GuiCompat.fill(g, x + boxW - 1, y, x + boxW, y + boxH, BORDER_COLOR);
 
         // Lines
         int lineY = y + PAD;
-        g.drawString(mc.font, line1, x + PAD, lineY, 0xFFFFFF);
+        com.wavedefense.gui.GuiCompat.drawString(g, mc.font, line1, x + PAD, lineY, 0xFFFFFF);
         lineY += mc.font.lineHeight + 2;
-        g.drawString(mc.font, line2, x + PAD, lineY, 0xFFFFFF);
+        com.wavedefense.gui.GuiCompat.drawString(g, mc.font, line2, x + PAD, lineY, 0xFFFFFF);
         lineY += mc.font.lineHeight + 2;
-        g.drawString(mc.font, line3, x + PAD, lineY, 0xFFFFFF);
+        com.wavedefense.gui.GuiCompat.drawString(g, mc.font, line3, x + PAD, lineY, 0xFFFFFF);
     }
 }

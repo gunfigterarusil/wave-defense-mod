@@ -1,10 +1,10 @@
 package com.wavedefense.network.packets;
 
-import com.wavedefense.WaveDefenseMod;
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.data.LeaderboardRecord;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraftforge.fml.network.NetworkEvent;
 import com.wavedefense.network.PacketHandler;
 
 import java.util.List;
@@ -24,23 +24,23 @@ public class RequestLeaderboardPacket {
         this.modeKey      = modeKey      != null ? modeKey      : "";
     }
 
-    public static void encode(RequestLeaderboardPacket p, FriendlyByteBuf buf) {
+    public static void encode(RequestLeaderboardPacket p, PacketBuffer buf) {
         buf.writeUtf(p.locationName, 256);
         buf.writeUtf(p.modeKey, 64);
     }
 
-    public static RequestLeaderboardPacket decode(FriendlyByteBuf buf) {
+    public static RequestLeaderboardPacket decode(PacketBuffer buf) {
         return new RequestLeaderboardPacket(buf.readUtf(256), buf.readUtf(64));
     }
 
     public static void handle(RequestLeaderboardPacket p, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
-            ServerPlayer sender = ctx.get().getSender();
-            if (sender == null || WaveDefenseMod.leaderboardManager == null) return;
+            ServerPlayerEntity sender = ctx.get().getSender();
+            if (sender == null || WaveDefenceMod.leaderboardManager == null) return;
             // G1 fix: rate-limit leaderboard requests to once per 2 s
             if (!com.wavedefense.network.PacketRateLimiter.allow(
                     sender.getUUID(), RequestLeaderboardPacket.class, 2_000L)) return;
-            List<LeaderboardRecord> records = WaveDefenseMod.leaderboardManager.getTop10(p.locationName, p.modeKey);
+            List<LeaderboardRecord> records = WaveDefenceMod.leaderboardManager.getTop10(p.locationName, p.modeKey);
             PacketHandler.sendToPlayer(sender, new LeaderboardDataPacket(p.locationName, p.modeKey, records));
         });
         ctx.get().setPacketHandled(true);

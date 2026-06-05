@@ -1,1 +1,0 @@
-            sb.append("\"actor:\"").append(escape(actor)).append("\",");

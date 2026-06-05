@@ -1,13 +1,15 @@
 package com.wavedefense.network.packets;
 
-import com.wavedefense.WaveDefenseMod;
+import net.minecraft.util.text.ITextComponent;
+
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.data.Location;
 import com.wavedefense.data.ShopItem;
 import com.wavedefense.data.ShopPoint;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fml.network.NetworkEvent;
 
 import java.util.List;
 import java.util.function.Supplier;
@@ -33,25 +35,25 @@ public class PurchaseItemPacket {
         this.itemIndex      = itemIndex;
     }
 
-    public static void encode(PurchaseItemPacket p, FriendlyByteBuf buf) {
+    public static void encode(PurchaseItemPacket p, PacketBuffer buf) {
         buf.writeUtf(p.locationName);
         buf.writeInt(p.shopPointIndex);
         buf.writeInt(p.itemIndex);
     }
 
-    public static PurchaseItemPacket decode(FriendlyByteBuf buf) {
+    public static PurchaseItemPacket decode(PacketBuffer buf) {
         return new PurchaseItemPacket(buf.readUtf(), buf.readInt(), buf.readInt());
     }
 
     public static void handle(PurchaseItemPacket packet, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
-            ServerPlayer player = ctx.get().getSender();
+            ServerPlayerEntity player = ctx.get().getSender();
             if (player == null) return;
             // G1 fix: rate-limit purchases to once per 500 ms — prevents macro-buy exploit
             if (!com.wavedefense.network.PacketRateLimiter.allow(
                     player.getUUID(), PurchaseItemPacket.class, 500L)) return;
 
-            Location location = WaveDefenseMod.locationManager.getLocation(packet.locationName);
+            Location location = WaveDefenceMod.locationManager.getLocation(packet.locationName);
             if (location == null) return;
 
             // Отримуємо список товарів (глобальний або з точки).
@@ -71,7 +73,7 @@ public class PurchaseItemPacket {
 
             if (packet.itemIndex < 0 || packet.itemIndex >= sourceList.size()) {
                 player.displayClientMessage(
-                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.item_not_available"), true);
+                    new net.minecraft.util.text.TranslationTextComponent("wavedefense.msg.item_not_available"), true);
                 return;
             }
             ShopItem shopItem = sourceList.get(packet.itemIndex);
@@ -80,7 +82,7 @@ public class PurchaseItemPacket {
 
             // Server-side перевірка тригеру доступності
             if (shopItem.hasAvailabilityTrigger()) {
-                int curWave = WaveDefenseMod.locationManager.getCurrentWaveForLocation(packet.locationName);
+                int curWave = WaveDefenceMod.locationManager.getCurrentWaveForLocation(packet.locationName);
                 com.wavedefense.data.WaveTrigger at = shopItem.getAvailabilityTrigger();
                 boolean available = false;
                 switch (at) {
@@ -89,18 +91,18 @@ public class PurchaseItemPacket {
                     case SHOP_WAVE_N:         available = (curWave == shopItem.getAvailabilityWave()); break;
                     case SHOP_PLAYER_HAS_ITEM:
                         if (shopItem.getAvailabilityItemId() != null && !shopItem.getAvailabilityItemId().isEmpty()) {
-                            net.minecraft.resources.ResourceLocation rl =
-                                new net.minecraft.resources.ResourceLocation(shopItem.getAvailabilityItemId());
-                            net.minecraft.world.item.Item reqItem =
+                            net.minecraft.util.ResourceLocation rl =
+                                new net.minecraft.util.ResourceLocation(shopItem.getAvailabilityItemId());
+                            net.minecraft.item.Item reqItem =
                                 net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(rl);
-                            available = reqItem != null && player.getInventory().hasAnyMatching(s -> s.getItem() == reqItem);
+                            available = reqItem != null && player.inventory.items.stream().anyMatch(s -> s.getItem() == reqItem);
                         }
                         break;
                     default: available = true;
                 }
                 if (!available) {
                     player.displayClientMessage(
-                        net.minecraft.network.chat.Component.translatable("wavedefense.msg.item_not_available"), true);
+                        new net.minecraft.util.text.TranslationTextComponent("wavedefense.msg.item_not_available"), true);
                     return;
                 }
             }
@@ -108,20 +110,20 @@ public class PurchaseItemPacket {
             if (location.getPlayerPoints(player.getUUID()) >= price) {
                 location.addPoints(player.getUUID(), -price);
                 // Зберігаємо зміну поінтів на диск, щоб не загубились при рестарті
-                WaveDefenseMod.locationManager.updateLocation(location);
+                WaveDefenceMod.locationManager.updateLocation(location);
                 for (ItemStack item : shopItem.getItems()) {
-                    player.getInventory().add(item.copy());
+                    player.inventory.add(item.copy());
                 }
                 // Сповіщення
                 String itemName = shopItem.getItems().isEmpty() ? "item"
                     : shopItem.getItems().get(0).getHoverName().getString();
                 player.displayClientMessage(
-                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.purchased", itemName), true);
+                    new net.minecraft.util.text.TranslationTextComponent("wavedefense.msg.purchased", itemName), true);
                 // Синхронізуємо очки
-                WaveDefenseMod.waveManager.syncPlayerData(player);
+                WaveDefenceMod.waveManager.syncPlayerData(player);
             } else {
                 player.displayClientMessage(
-                    net.minecraft.network.chat.Component.translatable("wavedefense.msg.not_enough_points"), true);
+                    new net.minecraft.util.text.TranslationTextComponent("wavedefense.msg.not_enough_points"), true);
             }
         });
         ctx.get().setPacketHandled(true);

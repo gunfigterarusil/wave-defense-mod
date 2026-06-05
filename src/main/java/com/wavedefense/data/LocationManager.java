@@ -1,9 +1,9 @@
 package com.wavedefense.data;
 
-import com.wavedefense.WaveDefenseMod;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtIo;
+import com.wavedefense.WaveDefenceMod;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
+import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.server.MinecraftServer;
 
 import javax.annotation.Nullable;
@@ -20,7 +20,7 @@ public class LocationManager {
     private final File dataFile;
 
     public LocationManager(MinecraftServer server) {
-        this.dataFile = server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("data/wavedefense_locations.dat").toFile();
+        this.dataFile = server.getWorldPath(net.minecraft.world.storage.FolderName.ROOT).resolve("data/wavedefense_locations.dat").toFile();
         load();
     }
 
@@ -64,14 +64,21 @@ public class LocationManager {
         return locations;
     }
 
+    /** v1.16.5 port — convenience for command/network code that only needs names. */
+    public List<String> getAllLocationNames() {
+        List<String> names = new ArrayList<>();
+        for (Location l : locations) names.add(l.getName());
+        return names;
+    }
+
     public boolean locationExists(String name) {
         return locations.stream().anyMatch(loc -> loc.getName().equals(name));
     }
 
-    public CompoundTag save() {
-        CompoundTag data = new CompoundTag();
+    public CompoundNBT save() {
+        CompoundNBT data = new CompoundNBT();
         data.putInt("version", DATA_VERSION);
-        ListTag locationsList = new ListTag();
+        ListNBT locationsList = new ListNBT();
         for (Location loc : locations) {
             locationsList.add(loc.save());
         }
@@ -83,9 +90,9 @@ public class LocationManager {
         try {
             dataFile.getParentFile().mkdirs();
             // Serialize once, then write atomically: .tmp → main, current main → .bak
-            CompoundTag data = save();
+            CompoundNBT data = save();
             File tmpFile = new File(dataFile.getAbsolutePath() + ".tmp");
-            NbtIo.writeCompressed(data, tmpFile);
+            CompressedStreamTools.writeCompressed(data, tmpFile);
             File bakFile = new File(dataFile.getAbsolutePath() + ".bak");
             if (dataFile.exists()) {
                 //noinspection ResultOfMethodCallIgnored
@@ -94,28 +101,28 @@ public class LocationManager {
             //noinspection ResultOfMethodCallIgnored
             tmpFile.renameTo(dataFile);
         } catch (IOException e) {
-            WaveDefenseMod.LOGGER.error("Could not save location data", e);
+            WaveDefenceMod.LOGGER.error("Could not save location data", e);
         }
     }
 
     public void loadLocations() { load(); }
 
     /**
-     * Load locations from a CompoundTag and immediately persist to disk.
+     * Load locations from a CompoundNBT and immediately persist to disk.
      * Used by the backup-restore flow so the recovered data is saved right away.
      */
-    public void loadFromTag(CompoundTag tag) {
+    public void loadFromTag(CompoundNBT tag) {
         deserializeLocations(tag);
         saveToFile();
     }
 
     /**
-     * Deserializes locations from a CompoundTag into the in-memory list.
+     * Deserializes locations from a CompoundNBT into the in-memory list.
      * Does NOT write to disk — callers that need persistence call {@link #saveToFile()} separately.
      */
-    private void deserializeLocations(CompoundTag tag) {
+    private void deserializeLocations(CompoundNBT tag) {
         locations.clear();
-        ListTag locationsList = tag.getList("locations", 10);
+        ListNBT locationsList = tag.getList("locations", 10);
         for (int i = 0; i < locationsList.size(); i++) {
             locations.add(Location.load(locationsList.getCompound(i)));
         }
@@ -126,44 +133,44 @@ public class LocationManager {
             return;
         }
         try {
-            CompoundTag data = NbtIo.readCompressed(dataFile);
+            CompoundNBT data = CompressedStreamTools.readCompressed(dataFile);
             int fileVersion = data.contains("version") ? data.getInt("version") : 0;
             if (fileVersion > DATA_VERSION) {
-                WaveDefenseMod.LOGGER.warn("[WaveDefense] Location data version {} is newer than supported {}; loading anyway",
+                WaveDefenceMod.LOGGER.warn("[WaveDefense] Location data version {} is newer than supported {}; loading anyway",
                     fileVersion, DATA_VERSION);
             }
             // Normal startup: just deserialize, do NOT rewrite the file needlessly
             deserializeLocations(data);
         } catch (IOException e) {
-            WaveDefenseMod.LOGGER.error("[WaveDefense] Primary data file corrupt: {}", e.getMessage());
+            WaveDefenceMod.LOGGER.error("[WaveDefense] Primary data file corrupt: {}", e.getMessage());
             // Спробуємо відновити з .bak копії
             File bakFile = new File(dataFile.getAbsolutePath() + ".bak");
             if (bakFile.exists()) {
                 try {
-                    WaveDefenseMod.LOGGER.warn("[WaveDefense] Attempting to restore from backup file...");
-                    CompoundTag bakData = NbtIo.readCompressed(bakFile);
+                    WaveDefenceMod.LOGGER.warn("[WaveDefense] Attempting to restore from backup file...");
+                    CompoundNBT bakData = CompressedStreamTools.readCompressed(bakFile);
                     // Backup restore: deserialize AND save so the primary file is repaired
                     loadFromTag(bakData);
-                    WaveDefenseMod.LOGGER.info("[WaveDefense] Successfully restored {} location(s) from backup.",
+                    WaveDefenceMod.LOGGER.info("[WaveDefense] Successfully restored {} location(s) from backup.",
                         locations.size());
                 } catch (IOException bakEx) {
-                    WaveDefenseMod.LOGGER.error("[WaveDefense] Backup file also corrupt: {}. Starting with empty location list.", bakEx.getMessage());
+                    WaveDefenceMod.LOGGER.error("[WaveDefense] Backup file also corrupt: {}. Starting with empty location list.", bakEx.getMessage());
                     // Перейменовуємо пошкоджений файл щоб не затирати нові дані
                     File corruptFile = new File(dataFile.getAbsolutePath() + ".corrupted");
                     //noinspection ResultOfMethodCallIgnored
                     dataFile.renameTo(corruptFile);
                 }
             } else {
-                WaveDefenseMod.LOGGER.error("[WaveDefense] No backup file found. Starting with empty location list.");
+                WaveDefenceMod.LOGGER.error("[WaveDefense] No backup file found. Starting with empty location list.");
                 File corruptFile = new File(dataFile.getAbsolutePath() + ".corrupted");
                 //noinspection ResultOfMethodCallIgnored
                 dataFile.renameTo(corruptFile);
             }
         }
     }
-    /** Повертає поточну хвилю для вказаної локації (0 якщо неактивна). */
+    /** Current wave number for the given location (0 if inactive).
+     *  Phase 1 v0.0.1 stub: always returns 0 — WaveManager arrives in Phase 2. */
     public int getCurrentWaveForLocation(String locationName) {
-        if (com.wavedefense.WaveDefenseMod.waveManager == null) return 0;
-        return com.wavedefense.WaveDefenseMod.waveManager.getCurrentWaveForLocation(locationName);
+        return 0;
     }
 }

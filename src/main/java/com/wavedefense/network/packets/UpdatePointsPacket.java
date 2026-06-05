@@ -1,10 +1,10 @@
 package com.wavedefense.network.packets;
 
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.PacketBuffer;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraftforge.fml.network.NetworkEvent;
 
 import java.util.function.Supplier;
 
@@ -17,12 +17,12 @@ public class UpdatePointsPacket {
         this.locationName = locationName;
     }
 
-    public static void encode(UpdatePointsPacket packet, FriendlyByteBuf buf) {
+    public static void encode(UpdatePointsPacket packet, PacketBuffer buf) {
         buf.writeInt(packet.points);
         buf.writeUtf(packet.locationName);
     }
 
-    public static UpdatePointsPacket decode(FriendlyByteBuf buf) {
+    public static UpdatePointsPacket decode(PacketBuffer buf) {
         return new UpdatePointsPacket(buf.readInt(), buf.readUtf());
     }
 
@@ -43,7 +43,9 @@ public class UpdatePointsPacket {
             if (loc == null) return;
             int current = loc.getPlayerPoints(mc.player.getUUID());
             loc.addPoints(mc.player.getUUID(), packet.points - current);
-            if (mc.screen instanceof com.wavedefense.gui.PlayerShopScreen curShop) {
+            if (mc.screen instanceof com.wavedefense.gui.PlayerShopScreen) {
+
+                com.wavedefense.gui.PlayerShopScreen curShop = (com.wavedefense.gui.PlayerShopScreen) mc.screen;
                 mc.setScreen(new com.wavedefense.gui.PlayerShopScreen(loc, curShop.getShopPoint()));
             }
         }

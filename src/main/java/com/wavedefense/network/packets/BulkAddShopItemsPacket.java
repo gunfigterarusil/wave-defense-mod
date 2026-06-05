@@ -1,15 +1,15 @@
 package com.wavedefense.network.packets;
 
-import com.wavedefense.WaveDefenseMod;
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.data.Location;
 import com.wavedefense.data.ShopItem;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.wave.PlayerWaveData;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraftforge.fml.network.NetworkEvent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,23 +38,23 @@ public class BulkAddShopItemsPacket {
         this.items = items != null ? items : new ArrayList<>();
     }
 
-    public static void encode(BulkAddShopItemsPacket p, FriendlyByteBuf buf) {
+    public static void encode(BulkAddShopItemsPacket p, PacketBuffer buf) {
         buf.writeUtf(p.locationName == null ? "" : p.locationName, 256);
-        ListTag list = new ListTag();
+        ListNBT list = new ListNBT();
         for (ShopItem si : p.items) {
             if (si != null) list.add(si.save());
         }
-        CompoundTag tag = new CompoundTag();
+        CompoundNBT tag = new CompoundNBT();
         tag.put("items", list);
         buf.writeNbt(tag);
     }
 
-    public static BulkAddShopItemsPacket decode(FriendlyByteBuf buf) {
+    public static BulkAddShopItemsPacket decode(PacketBuffer buf) {
         String loc = buf.readUtf(256);
-        CompoundTag tag = buf.readNbt();
+        CompoundNBT tag = buf.readNbt();
         List<ShopItem> items = new ArrayList<>();
         if (tag != null && tag.contains("items")) {
-            ListTag list = tag.getList("items", 10);
+            ListNBT list = tag.getList("items", 10);
             for (int i = 0; i < list.size(); i++) {
                 try { items.add(ShopItem.load(list.getCompound(i))); }
                 catch (Throwable ignored) {}
@@ -65,12 +65,12 @@ public class BulkAddShopItemsPacket {
 
     public static void handle(BulkAddShopItemsPacket p, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
-            ServerPlayer player = ctx.get().getSender();
+            ServerPlayerEntity player = ctx.get().getSender();
             if (player == null || !player.hasPermissions(2)) return;
-            if (p.locationName == null || p.locationName.isBlank()) return;
+            if (p.locationName == null || p.locationName.trim().isEmpty()) return;
             if (p.items == null || p.items.isEmpty()) return;
 
-            Location loc = WaveDefenseMod.locationManager.getLocation(p.locationName);
+            Location loc = WaveDefenceMod.locationManager.getLocation(p.locationName);
             if (loc == null) return;
 
             // Append items
@@ -78,14 +78,14 @@ public class BulkAddShopItemsPacket {
                 if (si != null) loc.getShopItems().add(si);
             }
             // Persist + broadcast — this is one cheap save instead of one-per-item.
-            WaveDefenseMod.locationManager.saveToFile();
-            WaveDefenseMod.waveManager.broadcastLocationData();
+            WaveDefenceMod.locationManager.saveToFile();
+            WaveDefenceMod.waveManager.broadcastLocationData();
 
             // Sync shop to players currently inside the location
-            CompoundTag locNbt = loc.save();
+            CompoundNBT locNbt = loc.save();
             SyncShopPacket syncPkt = new SyncShopPacket(p.locationName, locNbt);
-            for (ServerPlayer sp : player.getServer().getPlayerList().getPlayers()) {
-                PlayerWaveData pd = WaveDefenseMod.waveManager.getPlayerData(sp.getUUID());
+            for (ServerPlayerEntity sp : player.getServer().getPlayerList().getPlayers()) {
+                PlayerWaveData pd = WaveDefenceMod.waveManager.getPlayerData(sp.getUUID());
                 if (pd != null && pd.getCurrentLocation() != null
                         && pd.getCurrentLocation().getName().equals(p.locationName)) {
                     PacketHandler.sendToPlayer(sp, syncPkt);

@@ -1,14 +1,17 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.data.Location;
 import com.wavedefense.data.WaveConfig;
 import com.wavedefense.network.PacketHandler;
 import com.wavedefense.network.packets.ExportWavePacket;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.resources.language.I18n;
-import net.minecraft.network.chat.Component;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.util.text.ITextComponent;
 
 import java.util.List;
 
@@ -27,7 +30,7 @@ public class WaveExportScreen extends Screen {
     private static final int GAP   = 4;
 
     public WaveExportScreen(Location location, Screen parent) {
-        super(Component.translatable("wavedefense.wave.export_title", location.getName()));
+        super(new TranslationTextComponent("wavedefense.wave.export_title", location.getName()));
         this.location = location;
         this.parent = parent;
     }
@@ -35,22 +38,19 @@ public class WaveExportScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        this.clearWidgets();
+        this.buttons.clear(); this.children.clear();
         int cx = this.width / 2;
         int y  = 50;
 
         // ── Заголовок ─────────────────────────────────────────────────
         // "Зберегти всі хвилі" — один файл з усіма
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.wave.export_save_all", location.getWaves().size()),
-            b -> {
+        this.addButton(new Button(cx - 130, y, 260, BTN_H, new TranslationTextComponent("wavedefense.wave.export_save_all", location.getWaves().size()), b -> {
                 PacketHandler.sendToServer(new ExportWavePacket(location.getName(), "all"));
                 if (minecraft.player != null)
                     minecraft.player.displayClientMessage(
-                        Component.translatable("wavedefense.auto.надіслано_запит_на_збереження_вс_67d5986a"), true);
+                        new TranslationTextComponent("wavedefense.auto.надіслано_запит_на_збереження_вс_67d5986a"), true);
                 minecraft.setScreen(parent);
-            }
-        ).bounds(cx - 130, y, 260, BTN_H).build());
+            }));
 
         y += BTN_H + 10;
 
@@ -71,61 +71,46 @@ public class WaveExportScreen extends Screen {
                 idx + 1, wc.getMobs().size(), wc.getTimeBetweenWaves(),
                 wc.isTriggerEnabled() ? " " + I18n.get("wavedefense.wave.export_wave_trigger") : "");
 
-            this.addRenderableWidget(Button.builder(
-                Component.literal(label),
-                b -> {
+            this.addButton(new Button(cx - 130, y + i * (BTN_H + GAP), 260, BTN_H, new StringTextComponent(label), b -> {
                     PacketHandler.sendToServer(
                         new ExportWavePacket(location.getName(), "wave:" + finalIdx));
                     if (minecraft.player != null)
                         minecraft.player.displayClientMessage(
-                            Component.translatable("wavedefense.wave.export_saving_wave", finalIdx + 1), true);
+                            new TranslationTextComponent("wavedefense.wave.export_saving_wave", finalIdx + 1), true);
                     minecraft.setScreen(parent);
-                }
-            ).bounds(cx - 130, y + i * (BTN_H + GAP), 260, BTN_H).build());
+                }));
         }
 
         // ── Скрол ─────────────────────────────────────────────────────
         if (waves.size() > itemsPerPage) {
-            this.addRenderableWidget(Button.builder(Component.literal("▲"),
-                b -> { if (scrollOffset > 0) { scrollOffset--; rebuildWidgets(); } }
-            ).bounds(cx + 133, 50 + BTN_H + 14, 18, BTN_H).build());
-            this.addRenderableWidget(Button.builder(Component.literal("▼"),
-                b -> { if (scrollOffset + itemsPerPage < waves.size()) { scrollOffset++; rebuildWidgets(); } }
-            ).bounds(cx + 133, this.height - 35, 18, BTN_H).build());
+            this.addButton(new Button(cx + 133, 50 + BTN_H + 14, 18, BTN_H, new StringTextComponent("▲"), b -> { if (scrollOffset > 0) { scrollOffset--; init(); } }));
+            this.addButton(new Button(cx + 133, this.height - 35, 18, BTN_H, new StringTextComponent("▼"), b -> { if (scrollOffset + itemsPerPage < waves.size()) { scrollOffset++; init(); } }));
         }
 
         // ── Скасувати ─────────────────────────────────────────────────
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("wavedefense.auto.скасувати_8b4c2025"),
-            b -> minecraft.setScreen(parent)
-        ).bounds(cx - 55, this.height - 28, 110, BTN_H).build());
-    }
-
-    @Override
-    protected void rebuildWidgets() {
-        init();
+        this.addButton(new Button(cx - 55, this.height - 28, 110, BTN_H, new TranslationTextComponent("wavedefense.auto.скасувати_8b4c2025"), b -> minecraft.setScreen(parent)));
     }
 
     @Override
     public boolean mouseScrolled(double x, double y, double delta) {
         List<WaveConfig> waves = location.getWaves();
         int itemsPerPage = Math.max(3, (this.height - 100) / (BTN_H + GAP));
-        if (delta > 0 && scrollOffset > 0) { scrollOffset--; rebuildWidgets(); }
-        else if (delta < 0 && scrollOffset + itemsPerPage < waves.size()) { scrollOffset++; rebuildWidgets(); }
+        if (delta > 0 && scrollOffset > 0) { scrollOffset--; init(); }
+        else if (delta < 0 && scrollOffset + itemsPerPage < waves.size()) { scrollOffset++; init(); }
         return true;
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(MatrixStack g, int mouseX, int mouseY, float partialTick) {
         GuiTheme.renderBackground(g, this.width, this.height);
-        g.drawCenteredString(this.font, this.title, this.width / 2, 16, GuiTheme.TEXT);
-        g.drawCenteredString(this.font,
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, this.title, this.width / 2, 16, GuiTheme.TEXT);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font,
             I18n.get("wavedefense.wave.export_hint"),
             this.width / 2, 28, 0x888888);
 
         // Роздільна лінія між "всі" і окремими
-        g.fill(this.width / 2 - 130, 50 + BTN_H + 6, this.width / 2 + 130, 50 + BTN_H + 7, 0x55FFFFFF);
-        g.drawCenteredString(this.font, Component.translatable("wavedefense.wave.export_or_single"),
+        com.wavedefense.gui.GuiCompat.fill(g, this.width / 2 - 130, 50 + BTN_H + 6, this.width / 2 + 130, 50 + BTN_H + 7, 0x55FFFFFF);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, new TranslationTextComponent("wavedefense.wave.export_or_single"),
             this.width / 2, 50 + BTN_H + 8, 0x666666);
 
         super.render(g, mouseX, mouseY, partialTick);

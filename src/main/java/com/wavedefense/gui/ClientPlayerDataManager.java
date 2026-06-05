@@ -1,12 +1,12 @@
 package com.wavedefense.gui;
 
 import com.wavedefense.wave.PlayerWaveData;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.CompoundNBT;
 
 public class ClientPlayerDataManager {
     private static PlayerWaveData playerData;
 
-    public static void updateData(CompoundTag data) {
+    public static void updateData(CompoundNBT data) {
         if (playerData == null) {
             playerData = new PlayerWaveData();
         }

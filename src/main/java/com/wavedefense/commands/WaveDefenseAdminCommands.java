@@ -1,5 +1,8 @@
 package com.wavedefense.commands;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -7,7 +10,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import com.wavedefense.WaveDefenseMod;
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.config.WaveDefenseConfig;
 import com.wavedefense.config.WaveGameRules;
 import com.wavedefense.data.Location;
@@ -16,17 +19,17 @@ import com.wavedefense.data.PlayerBackup;
 import com.wavedefense.data.WaveConfig;
 import com.wavedefense.network.packets.AdminTeleportPacket;
 import com.wavedefense.network.packets.OpenMenuPacket;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
-import net.minecraft.commands.arguments.EntityArgument;
-import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.ClickEvent;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.HoverEvent;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.GameType;
-import net.minecraftforge.network.PacketDistributor;
+import net.minecraft.command.CommandSource;
+import net.minecraft.command.Commands;
+import net.minecraft.command.arguments.EntityArgument;
+import net.minecraft.command.arguments.BlockPosArgument;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.event.ClickEvent;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.event.HoverEvent;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.world.GameType;
+import net.minecraftforge.fml.network.PacketDistributor;
 
 import java.time.Instant;
 import java.time.ZoneId;
@@ -73,12 +76,12 @@ public class WaveDefenseAdminCommands {
 
     // ── Registration ─────────────────────────────────────────────────────────
 
-    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+    public static void register(CommandDispatcher<CommandSource> dispatcher) {
         registerMainCommand(dispatcher);
         registerAliases(dispatcher);
     }
 
-    private static void registerMainCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
+    private static void registerMainCommand(CommandDispatcher<CommandSource> dispatcher) {
         dispatcher.register(
             Commands.literal("wavedefense-admin")
                 .requires(src -> checkPermission(src, PERM_MOD))
@@ -106,67 +109,67 @@ public class WaveDefenseAdminCommands {
     // ════════════════════════════════════════════════════════════════════
 
     /** /wda players-in <location> — lists who's currently inside a location. */
-    private static LiteralArgumentBuilder<CommandSourceStack> buildPlayersInCommand() {
+    private static LiteralArgumentBuilder<CommandSource> buildPlayersInCommand() {
         return Commands.literal("players-in")
             .then(Commands.argument("location", StringArgumentType.string())
                 .executes(ctx -> {
                     String loc = StringArgumentType.getString(ctx, "location");
-                    if (WaveDefenseMod.waveManager == null) {
-                        ctx.getSource().sendFailure(Component.literal("§c✗ WaveManager not ready"));
+                    if (WaveDefenceMod.waveManager == null) {
+                        ctx.getSource().sendFailure(new StringTextComponent("§c✗ WaveManager not ready"));
                         return 0;
                     }
-                    java.util.List<net.minecraft.server.level.ServerPlayer> ps =
-                        WaveDefenseMod.waveManager.getPlayersInLocation(loc);
+                    java.util.List<net.minecraft.entity.player.ServerPlayerEntity> ps =
+                        WaveDefenceMod.waveManager.getPlayersInLocation(loc);
                     if (ps.isEmpty()) {
-                        ctx.getSource().sendSuccess(() -> Component.literal(
+                        ctx.getSource().sendSuccess(new StringTextComponent(
                             "§7No players in §e" + loc), false);
                         return 0;
                     }
                     StringBuilder sb = new StringBuilder("§7Players in §e" + loc + "§7 (" + ps.size() + "):\n");
-                    Location locObj = WaveDefenseMod.locationManager.getLocation(loc);
-                    for (net.minecraft.server.level.ServerPlayer p : ps) {
+                    Location locObj = WaveDefenceMod.locationManager.getLocation(loc);
+                    for (net.minecraft.entity.player.ServerPlayerEntity p : ps) {
                         String team = locObj != null ? locObj.getPlayerTeam(p.getUUID()) : null;
                         sb.append("  §f").append(p.getName().getString());
                         if (team != null && !team.isEmpty()) sb.append(" §8[").append(team).append("]");
                         sb.append("\n");
                     }
                     String dump = sb.toString();
-                    ctx.getSource().sendSuccess(() -> Component.literal(dump), false);
+                    ctx.getSource().sendSuccess(new StringTextComponent(dump), false);
                     return 1;
                 }));
     }
 
     /** /wda who-ready <location> — lists who pressed ready during READY_CHECK. */
-    private static LiteralArgumentBuilder<CommandSourceStack> buildWhoReadyCommand() {
+    private static LiteralArgumentBuilder<CommandSource> buildWhoReadyCommand() {
         return Commands.literal("who-ready")
             .then(Commands.argument("location", StringArgumentType.string())
                 .executes(ctx -> {
                     String loc = StringArgumentType.getString(ctx, "location");
-                    if (WaveDefenseMod.waveManager == null) {
-                        ctx.getSource().sendFailure(Component.literal("§c✗ WaveManager not ready"));
+                    if (WaveDefenceMod.waveManager == null) {
+                        ctx.getSource().sendFailure(new StringTextComponent("§c✗ WaveManager not ready"));
                         return 0;
                     }
-                    String dump = WaveDefenseMod.waveManager.pvpMgr.debugDumpReadySet(loc);
-                    ctx.getSource().sendSuccess(() -> Component.literal("§7" + dump), false);
+                    String dump = WaveDefenceMod.waveManager.pvpMgr.debugDumpReadySet(loc);
+                    ctx.getSource().sendSuccess(new StringTextComponent("§7" + dump), false);
                     return 1;
                 }));
     }
 
     /** /wda tp-to-spawn <player> <location> <team> — teleports a specific
      *  player to a specific team spawn point (admin convenience for rebalancing). */
-    private static LiteralArgumentBuilder<CommandSourceStack> buildTpToSpawnCommand() {
+    private static LiteralArgumentBuilder<CommandSource> buildTpToSpawnCommand() {
         return Commands.literal("tp-to-spawn")
             .then(Commands.argument("player", EntityArgument.player())
                 .then(Commands.argument("location", StringArgumentType.string())
                     .then(Commands.argument("team", StringArgumentType.string())
                         .executes(ctx -> {
                             try {
-                                ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
+                                ServerPlayerEntity target = EntityArgument.getPlayer(ctx, "player");
                                 String locName = StringArgumentType.getString(ctx, "location");
                                 String teamName = StringArgumentType.getString(ctx, "team");
-                                Location locObj = WaveDefenseMod.locationManager.getLocation(locName);
+                                Location locObj = WaveDefenceMod.locationManager.getLocation(locName);
                                 if (locObj == null) {
-                                    ctx.getSource().sendFailure(Component.literal("§c✗ Location not found: " + locName));
+                                    ctx.getSource().sendFailure(new StringTextComponent("§c✗ Location not found: " + locName));
                                     return 0;
                                 }
                                 com.wavedefense.data.PvpSpawnPoint match = null;
@@ -174,21 +177,21 @@ public class WaveDefenseAdminCommands {
                                     if (sp.getTeamName().equalsIgnoreCase(teamName)) { match = sp; break; }
                                 }
                                 if (match == null) {
-                                    ctx.getSource().sendFailure(Component.literal(
+                                    ctx.getSource().sendFailure(new StringTextComponent(
                                         "§c✗ Team not found in " + locName + ": " + teamName));
                                     return 0;
                                 }
                                 BlockPos p = match.getPos();
                                 target.teleportTo(p.getX() + 0.5, p.getY(), p.getZ() + 0.5);
-                                ctx.getSource().sendSuccess(() -> Component.literal(
+                                ctx.getSource().sendSuccess(new StringTextComponent(
                                     "§a✓ Teleported §f" + target.getName().getString()
                                         + "§a to §e" + locName + "§a team §e" + teamName), true);
                                 auditLogger.log(AuditEvent.success(ctx.getSource(), "tp-to-spawn",
-                                    Map.of("player", target.getName().getString(),
+                                    com.google.common.collect.ImmutableMap.of("player", target.getName().getString(),
                                            "location", locName, "team", teamName)));
                                 return 1;
                             } catch (CommandSyntaxException e) {
-                                ctx.getSource().sendFailure(Component.literal("§c✗ Player not found"));
+                                ctx.getSource().sendFailure(new StringTextComponent("§c✗ Player not found"));
                                 return 0;
                             }
                         }))));
@@ -199,98 +202,98 @@ public class WaveDefenseAdminCommands {
     // ════════════════════════════════════════════════════════════════════
 
     /** /wavedefense-admin match {skip-readycheck|stop|restart} <locationName> */
-    private static LiteralArgumentBuilder<CommandSourceStack> buildMatchCommand() {
+    private static LiteralArgumentBuilder<CommandSource> buildMatchCommand() {
         return Commands.literal("match")
             .then(Commands.literal("skip-readycheck")
                 .then(Commands.argument("location", StringArgumentType.string())
                     .executes(ctx -> {
                         String loc = StringArgumentType.getString(ctx, "location");
-                        if (WaveDefenseMod.waveManager == null) return error(ctx, "WaveManager not ready");
-                        WaveDefenseMod.waveManager.pvpMgr
-                            .skipReadyCheck(WaveDefenseMod.waveManager, loc);
-                        ctx.getSource().sendSuccess(() -> Component.literal(
+                        if (WaveDefenceMod.waveManager == null) return error(ctx, "WaveManager not ready");
+                        WaveDefenceMod.waveManager.pvpMgr
+                            .skipReadyCheck(WaveDefenceMod.waveManager, loc);
+                        ctx.getSource().sendSuccess(new StringTextComponent(
                             "§a✓ Ready-check skipped for §e" + loc), true);
-                        auditLogger.log(AuditEvent.success(ctx.getSource(), "match.skip-readycheck", Map.of("location", loc)));
+                        auditLogger.log(AuditEvent.success(ctx.getSource(), "match.skip-readycheck", com.google.common.collect.ImmutableMap.of("location", loc)));
                         return 1;
                     })))
             .then(Commands.literal("stop")
                 .then(Commands.argument("location", StringArgumentType.string())
                     .executes(ctx -> {
                         String loc = StringArgumentType.getString(ctx, "location");
-                        if (WaveDefenseMod.waveManager == null) return error(ctx, "WaveManager not ready");
+                        if (WaveDefenceMod.waveManager == null) return error(ctx, "WaveManager not ready");
                         // Use existing forceEndPvpMatch if available; else fall back to a kick-all
-                        boolean stopped = WaveDefenseMod.waveManager.pvpMgr
-                            .forceEndPvpLocation(WaveDefenseMod.waveManager, loc);
-                        ctx.getSource().sendSuccess(() -> Component.literal(
+                        boolean stopped = WaveDefenceMod.waveManager.pvpMgr
+                            .forceEndPvpLocation(WaveDefenceMod.waveManager, loc);
+                        ctx.getSource().sendSuccess(new StringTextComponent(
                             (stopped ? "§a✓ " : "§c✗ ") + "Stop match: §e" + loc), true);
-                        auditLogger.log(AuditEvent.success(ctx.getSource(), "match.stop", Map.of("location", loc)));
+                        auditLogger.log(AuditEvent.success(ctx.getSource(), "match.stop", com.google.common.collect.ImmutableMap.of("location", loc)));
                         return stopped ? 1 : 0;
                     })))
             .then(Commands.literal("restart")
                 .then(Commands.argument("location", StringArgumentType.string())
                     .executes(ctx -> {
                         String loc = StringArgumentType.getString(ctx, "location");
-                        if (WaveDefenseMod.waveManager == null) return error(ctx, "WaveManager not ready");
+                        if (WaveDefenceMod.waveManager == null) return error(ctx, "WaveManager not ready");
                         // Restart = stop + cleanup; players need to re-join. Audit logged either way.
-                        boolean ok = WaveDefenseMod.waveManager.pvpMgr
-                            .forceEndPvpLocation(WaveDefenseMod.waveManager, loc);
-                        ctx.getSource().sendSuccess(() -> Component.literal(
+                        boolean ok = WaveDefenceMod.waveManager.pvpMgr
+                            .forceEndPvpLocation(WaveDefenceMod.waveManager, loc);
+                        ctx.getSource().sendSuccess(new StringTextComponent(
                             (ok ? "§a✓ " : "§c✗ ") + "Restart match: §e" + loc
                                 + " §7(players must rejoin)"), true);
-                        auditLogger.log(AuditEvent.success(ctx.getSource(), "match.restart", Map.of("location", loc)));
+                        auditLogger.log(AuditEvent.success(ctx.getSource(), "match.restart", com.google.common.collect.ImmutableMap.of("location", loc)));
                         return ok ? 1 : 0;
                     })));
     }
 
     /** /wavedefense-admin debug state <locationName> — prints PvP state summary */
-    private static LiteralArgumentBuilder<CommandSourceStack> buildDebugCommand() {
+    private static LiteralArgumentBuilder<CommandSource> buildDebugCommand() {
         return Commands.literal("debug")
             .then(Commands.literal("state")
                 .then(Commands.argument("location", StringArgumentType.string())
                     .executes(ctx -> {
                         String loc = StringArgumentType.getString(ctx, "location");
-                        if (WaveDefenseMod.waveManager == null) return error(ctx, "WaveManager not ready");
-                        String dump = WaveDefenseMod.waveManager.pvpMgr.debugDumpPvpState(loc);
-                        ctx.getSource().sendSuccess(() -> Component.literal("§7" + dump), false);
+                        if (WaveDefenceMod.waveManager == null) return error(ctx, "WaveManager not ready");
+                        String dump = WaveDefenceMod.waveManager.pvpMgr.debugDumpPvpState(loc);
+                        ctx.getSource().sendSuccess(new StringTextComponent("§7" + dump), false);
                         return 1;
                     })))
             .then(Commands.literal("reload")
                 .then(Commands.argument("location", StringArgumentType.string())
                     .executes(ctx -> {
                         String loc = StringArgumentType.getString(ctx, "location");
-                        Location l = WaveDefenseMod.locationManager.getLocation(loc);
+                        Location l = WaveDefenceMod.locationManager.getLocation(loc);
                         if (l == null) return error(ctx, "Location not found: " + loc);
-                        WaveDefenseMod.locationManager.save();
-                        ctx.getSource().sendSuccess(() -> Component.literal(
+                        WaveDefenceMod.locationManager.save();
+                        ctx.getSource().sendSuccess(new StringTextComponent(
                             "§a✓ Location §e" + loc + "§a reloaded from disk"), true);
-                        auditLogger.log(AuditEvent.success(ctx.getSource(), "debug.reload", Map.of("location", loc)));
+                        auditLogger.log(AuditEvent.success(ctx.getSource(), "debug.reload", com.google.common.collect.ImmutableMap.of("location", loc)));
                         return 1;
                     })));
     }
 
     /** /wavedefense-admin reset leaderboard — clears all leaderboard records */
-    private static LiteralArgumentBuilder<CommandSourceStack> buildResetCommand() {
+    private static LiteralArgumentBuilder<CommandSource> buildResetCommand() {
         return Commands.literal("reset")
             .requires(src -> checkPermission(src, PERM_ADMIN)) // higher perm — destructive
             .then(Commands.literal("leaderboard")
                 .executes(ctx -> {
-                    if (WaveDefenseMod.leaderboardManager != null) {
-                        WaveDefenseMod.leaderboardManager.clearAll();
+                    if (WaveDefenceMod.leaderboardManager != null) {
+                        WaveDefenceMod.leaderboardManager.clearAll();
                     }
-                    ctx.getSource().sendSuccess(() -> Component.literal(
+                    ctx.getSource().sendSuccess(new StringTextComponent(
                         "§a✓ Leaderboard cleared"), true);
-                    auditLogger.log(AuditEvent.success(ctx.getSource(), "reset.leaderboard", Map.of("scope", "all")));
+                    auditLogger.log(AuditEvent.success(ctx.getSource(), "reset.leaderboard", com.google.common.collect.ImmutableMap.of("scope", "all")));
                     return 1;
                 }));
     }
 
     /** Common error helper for the new v0.2.61 commands. */
-    private static int error(CommandContext<CommandSourceStack> ctx, String msg) {
-        ctx.getSource().sendFailure(Component.literal("§c✗ " + msg));
+    private static int error(CommandContext<CommandSource> ctx, String msg) {
+        ctx.getSource().sendFailure(new StringTextComponent("§c✗ " + msg));
         return 0;
     }
 
-    private static void registerAliases(CommandDispatcher<CommandSourceStack> dispatcher) {
+    private static void registerAliases(CommandDispatcher<CommandSource> dispatcher) {
         // Short aliases for common operations
         dispatcher.register(
             Commands.literal("wda")
@@ -303,7 +306,7 @@ public class WaveDefenseAdminCommands {
 
     // ── Permission System ────────────────────────────────────────────────────
 
-    private static boolean checkPermission(CommandSourceStack src, int requiredLevel) {
+    private static boolean checkPermission(CommandSource src, int requiredLevel) {
         try {
             int playerLevel = src.getServer().getProfilePermissions(src.getPlayerOrException().getGameProfile());
             return playerLevel >= requiredLevel;
@@ -312,14 +315,14 @@ public class WaveDefenseAdminCommands {
         }
     }
 
-    private static int requirePermission(CommandSourceStack src, int requiredLevel, String operation) {
+    private static int requirePermission(CommandSource src, int requiredLevel, String operation) {
         try {
             if (!checkPermission(src, requiredLevel)) {
                 int playerLevel = src.getServer().getProfilePermissions(src.getPlayerOrException().getGameProfile());
-                src.sendFailure(Component.translatable("wavedefense.auto.insufficient_permissions_for_value_6ecfa1c5", operation)
+                src.sendFailure(new TranslationTextComponent("wavedefense.auto.insufficient_permissions_for_value_6ecfa1c5", operation)
                     .withStyle(style -> style.withHoverEvent(
                         new HoverEvent(HoverEvent.Action.SHOW_TEXT,
-                            Component.literal("Required level: " + requiredLevel + ", Your level: " +
+                            new StringTextComponent("Required level: " + requiredLevel + ", Your level: " +
                                 playerLevel)
                 ))));
                 auditLogger.log(AuditEvent.denied(src, operation, "insufficient_permissions"));
@@ -327,7 +330,7 @@ public class WaveDefenseAdminCommands {
             }
             return 1;
         } catch (CommandSyntaxException e) {
-            src.sendFailure(Component.translatable("wavedefense.auto.error_checking_permissions_95395bbb"));
+            src.sendFailure(new TranslationTextComponent("wavedefense.auto.error_checking_permissions_95395bbb"));
             return 0;
         }
     }
@@ -357,7 +360,7 @@ public class WaveDefenseAdminCommands {
         pendingConfirmations.entrySet().removeIf(e -> now - e.getValue().timestamp > CONFIRMATION_TIMEOUT_MS);
     }
 
-    private static boolean requireConfirmation(CommandSourceStack src, String action, String description, Runnable onConfirm) {
+    private static boolean requireConfirmation(CommandSource src, String action, String description, Runnable onConfirm) {
         // Н5: clean up stale entries each time a new confirmation is requested
         cleanupExpiredConfirmations();
 
@@ -365,14 +368,14 @@ public class WaveDefenseAdminCommands {
         try {
             playerId = src.getPlayerOrException().getUUID();
         } catch (CommandSyntaxException e) {
-            src.sendFailure(Component.translatable("wavedefense.auto.error_could_not_get_player_id_a342866a"));
+            src.sendFailure(new TranslationTextComponent("wavedefense.auto.error_could_not_get_player_id_a342866a"));
             return false;
         }
 
         // Check destructive action cooldown
         Long lastAction = destructiveActionCooldowns.get(action);
         if (lastAction != null && System.currentTimeMillis() - lastAction < DESTRUCTIVE_COOLDOWN_MS) {
-            src.sendFailure(Component.translatable("wavedefense.auto.please_wait_before_performing_an_b83e618e"));
+            src.sendFailure(new TranslationTextComponent("wavedefense.auto.please_wait_before_performing_an_b83e618e"));
             return false;
         }
 
@@ -382,55 +385,55 @@ public class WaveDefenseAdminCommands {
         pendingConfirmations.put(playerId, confirmation);
 
         // Send confirmation request
-        src.sendSuccess(() -> Component.translatable("wavedefense.auto.confirmation_required_5d166a12"), false);
-        src.sendSuccess(() -> Component.translatable("wavedefense.auto.action_value_b8165882", action), false);
-        src.sendSuccess(() -> Component.translatable("wavedefense.auto.description_value_cec1493f", description), false);
-        src.sendSuccess(() -> Component.literal(""), false);
+        src.sendSuccess(new TranslationTextComponent("wavedefense.auto.confirmation_required_5d166a12"), false);
+        src.sendSuccess(new TranslationTextComponent("wavedefense.auto.action_value_b8165882", action), false);
+        src.sendSuccess(new TranslationTextComponent("wavedefense.auto.description_value_cec1493f", description), false);
+        src.sendSuccess(new StringTextComponent(""), false);
 
-        Component confirmButton = Component.translatable("wavedefense.auto.confirm_a9fab5a3")
+        ITextComponent confirmButton = new TranslationTextComponent("wavedefense.auto.confirm_a9fab5a3")
             .withStyle(style -> style
                 .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND,
                     "/wda confirm " + action))
                 .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
-                    Component.translatable("wavedefense.auto.click_to_confirm_expires_in_30s_c506a138"))));
+                    new TranslationTextComponent("wavedefense.auto.click_to_confirm_expires_in_30s_c506a138"))));
 
-        Component cancelButton = Component.translatable("wavedefense.auto.cancel_e3d90215")
+        ITextComponent cancelButton = new TranslationTextComponent("wavedefense.auto.cancel_e3d90215")
             .withStyle(style -> style
                 .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND,
                     "/wda cancel"))
                 .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
-                    Component.translatable("wavedefense.auto.click_to_cancel_e3ddea67"))));
+                    new TranslationTextComponent("wavedefense.auto.click_to_cancel_e3ddea67"))));
 
-        src.sendSuccess(() -> Component.literal("§7").append(confirmButton)
+        src.sendSuccess(new StringTextComponent("§7").append(confirmButton)
             .append(" ").append(cancelButton), false);
-        src.sendSuccess(() -> Component.translatable("wavedefense.auto.timeout_30_seconds_5d3bcece"), false);
+        src.sendSuccess(new TranslationTextComponent("wavedefense.auto.timeout_30_seconds_5d3bcece"), false);
 
         return false; // Command execution deferred
     }
 
-    private static boolean confirmAction(CommandSourceStack src, String action) {
+    private static boolean confirmAction(CommandSource src, String action) {
         UUID playerId;
         try {
             playerId = src.getPlayerOrException().getUUID();
         } catch (CommandSyntaxException e) {
-            src.sendFailure(Component.translatable("wavedefense.auto.error_could_not_get_player_id_a342866a"));
+            src.sendFailure(new TranslationTextComponent("wavedefense.auto.error_could_not_get_player_id_a342866a"));
             return false;
         }
         PendingConfirmation confirmation = pendingConfirmations.get(playerId);
 
         if (confirmation == null) {
-            src.sendFailure(Component.translatable("wavedefense.auto.no_pending_confirmation_found_257021f1"));
+            src.sendFailure(new TranslationTextComponent("wavedefense.auto.no_pending_confirmation_found_257021f1"));
             return false;
         }
 
         if (!confirmation.action.equals(action)) {
-            src.sendFailure(Component.translatable("wavedefense.auto.action_mismatch_expected_value_a62fed49", confirmation.action));
+            src.sendFailure(new TranslationTextComponent("wavedefense.auto.action_mismatch_expected_value_a62fed49", confirmation.action));
             return false;
         }
 
         if (System.currentTimeMillis() - confirmation.timestamp > CONFIRMATION_TIMEOUT_MS) {
             pendingConfirmations.remove(playerId);
-            src.sendFailure(Component.translatable("wavedefense.auto.confirmation_expired_ad129e8d"));
+            src.sendFailure(new TranslationTextComponent("wavedefense.auto.confirmation_expired_ad129e8d"));
             return false;
         }
 
@@ -441,55 +444,55 @@ public class WaveDefenseAdminCommands {
         return true;
     }
 
-    private static void cancelConfirmation(CommandSourceStack src) {
+    private static void cancelConfirmation(CommandSource src) {
         UUID playerId;
         try {
             playerId = src.getPlayerOrException().getUUID();
         } catch (CommandSyntaxException e) {
-            src.sendFailure(Component.translatable("wavedefense.auto.error_could_not_get_player_id_a342866a"));
+            src.sendFailure(new TranslationTextComponent("wavedefense.auto.error_could_not_get_player_id_a342866a"));
             return;
         }
         PendingConfirmation confirmation = pendingConfirmations.remove(playerId);
 
         if (confirmation != null) {
-            src.sendSuccess(() -> Component.translatable("wavedefense.auto.confirmation_cancelled_for_value_83a5ba11", confirmation.action), false);
+            src.sendSuccess(new TranslationTextComponent("wavedefense.auto.confirmation_cancelled_for_value_83a5ba11", confirmation.action), false);
         } else {
-            src.sendFailure(Component.translatable("wavedefense.auto.no_pending_confirmation_c2a0c0b6"));
+            src.sendFailure(new TranslationTextComponent("wavedefense.auto.no_pending_confirmation_c2a0c0b6"));
         }
     }
 
     // ── Helper Methods ────────────────────────────────────────────────────────
 
-    private static Collection<ServerPlayer> getPlayers(CommandContext<CommandSourceStack> ctx, String argName) {
+    private static Collection<ServerPlayerEntity> getPlayers(CommandContext<CommandSource> ctx, String argName) {
         try {
             return EntityArgument.getPlayers(ctx, argName);
         } catch (CommandSyntaxException e) {
-            ctx.getSource().sendFailure(Component.translatable("wavedefense.auto.error_could_not_get_players_ffa62232"));
-            return List.of();
+            ctx.getSource().sendFailure(new TranslationTextComponent("wavedefense.auto.error_could_not_get_players_ffa62232"));
+            return java.util.Collections.emptyList();
         }
     }
 
-    private static ServerPlayer getPlayer(CommandContext<CommandSourceStack> ctx, String argName) {
+    private static ServerPlayerEntity getPlayer(CommandContext<CommandSource> ctx, String argName) {
         try {
             return EntityArgument.getPlayer(ctx, argName);
         } catch (CommandSyntaxException e) {
-            ctx.getSource().sendFailure(Component.translatable("wavedefense.auto.error_could_not_get_player_b2df6980"));
+            ctx.getSource().sendFailure(new TranslationTextComponent("wavedefense.auto.error_could_not_get_player_b2df6980"));
             return null;
         }
     }
 
     // ── Command Builders ─────────────────────────────────────────────────────
 
-    private static LiteralArgumentBuilder<CommandSourceStack> buildTeleportCommand() {
+    private static LiteralArgumentBuilder<CommandSource> buildTeleportCommand() {
         return Commands.literal("tp")
             .then(Commands.argument("targets", EntityArgument.players())
                 .then(Commands.argument("location", StringArgumentType.word())
                     .executes(ctx -> {
-                        CommandSourceStack src = ctx.getSource();
+                        CommandSource src = ctx.getSource();
                         if (requirePermission(src, PERM_MOD, "teleport") == 0) return 0;
 
                         String locName = StringArgumentType.getString(ctx, "location");
-                        Collection<ServerPlayer> targets = getPlayers(ctx, "targets");
+                        Collection<ServerPlayerEntity> targets = getPlayers(ctx, "targets");
 
                         return executeTeleport(src, locName, targets);
                     })
@@ -498,11 +501,11 @@ public class WaveDefenseAdminCommands {
             .then(Commands.literal("here")
                 .then(Commands.argument("targets", EntityArgument.players())
                     .executes(ctx -> {
-                        CommandSourceStack src = ctx.getSource();
+                        CommandSource src = ctx.getSource();
                         if (requirePermission(src, PERM_MOD, "teleport_here") == 0) return 0;
 
-                        Collection<ServerPlayer> targets = getPlayers(ctx, "targets");
-                        ServerPlayer executor = src.getPlayerOrException();
+                        Collection<ServerPlayerEntity> targets = getPlayers(ctx, "targets");
+                        ServerPlayerEntity executor = src.getPlayerOrException();
 
                         return executeTeleportToPlayer(src, executor, targets);
                     })
@@ -511,34 +514,34 @@ public class WaveDefenseAdminCommands {
             .then(Commands.literal("spawn")
                 .then(Commands.argument("targets", EntityArgument.players())
                     .executes(ctx -> {
-                        CommandSourceStack src = ctx.getSource();
+                        CommandSource src = ctx.getSource();
                         if (requirePermission(src, PERM_MOD, "teleport_spawn") == 0) return 0;
 
-                        Collection<ServerPlayer> targets = getPlayers(ctx, "targets");
+                        Collection<ServerPlayerEntity> targets = getPlayers(ctx, "targets");
                         return executeTeleportToSpawn(src, targets);
                     })
                 )
             );
     }
 
-    private static LiteralArgumentBuilder<CommandSourceStack> buildKickCommand() {
+    private static LiteralArgumentBuilder<CommandSource> buildKickCommand() {
         return Commands.literal("kick")
             .then(Commands.argument("targets", EntityArgument.players())
                 .executes(ctx -> {
-                    CommandSourceStack src = ctx.getSource();
+                    CommandSource src = ctx.getSource();
                     if (requirePermission(src, PERM_MOD, "kick") == 0) return 0;
 
-                    Collection<ServerPlayer> targets = getPlayers(ctx, "targets");
+                    Collection<ServerPlayerEntity> targets = getPlayers(ctx, "targets");
                     String reason = "Kicked by administrator";
 
                     return executeKick(src, targets, reason);
                 })
                 .then(Commands.argument("reason", StringArgumentType.greedyString())
                     .executes(ctx -> {
-                        CommandSourceStack src = ctx.getSource();
+                        CommandSource src = ctx.getSource();
                         if (requirePermission(src, PERM_MOD, "kick") == 0) return 0;
 
-                        Collection<ServerPlayer> targets = getPlayers(ctx, "targets");
+                        Collection<ServerPlayerEntity> targets = getPlayers(ctx, "targets");
                         String reason = StringArgumentType.getString(ctx, "reason");
 
                         return executeKick(src, targets, reason);
@@ -547,21 +550,21 @@ public class WaveDefenseAdminCommands {
             );
     }
 
-    private static LiteralArgumentBuilder<CommandSourceStack> buildBackupCommand() {
+    private static LiteralArgumentBuilder<CommandSource> buildBackupCommand() {
         return Commands.literal("backup")
             .then(Commands.literal("create")
                 .then(Commands.argument("player", EntityArgument.player())
                     .executes(ctx -> {
-                        CommandSourceStack src = ctx.getSource();
+                        CommandSource src = ctx.getSource();
                         if (requirePermission(src, PERM_MOD, "backup_create") == 0) return 0;
 
-                        ServerPlayer target = getPlayer(ctx, "player");
+                        ServerPlayerEntity target = getPlayer(ctx, "player");
                         return executeBackup(src, target);
                     })
                 )
                 .then(Commands.literal("all")
                     .executes(ctx -> {
-                        CommandSourceStack src = ctx.getSource();
+                        CommandSource src = ctx.getSource();
                         if (requirePermission(src, PERM_ADMIN, "backup_create_all") == 0) return 0;
 
                         return executeBackupAll(src);
@@ -571,25 +574,25 @@ public class WaveDefenseAdminCommands {
             .then(Commands.literal("list")
                 .then(Commands.argument("player", EntityArgument.player())
                     .executes(ctx -> {
-                        CommandSourceStack src = ctx.getSource();
+                        CommandSource src = ctx.getSource();
                         if (requirePermission(src, PERM_MOD, "backup_list") == 0) return 0;
 
-                        ServerPlayer target = getPlayer(ctx, "player");
+                        ServerPlayerEntity target = getPlayer(ctx, "player");
                         return executeBackupList(src, target);
                     })
                 )
             );
     }
 
-    private static LiteralArgumentBuilder<CommandSourceStack> buildRestoreCommand() {
+    private static LiteralArgumentBuilder<CommandSource> buildRestoreCommand() {
         return Commands.literal("restore")
             .then(Commands.argument("player", EntityArgument.player())
                 .then(Commands.argument("backupId", StringArgumentType.string())
                     .executes(ctx -> {
-                        CommandSourceStack src = ctx.getSource();
+                        CommandSource src = ctx.getSource();
                         if (requirePermission(src, PERM_MOD, "restore") == 0) return 0;
 
-                        ServerPlayer target = getPlayer(ctx, "player");
+                        ServerPlayerEntity target = getPlayer(ctx, "player");
                         String backupId = StringArgumentType.getString(ctx, "backupId");
 
                         String action = "restore_" + target.getUUID() + "_" + backupId;
@@ -604,12 +607,12 @@ public class WaveDefenseAdminCommands {
             );
     }
 
-    private static LiteralArgumentBuilder<CommandSourceStack> buildLocationCommand() {
+    private static LiteralArgumentBuilder<CommandSource> buildLocationCommand() {
         return Commands.literal("location")
             .then(Commands.literal("lock")
                 .then(Commands.argument("location", StringArgumentType.word())
                     .executes(ctx -> {
-                        CommandSourceStack src = ctx.getSource();
+                        CommandSource src = ctx.getSource();
                         if (requirePermission(src, PERM_ADMIN, "location_lock") == 0) return 0;
 
                         String locName = StringArgumentType.getString(ctx, "location");
@@ -625,7 +628,7 @@ public class WaveDefenseAdminCommands {
             .then(Commands.literal("unlock")
                 .then(Commands.argument("location", StringArgumentType.word())
                     .executes(ctx -> {
-                        CommandSourceStack src = ctx.getSource();
+                        CommandSource src = ctx.getSource();
                         if (requirePermission(src, PERM_ADMIN, "location_unlock") == 0) return 0;
 
                         String locName = StringArgumentType.getString(ctx, "location");
@@ -637,7 +640,7 @@ public class WaveDefenseAdminCommands {
             .then(Commands.literal("wipe")
                 .then(Commands.argument("location", StringArgumentType.word())
                     .executes(ctx -> {
-                        CommandSourceStack src = ctx.getSource();
+                        CommandSource src = ctx.getSource();
                         if (requirePermission(src, PERM_ADMIN, "location_wipe") == 0) return 0;
 
                         String locName = StringArgumentType.getString(ctx, "location");
@@ -653,7 +656,7 @@ public class WaveDefenseAdminCommands {
             .then(Commands.literal("info")
                 .then(Commands.argument("location", StringArgumentType.word())
                     .executes(ctx -> {
-                        CommandSourceStack src = ctx.getSource();
+                        CommandSource src = ctx.getSource();
                         if (requirePermission(src, PERM_BASIC, "location_info") == 0) return 0;
 
                         String locName = StringArgumentType.getString(ctx, "location");
@@ -664,15 +667,15 @@ public class WaveDefenseAdminCommands {
             );
     }
 
-    private static LiteralArgumentBuilder<CommandSourceStack> buildPlayerCommand() {
+    private static LiteralArgumentBuilder<CommandSource> buildPlayerCommand() {
         return Commands.literal("player")
             .then(Commands.literal("heal")
                 .then(Commands.argument("targets", EntityArgument.players())
                     .executes(ctx -> {
-                        CommandSourceStack src = ctx.getSource();
+                        CommandSource src = ctx.getSource();
                         if (requirePermission(src, PERM_MOD, "player_heal") == 0) return 0;
 
-                        Collection<ServerPlayer> targets = getPlayers(ctx, "targets");
+                        Collection<ServerPlayerEntity> targets = getPlayers(ctx, "targets");
                         executePlayerHeal(src, targets);
                         return 1;
                     })
@@ -681,10 +684,10 @@ public class WaveDefenseAdminCommands {
             .then(Commands.literal("feed")
                 .then(Commands.argument("targets", EntityArgument.players())
                     .executes(ctx -> {
-                        CommandSourceStack src = ctx.getSource();
+                        CommandSource src = ctx.getSource();
                         if (requirePermission(src, PERM_MOD, "player_feed") == 0) return 0;
 
-                        Collection<ServerPlayer> targets = getPlayers(ctx, "targets");
+                        Collection<ServerPlayerEntity> targets = getPlayers(ctx, "targets");
                         executePlayerFeed(src, targets);
                         return 1;
                     })
@@ -701,10 +704,10 @@ public class WaveDefenseAdminCommands {
                             return builder.buildFuture();
                         })
                         .executes(ctx -> {
-                            CommandSourceStack src = ctx.getSource();
+                            CommandSource src = ctx.getSource();
                             if (requirePermission(src, PERM_ADMIN, "player_gamemode") == 0) return 0;
 
-                            Collection<ServerPlayer> targets = getPlayers(ctx, "targets");
+                            Collection<ServerPlayerEntity> targets = getPlayers(ctx, "targets");
                             String mode = StringArgumentType.getString(ctx, "mode");
 
                             executePlayerGamemode(src, targets, mode);
@@ -716,10 +719,10 @@ public class WaveDefenseAdminCommands {
             .then(Commands.literal("clear")
                 .then(Commands.argument("targets", EntityArgument.players())
                     .executes(ctx -> {
-                        CommandSourceStack src = ctx.getSource();
+                        CommandSource src = ctx.getSource();
                         if (requirePermission(src, PERM_MOD, "player_clear") == 0) return 0;
 
-                        Collection<ServerPlayer> targets = getPlayers(ctx, "targets");
+                        Collection<ServerPlayerEntity> targets = getPlayers(ctx, "targets");
                         executePlayerClear(src, targets);
                         return 1;
                     })
@@ -727,13 +730,13 @@ public class WaveDefenseAdminCommands {
             );
     }
 
-    private static LiteralArgumentBuilder<CommandSourceStack> buildConfigCommand() {
+    private static LiteralArgumentBuilder<CommandSource> buildConfigCommand() {
         return Commands.literal("config")
             .then(Commands.literal("set")
                 .then(Commands.argument("key", StringArgumentType.word())
                     .then(Commands.argument("value", StringArgumentType.greedyString())
                         .executes(ctx -> {
-                            CommandSourceStack src = ctx.getSource();
+                            CommandSource src = ctx.getSource();
                             if (requirePermission(src, PERM_ADMIN, "config_set") == 0) return 0;
 
                             String key = StringArgumentType.getString(ctx, "key");
@@ -748,7 +751,7 @@ public class WaveDefenseAdminCommands {
             .then(Commands.literal("get")
                 .then(Commands.argument("key", StringArgumentType.word())
                     .executes(ctx -> {
-                        CommandSourceStack src = ctx.getSource();
+                        CommandSource src = ctx.getSource();
                         if (requirePermission(src, PERM_BASIC, "config_get") == 0) return 0;
 
                         String key = StringArgumentType.getString(ctx, "key");
@@ -759,7 +762,7 @@ public class WaveDefenseAdminCommands {
             )
             .then(Commands.literal("reload")
                 .executes(ctx -> {
-                    CommandSourceStack src = ctx.getSource();
+                    CommandSource src = ctx.getSource();
                     if (requirePermission(src, PERM_ADMIN, "config_reload") == 0) return 0;
 
                     String action = "config_reload";
@@ -772,11 +775,11 @@ public class WaveDefenseAdminCommands {
             );
     }
 
-    private static LiteralArgumentBuilder<CommandSourceStack> buildConfirmCommand() {
+    private static LiteralArgumentBuilder<CommandSource> buildConfirmCommand() {
         return Commands.literal("confirm")
             .then(Commands.argument("action", StringArgumentType.word())
                 .executes(ctx -> {
-                    CommandSourceStack src = ctx.getSource();
+                    CommandSource src = ctx.getSource();
                     String action = StringArgumentType.getString(ctx, "action");
 
                     if (confirmAction(src, action)) {
@@ -787,19 +790,19 @@ public class WaveDefenseAdminCommands {
             )
             .then(Commands.literal("cancel")
                 .executes(ctx -> {
-                    CommandSourceStack src = ctx.getSource();
+                    CommandSource src = ctx.getSource();
                     cancelConfirmation(src);
                     return 1;
                 })
             );
     }
 
-    private static LiteralArgumentBuilder<CommandSourceStack> buildLogCommand() {
+    private static LiteralArgumentBuilder<CommandSource> buildLogCommand() {
         return Commands.literal("log")
             .then(Commands.literal("recent")
                 .then(Commands.argument("count", IntegerArgumentType.integer(1, 100))
                     .executes(ctx -> {
-                        CommandSourceStack src = ctx.getSource();
+                        CommandSource src = ctx.getSource();
                         if (requirePermission(src, PERM_MOD, "log_recent") == 0) return 0;
 
                         int count = IntegerArgumentType.getInteger(ctx, "count");
@@ -811,10 +814,10 @@ public class WaveDefenseAdminCommands {
             .then(Commands.literal("player")
                 .then(Commands.argument("target", EntityArgument.player())
                     .executes(ctx -> {
-                        CommandSourceStack src = ctx.getSource();
+                        CommandSource src = ctx.getSource();
                         if (requirePermission(src, PERM_MOD, "log_player") == 0) return 0;
 
-                        ServerPlayer target = EntityArgument.getPlayer(ctx, "target");
+                        ServerPlayerEntity target = EntityArgument.getPlayer(ctx, "target");
                         executeLogPlayer(src, target);
                         return 1;
                     })
@@ -822,7 +825,7 @@ public class WaveDefenseAdminCommands {
             )
             .then(Commands.literal("clear")
                 .executes(ctx -> {
-                    CommandSourceStack src = ctx.getSource();
+                    CommandSource src = ctx.getSource();
                     if (requirePermission(src, PERM_ADMIN, "log_clear") == 0) return 0;
 
                     String action = "log_clear";
@@ -835,11 +838,11 @@ public class WaveDefenseAdminCommands {
             );
     }
 
-    private static LiteralArgumentBuilder<CommandSourceStack> buildSafetyCommand() {
+    private static LiteralArgumentBuilder<CommandSource> buildSafetyCommand() {
         return Commands.literal("safety")
             .then(Commands.literal("check")
                 .executes(ctx -> {
-                    CommandSourceStack src = ctx.getSource();
+                    CommandSource src = ctx.getSource();
                     if (requirePermission(src, PERM_MOD, "safety_check") == 0) return 0;
 
                     executeSafetyCheck(src);
@@ -849,7 +852,7 @@ public class WaveDefenseAdminCommands {
             .then(Commands.literal("lockdown")
                 .then(Commands.argument("enable", BoolArgumentType.bool())
                     .executes(ctx -> {
-                        CommandSourceStack src = ctx.getSource();
+                        CommandSource src = ctx.getSource();
                         if (requirePermission(src, PERM_OWNER, "safety_lockdown") == 0) return 0;
 
                         boolean enable = BoolArgumentType.getBool(ctx, "enable");
@@ -867,159 +870,159 @@ public class WaveDefenseAdminCommands {
 
     // ── Command Execution Methods ────────────────────────────────────────────
 
-    private static int executeTeleport(CommandSourceStack src, String locName, Collection<ServerPlayer> targets) {
+    private static int executeTeleport(CommandSource src, String locName, Collection<ServerPlayerEntity> targets) {
         UUID playerId;
         try {
             playerId = src.getPlayerOrException().getUUID();
         } catch (CommandSyntaxException e) {
-            src.sendFailure(Component.translatable("wavedefense.auto.error_could_not_get_player_id_a342866a"));
+            src.sendFailure(new TranslationTextComponent("wavedefense.auto.error_could_not_get_player_id_a342866a"));
             return 0;
         }
         if (!checkRateLimit(playerId, "teleport")) {
-            src.sendFailure(Component.translatable("wavedefense.auto.rate_limit_exceeded_try_again_la_06e58845"));
+            src.sendFailure(new TranslationTextComponent("wavedefense.auto.rate_limit_exceeded_try_again_la_06e58845"));
             return 0;
         }
 
-        Location location = WaveDefenseMod.locationManager.getLocation(locName);
+        Location location = WaveDefenceMod.locationManager.getLocation(locName);
         if (location == null) {
-            src.sendFailure(Component.translatable("wavedefense.auto.location_not_found_value_abb75692", locName));
+            src.sendFailure(new TranslationTextComponent("wavedefense.auto.location_not_found_value_abb75692", locName));
             auditLogger.log(AuditEvent.failed(src, "teleport", "location_not_found", locName));
             return 0;
         }
 
         if (location.getPlayerSpawn() == null) {
-            src.sendFailure(Component.translatable("wavedefense.auto.location_has_no_spawn_point_value_a53602b9", locName));
+            src.sendFailure(new TranslationTextComponent("wavedefense.auto.location_has_no_spawn_point_value_a53602b9", locName));
             auditLogger.log(AuditEvent.failed(src, "teleport", "no_spawn", locName));
             return 0;
         }
 
         int count = 0;
-        for (ServerPlayer target : targets) {
+        for (ServerPlayerEntity target : targets) {
             // Safety: Remove harmful effects before teleport
             target.removeAllEffects();
 
-            WaveDefenseMod.waveManager.addPlayerToLocation(target, location);
+            WaveDefenceMod.waveManager.addPlayerToLocation(target, location);
 
-            src.sendSuccess(() -> Component.literal("§a✓ Teleported §e" +
+            src.sendSuccess(new StringTextComponent("§a✓ Teleported §e" +
                 target.getGameProfile().getName() + " §ato §6" + locName), false);
             count++;
         }
 
         auditLogger.log(AuditEvent.success(src, "teleport",
-            Map.of("location", locName, "targets", String.valueOf(count))));
+            com.google.common.collect.ImmutableMap.of("location", locName, "targets", String.valueOf(count))));
 
         return count;
     }
 
-    private static int executeTeleportToPlayer(CommandSourceStack src, ServerPlayer executor,
-                                                Collection<ServerPlayer> targets) {
+    private static int executeTeleportToPlayer(CommandSource src, ServerPlayerEntity executor,
+                                                Collection<ServerPlayerEntity> targets) {
         BlockPos pos = executor.blockPosition();
         String locInfo = "x=" + pos.getX() + " y=" + pos.getY() + " z=" + pos.getZ();
 
         int count = 0;
-        for (ServerPlayer target : targets) {
+        for (ServerPlayerEntity target : targets) {
             if (target.equals(executor)) continue;
 
             target.removeAllEffects();
-            target.teleportTo(executor.serverLevel(), pos.getX(), pos.getY(), pos.getZ(),
-                executor.getYRot(), executor.getXRot());
+            target.teleportTo((net.minecraft.world.server.ServerWorld) executor.level, pos.getX(), pos.getY(), pos.getZ(),
+                executor.yRot, executor.xRot);
 
-            src.sendSuccess(() -> Component.literal("§a✓ Teleported §e" +
+            src.sendSuccess(new StringTextComponent("§a✓ Teleported §e" +
                 target.getGameProfile().getName() + " §ato you"), false);
             count++;
         }
 
         auditLogger.log(AuditEvent.success(src, "teleport_here",
-            Map.of("location", locInfo, "targets", String.valueOf(count))));
+            com.google.common.collect.ImmutableMap.of("location", locInfo, "targets", String.valueOf(count))));
 
         return count;
     }
 
-    private static int executeTeleportToSpawn(CommandSourceStack src, Collection<ServerPlayer> targets) {
+    private static int executeTeleportToSpawn(CommandSource src, Collection<ServerPlayerEntity> targets) {
         BlockPos spawn = src.getServer().overworld().getSharedSpawnPos();
 
         int count = 0;
-        for (ServerPlayer target : targets) {
+        for (ServerPlayerEntity target : targets) {
             target.removeAllEffects();
             target.teleportTo(src.getServer().overworld(),
                 spawn.getX(), spawn.getY(), spawn.getZ(), 0, 0);
 
-            src.sendSuccess(() -> Component.literal("§a✓ Teleported §e" +
+            src.sendSuccess(new StringTextComponent("§a✓ Teleported §e" +
                 target.getGameProfile().getName() + " §ato spawn"), false);
             count++;
         }
 
         auditLogger.log(AuditEvent.success(src, "teleport_spawn",
-            Map.of("targets", String.valueOf(count))));
+            com.google.common.collect.ImmutableMap.of("targets", String.valueOf(count))));
 
         return count;
     }
 
-    private static int executeKick(CommandSourceStack src, Collection<ServerPlayer> targets, String reason) {
+    private static int executeKick(CommandSource src, Collection<ServerPlayerEntity> targets, String reason) {
         UUID playerId;
         try {
             playerId = src.getPlayerOrException().getUUID();
         } catch (CommandSyntaxException e) {
-            src.sendFailure(Component.translatable("wavedefense.auto.error_could_not_get_player_id_a342866a"));
+            src.sendFailure(new TranslationTextComponent("wavedefense.auto.error_could_not_get_player_id_a342866a"));
             return 0;
         }
         if (!checkRateLimit(playerId, "kick")) {
-            src.sendFailure(Component.translatable("wavedefense.auto.rate_limit_exceeded_try_again_la_06e58845"));
+            src.sendFailure(new TranslationTextComponent("wavedefense.auto.rate_limit_exceeded_try_again_la_06e58845"));
             return 0;
         }
 
         int count = 0;
-        for (ServerPlayer target : targets) {
+        for (ServerPlayerEntity target : targets) {
             // Safety: Don't kick players with higher or equal permission
             int targetPerm = src.getServer().getProfilePermissions(target.getGameProfile());
             int srcPerm;
             try {
                 srcPerm = src.getServer().getProfilePermissions(src.getPlayerOrException().getGameProfile());
             } catch (CommandSyntaxException e) {
-                src.sendFailure(Component.translatable("wavedefense.auto.error_could_not_get_player_permi_98c0244f"));
+                src.sendFailure(new TranslationTextComponent("wavedefense.auto.error_could_not_get_player_permi_98c0244f"));
                 return 0;
             }
 
             if (targetPerm >= srcPerm && !src.getServer().isSingleplayerOwner(target.getGameProfile())) {
-                src.sendFailure(Component.literal("§cCannot kick player with higher or equal permissions: " +
+                src.sendFailure(new StringTextComponent("§cCannot kick player with higher or equal permissions: " +
                     target.getGameProfile().getName()));
                 auditLogger.log(AuditEvent.failed(src, "kick", "permission_denied", target.getGameProfile().getName()));
                 continue;
             }
 
-            target.connection.disconnect(Component.literal("§c" + reason));
+            target.connection.disconnect(new StringTextComponent("§c" + reason));
 
-            src.sendSuccess(() -> Component.literal("§a✓ Kicked §e" +
+            src.sendSuccess(new StringTextComponent("§a✓ Kicked §e" +
                 target.getGameProfile().getName() + " §a(" + reason + ")"), false);
             count++;
         }
 
         auditLogger.log(AuditEvent.success(src, "kick",
-            Map.of("reason", reason, "targets", String.valueOf(count))));
+            com.google.common.collect.ImmutableMap.of("reason", reason, "targets", String.valueOf(count))));
 
         return count;
     }
 
-    private static int executeBackup(CommandSourceStack src, ServerPlayer target) {
+    private static int executeBackup(CommandSource src, ServerPlayerEntity target) {
         PlayerBackup backup = PlayerBackup.create(target);
         boolean saved = backup.save();
 
         if (saved) {
-            src.sendSuccess(() -> Component.literal("§a✓ Backup created for §e" +
+            src.sendSuccess(new StringTextComponent("§a✓ Backup created for §e" +
                 target.getGameProfile().getName() + " §a(ID: " + backup.getId() + ")"), false);
             auditLogger.log(AuditEvent.success(src, "backup_create",
-                Map.of("player", target.getGameProfile().getName(), "backup_id", backup.getId())));
+                com.google.common.collect.ImmutableMap.of("player", target.getGameProfile().getName(), "backup_id", backup.getId())));
             return 1;
         } else {
-            src.sendFailure(Component.translatable("wavedefense.auto.failed_to_create_backup_c11e99e8"));
+            src.sendFailure(new TranslationTextComponent("wavedefense.auto.failed_to_create_backup_c11e99e8"));
             auditLogger.log(AuditEvent.failed(src, "backup_create", "save_failed", target.getGameProfile().getName()));
             return 0;
         }
     }
 
-    private static int executeBackupAll(CommandSourceStack src) {
+    private static int executeBackupAll(CommandSource src) {
         int count = 0;
-        for (ServerPlayer player : src.getServer().getPlayerList().getPlayers()) {
+        for (ServerPlayerEntity player : src.getServer().getPlayerList().getPlayers()) {
             PlayerBackup backup = PlayerBackup.create(player);
             if (backup.save()) {
                 count++;
@@ -1027,34 +1030,34 @@ public class WaveDefenseAdminCommands {
         }
 
         final int finalCount = count;
-        src.sendSuccess(() -> Component.translatable("wavedefense.auto.created_value_dabff882", finalCount + " backups"), false);
+        src.sendSuccess(new TranslationTextComponent("wavedefense.auto.created_value_dabff882", finalCount + " backups"), false);
         auditLogger.log(AuditEvent.success(src, "backup_create_all",
-            Map.of("count", String.valueOf(finalCount))));
+            com.google.common.collect.ImmutableMap.of("count", String.valueOf(finalCount))));
         return count;
     }
 
-    private static int executeBackupList(CommandSourceStack src, ServerPlayer target) {
+    private static int executeBackupList(CommandSource src, ServerPlayerEntity target) {
         List<PlayerBackup> backups = PlayerBackup.list(target.getUUID());
 
-        src.sendSuccess(() -> Component.literal("§6=== Backups for §e" +
+        src.sendSuccess(new StringTextComponent("§6=== Backups for §e" +
             target.getGameProfile().getName() + " §6==="), false);
 
         if (backups.isEmpty()) {
-            src.sendSuccess(() -> Component.translatable("wavedefense.auto.no_backups_found_75f77c48"), false);
+            src.sendSuccess(new TranslationTextComponent("wavedefense.auto.no_backups_found_75f77c48"), false);
         } else {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
                 .withZone(ZoneId.systemDefault());
 
             for (PlayerBackup backup : backups) {
                 String time = formatter.format(Instant.ofEpochMilli(backup.getTimestamp()));
-                Component restoreCmd = Component.translatable("wavedefense.auto.restore_7755b544")
+                ITextComponent restoreCmd = new TranslationTextComponent("wavedefense.auto.restore_7755b544")
                     .withStyle(style -> style
                         .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND,
                             "/wda restore " + target.getGameProfile().getName() + " " + backup.getId()))
                         .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
-                            Component.translatable("wavedefense.auto.restore_from_this_backup_4ff8163c"))));
+                            new TranslationTextComponent("wavedefense.auto.restore_from_this_backup_4ff8163c"))));
 
-                src.sendSuccess(() -> Component.literal("§7- " + backup.getId() + " §8(" + time + ") ")
+                src.sendSuccess(new StringTextComponent("§7- " + backup.getId() + " §8(" + time + ") ")
                     .append(restoreCmd), false);
             }
         }
@@ -1062,153 +1065,153 @@ public class WaveDefenseAdminCommands {
         return 1;
     }
 
-    private static void executeRestore(CommandSourceStack src, ServerPlayer target, String backupId) {
+    private static void executeRestore(CommandSource src, ServerPlayerEntity target, String backupId) {
         Optional<PlayerBackup> backupOpt = PlayerBackup.load(target.getUUID(), backupId);
 
         if (backupOpt.isPresent()) {
             PlayerBackup backup = backupOpt.get();
             backup.restore(target);
 
-            src.sendSuccess(() -> Component.literal("§a✓ Restored §e" +
+            src.sendSuccess(new StringTextComponent("§a✓ Restored §e" +
                 target.getGameProfile().getName() + " §afrom backup " + backupId), false);
-            target.sendSystemMessage(Component.translatable("wavedefense.auto.your_data_was_restored_by_an_adm_a8660eb2"));
+            target.sendMessage(new TranslationTextComponent("wavedefense.auto.your_data_was_restored_by_an_adm_a8660eb2"), net.minecraft.util.Util.NIL_UUID);
 
             auditLogger.log(AuditEvent.success(src, "restore",
-                Map.of("player", target.getGameProfile().getName(), "backup_id", backupId)));
+                com.google.common.collect.ImmutableMap.of("player", target.getGameProfile().getName(), "backup_id", backupId)));
         } else {
-            src.sendFailure(Component.translatable("wavedefense.auto.backup_not_found_value_f3104445", backupId));
+            src.sendFailure(new TranslationTextComponent("wavedefense.auto.backup_not_found_value_f3104445", backupId));
             auditLogger.log(AuditEvent.failed(src, "restore", "backup_not_found", backupId));
         }
     }
 
-    private static void executeLocationLock(CommandSourceStack src, String locName) {
-        Location location = WaveDefenseMod.locationManager.getLocation(locName);
+    private static void executeLocationLock(CommandSource src, String locName) {
+        Location location = WaveDefenceMod.locationManager.getLocation(locName);
         if (location == null) {
-            src.sendFailure(Component.translatable("wavedefense.auto.location_not_found_value_abb75692", locName));
+            src.sendFailure(new TranslationTextComponent("wavedefense.auto.location_not_found_value_abb75692", locName));
             auditLogger.log(AuditEvent.failed(src, "location_lock", "not_found", locName));
             return;
         }
 
         location.setLocked(true);
-        WaveDefenseMod.locationManager.saveToFile();
+        WaveDefenceMod.locationManager.saveToFile();
 
-        src.sendSuccess(() -> Component.translatable("wavedefense.auto.location_locked_value_ec762bea", locName), false);
+        src.sendSuccess(new TranslationTextComponent("wavedefense.auto.location_locked_value_ec762bea", locName), false);
 
         // Notify all players in the location
-        for (ServerPlayer player : src.getServer().getPlayerList().getPlayers()) {
-            var data = WaveDefenseMod.waveManager.getPlayerData(player.getUUID());
+        for (ServerPlayerEntity player : src.getServer().getPlayerList().getPlayers()) {
+            com.wavedefense.wave.PlayerWaveData data = WaveDefenceMod.waveManager.getPlayerData(player.getUUID());
             if (data != null && data.getCurrentLocation() != null && locName.equals(data.getCurrentLocation().getName())) {
-                player.sendSystemMessage(Component.translatable("wavedefense.auto.this_location_has_been_locked_by_bf864480"));
+                player.sendMessage(new TranslationTextComponent("wavedefense.auto.this_location_has_been_locked_by_bf864480"), net.minecraft.util.Util.NIL_UUID);
             }
         }
 
-        auditLogger.log(AuditEvent.success(src, "location_lock", Map.of("location", locName)));
+        auditLogger.log(AuditEvent.success(src, "location_lock", com.google.common.collect.ImmutableMap.of("location", locName)));
     }
 
-    private static void executeLocationUnlock(CommandSourceStack src, String locName) {
-        Location location = WaveDefenseMod.locationManager.getLocation(locName);
+    private static void executeLocationUnlock(CommandSource src, String locName) {
+        Location location = WaveDefenceMod.locationManager.getLocation(locName);
         if (location == null) {
-            src.sendFailure(Component.translatable("wavedefense.auto.location_not_found_value_abb75692", locName));
+            src.sendFailure(new TranslationTextComponent("wavedefense.auto.location_not_found_value_abb75692", locName));
             auditLogger.log(AuditEvent.failed(src, "location_unlock", "not_found", locName));
             return;
         }
 
         location.setLocked(false);
-        WaveDefenseMod.locationManager.saveToFile();
+        WaveDefenceMod.locationManager.saveToFile();
 
-        src.sendSuccess(() -> Component.translatable("wavedefense.auto.location_unlocked_value_3d2dcb96", locName), false);
-        auditLogger.log(AuditEvent.success(src, "location_unlock", Map.of("location", locName)));
+        src.sendSuccess(new TranslationTextComponent("wavedefense.auto.location_unlocked_value_3d2dcb96", locName), false);
+        auditLogger.log(AuditEvent.success(src, "location_unlock", com.google.common.collect.ImmutableMap.of("location", locName)));
     }
 
-    private static void executeLocationWipe(CommandSourceStack src, String locName) {
-        Location location = WaveDefenseMod.locationManager.getLocation(locName);
+    private static void executeLocationWipe(CommandSource src, String locName) {
+        Location location = WaveDefenceMod.locationManager.getLocation(locName);
         if (location == null) {
-            src.sendFailure(Component.translatable("wavedefense.auto.location_not_found_value_abb75692", locName));
+            src.sendFailure(new TranslationTextComponent("wavedefense.auto.location_not_found_value_abb75692", locName));
             auditLogger.log(AuditEvent.failed(src, "location_wipe", "not_found", locName));
             return;
         }
 
         int playerCount = 0;
-        for (ServerPlayer player : src.getServer().getPlayerList().getPlayers()) {
-            var data = WaveDefenseMod.waveManager.getPlayerData(player.getUUID());
+        for (ServerPlayerEntity player : src.getServer().getPlayerList().getPlayers()) {
+            com.wavedefense.wave.PlayerWaveData data = WaveDefenceMod.waveManager.getPlayerData(player.getUUID());
             if (data != null && data.getCurrentLocation() != null && locName.equals(data.getCurrentLocation().getName())) {
-                WaveDefenseMod.waveManager.surrenderPlayer(player);
-                player.sendSystemMessage(Component.translatable("wavedefense.auto.location_data_was_wiped_by_an_ad_09c231c1"));
+                WaveDefenceMod.waveManager.surrenderPlayer(player);
+                player.sendMessage(new TranslationTextComponent("wavedefense.auto.location_data_was_wiped_by_an_ad_09c231c1"), net.minecraft.util.Util.NIL_UUID);
                 playerCount++;
             }
         }
 
         // Reset location progress
         location.resetProgress();
-        WaveDefenseMod.locationManager.saveToFile();
+        WaveDefenceMod.locationManager.saveToFile();
 
         final int finalPlayerCount = playerCount;
-        src.sendSuccess(() -> Component.literal("§a✓ Location wiped: §e" + locName +
+        src.sendSuccess(new StringTextComponent("§a✓ Location wiped: §e" + locName +
             " §a(" + finalPlayerCount + " players affected)"), false);
         auditLogger.log(AuditEvent.success(src, "location_wipe",
-            Map.of("location", locName, "players_affected", String.valueOf(finalPlayerCount))));
+            com.google.common.collect.ImmutableMap.of("location", locName, "players_affected", String.valueOf(finalPlayerCount))));
     }
 
-    private static void executeLocationInfo(CommandSourceStack src, String locName) {
-        Location location = WaveDefenseMod.locationManager.getLocation(locName);
+    private static void executeLocationInfo(CommandSource src, String locName) {
+        Location location = WaveDefenceMod.locationManager.getLocation(locName);
         if (location == null) {
-            src.sendFailure(Component.translatable("wavedefense.auto.location_not_found_value_abb75692", locName));
+            src.sendFailure(new TranslationTextComponent("wavedefense.auto.location_not_found_value_abb75692", locName));
             return;
         }
 
-        src.sendSuccess(() -> Component.translatable("wavedefense.auto.location_info_value_1eb7afbb", locName + " §6==="), false);
-        src.sendSuccess(() -> Component.literal("\u00A77Status: " + (location.isLocked() ? "\u00A7cLOCKED" : "\u00A7aUNLOCKED")), false);
-        src.sendSuccess(() -> Component.literal("§7Game Mode: " + location.getGameMode()), false);
-        src.sendSuccess(() -> Component.literal("§7Player Spawn: " +
+        src.sendSuccess(new TranslationTextComponent("wavedefense.auto.location_info_value_1eb7afbb", locName + " §6==="), false);
+        src.sendSuccess(new StringTextComponent("\u00A77Status: " + (location.isLocked() ? "\u00A7cLOCKED" : "\u00A7aUNLOCKED")), false);
+        src.sendSuccess(new StringTextComponent("§7Game Mode: " + location.getGameMode()), false);
+        src.sendSuccess(new StringTextComponent("§7Player Spawn: " +
             (location.getPlayerSpawn() != null ? "§aSET" : "§cNOT SET")), false);
-        src.sendSuccess(() -> Component.literal("§7Wave Config: " +
+        src.sendSuccess(new StringTextComponent("§7Wave Config: " +
             (location.getWaveConfig() != null ? "§aCONFIGURED" : "§cNOT SET")), false);
 
         if (location.getWaveConfig() != null) {
             java.util.List<WaveConfig> waves = location.getWaves();
-            src.sendSuccess(() -> Component.literal("§7  - Waves: " + (waves != null ? waves.size() : 0)), false);
-            src.sendSuccess(() -> Component.literal("§7  - Wave Time: " + location.getWaveConfig().getTimeBetweenWaves() + "s"), false);
+            src.sendSuccess(new StringTextComponent("§7  - Waves: " + (waves != null ? waves.size() : 0)), false);
+            src.sendSuccess(new StringTextComponent("§7  - Wave Time: " + location.getWaveConfig().getTimeBetweenWaves() + "s"), false);
         }
 
         int playerCount = 0;
-        for (ServerPlayer player : src.getServer().getPlayerList().getPlayers()) {
-            var data = WaveDefenseMod.waveManager.getPlayerData(player.getUUID());
+        for (ServerPlayerEntity player : src.getServer().getPlayerList().getPlayers()) {
+            com.wavedefense.wave.PlayerWaveData data = WaveDefenceMod.waveManager.getPlayerData(player.getUUID());
             if (data != null && data.getCurrentLocation() != null && locName.equals(data.getCurrentLocation().getName())) {
                 playerCount++;
             }
         }
         final int finalPlayerCount = playerCount;
-        src.sendSuccess(() -> Component.translatable("wavedefense.auto.players_inside_value_d124fb40", finalPlayerCount), false);
+        src.sendSuccess(new TranslationTextComponent("wavedefense.auto.players_inside_value_d124fb40", finalPlayerCount), false);
     }
 
-    private static void executePlayerHeal(CommandSourceStack src, Collection<ServerPlayer> targets) {
-        for (ServerPlayer target : targets) {
+    private static void executePlayerHeal(CommandSource src, Collection<ServerPlayerEntity> targets) {
+        for (ServerPlayerEntity target : targets) {
             target.setHealth(target.getMaxHealth());
             target.getFoodData().setFoodLevel(20);
             target.removeAllEffects();
 
-            src.sendSuccess(() -> Component.literal("§a✓ Healed §e" +
+            src.sendSuccess(new StringTextComponent("§a✓ Healed §e" +
                 target.getGameProfile().getName()), false);
-            target.sendSystemMessage(Component.translatable("wavedefense.auto.you_were_healed_by_an_administra_9a1b8f13"));
+            target.sendMessage(new TranslationTextComponent("wavedefense.auto.you_were_healed_by_an_administra_9a1b8f13"), net.minecraft.util.Util.NIL_UUID);
         }
 
         auditLogger.log(AuditEvent.success(src, "player_heal",
-            Map.of("targets", String.valueOf(targets.size()))));
+            com.google.common.collect.ImmutableMap.of("targets", String.valueOf(targets.size()))));
     }
 
-    private static void executePlayerFeed(CommandSourceStack src, Collection<ServerPlayer> targets) {
-        for (ServerPlayer target : targets) {
+    private static void executePlayerFeed(CommandSource src, Collection<ServerPlayerEntity> targets) {
+        for (ServerPlayerEntity target : targets) {
             target.getFoodData().setFoodLevel(20);
 
-            src.sendSuccess(() -> Component.literal("§a✓ Fed §e" +
+            src.sendSuccess(new StringTextComponent("§a✓ Fed §e" +
                 target.getGameProfile().getName()), false);
         }
 
         auditLogger.log(AuditEvent.success(src, "player_feed",
-            Map.of("targets", String.valueOf(targets.size()))));
+            com.google.common.collect.ImmutableMap.of("targets", String.valueOf(targets.size()))));
     }
 
-    private static void executePlayerGamemode(CommandSourceStack src, Collection<ServerPlayer> targets, String mode) {
+    private static void executePlayerGamemode(CommandSource src, Collection<ServerPlayerEntity> targets, String mode) {
         GameType gameType;
         switch (mode.toLowerCase()) {
             case "creative": gameType = GameType.CREATIVE; break;
@@ -1217,31 +1220,31 @@ public class WaveDefenseAdminCommands {
             default: gameType = GameType.SURVIVAL; break;
         }
 
-        for (ServerPlayer target : targets) {
+        for (ServerPlayerEntity target : targets) {
             target.setGameMode(gameType);
-            src.sendSuccess(() -> Component.literal("§a✓ Set §e" +
+            src.sendSuccess(new StringTextComponent("§a✓ Set §e" +
                 target.getGameProfile().getName() + " §ato " + mode), false);
         }
 
         auditLogger.log(AuditEvent.success(src, "player_gamemode",
-            Map.of("mode", mode, "targets", String.valueOf(targets.size()))));
+            com.google.common.collect.ImmutableMap.of("mode", mode, "targets", String.valueOf(targets.size()))));
     }
 
-    private static void executePlayerClear(CommandSourceStack src, Collection<ServerPlayer> targets) {
-        for (ServerPlayer target : targets) {
-            target.getInventory().clearContent();
-            target.getInventory().setChanged();
+    private static void executePlayerClear(CommandSource src, Collection<ServerPlayerEntity> targets) {
+        for (ServerPlayerEntity target : targets) {
+            target.inventory.clearContent();
+            target.inventory.setChanged();
 
-            src.sendSuccess(() -> Component.literal("§a✓ Cleared inventory of §e" +
+            src.sendSuccess(new StringTextComponent("§a✓ Cleared inventory of §e" +
                 target.getGameProfile().getName()), false);
-            target.sendSystemMessage(Component.translatable("wavedefense.auto.your_inventory_was_cleared_by_an_98a5241c"));
+            target.sendMessage(new TranslationTextComponent("wavedefense.auto.your_inventory_was_cleared_by_an_98a5241c"), net.minecraft.util.Util.NIL_UUID);
         }
 
         auditLogger.log(AuditEvent.success(src, "player_clear",
-            Map.of("targets", String.valueOf(targets.size()))));
+            com.google.common.collect.ImmutableMap.of("targets", String.valueOf(targets.size()))));
     }
 
-    private static void executeConfigSet(CommandSourceStack src, String key, String value) {
+    private static void executeConfigSet(CommandSource src, String key, String value) {
         // Validate and set configuration values
         boolean success = false;
 
@@ -1259,19 +1262,19 @@ public class WaveDefenseAdminCommands {
                 success = true;
                 break;
             default:
-                src.sendFailure(Component.translatable("wavedefense.auto.unknown_config_key_value_3f002b3a", key));
+                src.sendFailure(new TranslationTextComponent("wavedefense.auto.unknown_config_key_value_3f002b3a", key));
                 auditLogger.log(AuditEvent.failed(src, "config_set", "unknown_key", key));
                 return;
         }
 
         if (success) {
-            src.sendSuccess(() -> Component.translatable("wavedefense.auto.config_set_value_8dc66e69", key + " = " + value), false);
+            src.sendSuccess(new TranslationTextComponent("wavedefense.auto.config_set_value_8dc66e69", key + " = " + value), false);
             auditLogger.log(AuditEvent.success(src, "config_set",
-                Map.of("key", key, "value", value)));
+                com.google.common.collect.ImmutableMap.of("key", key, "value", value)));
         }
     }
 
-    private static void executeConfigGet(CommandSourceStack src, String key) {
+    private static void executeConfigGet(CommandSource src, String key) {
         String value = "unknown";
 
         switch (key.toLowerCase()) {
@@ -1290,24 +1293,24 @@ public class WaveDefenseAdminCommands {
         }
 
         final String finalValue = value;
-        src.sendSuccess(() -> Component.literal("§e" + key + " §7= §f" + finalValue), false);
+        src.sendSuccess(new StringTextComponent("§e" + key + " §7= §f" + finalValue), false);
     }
 
-    private static void executeConfigReload(CommandSourceStack src) {
-        WaveDefenseMod.locationManager.loadLocations();
+    private static void executeConfigReload(CommandSource src) {
+        WaveDefenceMod.locationManager.loadLocations();
         WaveDefenseConfig.register();
 
-        src.sendSuccess(() -> Component.translatable("wavedefense.auto.configuration_reloaded_4d5c7073"), false);
-        auditLogger.log(AuditEvent.success(src, "config_reload", Map.of()));
+        src.sendSuccess(new TranslationTextComponent("wavedefense.auto.configuration_reloaded_4d5c7073"), false);
+        auditLogger.log(AuditEvent.success(src, "config_reload", java.util.Collections.emptyMap()));
     }
 
-    private static void executeLogRecent(CommandSourceStack src, int count) {
+    private static void executeLogRecent(CommandSource src, int count) {
         List<AuditEvent> events = auditLogger.getRecentEvents(count);
 
-        src.sendSuccess(() -> Component.translatable("wavedefense.auto.recent_audit_logs_last_value_a19d6974", count + ") ==="), false);
+        src.sendSuccess(new TranslationTextComponent("wavedefense.auto.recent_audit_logs_last_value_a19d6974", count + ") ==="), false);
 
         if (events.isEmpty()) {
-            src.sendSuccess(() -> Component.translatable("wavedefense.auto.no_log_entries_found_bc4e2271"), false);
+            src.sendSuccess(new TranslationTextComponent("wavedefense.auto.no_log_entries_found_bc4e2271"), false);
         } else {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
                 .withZone(ZoneId.systemDefault());
@@ -1315,20 +1318,20 @@ public class WaveDefenseAdminCommands {
             for (AuditEvent event : events) {
                 String time = formatter.format(Instant.ofEpochMilli(event.timestamp));
                 String status = event.success ? "§a" : "§c";
-                src.sendSuccess(() -> Component.literal("§7[" + time + "] " + status +
+                src.sendSuccess(new StringTextComponent("§7[" + time + "] " + status +
                     event.type + " §7by §e" + event.executorName + " §7- " + event.details), false);
             }
         }
     }
 
-    private static void executeLogPlayer(CommandSourceStack src, ServerPlayer target) {
+    private static void executeLogPlayer(CommandSource src, ServerPlayerEntity target) {
         List<AuditEvent> events = auditLogger.getEventsByPlayer(target.getUUID());
 
-        src.sendSuccess(() -> Component.literal("§6=== Audit Logs for §e" +
+        src.sendSuccess(new StringTextComponent("§6=== Audit Logs for §e" +
             target.getGameProfile().getName() + " §6==="), false);
 
         if (events.isEmpty()) {
-            src.sendSuccess(() -> Component.translatable("wavedefense.auto.no_log_entries_found_bc4e2271"), false);
+            src.sendSuccess(new TranslationTextComponent("wavedefense.auto.no_log_entries_found_bc4e2271"), false);
         } else {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
                 .withZone(ZoneId.systemDefault());
@@ -1336,35 +1339,35 @@ public class WaveDefenseAdminCommands {
             for (AuditEvent event : events) {
                 String time = formatter.format(Instant.ofEpochMilli(event.timestamp));
                 String status = event.success ? "§a" : "§c";
-                src.sendSuccess(() -> Component.literal("§7[" + time + "] " + status +
+                src.sendSuccess(new StringTextComponent("§7[" + time + "] " + status +
                     event.type + " §7- " + event.details), false);
             }
         }
     }
 
-    private static void executeLogClear(CommandSourceStack src) {
+    private static void executeLogClear(CommandSource src) {
         auditLogger.clear();
-        src.sendSuccess(() -> Component.translatable("wavedefense.auto.audit_logs_cleared_6f37ec74"), false);
+        src.sendSuccess(new TranslationTextComponent("wavedefense.auto.audit_logs_cleared_6f37ec74"), false);
     }
 
-    private static void executeSafetyCheck(CommandSourceStack src) {
-        src.sendSuccess(() -> Component.translatable("wavedefense.auto.safety_check_report_0835e90e"), false);
+    private static void executeSafetyCheck(CommandSource src) {
+        src.sendSuccess(new TranslationTextComponent("wavedefense.auto.safety_check_report_0835e90e"), false);
 
         // Check server health
         int playerCount = src.getServer().getPlayerList().getPlayers().size();
-        src.sendSuccess(() -> Component.translatable("wavedefense.auto.players_online_value_a678a7b7", playerCount), false);
+        src.sendSuccess(new TranslationTextComponent("wavedefense.auto.players_online_value_a678a7b7", playerCount), false);
 
         // Check locations
-        int locationCount = WaveDefenseMod.locationManager.getAllLocations().size();
-        src.sendSuccess(() -> Component.translatable("wavedefense.auto.locations_loaded_value_61346846", locationCount), false);
+        int locationCount = WaveDefenceMod.locationManager.getAllLocations().size();
+        src.sendSuccess(new TranslationTextComponent("wavedefense.auto.locations_loaded_value_61346846", locationCount), false);
 
         // Check locked locations
         int lockedCount = 0;
-        for (Location loc : WaveDefenseMod.locationManager.getAllLocations()) {
+        for (Location loc : WaveDefenceMod.locationManager.getAllLocations()) {
             if (loc.isLocked()) lockedCount++;
         }
         final int finalLockedCount = lockedCount;
-        src.sendSuccess(() -> Component.literal("§7Locked Locations: " +
+        src.sendSuccess(new StringTextComponent("§7Locked Locations: " +
             (finalLockedCount > 0 ? "§c" + finalLockedCount : "§a0")), false);
 
         // Check rate limits
@@ -1375,44 +1378,44 @@ public class WaveDefenseAdminCommands {
             }
         }
         final int finalRateLimited = rateLimited;
-        src.sendSuccess(() -> Component.literal("§7Rate Limited Players: " +
+        src.sendSuccess(new StringTextComponent("§7Rate Limited Players: " +
             (finalRateLimited > 0 ? "§c" + finalRateLimited : "§a0")), false);
 
         // Check pending confirmations
         int pendingCount = pendingConfirmations.size();
-        src.sendSuccess(() -> Component.literal("§7Pending Confirmations: " +
+        src.sendSuccess(new StringTextComponent("§7Pending Confirmations: " +
             (pendingCount > 0 ? "§e" + pendingCount : "§a0")), false);
 
-        src.sendSuccess(() -> Component.translatable("wavedefense.auto.end_of_safety_check_e37dfb7b"), false);
+        src.sendSuccess(new TranslationTextComponent("wavedefense.auto.end_of_safety_check_e37dfb7b"), false);
     }
 
-    private static void executeSafetyLockdown(CommandSourceStack src, boolean enable) {
+    private static void executeSafetyLockdown(CommandSource src, boolean enable) {
         if (enable) {
             // Lock all locations
-            for (Location loc : WaveDefenseMod.locationManager.getAllLocations()) {
+            for (Location loc : WaveDefenceMod.locationManager.getAllLocations()) {
                 if (!loc.isLocked()) {
                     loc.setLocked(true);
-                    WaveDefenseMod.locationManager.saveToFile();
+                    WaveDefenceMod.locationManager.saveToFile();
                 }
             }
 
             // Kick all non-admin players from locations
-            for (ServerPlayer player : src.getServer().getPlayerList().getPlayers()) {
+            for (ServerPlayerEntity player : src.getServer().getPlayerList().getPlayers()) {
                 int perm = src.getServer().getProfilePermissions(player.getGameProfile());
                 if (perm < PERM_ADMIN) {
-                    var data = WaveDefenseMod.waveManager.getPlayerData(player.getUUID());
+                    com.wavedefense.wave.PlayerWaveData data = WaveDefenceMod.waveManager.getPlayerData(player.getUUID());
                     if (data != null && data.getCurrentLocation() != null) {
-                        WaveDefenseMod.waveManager.surrenderPlayer(player);
-                        player.sendSystemMessage(Component.translatable("wavedefense.auto.server_is_in_lockdown_mode_b6f9a343"));
+                        WaveDefenceMod.waveManager.surrenderPlayer(player);
+                        player.sendMessage(new TranslationTextComponent("wavedefense.auto.server_is_in_lockdown_mode_b6f9a343"), net.minecraft.util.Util.NIL_UUID);
                     }
                 }
             }
 
-            src.sendSuccess(() -> Component.translatable("wavedefense.auto.server_lockdown_enabled_07ef530e"), false);
-            auditLogger.log(AuditEvent.success(src, "safety_lockdown", Map.of("enabled", "true")));
+            src.sendSuccess(new TranslationTextComponent("wavedefense.auto.server_lockdown_enabled_07ef530e"), false);
+            auditLogger.log(AuditEvent.success(src, "safety_lockdown", com.google.common.collect.ImmutableMap.of("enabled", "true")));
         } else {
-            src.sendSuccess(() -> Component.translatable("wavedefense.auto.server_lockdown_disabled_af4d8079"), false);
-            auditLogger.log(AuditEvent.success(src, "safety_lockdown", Map.of("enabled", "false")));
+            src.sendSuccess(new TranslationTextComponent("wavedefense.auto.server_lockdown_disabled_af4d8079"), false);
+            auditLogger.log(AuditEvent.success(src, "safety_lockdown", com.google.common.collect.ImmutableMap.of("enabled", "false")));
         }
     }
 
@@ -1444,7 +1447,7 @@ public class WaveDefenseAdminCommands {
         void log(AuditEvent event) {
             events.add(event);
             // Also log to server console
-            WaveDefenseMod.LOGGER.info("[AUDIT] {} | {} | {} | {} | {}",
+            WaveDefenceMod.LOGGER.info("[AUDIT] {} | {} | {} | {} | {}",
                 event.timestamp, event.executorName, event.type,
                 event.success ? "SUCCESS" : "FAILED", event.details);
         }
@@ -1492,7 +1495,7 @@ public class WaveDefenseAdminCommands {
             this.details = details;
         }
 
-        static AuditEvent success(CommandSourceStack src, String type, Map<String, String> details) {
+        static AuditEvent success(CommandSource src, String type, Map<String, String> details) {
             try {
                 return new AuditEvent(
                     System.currentTimeMillis(),
@@ -1510,7 +1513,7 @@ public class WaveDefenseAdminCommands {
             }
         }
 
-        static AuditEvent failed(CommandSourceStack src, String type, String error, String extra) {
+        static AuditEvent failed(CommandSource src, String type, String error, String extra) {
             try {
                 return new AuditEvent(
                     System.currentTimeMillis(),
@@ -1528,7 +1531,7 @@ public class WaveDefenseAdminCommands {
             }
         }
 
-        static AuditEvent denied(CommandSourceStack src, String operation, String reason) {
+        static AuditEvent denied(CommandSource src, String operation, String reason) {
             try {
                 return new AuditEvent(
                     System.currentTimeMillis(),
@@ -1546,7 +1549,7 @@ public class WaveDefenseAdminCommands {
             }
         }
 
-        static AuditEvent confirmed(CommandSourceStack src, String action) {
+        static AuditEvent confirmed(CommandSource src, String action) {
             try {
                 return new AuditEvent(
                     System.currentTimeMillis(),

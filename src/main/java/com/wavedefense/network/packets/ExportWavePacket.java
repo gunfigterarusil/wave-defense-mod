@@ -1,14 +1,16 @@
 package com.wavedefense.network.packets;
 
-import com.wavedefense.WaveDefenseMod;
+import net.minecraft.util.text.ITextComponent;
+
+import com.wavedefense.WaveDefenceMod;
 import com.wavedefense.data.Location;
 import com.wavedefense.data.WaveConfig;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtIo;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
+import net.minecraft.nbt.CompressedStreamTools;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraftforge.fml.network.NetworkEvent;
 
 import java.io.File;
 import java.util.function.Supplier;
@@ -28,56 +30,56 @@ public class ExportWavePacket {
         this.mode = mode;
     }
 
-    public static void encode(ExportWavePacket p, FriendlyByteBuf buf) {
+    public static void encode(ExportWavePacket p, PacketBuffer buf) {
         buf.writeUtf(p.locationName);
         buf.writeUtf(p.mode);
     }
 
-    public static ExportWavePacket decode(FriendlyByteBuf buf) {
+    public static ExportWavePacket decode(PacketBuffer buf) {
         return new ExportWavePacket(buf.readUtf(), buf.readUtf());
     }
 
     public static void handle(ExportWavePacket p, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
-            ServerPlayer player = ctx.get().getSender();
+            ServerPlayerEntity player = ctx.get().getSender();
             if (player == null || !player.hasPermissions(2)) return;
 
-            Location loc = WaveDefenseMod.locationManager.getLocation(p.locationName);
+            Location loc = WaveDefenceMod.locationManager.getLocation(p.locationName);
             if (loc == null) return;
 
-            File dir = new File(WaveDefenseMod.getServer()
-                .getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).toFile(),
+            File dir = new File(WaveDefenceMod.getServer()
+                .getWorldPath(net.minecraft.world.storage.FolderName.ROOT).toFile(),
                 "wavedefense/wave_export");
             dir.mkdirs();
 
             try {
                 if ("all".equals(p.mode)) {
                     // Зберігаємо всі хвилі в один файл
-                    CompoundTag root = new CompoundTag();
+                    CompoundNBT root = new CompoundNBT();
                     root.putString("location", p.locationName);
-                    ListTag list = new ListTag();
+                    ListNBT list = new ListNBT();
                     for (WaveConfig wc : loc.getWaves()) list.add(wc.save());
                     root.put("waves", list);
                     String fileName = sanitize(p.locationName) + "_all.nbt";
-                    NbtIo.writeCompressed(root, new File(dir, fileName));
-                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    CompressedStreamTools.writeCompressed(root, new File(dir, fileName));
+                    player.displayClientMessage(new net.minecraft.util.text.TranslationTextComponent(
                         "wavedefense.msg.wave_export_all_success", loc.getWaves().size(), fileName), false);
                 } else if (p.mode.startsWith("wave:")) {
                     int idx = Integer.parseInt(p.mode.substring(5));
                     if (idx < 0 || idx >= loc.getWaves().size()) return;
                     WaveConfig wc = loc.getWaves().get(idx);
-                    CompoundTag root = new CompoundTag();
+                    CompoundNBT root = new CompoundNBT();
                     root.putString("location", p.locationName);
                     root.putString("type", "single");
                     root.put("wave", wc.save());
                     String fileName = sanitize(p.locationName) + "_wave" + (idx + 1) + ".nbt";
-                    NbtIo.writeCompressed(root, new File(dir, fileName));
-                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    CompressedStreamTools.writeCompressed(root, new File(dir, fileName));
+                    player.displayClientMessage(new net.minecraft.util.text.TranslationTextComponent(
                         "wavedefense.msg.wave_export_single_success", (idx + 1), fileName), false);
                 }
             } catch (Exception e) {
-                WaveDefenseMod.LOGGER.error("ExportWavePacket error", e);
-                player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                WaveDefenceMod.LOGGER.error("ExportWavePacket error", e);
+                player.displayClientMessage(new net.minecraft.util.text.TranslationTextComponent(
                     "wavedefense.msg.export_error", e.getMessage()), false);
             }
         });

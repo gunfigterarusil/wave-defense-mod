@@ -1,12 +1,15 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.data.Location;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.util.text.ITextComponent;
 import com.wavedefense.gui.ScissorHelper;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.ItemStack;
 
 public class StartingItemsScreen extends Screen {
     private final Screen parentScreen;
@@ -25,9 +28,9 @@ public class StartingItemsScreen extends Screen {
 
     /** v0.2.64: edit an arbitrary item list (e.g. per-team via PvpSpawnPoint). */
     public StartingItemsScreen(Screen parentScreen, java.util.List<ItemStack> items, String titleSuffix) {
-        super(Component.translatable("wavedefense.title.starting_items")
+        super(new TranslationTextComponent("wavedefense.title.starting_items")
             .append(titleSuffix == null || titleSuffix.isEmpty()
-                ? Component.empty() : Component.literal(": " + titleSuffix)));
+                ? StringTextComponent.EMPTY : new StringTextComponent(": " + titleSuffix)));
         this.parentScreen = parentScreen;
         this.items = items;
         this.titleSuffix = titleSuffix == null ? "" : titleSuffix;
@@ -40,15 +43,9 @@ public class StartingItemsScreen extends Screen {
         int centerX = this.width / 2;
         int startY = 60;
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.тримайте_предмет_у_руці_та_натис_fe14c625"),
-                button -> {}
-        ).bounds(centerX - 150, 35, 300, 20).build()).active = false;
+        this.addButton(new Button(centerX - 150, 35, 300, 20, new TranslationTextComponent("wavedefense.auto.тримайте_предмет_у_руці_та_натис_fe14c625"), button -> {})).active = false;
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.auto.додати_предмет_fc5e5016"),
-                button -> addItem()
-        ).bounds(centerX - 100, startY, 200, 20).build());
+        this.addButton(new Button(centerX - 100, startY, 200, 20, new TranslationTextComponent("wavedefense.auto.додати_предмет_fc5e5016"), button -> addItem()));
 
         for (int i = 0; i < Math.min(ITEMS_PER_PAGE, items.size()); i++) {
             int index = i + scrollOffset;
@@ -62,68 +59,53 @@ public class StartingItemsScreen extends Screen {
                 itemName = itemName.substring(0, 27) + "...";
             }
 
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("§e" + itemName + " §7x" + item.getCount()),
-                    button -> {}
-            ).bounds(centerX - 120, yPos, 200, 20).build()).active = false;
+            this.addButton(new Button(centerX - 120, yPos, 200, 20, new StringTextComponent("§e" + itemName + " §7x" + item.getCount()), button -> {})).active = false;
 
             final int finalIndex = index;
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("✕"),
-                    button -> removeItem(finalIndex)
-            ).bounds(centerX + 85, yPos, 20, 20).build());
+            this.addButton(new Button(centerX + 85, yPos, 20, 20, new StringTextComponent("✕"), button -> removeItem(finalIndex)));
         }
 
         if (items.size() > ITEMS_PER_PAGE) {
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("▲"),
-                    button -> scrollUp()
-            ).bounds(centerX + 115, startY + 30, 25, 25).build());
+            this.addButton(new Button(centerX + 115, startY + 30, 25, 25, new StringTextComponent("▲"), button -> scrollUp()));
 
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("▼"),
-                    button -> scrollDown()
-            ).bounds(centerX + 115, startY + 210, 25, 25).build());
+            this.addButton(new Button(centerX + 115, startY + 210, 25, 25, new StringTextComponent("▼"), button -> scrollDown()));
         }
 
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("wavedefense.button.done"),
-                button -> this.minecraft.setScreen(parentScreen)
-        ).bounds(centerX - 50, this.height - 30, 100, 20).build());
+        this.addButton(new Button(centerX - 50, this.height - 30, 100, 20, new TranslationTextComponent("wavedefense.button.done"), button -> this.minecraft.setScreen(parentScreen)));
     }
 
     private void addItem() {
         if (minecraft.player != null && !minecraft.player.getMainHandItem().isEmpty()) {
             items.add(minecraft.player.getMainHandItem().copy());
-            this.rebuildWidgets();
+            this.init();
         }
     }
 
     private void removeItem(int index) {
         if (index >= 0 && index < items.size()) {
             items.remove(index);
-            this.rebuildWidgets();
+            this.init();
         }
     }
 
     private void scrollUp() {
         if (scrollOffset > 0) {
             scrollOffset--;
-            this.rebuildWidgets();
+            this.init();
         }
     }
 
     private void scrollDown() {
         if (scrollOffset + ITEMS_PER_PAGE < items.size()) {
             scrollOffset++;
-            this.rebuildWidgets();
+            this.init();
         }
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(MatrixStack g, int mouseX, int mouseY, float partialTick) {
         GuiTheme.renderBackground(g, this.width, this.height);
-        g.drawCenteredString(this.font, this.title, this.width / 2, 10, GuiTheme.TEXT);
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, this.title, this.width / 2, 10, GuiTheme.TEXT);
 
         int cx = this.width / 2;
         int startY = 60;
@@ -137,23 +119,25 @@ public class StartingItemsScreen extends Screen {
             if (index >= items.size()) break;
             ItemStack item = items.get(index);
             int yPos = startY + 30 + (i * 30);
-            g.renderItem(item, cx - 145, yPos);
-            g.renderItemDecorations(this.font, item, cx - 145, yPos);
+            com.wavedefense.gui.GuiCompat.renderItem(g, item, cx - 145, yPos);
+            com.wavedefense.gui.GuiCompat.renderItemDecorations(g, this.font, item, cx - 145, yPos);
         }
         // Widgets — теж у scissor
-        for (var r : this.renderables) {
-            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
-                    && w.getY() + w.getHeight() > listTop && w.getY() < listBot)
-                w.render(g, mouseX, mouseY, partialTick);
+        for (Object r : this.buttons) {
+            if (r instanceof net.minecraft.client.gui.widget.Widget) {
+                net.minecraft.client.gui.widget.Widget w = (net.minecraft.client.gui.widget.Widget) r;
+                if (w.y + w.getHeight() > listTop && w.y < listBot) w.render(g, mouseX, mouseY, partialTick);
+            }
         }
-        g.flush();
+        com.wavedefense.gui.GuiCompat.flush(g);
         ScissorHelper.disable();
 
         // Статичні widgets (header/footer) поза scissor
-        for (var r : this.renderables) {
-            if (r instanceof net.minecraft.client.gui.components.AbstractWidget w
-                    && (w.getY() < listTop || w.getY() >= listBot))
-                w.render(g, mouseX, mouseY, partialTick);
+        for (Object r : this.buttons) {
+            if (r instanceof net.minecraft.client.gui.widget.Widget) {
+                net.minecraft.client.gui.widget.Widget w = (net.minecraft.client.gui.widget.Widget) r;
+                if ((w.y < listTop || w.y >= listBot)) w.render(g, mouseX, mouseY, partialTick);
+            }
         }
 
         // Tooltip (завжди поза scissor)
@@ -163,7 +147,7 @@ public class StartingItemsScreen extends Screen {
             ItemStack item = items.get(index);
             int yPos = startY + 30 + (i * 30);
             if (mouseX >= cx - 145 && mouseX <= cx - 145 + 16 && mouseY >= yPos && mouseY <= yPos + 16)
-                g.renderTooltip(this.font, item, mouseX, mouseY);
+                com.wavedefense.gui.GuiCompat.renderTooltip(this, g, this.font, item, mouseX, mouseY);
         }
     }
 

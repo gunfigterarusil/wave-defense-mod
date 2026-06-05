@@ -1,6 +1,6 @@
 package com.wavedefense.wave;
 
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.CompoundNBT;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -265,8 +265,8 @@ public class WaveAutoScaler {
 
     // ---- NBT serialization ----
 
-    public CompoundTag save() {
-        CompoundTag tag = new CompoundTag();
+    public CompoundNBT save() {
+        CompoundNBT tag = new CompoundNBT();
         tag.putDouble("currentDifficulty", this.currentDifficulty);
         tag.putDouble("smoothedDifficulty", this.smoothedDifficulty);
         tag.putInt("consecutiveIncreases", this.consecutiveIncreases);
@@ -275,7 +275,7 @@ public class WaveAutoScaler {
         return tag;
     }
 
-    public static WaveAutoScaler load(CompoundTag tag) {
+    public static WaveAutoScaler load(CompoundNBT tag) {
         double initialDifficulty = tag.contains("currentDifficulty") ? tag.getDouble("currentDifficulty") : BASE_DIFFICULTY;
         WaveAutoScaler scaler = new WaveAutoScaler(initialDifficulty);
         scaler.smoothedDifficulty = tag.contains("smoothedDifficulty") ? tag.getDouble("smoothedDifficulty") : initialDifficulty;
@@ -289,7 +289,7 @@ public class WaveAutoScaler {
      * Завантажує стан із NBT безпосередньо у поточний об'єкт (in-place).
      * Використовується коли поле {@code autoScaler} є final і не може бути перепризначене.
      */
-    public void loadFrom(CompoundTag tag) {
+    public void loadFrom(CompoundNBT tag) {
         if (tag.contains("currentDifficulty"))  this.currentDifficulty  = clamp(tag.getDouble("currentDifficulty"), MIN_DIFFICULTY, MAX_DIFFICULTY);
         if (tag.contains("smoothedDifficulty")) this.smoothedDifficulty = tag.getDouble("smoothedDifficulty");
         if (tag.contains("consecutiveIncreases")) this.consecutiveIncreases = tag.getInt("consecutiveIncreases");

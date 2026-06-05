@@ -1,8 +1,8 @@
 package com.wavedefense.data;
 
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
+import net.minecraft.item.ItemStack;
 
 /**
  * Stateless serializer for {@link Location}.
@@ -19,8 +19,8 @@ public final class LocationSerializer {
 
     // ─── Save ─────────────────────────────────────────────────────────────
 
-    public static CompoundTag save(Location loc) {
-        CompoundTag tag = new CompoundTag();
+    public static CompoundNBT save(Location loc) {
+        CompoundNBT tag = new CompoundNBT();
 
         // ── Core ─────────────────────────────────────────────────────────
         tag.putString("name", loc.name);
@@ -46,8 +46,8 @@ public final class LocationSerializer {
         NbtHelper.saveList(tag, "completionRewards",loc.completionRewards,ShopItem::save);
 
         // startingItems uses vanilla ItemStack serialization
-        ListTag startingItemsList = new ListTag();
-        for (ItemStack item : loc.startingItems) startingItemsList.add(item.save(new CompoundTag()));
+        ListNBT startingItemsList = new ListNBT();
+        for (ItemStack item : loc.startingItems) startingItemsList.add(item.save(new CompoundNBT()));
         tag.put("startingItems", startingItemsList);
 
         // ── Shop mode ─────────────────────────────────────────────────────
@@ -178,13 +178,13 @@ public final class LocationSerializer {
         if (loc.masPhysicalResist > 0) tag.putInt("masPhysicalResist",  loc.masPhysicalResist);
 
         // ── playerPoints ─────────────────────────────────────────────────
-        CompoundTag pointsTag = new CompoundTag();
+        CompoundNBT pointsTag = new CompoundNBT();
         for (java.util.Map.Entry<java.util.UUID, Integer> e : loc.playerPoints.entrySet())
             pointsTag.putInt(e.getKey().toString(), e.getValue());
         tag.put("playerPoints", pointsTag);
 
         // ── playerTeamMap ────────────────────────────────────────────────
-        CompoundTag teamTag = new CompoundTag();
+        CompoundNBT teamTag = new CompoundNBT();
         for (java.util.Map.Entry<java.util.UUID, String> e : loc.playerTeamMap.entrySet())
             teamTag.putString(e.getKey().toString(), e.getValue());
         tag.put("playerTeamMap", teamTag);
@@ -194,7 +194,7 @@ public final class LocationSerializer {
 
     // ─── Load ─────────────────────────────────────────────────────────────
 
-    public static Location load(CompoundTag tag) {
+    public static Location load(CompoundNBT tag) {
         Location loc = new Location(tag.getString("name"));
 
         // ── Core ─────────────────────────────────────────────────────────
@@ -209,21 +209,21 @@ public final class LocationSerializer {
         loc.playerSpawnRadius    = NbtHelper.getInt(tag,    "playerSpawnRadius",      0);
         loc.mobSpawnRadius       = NbtHelper.getInt(tag,    "mobSpawnRadius",         5);
 
-        if (tag.contains("playerSpawn")) loc.playerSpawn = net.minecraft.core.BlockPos.of(tag.getLong("playerSpawn"));
+        if (tag.contains("playerSpawn")) loc.playerSpawn = net.minecraft.util.math.BlockPos.of(tag.getLong("playerSpawn"));
 
         // ── Lists ─────────────────────────────────────────────────────────
         // MobSpawnPoint uses backward-compat loading (preserve original logic)
-        ListTag mobSpawnsList = tag.getList("mobSpawns", 10);
+        ListNBT mobSpawnsList = tag.getList("mobSpawns", 10);
         for (int i = 0; i < mobSpawnsList.size(); i++) {
-            CompoundTag spTag = mobSpawnsList.getCompound(i);
+            CompoundNBT spTag = mobSpawnsList.getCompound(i);
             if (spTag.contains("radius") || (spTag.contains("pos") && !spTag.contains("x"))) {
                 if (spTag.contains("pos") && spTag.get("pos").getId() == 4) {
                     loc.mobSpawns.add(MobSpawnPoint.load(spTag));
                 } else {
-                    loc.mobSpawns.add(MobSpawnPoint.fromBlockPos(net.minecraft.core.BlockPos.of(spTag.getLong("pos"))));
+                    loc.mobSpawns.add(MobSpawnPoint.fromBlockPos(net.minecraft.util.math.BlockPos.of(spTag.getLong("pos"))));
                 }
             } else {
-                loc.mobSpawns.add(MobSpawnPoint.fromBlockPos(net.minecraft.core.BlockPos.of(spTag.getLong("pos"))));
+                loc.mobSpawns.add(MobSpawnPoint.fromBlockPos(net.minecraft.util.math.BlockPos.of(spTag.getLong("pos"))));
             }
         }
 
@@ -234,7 +234,7 @@ public final class LocationSerializer {
         loc.completionRewards = NbtHelper.loadList(tag, "completionRewards", ShopItem::load);
 
         // startingItems uses vanilla ItemStack deserialization
-        ListTag sil = tag.getList("startingItems", 10);
+        ListNBT sil = tag.getList("startingItems", 10);
         for (int i = 0; i < sil.size(); i++) loc.startingItems.add(ItemStack.of(sil.getCompound(i)));
 
         // ── Shop mode ─────────────────────────────────────────────────────
@@ -243,9 +243,9 @@ public final class LocationSerializer {
 
         // ── BBox area + minimap ──────────────────────────────────────────
         loc.bboxMin = tag.contains("bboxMin")
-            ? net.minecraft.core.BlockPos.of(tag.getLong("bboxMin")) : null;
+            ? net.minecraft.util.math.BlockPos.of(tag.getLong("bboxMin")) : null;
         loc.bboxMax = tag.contains("bboxMax")
-            ? net.minecraft.core.BlockPos.of(tag.getLong("bboxMax")) : null;
+            ? net.minecraft.util.math.BlockPos.of(tag.getLong("bboxMax")) : null;
         loc.minimapEnabled = NbtHelper.getBool(tag, "minimapEnabled", false);
         loc.bboxOutlineEnabled = NbtHelper.getBool(tag, "bboxOutlineEnabled", false);
 
@@ -280,7 +280,7 @@ public final class LocationSerializer {
         loc.totalSessionsCompleted = NbtHelper.getInt(tag, "totalSessionsCompleted",0);
 
         if (tag.contains("autoActivateEntryPos"))
-            loc.autoActivateEntryPos = net.minecraft.core.BlockPos.of(tag.getLong("autoActivateEntryPos"));
+            loc.autoActivateEntryPos = net.minecraft.util.math.BlockPos.of(tag.getLong("autoActivateEntryPos"));
 
         loc.infoPanel = tag.contains("infoPanel")
                 ? InfoPanelSettings.load(tag.getCompound("infoPanel"))
@@ -291,14 +291,14 @@ public final class LocationSerializer {
         loc.victoryLingerTimeSec = NbtHelper.getInt(tag,  "victoryLingerTimeSec", 30);
 
         // ── Zone activation extended ──────────────────────────────────────
-        if (tag.contains("zoneCenter")) loc.zoneCenter = net.minecraft.core.BlockPos.of(tag.getLong("zoneCenter"));
+        if (tag.contains("zoneCenter")) loc.zoneCenter = net.minecraft.util.math.BlockPos.of(tag.getLong("zoneCenter"));
         loc.zoneUsesCustomCenter = NbtHelper.getBool(tag, "zoneUsesCustomCenter", false);
         loc.zoneActivationTimeSec = NbtHelper.getInt(tag, "zoneActivationTimeSec", 0);
         loc.zoneOpenAfterStartSec = NbtHelper.getInt(tag, "zoneOpenAfterStartSec", 0);
 
         // ── Exit points ───────────────────────────────────────────────────
-        if (tag.contains("victoryExitPos"))  loc.victoryExitPos  = net.minecraft.core.BlockPos.of(tag.getLong("victoryExitPos"));
-        if (tag.contains("surrenderExitPos"))loc.surrenderExitPos= net.minecraft.core.BlockPos.of(tag.getLong("surrenderExitPos"));
+        if (tag.contains("victoryExitPos"))  loc.victoryExitPos  = net.minecraft.util.math.BlockPos.of(tag.getLong("victoryExitPos"));
+        if (tag.contains("surrenderExitPos"))loc.surrenderExitPos= net.minecraft.util.math.BlockPos.of(tag.getLong("surrenderExitPos"));
 
         // ── Visibility / misc v0.2.18+ ────────────────────────────────────
         loc.hiddenFromPlayers    = NbtHelper.getBool(tag,   "hiddenFromPlayers",    false);
@@ -373,7 +373,7 @@ public final class LocationSerializer {
 
         // ── playerPoints ─────────────────────────────────────────────────
         if (tag.contains("playerPoints")) {
-            CompoundTag pointsTag = tag.getCompound("playerPoints");
+            CompoundNBT pointsTag = tag.getCompound("playerPoints");
             for (String key : pointsTag.getAllKeys()) {
                 try { loc.playerPoints.put(java.util.UUID.fromString(key), pointsTag.getInt(key)); }
                 catch (IllegalArgumentException ignored) {}
@@ -382,7 +382,7 @@ public final class LocationSerializer {
 
         // ── playerTeamMap ────────────────────────────────────────────────
         if (tag.contains("playerTeamMap")) {
-            CompoundTag teamTag = tag.getCompound("playerTeamMap");
+            CompoundNBT teamTag = tag.getCompound("playerTeamMap");
             for (String key : teamTag.getAllKeys()) {
                 try { loc.playerTeamMap.put(java.util.UUID.fromString(key), teamTag.getString(key)); }
                 catch (IllegalArgumentException ignored) {}

@@ -1,14 +1,16 @@
 package com.wavedefense.wave;
 
+import net.minecraft.util.text.ITextComponent;
+
 import com.wavedefense.data.GameStats;
 import com.wavedefense.data.Location;
 import com.wavedefense.data.PvpRoundState;
 import com.wavedefense.data.WaveConfig;
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.StringTag;
-import net.minecraft.nbt.Tag;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
+import net.minecraft.nbt.StringNBT;
+import net.minecraftforge.common.util.Constants;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,7 +30,7 @@ public class LocationSession {
     public final String   locationName;
     /**
      * @deprecated Always {@code null} after deserialization — use
-     * {@code WaveDefenseMod.locationManager.getLocation(locationName)} instead.
+     * {@code WaveDefenceMod.locationManager.getLocation(locationName)} instead.
      * Retained to avoid breaking the constructor signature.
      */
     @Deprecated
@@ -54,7 +56,7 @@ public class LocationSession {
     public static final int GRACE_TICKS = 600;
     public GameStats stats       = null;
 
-    // ── Mob tracking ─────────────────────────────────────────────────
+    // ── MobEntity tracking ─────────────────────────────────────────────────
     /** UUID мобів поточної основної хвилі. */
     public final Set<UUID> spawnedMobs = ConcurrentHashMap.newKeySet();
     /**
@@ -130,11 +132,11 @@ public class LocationSession {
     public boolean waveActive = false;
 
     /**
-     * ResourceLocation of the MobEffect currently applied to all players by the
+     * ResourceLocation of the Effect currently applied to all players by the
      * active wave's waveEffect setting. Null if no effect is active.
      * Not persisted — the effect is re-applied via the wave config on reload.
      */
-    public net.minecraft.resources.ResourceLocation currentWaveEffectId = null;
+    public net.minecraft.util.ResourceLocation currentWaveEffectId = null;
 
     public LocationSession(String locationName, Location config) {
         this.locationName = locationName;
@@ -229,7 +231,7 @@ public class LocationSession {
                     || (secsLeft <= 5 && graceTicksRemaining % 20 == 0); // every 1 s in last 5 s
             if (shouldAnnounce && graceTicksRemaining > 0) {
                 wm.broadcastToLocation(locationName,
-                    net.minecraft.network.chat.Component.translatable(
+                    new net.minecraft.util.text.TranslationTextComponent(
                         "wavedefense.msg.grace_closing", secsLeft));
             }
             if (graceTicksRemaining == 0) {
@@ -243,7 +245,7 @@ public class LocationSession {
         // so their wave does not stall forever.
         // Searches ALL loaded dimensions, not just the first player's level.
         if (tickCount % 40 == 0) {
-            net.minecraft.server.MinecraftServer srv = com.wavedefense.WaveDefenseMod.getServer();
+            net.minecraft.server.MinecraftServer srv = com.wavedefense.WaveDefenceMod.getServer();
             if (srv != null) {
                 // Sweep main wave mobs
                 if (!spawnedMobs.isEmpty()) {
@@ -252,8 +254,8 @@ public class LocationSession {
                     while (it.hasNext()) {
                         UUID uuid = it.next();
                         boolean alive = false;
-                        for (net.minecraft.server.level.ServerLevel lvl : srv.getAllLevels()) {
-                            net.minecraft.world.entity.Entity e = lvl.getEntity(uuid);
+                        for (net.minecraft.world.server.ServerWorld lvl : srv.getAllLevels()) {
+                            net.minecraft.entity.Entity e = lvl.getEntity(uuid);
                             if (e != null && e.isAlive()) { alive = true; break; }
                         }
                         if (!alive) { it.remove(); cleaned++; }
@@ -268,8 +270,8 @@ public class LocationSession {
                     while (it.hasNext()) {
                         UUID uuid = it.next();
                         boolean alive = false;
-                        for (net.minecraft.server.level.ServerLevel lvl : srv.getAllLevels()) {
-                            net.minecraft.world.entity.Entity e = lvl.getEntity(uuid);
+                        for (net.minecraft.world.server.ServerWorld lvl : srv.getAllLevels()) {
+                            net.minecraft.entity.Entity e = lvl.getEntity(uuid);
                             if (e != null && e.isAlive()) { alive = true; break; }
                         }
                         if (!alive) { it.remove(); }
@@ -422,14 +424,14 @@ public class LocationSession {
             wm.fireLootTriggerByNameWithValue(locationName, com.wavedefense.data.LootSpawn.Trigger.WAVE_N, currentWave);
             // Wave start title (configurable)
             if (com.wavedefense.config.WaveDefenseConfig.WAVE_START_TITLE_ENABLED.get()) {
-                net.minecraft.network.chat.Component titleComp = net.minecraft.network.chat.Component.translatable(
+                net.minecraft.util.text.ITextComponent titleComp = new net.minecraft.util.text.TranslationTextComponent(
                     "wavedefense.msg.wave_started", currentWave);
-                net.minecraft.network.chat.Component subtitleComp = net.minecraft.network.chat.Component.translatable(
+                net.minecraft.util.text.ITextComponent subtitleComp = new net.minecraft.util.text.TranslationTextComponent(
                     "wavedefense.hud.wave_counter", currentWave, location.getTotalWaves());
-                for (net.minecraft.server.level.ServerPlayer p : wm.getPlayersInLocation(locationName)) {
-                    p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket(5, 35, 15));
-                    p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(titleComp));
-                    p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket(subtitleComp));
+                for (net.minecraft.entity.player.ServerPlayerEntity p : wm.getPlayersInLocation(locationName)) {
+                    p.connection.send(new net.minecraft.network.play.server.STitlePacket(5, 35, 15));
+                    p.connection.send(new net.minecraft.network.play.server.STitlePacket(net.minecraft.network.play.server.STitlePacket.Type.TITLE, titleComp));
+                    p.connection.send(new net.minecraft.network.play.server.STitlePacket(net.minecraft.network.play.server.STitlePacket.Type.SUBTITLE, subtitleComp));
                 }
             }
             // Apply this wave's effect to all current players (if configured)
@@ -441,7 +443,7 @@ public class LocationSession {
             // (caller in tick() already incremented it once). The main tick() loop
             // will advance to the next wave on the very next tick.
             waveActive = false;
-            com.wavedefense.WaveDefenseMod.LOGGER.warn(
+            com.wavedefense.WaveDefenceMod.LOGGER.warn(
                 "[WaveDefense] spawnWave failed for wave {}/{} in '{}' — skipping",
                 currentWave, location.getTotalWaves(), locationName);
         }
@@ -466,7 +468,7 @@ public class LocationSession {
         wm.fireLootTriggerByName(locationName, com.wavedefense.data.LootSpawn.Trigger.WAVE_END);
         // Distribute per-wave points to every player in the location
         if (wc.getPointsReward() > 0) {
-            for (net.minecraft.server.level.ServerPlayer player : wm.getPlayersInLocation(locationName)) {
+            for (net.minecraft.entity.player.ServerPlayerEntity player : wm.getPlayersInLocation(locationName)) {
                 location.addPoints(player.getUUID(), wc.getPointsReward());
                 wm.syncPlayerData(player);
             }
@@ -478,12 +480,12 @@ public class LocationSession {
                     .replace("%location%", locationName)
                     .replace("%wave%", String.valueOf(currentWave))
                     .replace("%players%", String.valueOf(wm.getPlayersInLocation(locationName).size()));
-                net.minecraft.server.MinecraftServer srv = com.wavedefense.WaveDefenseMod.getServer();
+                net.minecraft.server.MinecraftServer srv = com.wavedefense.WaveDefenceMod.getServer();
                 if (srv != null) {
-                    srv.getCommands().performPrefixedCommand(srv.createCommandSourceStack(), cmd);
+                    srv.getCommands().performCommand(srv.createCommandSourceStack(), cmd);
                 }
             } catch (Exception e) {
-                com.wavedefense.WaveDefenseMod.LOGGER.warn(
+                com.wavedefense.WaveDefenceMod.LOGGER.warn(
                     "[WaveDefense] completionCommand failed for wave {} in '{}': {}",
                     currentWave, locationName, e.getMessage());
             }
@@ -497,25 +499,25 @@ public class LocationSession {
      * location. Duration: 1 h in ticks — effectively lasts the whole wave.
      * Stores the id in {@link #currentWaveEffectId} so it can be removed later.
      */
-    private void applyWaveEffect(net.minecraft.resources.ResourceLocation effectId, int amplifier, WaveManager wm) {
+    private void applyWaveEffect(net.minecraft.util.ResourceLocation effectId, int amplifier, WaveManager wm) {
         try {
-            net.minecraft.world.effect.MobEffect effect =
-                net.minecraftforge.registries.ForgeRegistries.MOB_EFFECTS.getValue(effectId);
+            net.minecraft.potion.Effect effect =
+                net.minecraftforge.registries.ForgeRegistries.POTIONS.getValue(effectId);
             if (effect == null) {
-                com.wavedefense.WaveDefenseMod.LOGGER.warn(
+                com.wavedefense.WaveDefenceMod.LOGGER.warn(
                     "[WaveDefense] Unknown wave effect '{}' for wave {} in '{}' — skipping",
                     effectId, currentWave, locationName);
                 return;
             }
             // 1 hour in ticks — the effect will be refreshed each wave
             int duration = 72000;
-            for (net.minecraft.server.level.ServerPlayer player : wm.getPlayersInLocation(locationName)) {
-                player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+            for (net.minecraft.entity.player.ServerPlayerEntity player : wm.getPlayersInLocation(locationName)) {
+                player.addEffect(new net.minecraft.potion.EffectInstance(
                     effect, duration, amplifier, false, true, true));
             }
             currentWaveEffectId = effectId;
         } catch (Exception e) {
-            com.wavedefense.WaveDefenseMod.LOGGER.warn(
+            com.wavedefense.WaveDefenceMod.LOGGER.warn(
                 "[WaveDefense] Failed to apply wave effect '{}' in '{}': {}",
                 effectId, locationName, e.getMessage());
         }
@@ -528,15 +530,15 @@ public class LocationSession {
     private void removeWaveEffect(WaveManager wm) {
         if (currentWaveEffectId == null) return;
         try {
-            net.minecraft.world.effect.MobEffect effect =
-                net.minecraftforge.registries.ForgeRegistries.MOB_EFFECTS.getValue(currentWaveEffectId);
+            net.minecraft.potion.Effect effect =
+                net.minecraftforge.registries.ForgeRegistries.POTIONS.getValue(currentWaveEffectId);
             if (effect != null) {
-                for (net.minecraft.server.level.ServerPlayer player : wm.getPlayersInLocation(locationName)) {
+                for (net.minecraft.entity.player.ServerPlayerEntity player : wm.getPlayersInLocation(locationName)) {
                     player.removeEffect(effect);
                 }
             }
         } catch (Exception e) {
-            com.wavedefense.WaveDefenseMod.LOGGER.warn(
+            com.wavedefense.WaveDefenceMod.LOGGER.warn(
                 "[WaveDefense] Failed to remove wave effect '{}' in '{}': {}",
                 currentWaveEffectId, locationName, e.getMessage());
         }
@@ -548,8 +550,8 @@ public class LocationSession {
     // ─────────────────────────────────────────────────────────────────
 
     /** Серіалізація стану сесії локації. */
-    public CompoundTag save() {
-        CompoundTag tag = new CompoundTag();
+    public CompoundNBT save() {
+        CompoundNBT tag = new CompoundNBT();
         tag.putString("locationName", locationName);
         // Wave state
         tag.putInt("currentWave", currentWave);
@@ -563,9 +565,9 @@ public class LocationSession {
         if (stats != null) {
             tag.put("stats", stats.save());
         }
-        // Mob tracking
+        // MobEntity tracking
         tag.put("spawnedMobs", saveUuidSet(spawnedMobs));
-        CompoundTag triggerMobsTag = new CompoundTag();
+        CompoundNBT triggerMobsTag = new CompoundNBT();
         for (Map.Entry<String, Set<UUID>> entry : triggerMobs.entrySet()) {
             triggerMobsTag.put(entry.getKey(), saveUuidSet(entry.getValue()));
         }
@@ -608,7 +610,7 @@ public class LocationSession {
             tag.put("pvpState", pvpState.save());
         }
         // InfoPanel
-        CompoundTag infoPanelTag = new CompoundTag();
+        CompoundNBT infoPanelTag = new CompoundNBT();
         for (Map.Entry<String, UUID> entry : infoPanelEntityIds.entrySet()) {
             infoPanelTag.putUUID(entry.getKey(), entry.getValue());
         }
@@ -617,7 +619,7 @@ public class LocationSession {
     }
 
     /** Відновлення стану сесії локації. */
-    public static LocationSession load(CompoundTag tag) {
+    public static LocationSession load(CompoundNBT tag) {
         String locationName = tag.getString("locationName");
         // config will be loaded separately from LocationManager
         LocationSession sess = new LocationSession(locationName, null);
@@ -633,9 +635,9 @@ public class LocationSession {
         if (tag.contains("stats")) {
             sess.stats = GameStats.load(tag.getCompound("stats"));
         }
-        // Mob tracking
+        // MobEntity tracking
         sess.spawnedMobs.addAll(loadUuidSet(tag.getList("spawnedMobs", 8)));
-        CompoundTag triggerMobsTag = tag.getCompound("triggerMobs");
+        CompoundNBT triggerMobsTag = tag.getCompound("triggerMobs");
         for (String key : triggerMobsTag.getAllKeys()) {
             sess.triggerMobs.put(key, loadUuidSet(triggerMobsTag.getList(key, 8)));
         }
@@ -676,7 +678,7 @@ public class LocationSession {
         }
         // InfoPanel
         if (tag.contains("infoPanelEntityIds")) {
-            CompoundTag infoPanelTag = tag.getCompound("infoPanelEntityIds");
+            CompoundNBT infoPanelTag = tag.getCompound("infoPanelEntityIds");
             for (String key : infoPanelTag.getAllKeys()) {
                 sess.infoPanelEntityIds.put(key, infoPanelTag.getUUID(key));
             }
@@ -688,36 +690,36 @@ public class LocationSession {
     //  Helper methods for NBT serialization
     // ─────────────────────────────────────────────────────────────────
 
-    private static ListTag saveUuidSet(Set<UUID> set) {
-        ListTag list = new ListTag();
+    private static ListNBT saveUuidSet(Set<UUID> set) {
+        ListNBT list = new ListNBT();
         for (UUID uuid : set) {
-            list.add(StringTag.valueOf(uuid.toString()));
+            list.add(StringNBT.valueOf(uuid.toString()));
         }
         return list;
     }
 
-    private static Set<UUID> loadUuidSet(ListTag list) {
+    private static Set<UUID> loadUuidSet(ListNBT list) {
         Set<UUID> set = ConcurrentHashMap.newKeySet();
         for (int i = 0; i < list.size(); i++) {
             try {
                 set.add(UUID.fromString(list.getString(i)));
             } catch (IllegalArgumentException ignored) {
-                com.wavedefense.WaveDefenseMod.LOGGER.warn(
+                com.wavedefense.WaveDefenceMod.LOGGER.warn(
                     "[WaveDefense] Skipped malformed UUID in session NBT: '{}'", list.getString(i));
             }
         }
         return set;
     }
 
-    private static CompoundTag saveLongMap(Map<String, Long> map) {
-        CompoundTag tag = new CompoundTag();
+    private static CompoundNBT saveLongMap(Map<String, Long> map) {
+        CompoundNBT tag = new CompoundNBT();
         for (Map.Entry<String, Long> entry : map.entrySet()) {
             tag.putLong(entry.getKey(), entry.getValue());
         }
         return tag;
     }
 
-    private static Map<String, Long> loadLongMap(CompoundTag tag) {
+    private static Map<String, Long> loadLongMap(CompoundNBT tag) {
         Map<String, Long> map = new ConcurrentHashMap<>();
         for (String key : tag.getAllKeys()) {
             map.put(key, tag.getLong(key));
@@ -725,15 +727,15 @@ public class LocationSession {
         return map;
     }
 
-    private static CompoundTag saveIntMap(Map<String, Integer> map) {
-        CompoundTag tag = new CompoundTag();
+    private static CompoundNBT saveIntMap(Map<String, Integer> map) {
+        CompoundNBT tag = new CompoundNBT();
         for (Map.Entry<String, Integer> entry : map.entrySet()) {
             tag.putInt(entry.getKey(), entry.getValue());
         }
         return tag;
     }
 
-    private static Map<String, Integer> loadIntMap(CompoundTag tag) {
+    private static Map<String, Integer> loadIntMap(CompoundNBT tag) {
         Map<String, Integer> map = new ConcurrentHashMap<>();
         for (String key : tag.getAllKeys()) {
             map.put(key, tag.getInt(key));

@@ -1,13 +1,16 @@
 package com.wavedefense.gui;
 
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+
 import com.wavedefense.data.WaveConfig;
 import com.wavedefense.data.WaveMob;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.EntityType;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.entity.EntityType;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.ArrayList;
@@ -22,15 +25,15 @@ public class MobTypeSelectionScreen extends ScrollableScreen {
     private int selectedIndex = -1;
 
     public MobTypeSelectionScreen(Screen parentScreen, WaveConfig waveConfig, int mobIndex) {
-        super(Component.translatable("wavedefense.title.mob_type_selection"));
+        super(new TranslationTextComponent("wavedefense.title.mob_type_selection"));
         this.parentScreen = parentScreen;
         this.waveConfig = waveConfig;
         this.mobIndex = mobIndex;
 
         availableMobs = new ArrayList<>();
-        ForgeRegistries.ENTITY_TYPES.getValues().forEach(entityType -> {
+        ForgeRegistries.ENTITIES.getValues().forEach(entityType -> {
             if (entityType.getCategory().isFriendly() == false &&
-                    entityType.getCategory() != net.minecraft.world.entity.MobCategory.MISC) {
+                    entityType.getCategory() != net.minecraft.entity.EntityClassification.MISC) {
                 availableMobs.add(entityType);
             }
         });
@@ -50,12 +53,12 @@ public class MobTypeSelectionScreen extends ScrollableScreen {
         if (delta > 0 && scrollOffset > 0) {
             scrollOffset -= ITEMS_PER_PAGE;
             if (scrollOffset < 0) scrollOffset = 0;
-            rebuildWidgets();
+            init();
             return true;
         }
         if (delta < 0 && scrollOffset + ITEMS_PER_PAGE < availableMobs.size()) {
             scrollOffset += ITEMS_PER_PAGE;
-            rebuildWidgets();
+            init();
             return true;
         }
         return false;
@@ -88,57 +91,42 @@ public class MobTypeSelectionScreen extends ScrollableScreen {
             int yPos = startY + (row * 30);
 
             final int finalIndex = index;
-            this.addRenderableWidget(Button.builder(
-                    Component.literal((selectedIndex == finalIndex ? "§a✓ " : "") + mobName),
-                    button -> selectMob(finalIndex)
-            ).bounds(xPos, yPos, 110, 25).build());
+            this.addButton(new Button(xPos, yPos, 110, 25, new StringTextComponent((selectedIndex == finalIndex ? "§a✓ " : "") + mobName), button -> selectMob(finalIndex)));
         }
 
         // Scroll buttons
         if (availableMobs.size() > ITEMS_PER_PAGE) {
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("▲"),
-                    button -> { if (scrollOffset > 0) { scrollOffset -= ITEMS_PER_PAGE; if (scrollOffset < 0) scrollOffset = 0; rebuildWidgets(); } }
-            ).bounds(centerX + 150, startY, 25, 25).build());
+            this.addButton(new Button(centerX + 150, startY, 25, 25, new StringTextComponent("▲"), button -> { if (scrollOffset > 0) { scrollOffset -= ITEMS_PER_PAGE; if (scrollOffset < 0) scrollOffset = 0; init(); } }));
 
-            this.addRenderableWidget(Button.builder(
-                    Component.literal("▼"),
-                    button -> { if (scrollOffset + ITEMS_PER_PAGE < availableMobs.size()) { scrollOffset += ITEMS_PER_PAGE; rebuildWidgets(); } }
-            ).bounds(centerX + 150, this.height - 80, 25, 25).build());
+            this.addButton(new Button(centerX + 150, this.height - 80, 25, 25, new StringTextComponent("▼"), button -> { if (scrollOffset + ITEMS_PER_PAGE < availableMobs.size()) { scrollOffset += ITEMS_PER_PAGE; init(); } }));
         }
 
         // ── Footer (static) ─────────────────────────────────────────
-        Button confirmButton = addStatic(Button.builder(
-                Component.translatable("wavedefense.button.select"),
-                button -> confirm()
-        ).bounds(centerX - 110, this.height - 30, 100, 20).build());
+        Button confirmButton = addStatic(new Button(centerX - 110, this.height - 30, 100, 20, new TranslationTextComponent("wavedefense.button.select"), button -> confirm()));
         confirmButton.active = selectedIndex >= 0;
 
-        addStatic(Button.builder(
-                Component.translatable("wavedefense.button.cancel"),
-                button -> this.minecraft.setScreen(parentScreen)
-        ).bounds(centerX + 10, this.height - 30, 100, 20).build());
+        addStatic(new Button(centerX + 10, this.height - 30, 100, 20, new TranslationTextComponent("wavedefense.button.cancel"), button -> this.minecraft.setScreen(parentScreen)));
     }
 
     // ─── Render hooks ──────────────────────────────────────────────────
 
     @Override
-    protected void renderHeader(GuiGraphics g, int mx, int my, float pt) {
-        g.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
-        g.drawString(this.font, Component.translatable("wavedefense.stats.mobs_available", availableMobs.size()), 10, 30, 0xAAAAAA);
+    protected void renderHeader(MatrixStack g, int mx, int my, float pt) {
+        com.wavedefense.gui.GuiCompat.drawCenteredString(g, this.font, this.title, this.width / 2, 10, 0xFFFFFF);
+        com.wavedefense.gui.GuiCompat.drawString(g, this.font, new TranslationTextComponent("wavedefense.stats.mobs_available", availableMobs.size()), 10, 30, 0xAAAAAA);
     }
 
     // ─── Дії ───────────────────────────────────────────────────────────
 
     private void selectMob(int index) {
         selectedIndex = index;
-        this.rebuildWidgets();
+        this.init();
     }
 
     private void confirm() {
         if (selectedIndex >= 0) {
             EntityType<?> selectedType = availableMobs.get(selectedIndex);
-            ResourceLocation mobId = ForgeRegistries.ENTITY_TYPES.getKey(selectedType);
+            ResourceLocation mobId = ForgeRegistries.ENTITIES.getKey(selectedType);
 
             WaveMob mob = waveConfig.getMobs().get(mobIndex);
             mob.setMobType(mobId);

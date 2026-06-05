@@ -1,9 +1,9 @@
 package com.wavedefense.data;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
+import net.minecraft.item.ItemStack;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -111,15 +111,15 @@ public class LootSpawn {
     }
 
     // ── NBT ──────────────────────────────────────────────────────────
-    public CompoundTag save() {
-        CompoundTag tag = new CompoundTag();
+    public CompoundNBT save() {
+        CompoundNBT tag = new CompoundNBT();
         tag.putLong("pos", pos.asLong());
         tag.putInt("spawnChance", spawnChance);
         tag.putInt("count", count);
 
-        ListTag itemsList = new ListTag();
+        ListNBT itemsList = new ListNBT();
         for (ItemStack item : items) {
-            if (!item.isEmpty()) itemsList.add(item.save(new CompoundTag()));
+            if (!item.isEmpty()) itemsList.add(item.save(new CompoundNBT()));
         }
         tag.put("items", itemsList);
 
@@ -137,13 +137,13 @@ public class LootSpawn {
         return tag;
     }
 
-    public static LootSpawn load(CompoundTag tag) {
+    public static LootSpawn load(CompoundNBT tag) {
         BlockPos pos       = BlockPos.of(tag.getLong("pos"));
         int spawnChance    = tag.getInt("spawnChance");
         int count          = tag.contains("count") ? tag.getInt("count") : 1;
 
         List<ItemStack> items = new ArrayList<>();
-        ListTag itemsList = tag.getList("items", 10);
+        ListNBT itemsList = tag.getList("items", 10);
         for (int i = 0; i < itemsList.size(); i++) {
             items.add(ItemStack.of(itemsList.getCompound(i)));
         }
