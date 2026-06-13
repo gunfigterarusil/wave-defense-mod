@@ -26,6 +26,14 @@ import java.util.Set;
  * і мають пріоритет при обробці кліків.
  */
 public abstract class ScrollableScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
 
     protected int scrollOffset = 0;
 
@@ -75,12 +83,12 @@ public abstract class ScrollableScreen extends Screen {
     public boolean mouseScrolled(double mx, double my, double delta) {
         if (delta > 0 && scrollOffset > 0) {
             scrollOffset--;
-            init();
+            rebuild();
             return true;
         }
         if (delta < 0 && scrollOffset + getItemsPerPage() < getListSize()) {
             scrollOffset++;
-            init();
+            rebuild();
             return true;
         }
         return super.mouseScrolled(mx, my, delta);
@@ -96,10 +104,10 @@ public abstract class ScrollableScreen extends Screen {
     /** Додає кнопки ▲/▼ якщо список більший за сторінку. */
     protected void addScrollButtons(int x, int topY, int botY, int btnW, int btnH) {
         if (getListSize() > getItemsPerPage()) {
-            addStatic(new Button(x, topY, btnW, btnH, new StringTextComponent("▲"), b -> { if (scrollOffset > 0) { scrollOffset--; init(); } }));
+            addStatic(new Button(x, topY, btnW, btnH, new StringTextComponent("▲"), b -> { if (scrollOffset > 0) { scrollOffset--; rebuild(); } }));
             addStatic(new Button(x, botY, btnW, btnH, new StringTextComponent("▼"), b -> {
                         int max = Math.max(0, getListSize() - getItemsPerPage());
-                        if (scrollOffset < max) { scrollOffset++; init(); }
+                        if (scrollOffset < max) { scrollOffset++; rebuild(); }
                     }));
         }
     }

@@ -26,6 +26,14 @@ import java.util.stream.Collectors;
  * ✓ Відображення активних тригерів у списку
  */
 public class LootSpawnEditorScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
     private final Location location;
     private final Screen   parent;
 
@@ -172,10 +180,10 @@ public class LootSpawnEditorScreen extends Screen {
             // Вибрати через ItemSelectionScreen (кнопка нижче іконки)
             this.addButton(new Button(xPos, y, dynSlotW, SLOT_H, new StringTextComponent(slotLbl), b -> minecraft.setScreen(new ItemSelectionScreen(this, stack -> {
                         editItems.set(si, stack);
-                        init();
+                        rebuild();
                     }, it))));
 
-            this.addButton(new Button(xPos, y + SLOT_H + 2, dynSlotW, SLOT_H, new TranslationTextComponent("wavedefense.button.clear_item"), b -> { editItems.set(si, ItemStack.EMPTY); init(); }));
+            this.addButton(new Button(xPos, y + SLOT_H + 2, dynSlotW, SLOT_H, new TranslationTextComponent("wavedefense.button.clear_item"), b -> { editItems.set(si, ItemStack.EMPTY); rebuild(); }));
 
             // Кнопка "←" взяти з руки — під кожним слотом
             this.addButton(new Button(xPos, y + SLOT_H * 2 + 4, dynSlotW, SLOT_H, new StringTextComponent("←"), b -> {
@@ -184,7 +192,7 @@ public class LootSpawnEditorScreen extends Screen {
                             if (!held.isEmpty()) {
                                 while (editItems.size() <= si) editItems.add(net.minecraft.item.ItemStack.EMPTY);
                                 editItems.set(si, held.copy());
-                                init();
+                                rebuild();
                             }
                         }
                     }))
@@ -249,11 +257,11 @@ public class LootSpawnEditorScreen extends Screen {
         // Кнопка тригерів
         int trigCount = editingIndex >= 0
                 ? location.getLootSpawns().get(editingIndex).getTriggers().size() : 1;
-        this.addButton(new Button(cx - btnW / 2, y, 210, 20, new TranslationTextComponent("wavedefense.label.loot_trigger_count", trigCount), b -> { showTriggers = true; init(); }));
+        this.addButton(new Button(cx - btnW / 2, y, 210, 20, new TranslationTextComponent("wavedefense.label.loot_trigger_count", trigCount), b -> { showTriggers = true; rebuild(); }));
         y += 28;
 
         this.addButton(new Button(cx - 110, y, 100, 20, new TranslationTextComponent("wavedefense.button.save"), b -> saveItem()));
-        this.addButton(new Button(cx + 10, y, 100, 20, new TranslationTextComponent("wavedefense.button.cancel"), b -> { editingItem = false; showTriggers = false; init(); }));
+        this.addButton(new Button(cx + 10, y, 100, 20, new TranslationTextComponent("wavedefense.button.cancel"), b -> { editingItem = false; showTriggers = false; rebuild(); }));
     }
 
     // ── Режим вибору тригерів ──────────────────────────────────────────
@@ -327,7 +335,7 @@ public class LootSpawnEditorScreen extends Screen {
                         if (editTriggers.contains(ft)) editTriggers.remove(ft);
                         else                            editTriggers.add(ft);
                     }
-                    init();
+                    rebuild();
                 });
             /* setTooltip omitted on 1.16.5: btn */
             this.addButton(btn);
@@ -368,7 +376,7 @@ public class LootSpawnEditorScreen extends Screen {
         }
 
         // ── Кнопка Готово ─────────────────────────────────────────────
-        this.addButton(new Button(cx - 60, this.height - 26, 120, 20, new TranslationTextComponent("wavedefense.button.done"), b -> { showTriggers = false; init(); }));
+        this.addButton(new Button(cx - 60, this.height - 26, 120, 20, new TranslationTextComponent("wavedefense.button.done"), b -> { showTriggers = false; rebuild(); }));
     }
 
     // Тригери для нового (ще не збереженого) loot spawn
@@ -388,7 +396,7 @@ public class LootSpawnEditorScreen extends Screen {
         editItems     = new ArrayList<>();
         editTriggers  = new LinkedHashSet<>(Collections.singleton(LootSpawn.Trigger.WAVE_START));
         while (editItems.size() < 4) editItems.add(ItemStack.EMPTY);
-        init();
+        rebuild();
     }
 
     private void startEditItem(int idx) {
@@ -398,7 +406,7 @@ public class LootSpawnEditorScreen extends Screen {
         LootSpawn ls = location.getLootSpawns().get(idx);
         editItems    = new ArrayList<>(ls.getItems());
         while (editItems.size() < 4) editItems.add(ItemStack.EMPTY);
-        init();
+        rebuild();
     }
 
     private void saveItem() {
@@ -441,7 +449,7 @@ public class LootSpawnEditorScreen extends Screen {
             }
             editingItem  = false;
             showTriggers = false;
-            init();
+            rebuild();
         } catch (NumberFormatException e) {
             if (minecraft.player != null)
                 minecraft.player.displayClientMessage(
@@ -602,14 +610,14 @@ public class LootSpawnEditorScreen extends Screen {
                 .filter(t -> isPvp ? t.pvp : t.pve).count();
             int listH   = Math.max(1, lootTrigScrollBot - lootTrigScrollTop);
             int visible = listH / (LOOT_BTN_H + LOOT_BTN_GAP);
-            if (delta > 0 && lootTriggerScrollOffset > 0) { lootTriggerScrollOffset--; init(); }
-            else if (delta < 0 && lootTriggerScrollOffset + visible < cnt) { lootTriggerScrollOffset++; init(); }
+            if (delta > 0 && lootTriggerScrollOffset > 0) { lootTriggerScrollOffset--; rebuild(); }
+            else if (delta < 0 && lootTriggerScrollOffset + visible < cnt) { lootTriggerScrollOffset++; rebuild(); }
             return true;
         }
         if (!editingItem) {
-            if (delta > 0 && scrollOffset > 0) { scrollOffset--; init(); }
+            if (delta > 0 && scrollOffset > 0) { scrollOffset--; rebuild(); }
             else if (delta < 0 && scrollOffset + PER_PAGE < location.getLootSpawns().size()) {
-                scrollOffset++; init();
+                scrollOffset++; rebuild();
             }
         }
         return true;

@@ -18,6 +18,14 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class PlayerMenuScreen extends ListEditorScreen<String> {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
 
     private List<String> locationNames;
     private int btnW;

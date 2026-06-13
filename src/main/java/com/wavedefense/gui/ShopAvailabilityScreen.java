@@ -25,6 +25,14 @@ import net.minecraft.util.text.ITextComponent;
  *   SHOP_PLAYER_HAS_ITEM    — Якщо є предмет     [поле: item id]
  */
 public class ShopAvailabilityScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
 
     private final Screen   parent;
     private final Location location;
@@ -209,8 +217,8 @@ public class ShopAvailabilityScreen extends Screen {
     @Override
     public boolean mouseScrolled(double mx, double my, double delta) {
         int visible = Math.max(1, (scrollBot - scrollTop) / (BTN_H + BTN_GAP));
-        if (delta > 0 && scrollOffset > 0) { scrollOffset--; init(); }
-        else if (delta < 0 && scrollOffset + visible < SHOP_TRIGGERS.length) { scrollOffset++; init(); }
+        if (delta > 0 && scrollOffset > 0) { scrollOffset--; rebuild(); }
+        else if (delta < 0 && scrollOffset + visible < SHOP_TRIGGERS.length) { scrollOffset++; rebuild(); }
         return true;
     }
 

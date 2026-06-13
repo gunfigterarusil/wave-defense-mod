@@ -12,6 +12,14 @@ import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.ResourceLocation;
 
 public class RewardsConfigScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
     private final Screen parentScreen;
     private final WaveConfig waveConfig;
     private TextFieldWidget pointsRewardInput;

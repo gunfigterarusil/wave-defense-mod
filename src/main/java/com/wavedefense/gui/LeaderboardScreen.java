@@ -30,6 +30,14 @@ import java.util.List;
  *   Close button
  */
 public class LeaderboardScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
 
     private static final String[] MODE_KEYS = {
         LeaderboardManager.MODE_PVE,
@@ -119,15 +127,15 @@ public class LeaderboardScreen extends Screen {
             final String name = locationNames.get(idx);
             boolean sel = name.equals(selectedLocation);
             int bx = startX + i * (btnW + btnGap);
-            this.addButton(new Button(bx, 30, btnW, 16, new StringTextComponent(sel ? "§a§l" + name : "§7" + name), b -> { selectedLocation = name; locScrollOffset = 0; init(); requestData(); }));
+            this.addButton(new Button(bx, 30, btnW, 16, new StringTextComponent(sel ? "§a§l" + name : "§7" + name), b -> { selectedLocation = name; locScrollOffset = 0; rebuild(); requestData(); }));
         }
 
         // Scroll buttons for locations
         if (locScrollOffset > 0) {
-            this.addButton(new Button(cx - this.width / 2 + 5, 30, 16, 16, new StringTextComponent("◀"), b -> { locScrollOffset = Math.max(0, locScrollOffset - 1); init(); }));
+            this.addButton(new Button(cx - this.width / 2 + 5, 30, 16, 16, new StringTextComponent("◀"), b -> { locScrollOffset = Math.max(0, locScrollOffset - 1); rebuild(); }));
         }
         if (locScrollOffset + maxVisible < locationNames.size()) {
-            this.addButton(new Button(cx + this.width / 2 - 21, 30, 16, 16, new StringTextComponent("▶"), b -> { locScrollOffset++; init(); }));
+            this.addButton(new Button(cx + this.width / 2 - 21, 30, 16, 16, new StringTextComponent("▶"), b -> { locScrollOffset++; rebuild(); }));
         }
     }
 
@@ -155,7 +163,7 @@ public class LeaderboardScreen extends Screen {
         for (int vi = 0; vi < visible.size(); vi++) {
             final int idx = visible.get(vi);
             boolean sel = (selectedMode == idx);
-            this.addButton(new Button(startX + vi * (tabW + tabGap), 52, tabW, 16, new StringTextComponent(sel ? "§a§l" + MODE_LABELS[idx] : "§7" + MODE_LABELS[idx]), b -> { selectedMode = idx; init(); requestData(); }));
+            this.addButton(new Button(startX + vi * (tabW + tabGap), 52, tabW, 16, new StringTextComponent(sel ? "§a§l" + MODE_LABELS[idx] : "§7" + MODE_LABELS[idx]), b -> { selectedMode = idx; rebuild(); requestData(); }));
         }
     }
 
@@ -261,12 +269,12 @@ public class LeaderboardScreen extends Screen {
             if (delta < 0) {
                 if (locScrollOffset + maxVisible < locationNames.size()) {
                     locScrollOffset++;
-                    init();
+                    rebuild();
                 }
             } else if (delta > 0) {
                 if (locScrollOffset > 0) {
                     locScrollOffset--;
-                    init();
+                    rebuild();
                 }
             }
             return true;

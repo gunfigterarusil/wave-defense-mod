@@ -10,6 +10,14 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.util.text.ITextComponent;
 
 public class LocationInfoScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
     private final Location location;
     private final Screen parentScreen;
 

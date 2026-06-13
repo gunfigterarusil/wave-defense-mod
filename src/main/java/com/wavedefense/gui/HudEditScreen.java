@@ -16,6 +16,14 @@ import net.minecraft.util.text.ITextComponent;
  *   б) вибрати з пресетів
  */
 public class HudEditScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
 
     private final Screen parent;
     private final HudLayout layout;
@@ -86,7 +94,7 @@ public class HudEditScreen extends Screen {
             layout.preset  = HudLayout.Preset.CUSTOM;
             layout.blockX  = previewX;
             layout.blockY  = previewY;
-            init();
+            rebuild();
             return true;
         }
         return super.mouseDragged(mx, my, btn, dx, dy);

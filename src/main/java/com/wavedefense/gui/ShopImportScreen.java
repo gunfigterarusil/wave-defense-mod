@@ -22,6 +22,14 @@ import java.util.List;
  * Дозволяє вибрати ціль: global або конкретну точку.
  */
 public class ShopImportScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
 
     private final Location location;
     private final boolean isPointMode;
@@ -62,9 +70,9 @@ public class ShopImportScreen extends Screen {
                 this.addButton(new Button(cx - 150, y + i * 22, 300, 20, new StringTextComponent("§e" + fileName), b -> showTargetSelect(fileName)));
             }
             if (files.size() > FILES_PER_PAGE) {
-                this.addButton(new Button(cx + 156, 44, 18, 18, new StringTextComponent("▲"), b -> { if (scrollOffset > 0) { scrollOffset--; init(); } }));
+                this.addButton(new Button(cx + 156, 44, 18, 18, new StringTextComponent("▲"), b -> { if (scrollOffset > 0) { scrollOffset--; rebuild(); } }));
                 this.addButton(new Button(cx + 156, this.height - 52, 18, 18, new StringTextComponent("▼"), b -> { int max = Math.max(0, files.size() - FILES_PER_PAGE);
-                           if (scrollOffset < max) { scrollOffset++; init(); } }));
+                           if (scrollOffset < max) { scrollOffset++; rebuild(); } }));
             }
         }
 

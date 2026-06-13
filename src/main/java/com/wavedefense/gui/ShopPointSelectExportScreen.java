@@ -16,6 +16,14 @@ import java.util.List;
 
 /** Вибір точки магазину для експорту. */
 public class ShopPointSelectExportScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
 
     private final Location location;
     private final Screen parent;

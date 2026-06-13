@@ -17,6 +17,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MobTypeSelectionScreen extends ScrollableScreen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
     private final Screen parentScreen;
     private final WaveConfig waveConfig;
     private final int mobIndex;
@@ -53,12 +61,12 @@ public class MobTypeSelectionScreen extends ScrollableScreen {
         if (delta > 0 && scrollOffset > 0) {
             scrollOffset -= ITEMS_PER_PAGE;
             if (scrollOffset < 0) scrollOffset = 0;
-            init();
+            rebuild();
             return true;
         }
         if (delta < 0 && scrollOffset + ITEMS_PER_PAGE < availableMobs.size()) {
             scrollOffset += ITEMS_PER_PAGE;
-            init();
+            rebuild();
             return true;
         }
         return false;

@@ -22,6 +22,14 @@ import java.util.List;
  *  - Вставити після конкретної хвилі
  */
 public class WaveImportTargetScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
 
     private final Location location;
     private final String fileName;
@@ -108,8 +116,8 @@ public class WaveImportTargetScreen extends Screen {
     @Override
     public boolean mouseScrolled(double x, double y, double delta) {
         int itemsPerPage = Math.max(2, (this.height - 120) / ((BTN_H + GAP) * 2 + 4));
-        if (delta > 0 && scrollOffset > 0) { scrollOffset--; init(); }
-        else if (delta < 0 && scrollOffset + itemsPerPage < location.getWaves().size()) { scrollOffset++; init(); }
+        if (delta > 0 && scrollOffset > 0) { scrollOffset--; rebuild(); }
+        else if (delta < 0 && scrollOffset + itemsPerPage < location.getWaves().size()) { scrollOffset++; rebuild(); }
         return true;
     }
 

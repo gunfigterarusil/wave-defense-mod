@@ -27,6 +27,14 @@ import java.util.List;
  *   — список товарів точки
  */
 public class ShopPointEditorScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
 
     private final Location location;
     private final int      pointIndex; // -1 = новий
@@ -166,7 +174,7 @@ public class ShopPointEditorScreen extends Screen {
     private void setCurrentPos() {
         if (minecraft.player != null) {
             editingPoint.setPos(minecraft.player.blockPosition());
-            init();
+            rebuild();
         }
     }
 
@@ -175,7 +183,7 @@ public class ShopPointEditorScreen extends Screen {
         BlockPos pos = posCoordField.getValue();
         if (pos != null) {
             editingPoint.setPos(pos);
-            init();
+            rebuild();
         } else if (!posCoordField.isEmpty() && minecraft.player != null) {
             minecraft.player.displayClientMessage(new TranslationTextComponent("wavedefense.auto.невірний_формат_координат_607bcb51"), true);
         }
@@ -206,8 +214,8 @@ public class ShopPointEditorScreen extends Screen {
     @Override
     public boolean mouseScrolled(double mx, double my, double delta) {
         int max = Math.max(0, editingPoint.getItems().size() - itemsPerPage);
-        if (delta > 0 && scrollOffset > 0) { scrollOffset--; init(); }
-        else if (delta < 0 && scrollOffset < max) { scrollOffset++; init(); }
+        if (delta > 0 && scrollOffset > 0) { scrollOffset--; rebuild(); }
+        else if (delta < 0 && scrollOffset < max) { scrollOffset++; rebuild(); }
         return true;
     }
 

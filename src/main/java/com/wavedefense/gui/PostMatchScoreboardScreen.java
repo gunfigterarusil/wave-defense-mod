@@ -23,6 +23,14 @@ import java.util.Map;
  * highlights the winning team. Opened by {@link OpenPostMatchScoreboardPacket}.
  */
 public class PostMatchScoreboardScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
 
     private final String modeLabel;
     private final String winnerTeam;       // empty = draw

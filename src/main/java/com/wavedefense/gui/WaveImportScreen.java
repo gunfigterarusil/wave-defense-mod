@@ -17,6 +17,14 @@ import java.util.List;
  * Список файлів у wave_export/ — вибрати один → відкрити WaveImportTargetScreen.
  */
 public class WaveImportScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
 
     final Location location;
     final Screen parent;
@@ -62,8 +70,8 @@ public class WaveImportScreen extends Screen {
 
             // Скрол
             if (files.size() > itemsPerPage) {
-                this.addButton(new Button(cx + 133, listStartY, 18, BTN_H, new StringTextComponent("▲"), b -> { if (scrollOffset > 0) { scrollOffset--; init(); } }));
-                this.addButton(new Button(cx + 133, this.height - 35, 18, BTN_H, new StringTextComponent("▼"), b -> { if (scrollOffset < max) { scrollOffset++; init(); } }));
+                this.addButton(new Button(cx + 133, listStartY, 18, BTN_H, new StringTextComponent("▲"), b -> { if (scrollOffset > 0) { scrollOffset--; rebuild(); } }));
+                this.addButton(new Button(cx + 133, this.height - 35, 18, BTN_H, new StringTextComponent("▼"), b -> { if (scrollOffset < max) { scrollOffset++; rebuild(); } }));
             }
         }
 
@@ -86,8 +94,8 @@ public class WaveImportScreen extends Screen {
     public boolean mouseScrolled(double x, double y, double delta) {
         int itemsPerPage = Math.max(3, (this.height - 83) / (BTN_H + GAP));
         int max = Math.max(0, ClientWaveExportManager.getFiles().size() - itemsPerPage);
-        if (delta > 0 && scrollOffset > 0) { scrollOffset--; init(); }
-        else if (delta < 0 && scrollOffset < max) { scrollOffset++; init(); }
+        if (delta > 0 && scrollOffset > 0) { scrollOffset--; rebuild(); }
+        else if (delta < 0 && scrollOffset < max) { scrollOffset++; rebuild(); }
         return true;
     }
 

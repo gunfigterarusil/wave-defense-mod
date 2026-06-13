@@ -25,6 +25,14 @@ import java.util.List;
  *                             радіус. Гравець відкриє магазин лише поряд з точкою.
  */
 public class ShopEditorScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
 
     private final Location location;
     private final Screen   parent;
@@ -111,7 +119,7 @@ public class ShopEditorScreen extends Screen {
             this.addButton(new Button(cx + 6, startY, 50, 18, new TranslationTextComponent("wavedefense.tacz.bulk.open_button"), b -> minecraft.setScreen(/* not ported */ null)));
         }
         // View-mode toggle — matches PlayerShopScreen UX
-        this.addButton(new Button(cx + 60, startY, 40, 18, new TranslationTextComponent(tileMode ? "wavedefense.shop.view_tiles" : "wavedefense.shop.view_list"), b -> { tileMode = !tileMode; scrollOffsetGlobal = 0; init(); }));
+        this.addButton(new Button(cx + 60, startY, 40, 18, new TranslationTextComponent(tileMode ? "wavedefense.shop.view_tiles" : "wavedefense.shop.view_list"), b -> { tileMode = !tileMode; scrollOffsetGlobal = 0; rebuild(); }));
         startY += 22;
 
         List<ShopItem> items = location.getShopItems();
@@ -140,10 +148,10 @@ public class ShopEditorScreen extends Screen {
                         pendingDeleteShopIndex = -1;
                         location.removeShopItem(fi);
                         scrollOffsetGlobal = Math.max(0, Math.min(scrollOffsetGlobal, Math.max(0, location.getShopItems().size() - ITEMS_PER_PAGE)));
-                        init();
+                        rebuild();
                     } else {
                         pendingDeleteShopIndex = fi;
-                        init();
+                        rebuild();
                     }
                 }));
             this.addButton(new Button(cx - 140, yPos + 48, 280, 12, new TranslationTextComponent("wavedefense.auto.купити_d_продати_d_05ac8a91", si.getBuyPrice(), si.getSellPrice()), b -> {})).active = false;
@@ -152,8 +160,8 @@ public class ShopEditorScreen extends Screen {
         }
 
         if (items.size() > ITEMS_PER_PAGE) {
-            this.addButton(new Button(cx + 145, startY, 18, 18, new StringTextComponent("▲"), b -> { if (scrollOffsetGlobal>0){scrollOffsetGlobal--;init();} }));
-            this.addButton(new Button(cx + 145, this.height - 52, 18, 18, new StringTextComponent("▼"), b -> { if (scrollOffsetGlobal+ITEMS_PER_PAGE<items.size()){scrollOffsetGlobal++;init();} }));
+            this.addButton(new Button(cx + 145, startY, 18, 18, new StringTextComponent("▲"), b -> { if (scrollOffsetGlobal>0){scrollOffsetGlobal--;rebuild();} }));
+            this.addButton(new Button(cx + 145, this.height - 52, 18, 18, new StringTextComponent("▼"), b -> { if (scrollOffsetGlobal+ITEMS_PER_PAGE<items.size()){scrollOffsetGlobal++;rebuild();} }));
         }
     }
 
@@ -189,17 +197,17 @@ public class ShopEditorScreen extends Screen {
                         location.removeShopItem(fi);
                         int maxOff = Math.max(0, location.getShopItems().size() - perPage);
                         scrollOffsetGlobal = Math.max(0, Math.min(scrollOffsetGlobal, maxOff));
-                        init();
+                        rebuild();
                     } else {
                         pendingDeleteShopIndex = fi;
-                        init();
+                        rebuild();
                     }
                 }));
         }
 
         if (items.size() > perPage) {
-            this.addButton(new Button(gridX + gridW + 4, startY, 18, 18, new StringTextComponent("▲"), b -> { if (scrollOffsetGlobal > 0) { scrollOffsetGlobal--; init(); } }));
-            this.addButton(new Button(gridX + gridW + 4, this.height - 52, 18, 18, new StringTextComponent("▼"), b -> { if (scrollOffsetGlobal + perPage < items.size()) { scrollOffsetGlobal++; init(); } }));
+            this.addButton(new Button(gridX + gridW + 4, startY, 18, 18, new StringTextComponent("▲"), b -> { if (scrollOffsetGlobal > 0) { scrollOffsetGlobal--; rebuild(); } }));
+            this.addButton(new Button(gridX + gridW + 4, this.height - 52, 18, 18, new StringTextComponent("▼"), b -> { if (scrollOffsetGlobal + perPage < items.size()) { scrollOffsetGlobal++; rebuild(); } }));
         }
     }
 
@@ -252,10 +260,10 @@ public class ShopEditorScreen extends Screen {
                         pendingDeletePointIndex = -1;
                         location.removeShopPoint(fi);
                         scrollOffsetPoints = Math.max(0, Math.min(scrollOffsetPoints, Math.max(0, location.getShopPoints().size() - POINTS_PER_PAGE)));
-                        init();
+                        rebuild();
                     } else {
                         pendingDeletePointIndex = fi;
-                        init();
+                        rebuild();
                     }
                 }));
 
@@ -268,8 +276,8 @@ public class ShopEditorScreen extends Screen {
         }
 
         if (points.size() > POINTS_PER_PAGE) {
-            this.addButton(new Button(cx + 145, startY, 18, 18, new StringTextComponent("▲"), b -> { if (scrollOffsetPoints>0){scrollOffsetPoints--;init();} }));
-            this.addButton(new Button(cx + 145, this.height - 52, 18, 18, new StringTextComponent("▼"), b -> { if (scrollOffsetPoints+POINTS_PER_PAGE<points.size()){scrollOffsetPoints++;init();} }));
+            this.addButton(new Button(cx + 145, startY, 18, 18, new StringTextComponent("▲"), b -> { if (scrollOffsetPoints>0){scrollOffsetPoints--;rebuild();} }));
+            this.addButton(new Button(cx + 145, this.height - 52, 18, 18, new StringTextComponent("▼"), b -> { if (scrollOffsetPoints+POINTS_PER_PAGE<points.size()){scrollOffsetPoints++;rebuild();} }));
         }
     }
 
@@ -346,12 +354,12 @@ public class ShopEditorScreen extends Screen {
     public boolean mouseScrolled(double mx, double my, double delta) {
         if (!location.isPointShopMode()) {
             int max = Math.max(0, location.getShopItems().size() - ITEMS_PER_PAGE);
-            if (delta > 0 && scrollOffsetGlobal > 0) { scrollOffsetGlobal--; init(); }
-            else if (delta < 0 && scrollOffsetGlobal < max) { scrollOffsetGlobal++; init(); }
+            if (delta > 0 && scrollOffsetGlobal > 0) { scrollOffsetGlobal--; rebuild(); }
+            else if (delta < 0 && scrollOffsetGlobal < max) { scrollOffsetGlobal++; rebuild(); }
         } else {
             int max = Math.max(0, location.getShopPoints().size() - POINTS_PER_PAGE);
-            if (delta > 0 && scrollOffsetPoints > 0) { scrollOffsetPoints--; init(); }
-            else if (delta < 0 && scrollOffsetPoints < max) { scrollOffsetPoints++; init(); }
+            if (delta > 0 && scrollOffsetPoints > 0) { scrollOffsetPoints--; rebuild(); }
+            else if (delta < 0 && scrollOffsetPoints < max) { scrollOffsetPoints++; rebuild(); }
         }
         return true;
     }

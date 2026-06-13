@@ -16,6 +16,14 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.util.text.ITextComponent;
 
 public class WaveConfigScreen extends ScrollableScreen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
     private final Location location;
     private final Screen parent;
     private TextFieldWidget waveCountInput;
@@ -219,7 +227,7 @@ public class WaveConfigScreen extends ScrollableScreen {
         // Вийти без збереження
         this.addButton(new Button(cx - 5, dy + 45, 155, 20, new TranslationTextComponent("wavedefense.button.exit_without_saving"), b -> { isDirty = false; showUnsavedDialog = false; this.minecraft.setScreen(parent); }));
         // Залишитись
-        this.addButton(new Button(cx - 75, dy + 70, 150, 20, new TranslationTextComponent("wavedefense.button.stay"), b -> { showUnsavedDialog = false; init(); }));
+        this.addButton(new Button(cx - 75, dy + 70, 150, 20, new TranslationTextComponent("wavedefense.button.stay"), b -> { showUnsavedDialog = false; rebuild(); }));
     }
 
     @Override
@@ -284,7 +292,7 @@ public class WaveConfigScreen extends ScrollableScreen {
             if (targetCount < currentCount) {
                 pendingWaveCount = targetCount;
                 showConfirmDialog = true;
-                init();
+                rebuild();
                 return;
             }
             if (targetCount > currentCount) {
@@ -296,7 +304,7 @@ public class WaveConfigScreen extends ScrollableScreen {
             }
             isDirty = true;
             location.setTotalWaves(targetCount);
-            init();
+            rebuild();
         } catch (NumberFormatException ignored) {}
     }
 
@@ -308,7 +316,7 @@ public class WaveConfigScreen extends ScrollableScreen {
                 wave.setTimeBetweenWaves(seconds);
             }
             location.setTimeBetweenWaves(seconds);
-            init();
+            rebuild();
         } catch (NumberFormatException ignored) {}
     }
 
@@ -319,13 +327,13 @@ public class WaveConfigScreen extends ScrollableScreen {
         location.setTotalWaves(pendingWaveCount);
         waveCountInput.setValue(String.valueOf(pendingWaveCount));
         showConfirmDialog = false;
-        init();
+        rebuild();
     }
 
     private void cancelWaveCountChange() {
         showConfirmDialog = false;
         pendingWaveCount = 0;
-        init();
+        rebuild();
     }
 
     private void editWaveMobs(int idx) {
@@ -371,7 +379,7 @@ public class WaveConfigScreen extends ScrollableScreen {
             location.getWaves().remove(idx);
             location.setTotalWaves(location.getWaves().size());
             clampScroll();
-            init();
+            rebuild();
         }
     }
 
@@ -412,7 +420,7 @@ public class WaveConfigScreen extends ScrollableScreen {
     public void onClose() {
         if (isDirty && !showUnsavedDialog) {
             showUnsavedDialog = true;
-            init();
+            rebuild();
         } else {
             super.onClose();
         }

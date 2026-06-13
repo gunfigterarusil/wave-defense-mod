@@ -12,6 +12,14 @@ import com.wavedefense.gui.ScissorHelper;
 import net.minecraft.item.ItemStack;
 
 public class StartingItemsScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
     private final Screen parentScreen;
     /** v0.2.64: items source is a raw list reference, not necessarily Location.
      *  Backwards-compat constructor still takes Location and delegates. */

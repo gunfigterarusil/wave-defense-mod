@@ -21,6 +21,14 @@ import java.util.List;
  * - Кнопка для кожної хвилі → mode "wave:N"
  */
 public class WaveExportScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
 
     private final Location location;
     private final Screen parent;
@@ -95,8 +103,8 @@ public class WaveExportScreen extends Screen {
     public boolean mouseScrolled(double x, double y, double delta) {
         List<WaveConfig> waves = location.getWaves();
         int itemsPerPage = Math.max(3, (this.height - 100) / (BTN_H + GAP));
-        if (delta > 0 && scrollOffset > 0) { scrollOffset--; init(); }
-        else if (delta < 0 && scrollOffset + itemsPerPage < waves.size()) { scrollOffset++; init(); }
+        if (delta > 0 && scrollOffset > 0) { scrollOffset--; rebuild(); }
+        else if (delta < 0 && scrollOffset + itemsPerPage < waves.size()) { scrollOffset++; rebuild(); }
         return true;
     }
 

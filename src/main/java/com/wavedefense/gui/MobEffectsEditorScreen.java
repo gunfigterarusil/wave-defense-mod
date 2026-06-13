@@ -27,6 +27,14 @@ import java.util.stream.Collectors;
  * ✓ Розширений список з пошуком
  */
 public class MobEffectsEditorScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
 
     private final Screen parent;
     private final WaveMob mob;
@@ -174,7 +182,7 @@ public class MobEffectsEditorScreen extends Screen {
                         e.getDisplayName().getString().toLowerCase().contains(q.toLowerCase()) ||
                         ForgeRegistries.POTIONS.getKey(e).toString().toLowerCase().contains(q.toLowerCase()))
                 .collect(java.util.stream.Collectors.toList());
-        init();
+        rebuild();
     }
 
     private void addSelectedEffect() {
@@ -185,7 +193,7 @@ public class MobEffectsEditorScreen extends Screen {
             ResourceLocation key = ForgeRegistries.POTIONS.getKey(selectedEffect);
             if (key != null) {
                 effects.add(key + ":" + amp + ":" + dur);
-                init();
+                rebuild();
             }
         } catch (NumberFormatException ignored) {}
     }
@@ -227,13 +235,13 @@ public class MobEffectsEditorScreen extends Screen {
             int panelH = this.height - 60;
             int effectListH = panelH - 110;
             int effectVisibleMax = Math.max(3, effectListH / EFFECT_ROW_H);
-            if (delta > 0 && effectScrollOffset > 0) { effectScrollOffset--; init(); }
-            else if (delta < 0 && effectScrollOffset + effectVisibleMax < filteredEffects.size()) { effectScrollOffset++; init(); }
+            if (delta > 0 && effectScrollOffset > 0) { effectScrollOffset--; rebuild(); }
+            else if (delta < 0 && effectScrollOffset + effectVisibleMax < filteredEffects.size()) { effectScrollOffset++; rebuild(); }
         } else {
             int panelH2 = this.height - 60;
             int activeVisibleMax2 = Math.max(2, (panelH2 - 100) / ACTIVE_ROW_H);
-            if (delta > 0 && activeScrollOffset > 0) { activeScrollOffset--; init(); }
-            else if (delta < 0 && activeScrollOffset + activeVisibleMax2 < effects.size()) { activeScrollOffset++; init(); }
+            if (delta > 0 && activeScrollOffset > 0) { activeScrollOffset--; rebuild(); }
+            else if (delta < 0 && activeScrollOffset + activeVisibleMax2 < effects.size()) { activeScrollOffset++; rebuild(); }
         }
         return true;
     }

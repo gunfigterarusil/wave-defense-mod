@@ -25,6 +25,14 @@ import java.util.List;
  *  Edit  — form to create/modify a single CapturePoint.
  */
 public class CapturePointEditorScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
 
     private static final int PER_PAGE = 5;
 
@@ -93,7 +101,7 @@ public class CapturePointEditorScreen extends Screen {
         List<CapturePoint> points = location.getCapturePoints();
 
         // Add button
-        this.addButton(new Button(cx - 155, y, 310, 20, new TranslationTextComponent("wavedefense.capture_point.add"), b -> { editingPoint = true; editingIndex = -1; selectedParticle = "minecraft:smoke"; init(); }));
+        this.addButton(new Button(cx - 155, y, 310, 20, new TranslationTextComponent("wavedefense.capture_point.add"), b -> { editingPoint = true; editingIndex = -1; selectedParticle = "minecraft:smoke"; rebuild(); }));
         y += 26;
 
         int rowH = 30;
@@ -127,18 +135,18 @@ public class CapturePointEditorScreen extends Screen {
                             location.removeCapturePoint(fIdx);
                             scrollOffset = Math.max(0, Math.min(scrollOffset,
                                 Math.max(0, location.getCapturePoints().size() - PER_PAGE)));
-                            init();
+                            rebuild();
                         } else {
                             pendingDeleteIndex = fIdx;
-                            init();
+                            rebuild();
                         }
                     }));
         }
 
         // Scroll buttons
         if (points.size() > PER_PAGE) {
-            this.addButton(new Button(cx + 182, y, 18, 18, new StringTextComponent("▲"), b -> { if (scrollOffset > 0) { scrollOffset--; init(); } }));
-            this.addButton(new Button(cx + 182, y + (PER_PAGE - 1) * rowH, 18, 18, new StringTextComponent("▼"), b -> { if (scrollOffset + PER_PAGE < points.size()) { scrollOffset++; init(); } }));
+            this.addButton(new Button(cx + 182, y, 18, 18, new StringTextComponent("▲"), b -> { if (scrollOffset > 0) { scrollOffset--; rebuild(); } }));
+            this.addButton(new Button(cx + 182, y + (PER_PAGE - 1) * rowH, 18, 18, new StringTextComponent("▼"), b -> { if (scrollOffset + PER_PAGE < points.size()) { scrollOffset++; rebuild(); } }));
         }
     }
 
@@ -190,7 +198,7 @@ public class CapturePointEditorScreen extends Screen {
             final String pid = PARTICLE_IDS[i];
             boolean sel = pid.equals(selectedParticle);
             int row = i / 4, col = i % 4;
-            this.addButton(new Button(pStartX + col * (pBtnW + pGap), y + row * 20, pBtnW, 18, new StringTextComponent(sel ? "§a§l" + PARTICLE_LABELS[i] : "§7" + PARTICLE_LABELS[i]), b -> { selectedParticle = pid; init(); }));
+            this.addButton(new Button(pStartX + col * (pBtnW + pGap), y + row * 20, pBtnW, 18, new StringTextComponent(sel ? "§a§l" + PARTICLE_LABELS[i] : "§7" + PARTICLE_LABELS[i]), b -> { selectedParticle = pid; rebuild(); }));
         }
         // M-9: PARTICLE_IDS.length/4 rows needed (8 items → 2 rows, not 3)
         y += (PARTICLE_IDS.length / 4) * 20 + 4;
@@ -205,7 +213,7 @@ public class CapturePointEditorScreen extends Screen {
 
         // Save / Cancel
         this.addButton(new Button(cx - 110, y, 100, 20, new TranslationTextComponent("wavedefense.button.save"), b -> savePoint()));
-        this.addButton(new Button(cx + 10, y, 100, 20, new TranslationTextComponent("wavedefense.button.cancel"), b -> { editingPoint = false; init(); }));
+        this.addButton(new Button(cx + 10, y, 100, 20, new TranslationTextComponent("wavedefense.button.cancel"), b -> { editingPoint = false; rebuild(); }));
     }
 
     // ── Actions ───────────────────────────────────────────────────────────
@@ -214,7 +222,7 @@ public class CapturePointEditorScreen extends Screen {
         editingIndex  = idx;
         CapturePoint cp = location.getCapturePoints().get(idx);
         selectedParticle = cp.getParticleType();
-        init();
+        rebuild();
     }
 
     private void savePoint() {
@@ -265,7 +273,7 @@ public class CapturePointEditorScreen extends Screen {
         }
 
         editingPoint = false;
-        init();
+        rebuild();
     }
 
     private void saveAndClose() {

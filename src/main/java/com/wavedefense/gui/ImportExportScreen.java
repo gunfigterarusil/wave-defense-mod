@@ -24,6 +24,14 @@ import java.util.List;
  * Імпорт: завантажує локацію з locations/export/<name>.nbt
  */
 public class ImportExportScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
     private final Screen parent;
     private TextFieldWidget importNameInput;
     private String statusMsg = "";
@@ -44,13 +52,13 @@ public class ImportExportScreen extends Screen {
     public void setAvailableExports(List<String> names) {
         this.availableExports = names;
         if (this.minecraft != null)
-            this.minecraft.tell(() -> { if (this.minecraft.screen == this) init(); });
+            this.minecraft.tell(() -> { if (this.minecraft.screen == this) rebuild(); });
     }
 
     public void setStatus(String msg) {
         this.statusMsg = msg;
         if (this.minecraft != null)
-            this.minecraft.tell(() -> { if (this.minecraft.screen == this) init(); });
+            this.minecraft.tell(() -> { if (this.minecraft.screen == this) rebuild(); });
     }
 
     @Override

@@ -20,6 +20,14 @@ import java.util.Locale;
 import java.util.Map;
 
 public class PvpTeamSelectScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
 
     private static final int CARD_W = 190;
     private static final int CARD_H = 44;
@@ -114,11 +122,11 @@ public class PvpTeamSelectScreen extends Screen {
             int x = startX + totalW + 8;
             this.addButton(new Button(x, startY, 22, 20, new StringTextComponent("▲"), b -> {
                 scrollRow = Math.max(0, scrollRow - 1);
-                init();
+                rebuild();
             })).active = scrollRow > 0;
             this.addButton(new Button(x, Math.min(this.height - 54, startY + visibleRows * (CARD_H + GAP) - 20), 22, 20, new StringTextComponent("▼"), b -> {
                 scrollRow = Math.min(maxScrollRows(startY), scrollRow + 1);
-                init();
+                rebuild();
             })).active = scrollRow < max;
         }
     }
@@ -206,7 +214,7 @@ public class PvpTeamSelectScreen extends Screen {
         int max = maxScrollRows(76);
         int next = scrollRow + (delta < 0 ? 1 : -1);
         scrollRow = MathHelper.clamp(next, 0, max);
-        init();
+        rebuild();
         return true;
     }
 

@@ -27,6 +27,14 @@ import java.util.List;
  *   [Зберегти] [Скасувати]
  */
 public class WaveTriggerEditorScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
 
     private final Screen     parent;
     private final WaveConfig wave;
@@ -248,7 +256,7 @@ public class WaveTriggerEditorScreen extends Screen {
     private void addCommonSettings(int cx, int y, int btnW) {
         // Разово + Активувати з хвилі
         boolean oneTime = wave.isOneTimeOnly();
-        this.addButton(new Button(cx - btnW / 2, y, 150, 18, ((oneTime) ? new TranslationTextComponent("wavedefense.auto.разово_1_раз_сесія_7d7863f6") : new TranslationTextComponent("wavedefense.auto.разово_9e507e8c")), b -> { wave.setOneTimeOnly(!wave.isOneTimeOnly()); init(); }));
+        this.addButton(new Button(cx - btnW / 2, y, 150, 18, ((oneTime) ? new TranslationTextComponent("wavedefense.auto.разово_1_раз_сесія_7d7863f6") : new TranslationTextComponent("wavedefense.auto.разово_9e507e8c")), b -> { wave.setOneTimeOnly(!wave.isOneTimeOnly()); rebuild(); }));
         this.addButton(new Button(cx + 4, y, 110, 18, new TranslationTextComponent("wavedefense.auto.активувати_з_хвилі_a57c9a7c"), b -> {})).active = false;
         activateFromWaveInput = new TextFieldWidget(this.font, cx + 118, y, 40, 18, new StringTextComponent("0"));
         activateFromWaveInput.setValue(String.valueOf(wave.getActivateFromWave()));
@@ -262,9 +270,9 @@ public class WaveTriggerEditorScreen extends Screen {
 
         WaveConfig.CooldownMode cm = wave.getCooldownMode();
         int mW = 76;
-        this.addButton(new Button(cx - 116, y, mW, 18, ((cm == WaveConfig.CooldownMode.NONE) ? new TranslationTextComponent("wavedefense.auto.немає_331a7c36") : new TranslationTextComponent("wavedefense.auto.немає_aad1d2c8")), b -> { wave.setCooldownMode(WaveConfig.CooldownMode.NONE); init(); }));
-        this.addButton(new Button(cx - 36, y, mW, 18, ((cm == WaveConfig.CooldownMode.SECONDS) ? new TranslationTextComponent("wavedefense.auto.секунди_454eece8") : new TranslationTextComponent("wavedefense.auto.секунди_8913d206")), b -> { wave.setCooldownMode(WaveConfig.CooldownMode.SECONDS); init(); }));
-        this.addButton(new Button(cx + 44, y, mW, 18, ((cm == WaveConfig.CooldownMode.WAVES) ? new TranslationTextComponent("wavedefense.auto.хвилі_a1a07f8a") : new TranslationTextComponent("wavedefense.auto.хвилі_e76a6167")), b -> { wave.setCooldownMode(WaveConfig.CooldownMode.WAVES); init(); }));
+        this.addButton(new Button(cx - 116, y, mW, 18, ((cm == WaveConfig.CooldownMode.NONE) ? new TranslationTextComponent("wavedefense.auto.немає_331a7c36") : new TranslationTextComponent("wavedefense.auto.немає_aad1d2c8")), b -> { wave.setCooldownMode(WaveConfig.CooldownMode.NONE); rebuild(); }));
+        this.addButton(new Button(cx - 36, y, mW, 18, ((cm == WaveConfig.CooldownMode.SECONDS) ? new TranslationTextComponent("wavedefense.auto.секунди_454eece8") : new TranslationTextComponent("wavedefense.auto.секунди_8913d206")), b -> { wave.setCooldownMode(WaveConfig.CooldownMode.SECONDS); rebuild(); }));
+        this.addButton(new Button(cx + 44, y, mW, 18, ((cm == WaveConfig.CooldownMode.WAVES) ? new TranslationTextComponent("wavedefense.auto.хвилі_a1a07f8a") : new TranslationTextComponent("wavedefense.auto.хвилі_e76a6167")), b -> { wave.setCooldownMode(WaveConfig.CooldownMode.WAVES); rebuild(); }));
         y += 22;
 
         if (cm != WaveConfig.CooldownMode.NONE) {
@@ -324,10 +332,10 @@ public class WaveTriggerEditorScreen extends Screen {
     public boolean mouseScrolled(double mx, double my, double delta) {
         if (!wave.isTriggerEnabled()) return true;
         if (delta > 0) {
-            if (triggerScrollOffset > 0) { triggerScrollOffset--; init(); }
+            if (triggerScrollOffset > 0) { triggerScrollOffset--; rebuild(); }
         } else {
             int visible = Math.max(1, (scrollBot - scrollTop) / (BTN_H + BTN_GAP));
-            if (triggerScrollOffset + visible < available.size()) { triggerScrollOffset++; init(); }
+            if (triggerScrollOffset + visible < available.size()) { triggerScrollOffset++; rebuild(); }
         }
         return true;
     }
@@ -344,7 +352,7 @@ public class WaveTriggerEditorScreen extends Screen {
                             if (msg.contains(t.label) && t != selected && !t.name().startsWith("SHOP_")) {
                                 if (wave.getExtraTriggers().contains(t)) wave.removeExtraTrigger(t);
                                 else wave.addExtraTrigger(t);
-                                init();
+                                rebuild();
                                 return true;
                             }
                         }

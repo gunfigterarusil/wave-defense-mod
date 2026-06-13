@@ -14,6 +14,14 @@ import java.util.Map;
 import java.util.UUID;
 
 public class StatsScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
 
     private final GameStats stats;
     // Н3: cache player names at init time to avoid getPlayerInfo() calls in render thread

@@ -25,6 +25,14 @@ import java.util.stream.Collectors;
  * Підказки при наведенні на кнопки.
  */
 public class ShopItemEditorScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
     private final Location location;
     private final int itemIndex;
     private final Screen parent;
@@ -343,7 +351,7 @@ public class ShopItemEditorScreen extends Screen {
         if (delta > 0) scrollOffset = Math.max(0, scrollOffset - step);
         else scrollOffset = Math.min(getMaxScroll(), scrollOffset + step);
         if (oldOffset != scrollOffset) {
-            init();
+            rebuild();
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, delta);

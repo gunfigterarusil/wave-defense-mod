@@ -28,6 +28,14 @@ import java.util.stream.Collectors;
  * stack from every tab, deduplicated.
  */
 public class ItemSelectionScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
 
     private final Screen              parent;
     private final Consumer<ItemStack> onSelect;
@@ -250,7 +258,7 @@ public class ItemSelectionScreen extends Screen {
         filteredStacks = source.stream()
                 .filter(this::matchesSearch)
                 .collect(java.util.stream.Collectors.toList());
-        init();
+        rebuild();
     }
 
     private boolean matchesSearch(ItemStack stack) {
@@ -464,7 +472,7 @@ public class ItemSelectionScreen extends Screen {
                     if (selectedCount == 0) currentItem = ItemStack.EMPTY;
                 }
             }
-            init(); // refresh confirm-button active state
+            rebuild(); // refresh confirm-button active state
             return true;
         }
         return super.mouseClicked(mx, my, button);

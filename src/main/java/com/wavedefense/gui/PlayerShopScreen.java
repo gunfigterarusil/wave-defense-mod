@@ -21,6 +21,14 @@ import java.util.List;
 import java.util.Map;
 
 public class PlayerShopScreen extends ScrollableScreen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
     private final Location location;
     private final com.wavedefense.data.ShopPoint shopPoint;
 
@@ -217,7 +225,7 @@ public class PlayerShopScreen extends ScrollableScreen {
                     // С5: optimistically deduct cost so button states are correct before server confirms
                     playerPoints = Math.max(0, playerPoints - shopItem.getBuyPrice());
                     rebuildFilter();
-                    init();
+                    rebuild();
                 });
         buyBtn.active = playerPoints >= shopItem.getBuyPrice();
         this.addButton(buyBtn);
@@ -237,7 +245,7 @@ public class PlayerShopScreen extends ScrollableScreen {
                     PacketHandler.sendToServer(new SellItemPacket(location.getName(), resolvedSpIdx, realIndex));
                     updatePlayerPoints();
                     rebuildFilter();
-                    init();
+                    rebuild();
                 });
         sellBtn.active = canPlayerSell(shopItem);
         this.addButton(sellBtn);

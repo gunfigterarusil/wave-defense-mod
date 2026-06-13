@@ -21,6 +21,14 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
     private final Location location;
 
     private boolean editingItem = false;
@@ -114,10 +122,10 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
                     if (isPendingDelReward) {
                         pendingDeleteRewardIndex = -1;
                         location.removeCompletionReward(fIdx);
-                        init();
+                        rebuild();
                     } else {
                         pendingDeleteRewardIndex = fIdx;
-                        init();
+                        rebuild();
                     }
                 }));
 
@@ -160,7 +168,7 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
         y += 30;
 
         this.addButton(new Button(cx - 110, y, 100, 20, new TranslationTextComponent("wavedefense.button.save"), button -> saveItem()));
-        this.addButton(new Button(cx + 10, y, 100, 20, new TranslationTextComponent("wavedefense.button.cancel"), button -> { editingItem = false; init(); }));
+        this.addButton(new Button(cx + 10, y, 100, 20, new TranslationTextComponent("wavedefense.button.cancel"), button -> { editingItem = false; rebuild(); }));
     }
 
     // ─── Render ────────────────────────────────────────────────────────────
@@ -245,7 +253,7 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
         editingIndex = -1;
         editItems    = new ArrayList<>();
         while (editItems.size() < 4) editItems.add(ItemStack.EMPTY);
-        init();
+        rebuild();
     }
 
     private void startEditItem(int idx) {
@@ -253,19 +261,19 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
         editingIndex = idx;
         editItems    = new ArrayList<>(location.getCompletionRewards().get(idx).getItems());
         while (editItems.size() < 4) editItems.add(ItemStack.EMPTY);
-        init();
+        rebuild();
     }
 
     private void setItem(int slot) {
         if (minecraft.player != null && !minecraft.player.getMainHandItem().isEmpty()) {
             editItems.set(slot, minecraft.player.getMainHandItem().copy());
-            init();
+            rebuild();
         }
     }
 
     private void clearItem(int slot) {
         editItems.set(slot, ItemStack.EMPTY);
-        init();
+        rebuild();
     }
 
     private void saveItem() {
@@ -281,7 +289,7 @@ public class CompletionRewardScreen extends ListEditorScreen<ShopItem> {
                 location.addCompletionReward(reward);
             }
             editingItem = false;
-            init();
+            rebuild();
         } catch (NumberFormatException ignored) {}
     }
 

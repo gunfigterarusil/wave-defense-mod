@@ -17,6 +17,14 @@ import net.minecraft.util.text.ITextComponent;
 import java.util.List;
 
 public class AdminMenuScreen extends ListEditorScreen<String> {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
 
     private List<String> locationNames;
     private TextFieldWidget locationNameInput;
@@ -123,7 +131,7 @@ public class AdminMenuScreen extends ListEditorScreen<String> {
                         pendingDeleteName = null;
                     } else {
                         pendingDeleteName = finalName;
-                        init();
+                        rebuild();
                     }
                 })
         )/* setTooltip omitted on 1.16.5 */;

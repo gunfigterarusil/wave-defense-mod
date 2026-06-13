@@ -48,6 +48,14 @@ import java.util.Set;
  */
 @SuppressWarnings("deprecation") // We deep-link into legacy editors for advanced fields.
 public class UniversalLocationEditor extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
 
     public enum Tab {
         GENERAL  ("wavedefense.editor2.tab.general",  "🏷"),
@@ -191,7 +199,7 @@ public class UniversalLocationEditor extends Screen {
             for (int i = 0; i < modes.length; i++) {
                 final com.wavedefense.data.Location.PvpMode m = modes[i];
                 boolean sel = (m == curMode);
-                this.addButton(new Button(leftCol + i * (btnW + 2), y, btnW, 20, new StringTextComponent(sel ? "§a§l✓ " : "§7○ ").append(new TranslationTextComponent(keys[i])), b -> { location.setPvpMode(m); init(); }));
+                this.addButton(new Button(leftCol + i * (btnW + 2), y, btnW, 20, new StringTextComponent(sel ? "§a§l✓ " : "§7○ ").append(new TranslationTextComponent(keys[i])), b -> { location.setPvpMode(m); rebuild(); }));
             }
             y += 26;
 
@@ -207,13 +215,13 @@ public class UniversalLocationEditor extends Screen {
             y += 22;
             // Friendly fire + Auto-balance (2-col grid)
             boolean ff = location.isPvpFriendlyFire();
-            this.addButton(new Button(leftCol, y, halfW, 18, new StringTextComponent((ff ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.gameplay.friendly_fire")), b -> { location.setPvpFriendlyFire(!location.isPvpFriendlyFire()); init(); }));
+            this.addButton(new Button(leftCol, y, halfW, 18, new StringTextComponent((ff ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.gameplay.friendly_fire")), b -> { location.setPvpFriendlyFire(!location.isPvpFriendlyFire()); rebuild(); }));
             boolean ab = location.isPvpTeamAutoBalance();
-            this.addButton(new Button(leftCol + halfW + 4, y, halfW, 18, new StringTextComponent((ab ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.gameplay.auto_balance")), b -> { location.setPvpTeamAutoBalance(!location.isPvpTeamAutoBalance()); init(); }));
+            this.addButton(new Button(leftCol + halfW + 4, y, halfW, 18, new StringTextComponent((ab ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.gameplay.auto_balance")), b -> { location.setPvpTeamAutoBalance(!location.isPvpTeamAutoBalance()); rebuild(); }));
             y += 22;
             // Wait effect (single full-width)
             boolean we = location.isPvpWaitEffect();
-            this.addButton(new Button(leftCol, y, colW, 18, new StringTextComponent((we ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.gameplay.wait_effect")), b -> { location.setPvpWaitEffect(!location.isPvpWaitEffect()); init(); }));
+            this.addButton(new Button(leftCol, y, colW, 18, new StringTextComponent((we ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.gameplay.wait_effect")), b -> { location.setPvpWaitEffect(!location.isPvpWaitEffect()); rebuild(); }));
             y += 22;
             // v0.2.61: Ready-check timeout TextFieldWidget
             pvpReadyTimeoutBox = labelledIntRow(leftCol, y, colW,
@@ -273,7 +281,7 @@ public class UniversalLocationEditor extends Screen {
                 dmKillsToWinBox     = labelledIntRow(leftCol, y, colW, "wavedefense.editor2.pvp.kills_to_win",     location.getDmKillsToWin()); y += 22;
                 dmMatchTimeLimitBox = labelledIntRow(leftCol, y, colW, "wavedefense.editor2.pvp.match_time_limit", location.getPvpRoundTimeLimitSec()); y += 22;
                 String smLabel = dmSpawnModeLabel(location.getDmSpawnMode());
-                this.addButton(new Button(leftCol, y, colW, 18, new StringTextComponent("§7" + I18n.get("wavedefense.editor2.pvp.dm_spawn_mode") + ": §e" + smLabel + " §7(click to cycle)"), b -> { location.setDmSpawnMode(dmSpawnModeNext(location.getDmSpawnMode())); init(); }));
+                this.addButton(new Button(leftCol, y, colW, 18, new StringTextComponent("§7" + I18n.get("wavedefense.editor2.pvp.dm_spawn_mode") + ": §e" + smLabel + " §7(click to cycle)"), b -> { location.setDmSpawnMode(dmSpawnModeNext(location.getDmSpawnMode())); rebuild(); }));
                 y += 22;
                 break;
             }
@@ -294,7 +302,7 @@ public class UniversalLocationEditor extends Screen {
                 y += 22;
                 // Damage toggle + amount
                 boolean dmg = location.isBrBorderDamage();
-                this.addButton(new Button(leftCol, y, colW / 2 - 2, 18, new StringTextComponent((dmg ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.pvp.br_damage")), b -> { location.setBrBorderDamage(!location.isBrBorderDamage()); init(); }));
+                this.addButton(new Button(leftCol, y, colW / 2 - 2, 18, new StringTextComponent((dmg ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.pvp.br_damage")), b -> { location.setBrBorderDamage(!location.isBrBorderDamage()); rebuild(); }));
                 if (dmg) {
                     brDamageAmtBox = new net.minecraft.client.gui.widget.TextFieldWidget(
                         this.font, leftCol + colW / 2 + 4, y, 60, 18, new StringTextComponent("1.0"));
@@ -316,7 +324,7 @@ public class UniversalLocationEditor extends Screen {
                         ? "wavedefense.ctp.win_mode.first" : "wavedefense.ctp.win_mode.timer"), b -> {
                         if (isCtp) location.setCtpFirstToScore(!location.isCtpFirstToScore());
                         else        location.setKothFirstToScore(!location.isKothFirstToScore());
-                        init();
+                        rebuild();
                     }));
                 y += 22;
                 if (!firstToScore) {
@@ -324,20 +332,20 @@ public class UniversalLocationEditor extends Screen {
                 }
                 if (isCtp) {
                     boolean spd = location.isCtpSpeedMultiplier();
-                    this.addButton(new Button(leftCol, y, colW, 18, new TranslationTextComponent(spd ? "wavedefense.ctp.speed_multiplier.on" : "wavedefense.ctp.speed_multiplier.off"), b -> { location.setCtpSpeedMultiplier(!location.isCtpSpeedMultiplier()); init(); }));
+                    this.addButton(new Button(leftCol, y, colW, 18, new TranslationTextComponent(spd ? "wavedefense.ctp.speed_multiplier.on" : "wavedefense.ctp.speed_multiplier.off"), b -> { location.setCtpSpeedMultiplier(!location.isCtpSpeedMultiplier()); rebuild(); }));
                     y += 22;
                     boolean aw = location.isCtpCaptureAllWin();
-                    this.addButton(new Button(leftCol, y, colW, 18, new TranslationTextComponent(aw ? "wavedefense.ctp.capture_all_win.on" : "wavedefense.ctp.capture_all_win.off"), b -> { location.setCtpCaptureAllWin(!location.isCtpCaptureAllWin()); init(); }));
+                    this.addButton(new Button(leftCol, y, colW, 18, new TranslationTextComponent(aw ? "wavedefense.ctp.capture_all_win.on" : "wavedefense.ctp.capture_all_win.off"), b -> { location.setCtpCaptureAllWin(!location.isCtpCaptureAllWin()); rebuild(); }));
                     y += 22;
                 } else {
                     // KotH-only: hold mode + duration + reset-on-loss
                     boolean hm = location.isKothHoldMode();
-                    this.addButton(new Button(leftCol, y, colW, 18, new TranslationTextComponent(hm ? "wavedefense.koth.hold_mode.on" : "wavedefense.koth.hold_mode.off"), b -> { location.setKothHoldMode(!location.isKothHoldMode()); init(); }));
+                    this.addButton(new Button(leftCol, y, colW, 18, new TranslationTextComponent(hm ? "wavedefense.koth.hold_mode.on" : "wavedefense.koth.hold_mode.off"), b -> { location.setKothHoldMode(!location.isKothHoldMode()); rebuild(); }));
                     y += 22;
                     if (hm) {
                         kothHoldDurationBox = labelledIntRow(leftCol, y, colW, "wavedefense.koth.hold_duration", location.getKothHoldDurationSec()); y += 22;
                         boolean ro = location.isKothResetOnLoss();
-                        this.addButton(new Button(leftCol, y, colW, 18, new TranslationTextComponent(ro ? "wavedefense.koth.reset_on_loss.on" : "wavedefense.koth.reset_on_loss.off"), b -> { location.setKothResetOnLoss(!location.isKothResetOnLoss()); init(); }));
+                        this.addButton(new Button(leftCol, y, colW, 18, new TranslationTextComponent(ro ? "wavedefense.koth.reset_on_loss.on" : "wavedefense.koth.reset_on_loss.off"), b -> { location.setKothResetOnLoss(!location.isKothResetOnLoss()); rebuild(); }));
                         y += 22;
                     }
                 }
@@ -402,7 +410,7 @@ public class UniversalLocationEditor extends Screen {
 
         java.util.List<com.wavedefense.data.PvpSpawnPoint> spawns = location.getPvpSpawnPoints();
         // "+ Add" button
-        this.addButton(new Button(leftCol, y, colW, 18, new TranslationTextComponent("wavedefense.editor2.spawns.add"), b -> { spawnEditing = true; spawnEditingIndex = -1; spawnEditingColor = ""; init(); }));
+        this.addButton(new Button(leftCol, y, colW, 18, new TranslationTextComponent("wavedefense.editor2.spawns.add"), b -> { spawnEditing = true; spawnEditingIndex = -1; spawnEditingColor = ""; rebuild(); }));
         y += 22;
 
         if (spawns.isEmpty()) {
@@ -427,13 +435,13 @@ public class UniversalLocationEditor extends Screen {
                 p.getX(), p.getY(), p.getZ(),
                 sp.getSpawnRadius() > 0 ? " §8(R:" + sp.getSpawnRadius() + ")" : "");
             this.addButton(new Button(leftCol, y, colW - 60, 18, new StringTextComponent(label), b -> {})).active = false;
-            this.addButton(new Button(leftCol + colW - 56, y, 26, 18, new StringTextComponent("§e✎"), b -> { spawnEditing = true; spawnEditingIndex = idx; spawnEditingColor = ""; init(); }));
-            this.addButton(new Button(leftCol + colW - 28, y, 26, 18, new StringTextComponent("§c✕"), b -> { location.removePvpSpawnPoint(idx); init(); }));
+            this.addButton(new Button(leftCol + colW - 56, y, 26, 18, new StringTextComponent("§e✎"), b -> { spawnEditing = true; spawnEditingIndex = idx; spawnEditingColor = ""; rebuild(); }));
+            this.addButton(new Button(leftCol + colW - 28, y, 26, 18, new StringTextComponent("§c✕"), b -> { location.removePvpSpawnPoint(idx); rebuild(); }));
             y += rowH;
         }
         if (spawns.size() > perPage) {
-            this.addButton(new Button(leftCol + colW - 22, y - perPage * rowH, 20, 18, new StringTextComponent("▲"), b -> { if (spawnListScrollOffset > 0) { spawnListScrollOffset--; init(); } }));
-            this.addButton(new Button(leftCol + colW - 22, y - 18, 20, 18, new StringTextComponent("▼"), b -> { if (spawnListScrollOffset + perPage < spawns.size()) { spawnListScrollOffset++; init(); } }));
+            this.addButton(new Button(leftCol + colW - 22, y - perPage * rowH, 20, 18, new StringTextComponent("▲"), b -> { if (spawnListScrollOffset > 0) { spawnListScrollOffset--; rebuild(); } }));
+            this.addButton(new Button(leftCol + colW - 22, y - 18, 20, 18, new StringTextComponent("▼"), b -> { if (spawnListScrollOffset + perPage < spawns.size()) { spawnListScrollOffset++; rebuild(); } }));
         }
         return y;
     }
@@ -481,7 +489,7 @@ public class UniversalLocationEditor extends Screen {
                     if (colors[i].equals(currentColor)) { idx = i; break; }
                 }
                 spawnEditingColor = colors[(idx + 1) % colors.length];
-                init();
+                rebuild();
             }));
         y += 22;
 
@@ -510,7 +518,7 @@ public class UniversalLocationEditor extends Screen {
         // Save / Cancel buttons
         int halfW = colW / 2 - 4;
         this.addButton(new Button(leftCol, y, halfW, 20, new TranslationTextComponent("wavedefense.button.save"), b -> saveSpawnForm()));
-        this.addButton(new Button(leftCol + halfW + 8, y, halfW, 20, new TranslationTextComponent("wavedefense.button.cancel"), b -> { spawnEditing = false; spawnEditingIndex = -1; spawnEditingColor = ""; init(); }));
+        this.addButton(new Button(leftCol + halfW + 8, y, halfW, 20, new TranslationTextComponent("wavedefense.button.cancel"), b -> { spawnEditing = false; spawnEditingIndex = -1; spawnEditingColor = ""; rebuild(); }));
         y += 24;
         return y;
     }
@@ -552,7 +560,7 @@ public class UniversalLocationEditor extends Screen {
         spawnEditing = false;
         spawnEditingIndex = -1;
         spawnEditingColor = "";
-        init();
+        rebuild();
     }
 
     // ─── Economy tab ──────────────────────────────────────────────────────
@@ -573,7 +581,7 @@ public class UniversalLocationEditor extends Screen {
                                             : "wavedefense.editor2.economy.shop_mode.global")
                 + " §7(click)"), b -> { location.setShopMode(isPoint
                 ? com.wavedefense.data.Location.ShopMode.GLOBAL
-                : com.wavedefense.data.Location.ShopMode.POINT); init(); }));
+                : com.wavedefense.data.Location.ShopMode.POINT); rebuild(); }));
         y += 22;
         this.addButton(new Button(leftCol, y, colW, 20, new TranslationTextComponent("wavedefense.editor2.economy.open_shop"), b -> this.minecraft.setScreen(new com.wavedefense.gui.ShopEditorScreen(location, this)))); y += 26;
 
@@ -653,7 +661,7 @@ public class UniversalLocationEditor extends Screen {
         com.wavedefense.data.InfoPanelSettings ip = location.getInfoPanel();
         // Master toggle — spawn panel (the in-world floating panel container)
         boolean ipOn = ip.isSpawnPanelEnabled();
-        this.addButton(new Button(leftCol, y, colW, 18, new StringTextComponent((ipOn ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.visual.spawn_panel")), b -> { ip.setSpawnPanelEnabled(!ip.isSpawnPanelEnabled()); init(); })); y += 22;
+        this.addButton(new Button(leftCol, y, colW, 18, new StringTextComponent((ipOn ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.visual.spawn_panel")), b -> { ip.setSpawnPanelEnabled(!ip.isSpawnPanelEnabled()); rebuild(); })); y += 22;
 
         // Spawn panel offset Y (TextFieldWidget)
         this.addButton(new Button(leftCol, y, 110, 18, new StringTextComponent("§7" + I18n.get("wavedefense.editor2.visual.offset_y") + ":"), b -> {})).active = false;
@@ -682,12 +690,12 @@ public class UniversalLocationEditor extends Screen {
             int colX = (i % 2 == 0) ? leftCol : leftCol + gridCol + 4;
             int rowY = y + (i / 2) * 20;
             this.addButton(new Button(colX, rowY, gridCol, 18, new StringTextComponent((v ? "§a✓ " : "§7○ ")
-                    + I18n.get("wavedefense.editor2.visual.flag." + flags[fi][0])), b -> { toggleInfoPanelFlag(ip, fi); init(); }));
+                    + I18n.get("wavedefense.editor2.visual.flag." + flags[fi][0])), b -> { toggleInfoPanelFlag(ip, fi); rebuild(); }));
         }
         y += ((flags.length + 1) / 2) * 20 + 6;
         // B12 v0.2.60: mobSpawnPanelEnabled toggle (separate panel)
         boolean msp = ip.isMobSpawnPanelEnabled();
-        this.addButton(new Button(leftCol, y, colW, 18, new StringTextComponent((msp ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.visual.mob_spawn_panel")), b -> { ip.setMobSpawnPanelEnabled(!ip.isMobSpawnPanelEnabled()); init(); }));
+        this.addButton(new Button(leftCol, y, colW, 18, new StringTextComponent((msp ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.visual.mob_spawn_panel")), b -> { ip.setMobSpawnPanelEnabled(!ip.isMobSpawnPanelEnabled()); rebuild(); }));
         y += 22;
         // B11 v0.2.60: textScale TextFieldWidget + hasShadow toggle (2-col)
         int halfW2 = colW / 2 - 2;
@@ -698,7 +706,7 @@ public class UniversalLocationEditor extends Screen {
         infoPanelTextScaleBox.setMaxLength(5);
         this.addButton(infoPanelTextScaleBox);
         boolean hs = ip.isHasShadow();
-        this.addButton(new Button(leftCol + 170, y, colW - 170, 18, new StringTextComponent((hs ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.visual.text_shadow")), b -> { ip.setHasShadow(!ip.isHasShadow()); init(); }));
+        this.addButton(new Button(leftCol + 170, y, colW - 170, 18, new StringTextComponent((hs ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.visual.text_shadow")), b -> { ip.setHasShadow(!ip.isHasShadow()); rebuild(); }));
         y += 24;
 
         // Boundary / zone particle settings (delegated — many fields)
@@ -837,10 +845,10 @@ public class UniversalLocationEditor extends Screen {
         // Mode toggle (PvE / PvP)
         boolean isPve = location.getMode() == LocationMode.PVE;
         this.addButton(new Button(leftCol, y, halfW, 18, new StringTextComponent((isPve ? "§a§l✓ " : "§7○ ") + "PvE"), b -> {
-                if (!isPve) { location.setMode(LocationMode.PVE); init(); }
+                if (!isPve) { location.setMode(LocationMode.PVE); rebuild(); }
             }));
         this.addButton(new Button(rightCol, y, halfW, 18, new StringTextComponent((!isPve ? "§c§l✓ " : "§7○ ") + "PvP"), b -> {
-                if (isPve) { location.setMode(LocationMode.PVP); init(); }
+                if (isPve) { location.setMode(LocationMode.PVP); rebuild(); }
             }));
         y += 20;
         // ⚠ Mode-switch hint — destructive editing made safe by Cancel deep-copy
@@ -898,18 +906,18 @@ public class UniversalLocationEditor extends Screen {
         section(leftCol, y, colW, "wavedefense.editor2.section.behaviour");
         y += 18;
         boolean egm = location.isEnforceGameMode();
-        this.addButton(new Button(leftCol, y, halfW, 18, new StringTextComponent((egm ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.behaviour.enforce_gm")), b -> { location.setEnforceGameMode(!location.isEnforceGameMode()); init(); }));
+        this.addButton(new Button(leftCol, y, halfW, 18, new StringTextComponent((egm ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.behaviour.enforce_gm")), b -> { location.setEnforceGameMode(!location.isEnforceGameMode()); rebuild(); }));
         boolean ki = location.isKeepInventory();
-        this.addButton(new Button(rightCol, y, halfW, 18, new StringTextComponent((ki ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.behaviour.keep_inv")), b -> { location.setKeepInventory(!location.isKeepInventory()); init(); }));
+        this.addButton(new Button(rightCol, y, halfW, 18, new StringTextComponent((ki ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.behaviour.keep_inv")), b -> { location.setKeepInventory(!location.isKeepInventory()); rebuild(); }));
         y += 22;
 
         // Section: Visibility in player menu
         boolean hid = location.isHiddenFromPlayers();
-        this.addButton(new Button(leftCol, y, colW, 18, new StringTextComponent((hid ? "§c✓ " : "§7○ ") + I18n.get("wavedefense.editor2.behaviour.hidden_from_menu")), b -> { location.setHiddenFromPlayers(!location.isHiddenFromPlayers()); init(); }));
+        this.addButton(new Button(leftCol, y, colW, 18, new StringTextComponent((hid ? "§c✓ " : "§7○ ") + I18n.get("wavedefense.editor2.behaviour.hidden_from_menu")), b -> { location.setHiddenFromPlayers(!location.isHiddenFromPlayers()); rebuild(); }));
         y += 22;
         // B1 v0.2.60: victoryScreenEnabled toggle (full-width)
         boolean vs = location.isVictoryScreenEnabled();
-        this.addButton(new Button(leftCol, y, colW, 18, new StringTextComponent((vs ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.behaviour.victory_screen")), b -> { location.setVictoryScreenEnabled(!location.isVictoryScreenEnabled()); init(); }));
+        this.addButton(new Button(leftCol, y, colW, 18, new StringTextComponent((vs ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.behaviour.victory_screen")), b -> { location.setVictoryScreenEnabled(!location.isVictoryScreenEnabled()); rebuild(); }));
         y += 24;
 
         // ── Phase B: Behaviour timers (leave / victory linger / re-entry) ──
@@ -960,7 +968,7 @@ public class UniversalLocationEditor extends Screen {
         boolean canShow = location.hasBbox();
         boolean mm = location.isMinimapEnabled();
         this.addButton(new Button(leftCol, y, colW, 18, mm ? new TranslationTextComponent("wavedefense.bbox.minimap_on")
-               : new TranslationTextComponent("wavedefense.bbox.minimap_off"), b -> { location.setMinimapEnabled(!location.isMinimapEnabled()); init(); })).active = canShow;
+               : new TranslationTextComponent("wavedefense.bbox.minimap_off"), b -> { location.setMinimapEnabled(!location.isMinimapEnabled()); rebuild(); })).active = canShow;
         y += 20;
         // v0.2.61 — Phase B: minimap preview (text-based summary). When bbox is
         // set, show dimensions + spawn-point count so admins can sanity-check
@@ -996,7 +1004,7 @@ public class UniversalLocationEditor extends Screen {
 
         boolean outlineOn = location.isBboxOutlineEnabled();
         this.addButton(new Button(leftCol, y, colW, 18, outlineOn ? new TranslationTextComponent("wavedefense.bbox.outline_on")
-                      : new TranslationTextComponent("wavedefense.bbox.outline_off"), b -> { location.setBboxOutlineEnabled(!location.isBboxOutlineEnabled()); init(); })).active = canShow;
+                      : new TranslationTextComponent("wavedefense.bbox.outline_off"), b -> { location.setBboxOutlineEnabled(!location.isBboxOutlineEnabled()); rebuild(); })).active = canShow;
         y += 24;
 
         // ── Boundary section (single radius-based — works for both modes) ────
@@ -1004,7 +1012,7 @@ public class UniversalLocationEditor extends Screen {
         y += 18;
         boolean boundaryOn = location.isLocationBoundaryEnabled();
         this.addButton(new Button(leftCol, y, colW, 18, new StringTextComponent((boundaryOn ? "§a✓ " : "§7○ ")
-                + I18n.get("wavedefense.editor2.boundary.tracking")), b -> { location.setLocationBoundaryEnabled(!location.isLocationBoundaryEnabled()); init(); }));
+                + I18n.get("wavedefense.editor2.boundary.tracking")), b -> { location.setLocationBoundaryEnabled(!location.isLocationBoundaryEnabled()); rebuild(); }));
         y += 22;
 
         if (boundaryOn) {
@@ -1027,7 +1035,7 @@ public class UniversalLocationEditor extends Screen {
                     com.wavedefense.data.Location.BoundaryConsequence cur = location.getBoundaryConsequence();
                     int next = (cur.ordinal() + 1) % all.length;
                     location.setBoundaryConsequence(all[next]);
-                    init();
+                    rebuild();
                 }));
             y += 22;
             // B7 v0.2.60: boundaryDamagePerSec — only meaningful when consequence=DAMAGE
@@ -1042,7 +1050,7 @@ public class UniversalLocationEditor extends Screen {
             }
             // B6 v0.2.60: boundaryParticlesEnabled — master toggle for particle rendering
             boolean bpe = location.isBoundaryParticlesEnabled();
-            this.addButton(new Button(leftCol, y, colW, 18, new StringTextComponent((bpe ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.boundary.particles_enabled")), b -> { location.setBoundaryParticlesEnabled(!location.isBoundaryParticlesEnabled()); init(); }));
+            this.addButton(new Button(leftCol, y, colW, 18, new StringTextComponent((bpe ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.boundary.particles_enabled")), b -> { location.setBoundaryParticlesEnabled(!location.isBoundaryParticlesEnabled()); rebuild(); }));
             y += 22;
         }
 
@@ -1073,7 +1081,7 @@ public class UniversalLocationEditor extends Screen {
         y += 18;
         // B3 v0.2.60: portalEnabled master toggle (gates the per-field UI below)
         boolean portalOn = location.isPortalEnabled();
-        this.addButton(new Button(leftCol, y, colW, 18, new StringTextComponent((portalOn ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.area.portal_enabled")), b -> { location.setPortalEnabled(!location.isPortalEnabled()); init(); }));
+        this.addButton(new Button(leftCol, y, colW, 18, new StringTextComponent((portalOn ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.area.portal_enabled")), b -> { location.setPortalEnabled(!location.isPortalEnabled()); rebuild(); }));
         y += 22;
         if (portalOn) {
             portalOpenAfterBox    = labelledIntRow(leftCol, y, colW, "wavedefense.editor2.area.portal_open_after",    location.getPortalOpenAfterStartSec()); y += 22;
@@ -1088,17 +1096,17 @@ public class UniversalLocationEditor extends Screen {
             this.addButton(new Button(leftCol + colW - 56, y, 26, 18, new StringTextComponent("§e−"), b -> {
                     int cur = location.getPortalPenaltyWave();
                     location.setPortalPenaltyWave(cur <= -1 ? location.getWaves().size() - 1 : cur - 1);
-                    init();
+                    rebuild();
                 }));
             this.addButton(new Button(leftCol + colW - 28, y, 26, 18, new StringTextComponent("§e+"), b -> {
                     int cur = location.getPortalPenaltyWave();
                     location.setPortalPenaltyWave(cur >= location.getWaves().size() - 1 ? -1 : cur + 1);
-                    init();
+                    rebuild();
                 }));
             y += 22;
             // B5 v0.2.60: portalDisappearsOnComplete toggle
             boolean pdoc = location.isPortalDisappearsOnComplete();
-            this.addButton(new Button(leftCol, y, colW, 18, new StringTextComponent((pdoc ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.area.portal_disappears")), b -> { location.setPortalDisappearsOnComplete(!location.isPortalDisappearsOnComplete()); init(); }));
+            this.addButton(new Button(leftCol, y, colW, 18, new StringTextComponent((pdoc ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.area.portal_disappears")), b -> { location.setPortalDisappearsOnComplete(!location.isPortalDisappearsOnComplete()); rebuild(); }));
             y += 22;
         }
 
@@ -1106,7 +1114,7 @@ public class UniversalLocationEditor extends Screen {
         section(leftCol, y, colW, "wavedefense.editor2.area.auto_zone");
         y += 18;
         boolean azOn = location.isAutoActivate();
-        this.addButton(new Button(leftCol, y, colW, 18, new StringTextComponent((azOn ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.area.auto_zone_enabled")), b -> { location.setAutoActivate(!location.isAutoActivate()); init(); }));
+        this.addButton(new Button(leftCol, y, colW, 18, new StringTextComponent((azOn ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.area.auto_zone_enabled")), b -> { location.setAutoActivate(!location.isAutoActivate()); rebuild(); }));
         y += 22;
         if (azOn) {
             autoZoneRadiusBox = labelledIntRow(leftCol, y, colW, "wavedefense.editor2.area.auto_zone_radius", location.getAutoActivateRadius()); y += 22;
@@ -1125,7 +1133,7 @@ public class UniversalLocationEditor extends Screen {
             y += 22;
             // B10 v0.2.60: zone custom center (toggle + optional picker)
             boolean ucc = location.isZoneUsesCustomCenter();
-            this.addButton(new Button(leftCol, y, colW, 18, new StringTextComponent((ucc ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.area.zone_custom_center")), b -> { location.setZoneUsesCustomCenter(!location.isZoneUsesCustomCenter()); init(); }));
+            this.addButton(new Button(leftCol, y, colW, 18, new StringTextComponent((ucc ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.area.zone_custom_center")), b -> { location.setZoneUsesCustomCenter(!location.isZoneUsesCustomCenter()); rebuild(); }));
             y += 22;
             if (ucc) {
                 net.minecraft.util.math.BlockPos zc = location.getZoneCenter();
@@ -1180,7 +1188,7 @@ public class UniversalLocationEditor extends Screen {
         hdr.active = false;
         this.addButton(hdr);
         // Reset button — tooltip explains what gets reset
-        Button reset = new Button(x + w - btnW, y, btnW, 14, new StringTextComponent("§a↩"), b -> { resetAction.run(); init(); });
+        Button reset = new Button(x + w - btnW, y, btnW, 14, new StringTextComponent("§a↩"), b -> { resetAction.run(); rebuild(); });
         /* setTooltip omitted on 1.16.5: reset */
         this.addButton(reset);
     }
@@ -1502,12 +1510,12 @@ public class UniversalLocationEditor extends Screen {
         int maxScroll = Math.max(0, contentHeight - (clipBot - clipTop));
         if (delta > 0 && scrollOffset > 0) {
             scrollOffset = Math.max(0, scrollOffset - 12);
-            init();
+            rebuild();
             return true;
         }
         if (delta < 0 && scrollOffset < maxScroll) {
             scrollOffset = Math.min(maxScroll, scrollOffset + 12);
-            init();
+            rebuild();
             return true;
         }
         return super.mouseScrolled(mx, my, delta);

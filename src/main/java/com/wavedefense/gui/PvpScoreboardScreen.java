@@ -21,6 +21,14 @@ import java.util.*;
  * Гравці ворожої команди відображаються без нікнеймів якщо раунд ACTIVE.
  */
 public class PvpScoreboardScreen extends Screen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
 
     private static final int COL_NAME  = -170;
     private static final int COL_K     =  60;

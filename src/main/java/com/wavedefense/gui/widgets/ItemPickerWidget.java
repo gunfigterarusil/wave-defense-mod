@@ -36,7 +36,7 @@ import java.util.function.Consumer;
  * <h3>Usage</h3>
  * <pre>{@code
  * ItemPickerWidget picker = new ItemPickerWidget(this, this.font, x, y, totalWidth,
- *         currentStack, newStack -> { items[i] = newStack; init(); });
+ *         currentStack, newStack -> { items[i] = newStack; rebuild(); });
  * picker.addToScreen(this::addButton);
  * // In render(): picker.renderIcon(g, mouseX, mouseY);
  * }</pre>

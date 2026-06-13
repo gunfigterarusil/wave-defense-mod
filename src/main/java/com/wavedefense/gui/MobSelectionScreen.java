@@ -27,6 +27,14 @@ import java.util.stream.Collectors;
  * ✓ 3D-превʼю з InventoryScreen.renderEntityInInventory
  */
 public class MobSelectionScreen extends ScrollableScreen {
+    /** 1.16.5 shim for 1.20.1's Screen.rebuildWidgets(): clear widgets + re-init. */
+    protected void rebuild() {
+        this.buttons.clear();
+        this.children.clear();
+        this.setFocused(null);
+        this.init();
+    }
+
 
     public enum MobCategory2 {
         ALL("wavedefense.mob.category.all"), FLYING("wavedefense.mob.category.flying"),
@@ -173,8 +181,8 @@ public class MobSelectionScreen extends ScrollableScreen {
         // Scroll buttons + counter
         if (filteredMobs.size() > ipp) {
             int sbX = this.width - 24;
-            addStatic(new Button(sbX, LIST_Y, 20, 20, new StringTextComponent("▲"), b -> { if (scrollOffset > 0) { scrollOffset--; init(); } }));
-            addStatic(new Button(sbX, LIST_Y + (ipp - 1) * ROW_H, 20, 20, new StringTextComponent("▼"), b -> { if (scrollOffset + ipp < filteredMobs.size()) { scrollOffset++; init(); } }));
+            addStatic(new Button(sbX, LIST_Y, 20, 20, new StringTextComponent("▲"), b -> { if (scrollOffset > 0) { scrollOffset--; rebuild(); } }));
+            addStatic(new Button(sbX, LIST_Y + (ipp - 1) * ROW_H, 20, 20, new StringTextComponent("▼"), b -> { if (scrollOffset + ipp < filteredMobs.size()) { scrollOffset++; rebuild(); } }));
 
             String counter = (scrollOffset + 1) + "-"
                     + Math.min(scrollOffset + ipp, filteredMobs.size())
@@ -195,7 +203,7 @@ public class MobSelectionScreen extends ScrollableScreen {
                         || regId.toLowerCase().contains(q);
                 })
                 .collect(java.util.stream.Collectors.toList());
-        init();
+        rebuild();
     }
 
     private boolean matchesCategoryFor(EntityType<?> t, MobCategory2 cat) {
