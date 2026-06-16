@@ -99,40 +99,14 @@ public class LeaderboardManager {
     }
 
     public synchronized void saveToFile() {
-        try {
-            dataFile.getParentFile().mkdirs();
-            CompoundTag root = serialize();
-            File tmp = new File(dataFile.getAbsolutePath() + ".tmp");
-            NbtIo.writeCompressed(root, tmp);
+        // Async + debounced — leaderboard updates are frequent during PvP rounds;
+        // burst of 5 round-end writes collapses into 1 disk hit.
+        NbtHelper.atomicWriteCompressedAsync(dataFile, serialize());
+    }
 
-            // H-4 fix: check renameTo return values; on failure try java.nio.Files.move()
-            File bak = new File(dataFile.getAbsolutePath() + ".bak");
-            if (dataFile.exists()) {
-                boolean moved = dataFile.renameTo(bak);
-                if (!moved) {
-                    try { java.nio.file.Files.move(dataFile.toPath(), bak.toPath(),
-                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                    } catch (Exception ex) {
-                        WaveDefenseMod.LOGGER.warn("[WaveDefense] Could not back up leaderboard file: {}", ex.getMessage());
-                        // If we can't back up, don't risk overwriting with tmp
-                        tmp.delete();
-                        return;
-                    }
-                }
-            }
-            boolean committed = tmp.renameTo(dataFile);
-            if (!committed) {
-                try { java.nio.file.Files.move(tmp.toPath(), dataFile.toPath(),
-                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                } catch (Exception ex) {
-                    WaveDefenseMod.LOGGER.error("[WaveDefense] Could not commit leaderboard file — restoring backup: {}", ex.getMessage());
-                    // Attempt to restore backup
-                    if (bak.exists()) bak.renameTo(dataFile);
-                }
-            }
-        } catch (IOException e) {
-            WaveDefenseMod.LOGGER.error("[WaveDefense] Could not save leaderboard data", e);
-        }
+    /** Synchronous save — used only on server stop. */
+    public synchronized void saveToFileSync() {
+        NbtHelper.atomicWriteCompressed(dataFile, serialize());
     }
 
     public synchronized void loadFromFile() {

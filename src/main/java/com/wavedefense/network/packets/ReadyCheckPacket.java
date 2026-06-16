@@ -37,6 +37,9 @@ public class ReadyCheckPacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null || WaveDefenseMod.waveManager == null) return;
+            // Rate-limit: 250 ms is enough for honest re-press; blocks key-spam macros.
+            if (!com.wavedefense.network.PacketRateLimiter.allow(
+                    player.getUUID(), ReadyCheckPacket.class, 250L)) return;
             PlayerWaveData pd = WaveDefenseMod.waveManager.getPlayerData(player.getUUID());
             if (pd == null || pd.getCurrentLocation() == null) return;
             String locName = pd.getCurrentLocation().getName();

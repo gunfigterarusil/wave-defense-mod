@@ -92,6 +92,10 @@ public class ReplaceShopItemsPacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null || !player.hasPermissions(2)) return;
+            // Rate-limit chunked stream: 100 ms per chunk is plenty for honest large saves
+            // (10 chunks/sec = ~640 KB/sec under chunk-size budget), blocks unbounded spam.
+            if (!com.wavedefense.network.PacketRateLimiter.allow(
+                    player.getUUID(), ReplaceShopItemsPacket.class, 100L)) return;
             if (p.locationName == null || p.locationName.isBlank()) return;
             if (p.totalChunks < 1 || p.chunkIndex < 0 || p.chunkIndex >= p.totalChunks) return;
 

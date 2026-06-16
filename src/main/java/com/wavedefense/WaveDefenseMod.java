@@ -65,14 +65,18 @@ public class WaveDefenseMod {
 
     @SubscribeEvent
     public void onServerStopping(ServerStoppingEvent event) {
+        // Synchronous save on shutdown — bypass debounce so no data is lost.
         if (locationManager != null) {
-            locationManager.saveToFile();
+            locationManager.saveToFileSync();
             LOGGER.info("[WaveDefense] Location data saved on server stop.");
         }
         if (leaderboardManager != null) {
-            leaderboardManager.saveToFile();
+            leaderboardManager.saveToFileSync();
             LOGGER.info("[WaveDefense] Leaderboard data saved on server stop.");
         }
+        // Drain any other in-flight debounced writes (defensive — should be empty if
+        // both sync saves above ran).
+        com.wavedefense.data.NbtHelper.flushPendingWrites();
         WaveDefenseBackupSystem.getInstance().shutdown();
     }
 

@@ -11,7 +11,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 public class LocationManager {
     private static final int DATA_VERSION = 1;
@@ -80,22 +79,15 @@ public class LocationManager {
     }
 
     public void saveToFile() {
-        try {
-            dataFile.getParentFile().mkdirs();
-            // Serialize once, then write atomically: .tmp → main, current main → .bak
-            CompoundTag data = save();
-            File tmpFile = new File(dataFile.getAbsolutePath() + ".tmp");
-            NbtIo.writeCompressed(data, tmpFile);
-            File bakFile = new File(dataFile.getAbsolutePath() + ".bak");
-            if (dataFile.exists()) {
-                //noinspection ResultOfMethodCallIgnored
-                dataFile.renameTo(bakFile);
-            }
-            //noinspection ResultOfMethodCallIgnored
-            tmpFile.renameTo(dataFile);
-        } catch (IOException e) {
-            WaveDefenseMod.LOGGER.error("Could not save location data", e);
-        }
+        // Async + debounced atomic write — collapses burst-saves into one disk hit
+        // and moves I/O off the server thread. Server stop calls flushPendingWrites()
+        // (see WaveDefenseMod.onServerStopping) so no data is lost on shutdown.
+        NbtHelper.atomicWriteCompressedAsync(dataFile, save());
+    }
+
+    /** Synchronous save — used only on server stop or when caller must wait for disk. */
+    public void saveToFileSync() {
+        NbtHelper.atomicWriteCompressed(dataFile, save());
     }
 
     public void loadLocations() { load(); }

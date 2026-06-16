@@ -67,6 +67,9 @@ public class BulkAddShopItemsPacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null || !player.hasPermissions(2)) return;
+            // Rate-limit: bulk add scans NBT and validates each item — expensive.
+            if (!com.wavedefense.network.PacketRateLimiter.allow(
+                    player.getUUID(), BulkAddShopItemsPacket.class, 500L)) return;
             if (p.locationName == null || p.locationName.isBlank()) return;
             if (p.items == null || p.items.isEmpty()) return;
 

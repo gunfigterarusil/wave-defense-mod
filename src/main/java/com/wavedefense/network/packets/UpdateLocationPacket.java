@@ -31,22 +31,25 @@ public class UpdateLocationPacket {
     public static void handle(UpdateLocationPacket packet, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
-            if (player != null && player.hasPermissions(2) && packet.location != null) {
-                WaveDefenseMod.locationManager.updateLocation(packet.location);
+            if (player == null || !player.hasPermissions(2) || packet.location == null) return;
+            // Rate-limit: full-location save is expensive (NBT decode + write + broadcast).
+            // 500 ms blocks accidental double-Save clicks without hurting fast admin work.
+            if (!com.wavedefense.network.PacketRateLimiter.allow(
+                    player.getUUID(), UpdateLocationPacket.class, 500L)) return;
+            WaveDefenseMod.locationManager.updateLocation(packet.location);
 
-                // Broadcastуємо оновлені дані локацій всім гравцям на сервері
-                WaveDefenseMod.waveManager.broadcastLocationData();
+            // Broadcastуємо оновлені дані локацій всім гравцям на сервері
+            WaveDefenseMod.waveManager.broadcastLocationData();
 
-                // Синхронізуємо магазин з гравцями що зараз на цій локації
-                String locName = packet.location.getName();
-                CompoundTag locNbt = packet.location.save();
-                SyncShopPacket syncPkt = new SyncShopPacket(locName, locNbt);
-                for (ServerPlayer p : player.getServer().getPlayerList().getPlayers()) {
-                    PlayerWaveData pd = WaveDefenseMod.waveManager.getPlayerData(p.getUUID());
-                    if (pd != null && pd.getCurrentLocation() != null
-                            && pd.getCurrentLocation().getName().equals(locName)) {
-                        PacketHandler.sendToPlayer(p, syncPkt);
-                    }
+            // Синхронізуємо магазин з гравцями що зараз на цій локації
+            String locName = packet.location.getName();
+            CompoundTag locNbt = packet.location.save();
+            SyncShopPacket syncPkt = new SyncShopPacket(locName, locNbt);
+            for (ServerPlayer p : player.getServer().getPlayerList().getPlayers()) {
+                PlayerWaveData pd = WaveDefenseMod.waveManager.getPlayerData(p.getUUID());
+                if (pd != null && pd.getCurrentLocation() != null
+                        && pd.getCurrentLocation().getName().equals(locName)) {
+                    PacketHandler.sendToPlayer(p, syncPkt);
                 }
             }
         });
