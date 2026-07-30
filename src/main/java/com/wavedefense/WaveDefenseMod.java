@@ -34,10 +34,14 @@ public class WaveDefenseMod {
     public static final Logger LOGGER = LoggerFactory.getLogger(MODID);
 
     private static MinecraftServer serverInstance;
-    public static LocationManager locationManager;
-    public static LeaderboardManager leaderboardManager;
-    public static WaveManager waveManager;
-    public static PacketHandler packetHandler;
+    // volatile: these manager refs are read from the async save thread
+    // (NbtHelper SAVE_EXEC) and written on the server thread — volatile
+    // guarantees the background thread sees a fully-constructed instance.
+    public static volatile LocationManager locationManager;
+    public static volatile LeaderboardManager leaderboardManager;
+    public static volatile com.wavedefense.data.PlayerProfileManager profileManager;
+    public static volatile WaveManager waveManager;
+    public static volatile PacketHandler packetHandler;
 
     public WaveDefenseMod() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
@@ -59,20 +63,41 @@ public class WaveDefenseMod {
         locationManager = new LocationManager(serverInstance);
         leaderboardManager = new LeaderboardManager(serverInstance);
         leaderboardManager.loadFromFile();
+        profileManager = new com.wavedefense.data.PlayerProfileManager(serverInstance);
+        profileManager.load();
+        // Restore live match state (sessions + inventory backups) left behind by a
+        // crash. Must run after locationManager so sessions can resolve their location.
+        if (waveManager != null) {
+            waveManager.loadRuntimeState();
+        }
         WaveDefenseBackupSystem.getInstance().initialize();
         WaveDefenseBackupSystem.getInstance().startScheduledBackups();
     }
 
     @SubscribeEvent
     public void onServerStopping(ServerStoppingEvent event) {
+        // Synchronous save on shutdown — bypass debounce so no data is lost.
         if (locationManager != null) {
-            locationManager.saveToFile();
+            locationManager.saveToFileSync();
             LOGGER.info("[WaveDefense] Location data saved on server stop.");
         }
         if (leaderboardManager != null) {
-            leaderboardManager.saveToFile();
+            leaderboardManager.saveToFileSync();
             LOGGER.info("[WaveDefense] Leaderboard data saved on server stop.");
         }
+        if (profileManager != null) {
+            profileManager.saveSync();
+            LOGGER.info("[WaveDefense] Player profiles saved on server stop.");
+        }
+        // Live match state — normally every player has already been surrendered by
+        // their logout event, but persist anyway so an abrupt stop is recoverable.
+        if (waveManager != null) {
+            waveManager.saveRuntimeStateSync();
+            LOGGER.info("[WaveDefense] Runtime state saved on server stop.");
+        }
+        // Drain any other in-flight debounced writes (defensive — should be empty if
+        // both sync saves above ran).
+        com.wavedefense.data.NbtHelper.flushPendingWrites();
         WaveDefenseBackupSystem.getInstance().shutdown();
     }
 

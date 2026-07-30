@@ -1,30 +1,47 @@
-# Wave Defense Mod - v0.2.65
+# Wave Defense Mod - v0.3.0
 
 Wave Defense is a PvE/PvP Forge mod for **Minecraft 1.20.1** and **Java 17**.
 It lets server owners build configurable arena locations with mob waves, team PvP,
 shops, loot events, portals, boundaries, HUD panels, and in-game admin editors.
 
+> A frozen, work-in-progress **1.16.5 / Forge 36.x / Java 8 backport** lives
+> under `1.16.5/` — see its `PORT_STATUS.md`. The main, fully-supported version
+> is this 1.20.1 build.
+
 ---
 
 ## Status
 
-Version `0.2.54.3` — Two real PvP bugs fixed from deep audit: mid-round join
-correctness + scoreboard team sync after auto-balance.
+Version `0.3.0` — **HUD fixes + cleanup release.** Fixes two player-reported
+HUD bugs (frozen countdown, frozen wave counter), removes the two deprecated
+legacy location editors (−3026 LOC), and adds safe concurrent editing for
+multiple admins. No data-format changes — existing saves load unchanged.
 
-**v0.2.54.3 changes:**
-- Mid-round joiner is now added to `aliveThisRound` (Standard/CtP/KotH) so
-  round-end checks include them — they're no longer "invisible" to the win predicate.
-- Auto-balance now re-syncs Minecraft scoreboard team so nametag visibility
-  (HIDE_FOR_OTHER_TEAMS) reflects the player's new team immediately.
+**v0.3.0 highlights:**
+- **Fixed: the next-wave timer now actually counts down.** It was only ever set
+  when you joined a location and never refreshed, so the HUD froze at the join
+  value (players saw `0:30` linger forever). The server now pushes live wave +
+  countdown once per second, and the client interpolates between syncs for a
+  smooth read.
+- **Fixed: the wave counter now advances** in PvE — same root cause.
+- **HUD status panel** — points / wave / timer are now one themed panel with a
+  backdrop, a draining progress bar, and urgency colours (amber under 10 s, red
+  under 5 s) instead of three bare white lines.
+- **Concurrent multi-admin editing** — section-level merge saves, so two admins
+  editing different parts of the same arena no longer overwrite each other.
+- **Legacy editors removed** — `LocationEditorScreen` + `PvpLocationEditorScreen`
+  (deprecated since v0.2.56) deleted; the `📜 Legacy` admin button is gone.
+  The unified 6-tab editor is now the only location editor.
+- **`TriggerEvaluator` refactored** — the 130-line trigger-condition switch was
+  split into named, behaviour-identical helpers; nested inventory lambdas and
+  duplicated value-lookup blocks consolidated.
 
-**v0.2.54.2 changes:**
-- BBox + minimap settings now in PvP editor (Rules tab) — admins no longer have
-  to switch to PvE mode to configure tactical minimap.
-- Minimap auto-scales to `min(width, height) / 6` (clamped 72-160 px) for proper
-  proportions on every resolution / GUI scale combination.
-- 188 Ukrainian translations added — UA client UI is no longer "half English".
-- PvP `endRound` / `endPvpMatch` now log clear exit reasons + warning when
-  Standard mode has `totalRounds = 1` (kicks players out on first draw).
+**v0.2.66 (previous) — hardening & performance:**
+- O(1) location lookup (`LinkedHashMap` index), atomic + async/debounced saves,
+  rate limits on 7 packets, path-traversal guard, critical-path logging,
+  data-version migration hook.
+
+See [CHANGELOG.md](CHANGELOG.md) for the full history (0.2.54 → 0.3.0).
 
 **v0.2.54.1 hotfix:**
 - Tacz bulk-add — captures every NBT-distinct gun variant from creative tabs

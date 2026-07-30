@@ -49,7 +49,7 @@ public class PortalManager {
     public void tick(WaveManager wm) {
         if (WaveDefenseMod.getServer() == null) return;
 
-        for (Location loc : WaveDefenseMod.locationManager.getAllLocations()) {
+        for (Location loc : WaveDefenseMod.locationManager.getAllLocationsView()) {
             if (!loc.isPortalEnabled()) continue;
             String name = loc.getName();
 

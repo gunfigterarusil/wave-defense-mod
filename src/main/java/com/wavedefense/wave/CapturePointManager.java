@@ -7,9 +7,7 @@ import com.wavedefense.network.packets.SyncCtpStatePacket;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -287,7 +285,7 @@ public class CapturePointManager {
     private void spawnPointParticles(ServerLevel world, BlockPos center, int radius,
                                      String particleId, int count) {
         if (center == null || world == null) return;
-        ParticleOptions particle = resolveParticle(particleId);
+        ParticleOptions particle = ParticleHelper.resolveParticle(particleId, ParticleTypes.SMOKE);
         // Spawn a small cluster around the point center (not a full ring — keep it lightweight)
         double cx = center.getX() + 0.5;
         double cy = center.getY() + 1.0;
@@ -303,26 +301,4 @@ public class CapturePointManager {
         }
     }
 
-    static ParticleOptions resolveParticle(String id) {
-        if (id == null || id.isBlank()) return ParticleTypes.SMOKE;
-        try {
-            var type = BuiltInRegistries.PARTICLE_TYPE.get(new ResourceLocation(id));
-            if (type instanceof net.minecraft.core.particles.SimpleParticleType spt) return spt;
-            if (type instanceof ParticleOptions po) return po;
-        } catch (Exception ignored) {}
-        return switch (id) {
-            case "minecraft:flame"          -> ParticleTypes.FLAME;
-            case "minecraft:smoke"          -> ParticleTypes.SMOKE;
-            case "minecraft:crit"           -> ParticleTypes.CRIT;
-            case "minecraft:large_smoke"    -> ParticleTypes.LARGE_SMOKE;
-            case "minecraft:portal"         -> ParticleTypes.PORTAL;
-            case "minecraft:enchant"        -> ParticleTypes.ENCHANT;
-            case "minecraft:end_rod"        -> ParticleTypes.END_ROD;
-            case "minecraft:soul_fire_flame"-> ParticleTypes.SOUL_FIRE_FLAME;
-            case "minecraft:snowflake"      -> ParticleTypes.SNOWFLAKE;
-            case "minecraft:witch"          -> ParticleTypes.WITCH;
-            case "minecraft:happy_villager" -> ParticleTypes.HAPPY_VILLAGER;
-            default                         -> ParticleTypes.SMOKE;
-        };
-    }
 }

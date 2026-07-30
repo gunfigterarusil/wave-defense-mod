@@ -39,6 +39,7 @@ public class PacketHandler {
         c2s(CreateLocationPacket.class, CreateLocationPacket::encode, CreateLocationPacket::decode, CreateLocationPacket::handle);
         c2s(DeleteLocationPacket.class, DeleteLocationPacket::encode, DeleteLocationPacket::decode, DeleteLocationPacket::handle);
         c2s(UpdateLocationPacket.class, UpdateLocationPacket::encode, UpdateLocationPacket::decode, UpdateLocationPacket::handle);
+        c2s(MergeLocationPacket.class, MergeLocationPacket::encode, MergeLocationPacket::decode, MergeLocationPacket::handle);
         c2s(UpdatePlayerSettingsPacket.class, UpdatePlayerSettingsPacket::encode, UpdatePlayerSettingsPacket::decode, UpdatePlayerSettingsPacket::handle);
         c2s(SurrenderPacket.class, SurrenderPacket::encode, SurrenderPacket::decode, SurrenderPacket::handle);
         s2c(OpenMenuPacket.class, OpenMenuPacket::encode, OpenMenuPacket::decode, OpenMenuPacket::handle);

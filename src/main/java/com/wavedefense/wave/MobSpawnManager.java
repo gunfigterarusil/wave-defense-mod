@@ -53,13 +53,20 @@ public class MobSpawnManager {
         // don't inflate waveStartMobCount (which drives HALF_MOBS_DEAD trigger).
         int preSpawnSize = spawnedMobs.size();
 
+        // Static tuning for this wave: difficulty preset × endless loop, plus whatever
+        // modifier the session rolled. Computed once — it is identical for every mob.
+        SpawnTuning tuning = SpawnTuning.of(location, waveNumber, sess.activeModifier);
+
         for (WaveMob waveMob : waveConfig.getMobs()) {
             EntityType<?> entityType = ForgeRegistries.ENTITY_TYPES.getValue(waveMob.getMobType());
             if (entityType == null) continue;
 
             int baseCount = waveMob.getCount() + (waveMob.getGrowthPerWave() * (waveNumber - 1));
             double difficulty = wm.getAutoScaler().getCurrentDifficulty();
-            int mobCount = (int) (baseCount * playerCount * difficulty);
+            // Endless growth rides on growthPerWave above; the preset's count multiplier
+            // is applied here. Deliberately not multiplied by the endless factor as well —
+            // stacking both makes late loops unspawnable rather than hard.
+            int mobCount = (int) (baseCount * playerCount * difficulty * tuning.count);
             if (mobCount < 1) mobCount = 1; // ensure at least 1 mob
 
             for (int i = 0; i < mobCount; i++) {
@@ -83,7 +90,7 @@ public class MobSpawnManager {
                     spawnPos = base;
                 }
 
-                Mob mob = trySpawn(entityType, world, spawnPos, locationName, waveMob);
+                Mob mob = trySpawn(entityType, world, spawnPos, locationName, waveMob, tuning);
                 if (mob != null) {
                     spawnedMobs.add(mob.getUUID());
                     anySpawned = true;
@@ -105,6 +112,8 @@ public class MobSpawnManager {
         LocationSession sess = ctx.getOrCreateSession(locationName, loc);
         Set<UUID> spawnedMobs = sess.spawnedMobs;
         Random rng = new Random();
+        // Portal/trigger mobs belong to the same wave, so they get the same tuning.
+        SpawnTuning tuning = SpawnTuning.of(loc, waveNumber, sess.activeModifier);
         // Вибираємо точки спавну: якщо є конкретні MobSpawnPoints — розподіляємо моби по них
         var spawnPoints = loc.getMobSpawns();
 
@@ -130,7 +139,7 @@ public class MobSpawnManager {
                         ? center.offset(rng.nextInt(r*2+1)-r, 0, rng.nextInt(r*2+1)-r)
                         : center;
                 }
-                Mob mob = trySpawn(entityType, world, spawnPos, locationName, waveMob);
+                Mob mob = trySpawn(entityType, world, spawnPos, locationName, waveMob, tuning);
                 if (mob != null) spawnedMobs.add(mob.getUUID());
             }
         }
@@ -138,8 +147,74 @@ public class MobSpawnManager {
 
     // ── Internal helpers ──────────────────────────────────────────────
 
+    /**
+     * Stat scaling shared by every mob in one wave.
+     *
+     * <p>Combines the location's static {@link DifficultyPreset} with the endless-mode
+     * loop multiplier, and carries the wave's rolled {@link WaveModifier}. Built once
+     * per wave rather than per mob — the inputs cannot change mid-spawn.
+     */
+    public static final class SpawnTuning {
+        public final double health;
+        public final double damage;
+        public final double count;
+        public final double points;
+        public final WaveModifier modifier;
+
+        private SpawnTuning(double health, double damage, double count,
+                            double points, WaveModifier modifier) {
+            this.health   = health;
+            this.damage   = damage;
+            this.count    = count;
+            this.points   = points;
+            this.modifier = modifier;
+        }
+
+        static SpawnTuning of(Location loc, int waveNumber, WaveModifier modifier) {
+            DifficultyPreset preset = loc.getDifficultyPreset();
+            double endless = loc.getEndlessMultiplier(waveNumber);
+            return new SpawnTuning(
+                preset.getHealthMult() * endless,
+                preset.getDamageMult() * endless,
+                preset.getCountMult(),
+                preset.getPointsMult(),
+                modifier);
+        }
+
+        boolean isIdentity() {
+            return health == 1.0 && damage == 1.0 && points == 1.0 && modifier == null;
+        }
+    }
+
+    /**
+     * Scales one attribute by {@code mult}, clamped to the attribute's own legal range.
+     * A silent no-op when the mob does not have the attribute at all — not every entity
+     * has ATTACK_DAMAGE, and a missing attribute must not abort the spawn.
+     */
+    private static void scaleAttribute(Mob mob,
+                                       net.minecraft.world.entity.ai.attributes.Attribute attribute,
+                                       double mult) {
+        if (mult == 1.0) return;
+        net.minecraft.world.entity.ai.attributes.AttributeInstance inst = mob.getAttribute(attribute);
+        if (inst == null) return;
+        double scaled = inst.getBaseValue() * mult;
+        // Attribute has a hard ceiling (e.g. MAX_HEALTH caps at 1024); exceeding it throws.
+        inst.setBaseValue(attribute.sanitizeValue(scaled));
+    }
+
+    /** Applies difficulty/endless scaling and the wave modifier to a freshly spawned mob. */
+    private static void applyTuning(Mob mob, SpawnTuning tuning) {
+        if (tuning == null || tuning.isIdentity()) return;
+        scaleAttribute(mob, net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH,    tuning.health);
+        scaleAttribute(mob, net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE, tuning.damage);
+        // Re-heal: raising MAX_HEALTH leaves the mob at its old value, i.e. wounded.
+        mob.setHealth(mob.getMaxHealth());
+        if (tuning.modifier != null) tuning.modifier.applyTo(mob);
+    }
+
     private Mob trySpawn(EntityType<?> entityType, ServerLevel world,
-                          BlockPos pos, String locationName, WaveMob waveMob) {
+                          BlockPos pos, String locationName, WaveMob waveMob,
+                          SpawnTuning tuning) {
         if (!world.isLoaded(pos)) {
             WaveDefenseMod.LOGGER.debug("[WaveDefense] Skipping spawn at {} — chunk not loaded", pos);
             return null;
@@ -154,8 +229,14 @@ public class MobSpawnManager {
                     new NearestAttackableTargetGoal<>(mob, Player.class, true));
             mob.setPersistenceRequired();
             mob.getPersistentData().putString("location", locationName);
-            mob.getPersistentData().putInt("points", waveMob.getPointsPerKill());
+            // Harder difficulties pay better, or nobody would choose them.
+            int points = tuning != null
+                ? (int) Math.round(waveMob.getPointsPerKill() * tuning.points)
+                : waveMob.getPointsPerKill();
+            mob.getPersistentData().putInt("points", points);
             applyMobEquipment(mob, waveMob);
+            // After equipment: armour changes attributes too, and re-healing must come last.
+            applyTuning(mob, tuning);
             com.wavedefense.compat.MineAndSlashCompat.applyToMob(
                 mob, WaveDefenseMod.locationManager.getLocation(locationName));
             world.addFreshEntity(mob);
@@ -200,7 +281,11 @@ public class MobSpawnManager {
                     if (effect != null)
                         mob.addEffect(new net.minecraft.world.effect.MobEffectInstance(effect, dur, amp));
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                // Malformed effect string in wave config — log so the admin can fix it.
+                WaveDefenseMod.LOGGER.debug("[WaveDefense] Skipping bad mob effect '{}': {}",
+                    effectStr, e.getMessage());
+            }
         }
     }
 

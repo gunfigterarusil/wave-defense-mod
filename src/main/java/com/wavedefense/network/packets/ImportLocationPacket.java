@@ -24,6 +24,9 @@ public class ImportLocationPacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null || !player.hasPermissions(2)) return;
+            // Rate-limit: import does disk I/O + full NBT parse + broadcast — heavy.
+            if (!com.wavedefense.network.PacketRateLimiter.allow(
+                    player.getUUID(), ImportLocationPacket.class, 2000L)) return;
             try {
                 File exportDir = ExportLocationPacket.getExportDir();
                 File file = new File(exportDir, pkt.fileName + ".nbt");

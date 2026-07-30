@@ -46,7 +46,7 @@ public class TriggerEvaluator {
     private void tickLocationTriggers(WaveManager wm) {
         if (WaveDefenseMod.getServer() == null) return;
         long now = System.currentTimeMillis();
-        for (Location loc : WaveDefenseMod.locationManager.getAllLocations()) {
+        for (Location loc : WaveDefenseMod.locationManager.getAllLocationsView()) {
             if (!loc.isLocationTriggerEnabled()) continue;
             if (loc.isPvp()) continue;
             if (loc.getPlayerSpawn() == null) continue;
@@ -480,57 +480,19 @@ public class TriggerEvaluator {
                 return false;
             }
             case PLAYER_HAS_DIAMOND: {
-                for (ServerPlayer p : players) {
-                    if (p.getInventory().hasAnyMatching(ss ->
-                        ss.getItem() == net.minecraft.world.item.Items.DIAMOND ||
-                        ss.getItem() instanceof net.minecraft.world.item.ArmorItem ai &&
-                        ai.getMaterial() == net.minecraft.world.item.ArmorMaterials.DIAMOND)) return true;
-                }
+                for (ServerPlayer p : players) if (hasDiamondGear(p)) return true;
                 return false;
             }
             case PLAYER_HAS_IRON: {
-                for (ServerPlayer p : players) {
-                    if (p.getInventory().hasAnyMatching(ss ->
-                        ss.getItem() == net.minecraft.world.item.Items.IRON_INGOT ||
-                        ss.getItem() instanceof net.minecraft.world.item.ArmorItem ai &&
-                        ai.getMaterial() == net.minecraft.world.item.ArmorMaterials.IRON)) return true;
-                }
+                for (ServerPlayer p : players) if (hasIronGear(p)) return true;
                 return false;
             }
             case PLAYER_HAS_SWORD: {
-                for (ServerPlayer p : players) {
-                    if (p.getInventory().hasAnyMatching(ss -> ss.getItem() instanceof net.minecraft.world.item.SwordItem)) return true;
-                }
+                for (ServerPlayer p : players) if (hasSword(p)) return true;
                 return false;
             }
-            case PLAYER_HAS_ITEM: {
-                // Шукаємо customItemId(s) у хвилях локації з цим тригером (підтримує кілька через кому)
-                Location loc2 = WaveDefenseMod.locationManager.getLocation(locName);
-                String itemId = "";
-                if (loc2 != null) {
-                    for (WaveConfig wc : loc2.getWaves()) {
-                        if (wc.isTriggerEnabled() && !wc.getTriggerCustomItemId().isBlank() &&
-                            (wc.getTriggerType() == WaveTrigger.PLAYER_HAS_ITEM ||
-                             (wc.getExtraTriggers() != null && wc.getExtraTriggers().contains(WaveTrigger.PLAYER_HAS_ITEM)))) {
-                            itemId = wc.getTriggerCustomItemId(); break;
-                        }
-                    }
-                }
-                if (itemId.isBlank()) return false;
-                // Підтримка кількох предметів через кому — ANY з них достатньо
-                for (String part : itemId.split(",")) {
-                    String trimmed = part.trim();
-                    if (trimmed.isEmpty()) continue;
-                    try {
-                        net.minecraft.resources.ResourceLocation rl = new net.minecraft.resources.ResourceLocation(trimmed);
-                        net.minecraft.world.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(rl);
-                        if (item == null) continue;
-                        net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(item);
-                        for (ServerPlayer p : players) { if (p.getInventory().contains(stack)) return true; }
-                    } catch (Exception ignored) {}
-                }
-                return false;
-            }
+            case PLAYER_HAS_ITEM:
+                return anyPlayerHasConfiguredItem(locName, players);
             case SHOP_WAVE_START: case SHOP_WAVE_N: case SHOP_LOCATION_START: case SHOP_PLAYER_HAS_ITEM:
                 return false; // shop-only triggers, not used in wave conditions
             case WAVES_SURVIVED_5:  { int w = s != null ? s.currentWave : 1; return w > 5; }
@@ -540,23 +502,10 @@ public class TriggerEvaluator {
             case MOBS_KILLED_50:  { return (s != null ? s.mobsKilled : 0) >= 50; }
             case MOBS_KILLED_100: { return (s != null ? s.mobsKilled : 0) >= 100; }
             // Порогові тригери з кастомним значенням
-            case MOBS_KILLED_N: {
-                // Отримуємо N з першої хвилі що використовує цей тригер
-                Location _loc = WaveDefenseMod.locationManager.getLocation(locName);
-                int n = 10;
-                if (_loc != null) for (WaveConfig _wc : _loc.getWaves()) {
-                    if (_wc.isTriggerEnabled() && _wc.getTriggerType() == WaveTrigger.MOBS_KILLED_N) { n = _wc.getTriggerCustomValue(); break; }
-                }
-                return (s != null ? s.mobsKilled : 0) >= n;
-            }
-            case WAVES_SURVIVED_N: {
-                Location _loc2 = WaveDefenseMod.locationManager.getLocation(locName);
-                int n2 = 5;
-                if (_loc2 != null) for (WaveConfig _wc2 : _loc2.getWaves()) {
-                    if (_wc2.isTriggerEnabled() && _wc2.getTriggerType() == WaveTrigger.WAVES_SURVIVED_N) { n2 = _wc2.getTriggerCustomValue(); break; }
-                }
-                return (s != null ? s.currentWave : 1) > n2;
-            }
+            case MOBS_KILLED_N:
+                return (s != null ? s.mobsKilled : 0) >= customTriggerValue(locName, WaveTrigger.MOBS_KILLED_N, 10);
+            case WAVES_SURVIVED_N:
+                return (s != null ? s.currentWave : 1) > customTriggerValue(locName, WaveTrigger.WAVES_SURVIVED_N, 5);
             case TIMER_CUSTOM: return true; // TIMER_CUSTOM обробляється в tickTimerCustomForLocation, тут true для AND умов
             case ROUND_START: case ROUND_END: case BUY_PHASE:
             case TEAM_WIPE: case KILL_STREAK_3:
@@ -566,6 +515,78 @@ public class TriggerEvaluator {
                     "[WaveDefense] TriggerEvaluator: unhandled trigger type '{}' in checkWaveTriggerCondition — returning false", trigger);
                 return false;
         }
+    }
+
+    // ── Extracted inventory / item predicates (kept behaviour-identical) ──────
+
+    /** True if the player carries a diamond item or any diamond armour piece. */
+    private static boolean hasDiamondGear(ServerPlayer p) {
+        return p.getInventory().hasAnyMatching(ss ->
+            ss.getItem() == net.minecraft.world.item.Items.DIAMOND ||
+            ss.getItem() instanceof net.minecraft.world.item.ArmorItem ai &&
+            ai.getMaterial() == net.minecraft.world.item.ArmorMaterials.DIAMOND);
+    }
+
+    /** True if the player carries an iron ingot or any iron armour piece. */
+    private static boolean hasIronGear(ServerPlayer p) {
+        return p.getInventory().hasAnyMatching(ss ->
+            ss.getItem() == net.minecraft.world.item.Items.IRON_INGOT ||
+            ss.getItem() instanceof net.minecraft.world.item.ArmorItem ai &&
+            ai.getMaterial() == net.minecraft.world.item.ArmorMaterials.IRON);
+    }
+
+    /** True if the player carries any sword. */
+    private static boolean hasSword(ServerPlayer p) {
+        return p.getInventory().hasAnyMatching(ss -> ss.getItem() instanceof net.minecraft.world.item.SwordItem);
+    }
+
+    /**
+     * PLAYER_HAS_ITEM: looks up the configured custom item id(s) from the
+     * location's trigger waves (comma-separated, ANY match wins) and returns
+     * true if any player in the location holds one of them.
+     */
+    private boolean anyPlayerHasConfiguredItem(String locName, List<ServerPlayer> players) {
+        Location loc2 = WaveDefenseMod.locationManager.getLocation(locName);
+        String itemId = "";
+        if (loc2 != null) {
+            for (WaveConfig wc : loc2.getWaves()) {
+                if (wc.isTriggerEnabled() && !wc.getTriggerCustomItemId().isBlank() &&
+                    (wc.getTriggerType() == WaveTrigger.PLAYER_HAS_ITEM ||
+                     (wc.getExtraTriggers() != null && wc.getExtraTriggers().contains(WaveTrigger.PLAYER_HAS_ITEM)))) {
+                    itemId = wc.getTriggerCustomItemId(); break;
+                }
+            }
+        }
+        if (itemId.isBlank()) return false;
+        for (String part : itemId.split(",")) {
+            String trimmed = part.trim();
+            if (trimmed.isEmpty()) continue;
+            try {
+                net.minecraft.resources.ResourceLocation rl = new net.minecraft.resources.ResourceLocation(trimmed);
+                net.minecraft.world.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(rl);
+                if (item == null) continue;
+                net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(item);
+                for (ServerPlayer p : players) { if (p.getInventory().contains(stack)) return true; }
+            } catch (Exception ignored) {}
+        }
+        return false;
+    }
+
+    /**
+     * Reads the custom integer threshold (N) for value-driven triggers
+     * (MOBS_KILLED_N / WAVES_SURVIVED_N) from the first enabled trigger-wave of
+     * the matching type. Returns {@code def} when no wave configures it.
+     */
+    private int customTriggerValue(String locName, WaveTrigger type, int def) {
+        Location loc = WaveDefenseMod.locationManager.getLocation(locName);
+        if (loc != null) {
+            for (WaveConfig wc : loc.getWaves()) {
+                if (wc.isTriggerEnabled() && wc.getTriggerType() == type) {
+                    return wc.getTriggerCustomValue();
+                }
+            }
+        }
+        return def;
     }
 
     /** Записуємо нещодавно спрацьований event-driven тригер для AND-умов */
@@ -626,7 +647,7 @@ public class TriggerEvaluator {
         if (WaveDefenseMod.getServer() == null) return;
         if (ctx.playerData.containsKey(player.getUUID())) return; // вже в локації
 
-        for (Location loc : WaveDefenseMod.locationManager.getAllLocations()) {
+        for (Location loc : WaveDefenseMod.locationManager.getAllLocationsView()) {
             if (!loc.isLocationTriggerEnabled()) continue;
             if (loc.isPvp()) continue;
             if (loc.getLocationTriggerType() != trigger) continue;

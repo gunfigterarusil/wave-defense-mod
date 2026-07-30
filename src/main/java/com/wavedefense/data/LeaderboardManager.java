@@ -22,6 +22,11 @@ import java.util.*;
 public class LeaderboardManager {
 
     public static final String MODE_PVE        = "PvE";
+    /**
+     * Endless runs rank separately and by a different metric: primaryScore is the wave
+     * reached, not points. Mixing them into MODE_PVE would compare unlike numbers.
+     */
+    public static final String MODE_PVE_ENDLESS = "PvE_ENDLESS";
     public static final String MODE_STANDARD   = "PvP_STANDARD";
     public static final String MODE_DEATHMATCH = "PvP_DEATHMATCH";
     public static final String MODE_BATTLE_ROYALE = "PvP_BATTLE_ROYALE";
@@ -99,40 +104,14 @@ public class LeaderboardManager {
     }
 
     public synchronized void saveToFile() {
-        try {
-            dataFile.getParentFile().mkdirs();
-            CompoundTag root = serialize();
-            File tmp = new File(dataFile.getAbsolutePath() + ".tmp");
-            NbtIo.writeCompressed(root, tmp);
+        // Async + debounced — leaderboard updates are frequent during PvP rounds;
+        // burst of 5 round-end writes collapses into 1 disk hit.
+        NbtHelper.atomicWriteCompressedAsync(dataFile, serialize());
+    }
 
-            // H-4 fix: check renameTo return values; on failure try java.nio.Files.move()
-            File bak = new File(dataFile.getAbsolutePath() + ".bak");
-            if (dataFile.exists()) {
-                boolean moved = dataFile.renameTo(bak);
-                if (!moved) {
-                    try { java.nio.file.Files.move(dataFile.toPath(), bak.toPath(),
-                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                    } catch (Exception ex) {
-                        WaveDefenseMod.LOGGER.warn("[WaveDefense] Could not back up leaderboard file: {}", ex.getMessage());
-                        // If we can't back up, don't risk overwriting with tmp
-                        tmp.delete();
-                        return;
-                    }
-                }
-            }
-            boolean committed = tmp.renameTo(dataFile);
-            if (!committed) {
-                try { java.nio.file.Files.move(tmp.toPath(), dataFile.toPath(),
-                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                } catch (Exception ex) {
-                    WaveDefenseMod.LOGGER.error("[WaveDefense] Could not commit leaderboard file — restoring backup: {}", ex.getMessage());
-                    // Attempt to restore backup
-                    if (bak.exists()) bak.renameTo(dataFile);
-                }
-            }
-        } catch (IOException e) {
-            WaveDefenseMod.LOGGER.error("[WaveDefense] Could not save leaderboard data", e);
-        }
+    /** Synchronous save — used only on server stop. */
+    public synchronized void saveToFileSync() {
+        NbtHelper.atomicWriteCompressed(dataFile, serialize());
     }
 
     public synchronized void loadFromFile() {
@@ -162,11 +141,23 @@ public class LeaderboardManager {
         return root;
     }
 
+    /**
+     * Migration seam for future leaderboard schema changes. v0→v1 is a no-op.
+     */
+    private CompoundTag migrate(CompoundTag root, int fromVersion) {
+        if (fromVersion >= DATA_VERSION) return root;
+        WaveDefenseMod.LOGGER.info("[WaveDefense] Migrating leaderboard data v{} → v{} (no-op).",
+            fromVersion, DATA_VERSION);
+        return root;
+    }
+
     private void deserialize(CompoundTag root) {
         int fileVersion = root.contains("__version__") ? root.getInt("__version__") : 0;
         if (fileVersion > DATA_VERSION) {
             WaveDefenseMod.LOGGER.warn("[WaveDefense] Leaderboard data version {} is newer than supported {}; loading anyway",
                 fileVersion, DATA_VERSION);
+        } else if (fileVersion < DATA_VERSION) {
+            root = migrate(root, fileVersion);
         }
         data.clear();
         for (String locName : root.getAllKeys()) {

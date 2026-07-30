@@ -54,7 +54,7 @@ public class InfoPanelManager {
     public void tick() {
         if (WaveDefenseMod.getServer() == null) return;
 
-        Set<String> allLocNames = WaveDefenseMod.locationManager.getAllLocations()
+        Set<String> allLocNames = WaveDefenseMod.locationManager.getAllLocationsView()
             .stream().map(Location::getName).collect(Collectors.toSet());
 
         // Видаляємо панелі для сесій локацій що більше не існують
@@ -72,7 +72,7 @@ public class InfoPanelManager {
 
         Set<String> activeNames = ctx.getActiveLocationNames();
 
-        for (Location loc : WaveDefenseMod.locationManager.getAllLocations()) {
+        for (Location loc : WaveDefenseMod.locationManager.getAllLocationsView()) {
             String locName = loc.getName();
             InfoPanelSettings ips = loc.getInfoPanel();
             if (world == null) continue;

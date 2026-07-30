@@ -31,15 +31,17 @@ public class UpdatePlayerSettingsPacket {
     public static void handle(UpdatePlayerSettingsPacket p, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
-            if (player != null) {
-                PlayerWaveData data = WaveDefenseMod.waveManager.getPlayerData(player.getUUID());
-                if (data != null) {
-                    data.setShowTimer(p.showTimer);
-                    data.setShowNotifications(p.showNotifications);
-                    data.setShowTeammates(p.showTeammates);
-                    // Надсилаємо оновлені дані назад клієнту (щоб HUD одразу відреагував)
-                    WaveDefenseMod.waveManager.syncPlayerData(player);
-                }
+            if (player == null) return;
+            // Rate-limit: settings rarely change >once/sec under honest use
+            if (!com.wavedefense.network.PacketRateLimiter.allow(
+                    player.getUUID(), UpdatePlayerSettingsPacket.class, 500L)) return;
+            PlayerWaveData data = WaveDefenseMod.waveManager.getPlayerData(player.getUUID());
+            if (data != null) {
+                data.setShowTimer(p.showTimer);
+                data.setShowNotifications(p.showNotifications);
+                data.setShowTeammates(p.showTeammates);
+                // Надсилаємо оновлені дані назад клієнту (щоб HUD одразу відреагував)
+                WaveDefenseMod.waveManager.syncPlayerData(player);
             }
         });
         ctx.get().setPacketHandled(true);

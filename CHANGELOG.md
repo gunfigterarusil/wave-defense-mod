@@ -1,5 +1,295 @@
 # Changelog
 
+## [Unreleased] — gameplay depth: endless, modifiers, difficulty, progression
+
+Four features that give a location a reason to be played more than once. All are
+opt-in per location and default to off, so existing arenas behave exactly as
+before. Existing saves load unchanged; the new keys simply take their defaults.
+
+### Added — endless mode
+
+- A PvE location can now be marked **endless**: waves never run out, there is no
+  victory, and the score becomes *how far did you get*.
+- The wave list already cycled internally (`(currentWave - 1) % waves.size()`),
+  so this needed no new spawn logic — only the two victory gates now defer to
+  the flag.
+- Mob health and damage scale by **+N% per completed loop** through the wave
+  list, configurable (default 10%). Scaling is **linear, not compounding**:
+  compounding turns loop 5 into an unplayable wall, which reads as a bug rather
+  than a challenge. Mob *counts* already grow through each wave's existing
+  `growthPerWave`, so they are deliberately left out of the loop multiplier.
+- Endless runs get their own leaderboard (`PvE_ENDLESS`) ranked by wave reached
+  rather than points — the two are not comparable numbers.
+- **The record is written on death, not on victory.** Endless never reaches
+  `triggerVictory`, so without this an endless location would silently never
+  produce a leaderboard entry at all. Non-endless deaths are still unranked:
+  dying on wave 3 of 10 is not a result worth listing beside a finished run.
+
+### Added — wave modifiers
+
+- Every *N*-th wave (default 3) rolls a random twist, announced in chat with a
+  one-line explanation of what it does. The waves in between run clean, which is
+  what makes a modifier feel like an event rather than ambient noise — and gives
+  players a wave to recover on.
+- Eight modifiers: **Swift**, **Armored**, **Regenerating**, **Enraged**,
+  **Tough**, **Phantom** (invisible), **Volatile** (explodes on death), and
+  **Venomous** (poisons on hit).
+- Admins can restrict the pool per location; selecting none means all are
+  eligible, and the editor label says so rather than leaving eight empty boxes
+  looking like a misconfiguration.
+- **Volatile explosions never damage terrain** (`ExplosionInteraction.NONE`).
+  Arenas are hand-built, and a modifier that quietly demolishes the map over a
+  few runs would be worse than no modifier at all. The blast still hurts players,
+  and it fires on *any* death — an environment kill is just as dangerous to be
+  standing next to.
+
+### Added — difficulty presets
+
+- Easy / Normal / Hard / Nightmare, set per location, scaling mob health,
+  damage, count, and point rewards.
+- **Rewards scale with difficulty**, or nobody would ever pick anything above
+  Normal.
+- Each tier ranks on its own leaderboard so a Nightmare clear never has to
+  compete with an Easy one. Normal keeps the unsuffixed key, so existing records
+  stay exactly where they are.
+- This composes with, rather than replaces, the existing `WaveAutoScaler`: the
+  preset sets the baseline that the adaptive scaler then nudges around, so
+  Nightmare stays harder than Easy even after the scaler settles.
+
+### Added — lifetime player progression
+
+- A new per-player profile persists across runs, locations, and restarts:
+  waves survived, best wave, kills, points, matches played/won, deaths, playtime,
+  and XP.
+- Level curve is quadratic (`1 + floor(sqrt(xp / 100))`) — early levels arrive
+  fast enough to notice, later ones stay meaningful.
+- Stored in `world/data/wavedefense_profiles.dat` through the same atomic,
+  debounced write path as locations and leaderboards, so a crash mid-write
+  cannot corrupt it.
+- Profiles are never pruned: a player returning after months keeps their level.
+
+### Added — tests
+
+- `ProgressionTest` — 18 tests covering difficulty parsing and monotonicity,
+  endless loop arithmetic and its linear-not-compounding guarantee, modifier
+  interval and pool rolling, the level curve, and profile NBT round-tripping.
+
+### Notes
+
+- 35 new translation keys across all 8 supported locales.
+- Version deliberately **not** bumped — 0.3.0 has not shipped yet, so this lands
+  on top of it.
+
+## [0.3.0] - 2026-06-19 — HUD fixes, cleanup + concurrent multi-admin editing
+
+A maintenance release that fixes two long-standing HUD bugs reported by
+players, pays down tech debt, and lets multiple admins edit locations at the
+same time safely. No data-format changes — existing saves load unchanged.
+
+### Fixed — HUD showed stale data (player-reported)
+
+- **The next-wave countdown never counted down.** `PlayerWaveData.timeUntilNextWave`
+  was only ever written when a player *joined* a location, and `syncPlayerData`
+  ran solely on discrete events (purchase, death, join) — there was no periodic
+  sync. The HUD therefore displayed whatever number was captured at join time
+  forever, which players saw as the timer "freezing" and the wave-start `0:30`
+  lingering on screen.
+- **The wave counter never advanced** for the same reason: `setCurrentWave` was
+  only called on join (and by `PvpRoundManager` for PvP), never when a PvE
+  location moved to the next wave. The HUD stayed on the wave you arrived at.
+- Both are fixed by a new `WaveManager.refreshHudState()`, run once per second,
+  which derives the live wave number and countdown from the authoritative
+  `LocationSession` (`startTimerMs` for the lobby phase, `waveTimerTicks`
+  between waves) and syncs each PvE player — **only when a rendered value
+  actually changed**, so an idle lobby sends nothing. PvP locations are skipped
+  because `PvpRoundManager` already owns and syncs that state.
+- **Smooth countdown:** `ClientPlayerDataManager.tickClient()` now decrements the
+  timer locally between the server's 1 Hz syncs (each incoming packet resets the
+  interpolation window, so the client can never drift more than a second). The
+  timer keeps moving even if a sync packet is late.
+
+### Fixed — a crash no longer eats player inventories
+
+- When a player entered an arena their real inventory was stashed in a
+  `PlayerBackup` that lived **only in memory**. A clean `/stop` was survivable
+  (every player fires a logout event, which surrenders them and hands the gear
+  back), but a crash or `kill -9` destroyed those backups along with the
+  process — the player logged back in with an arena loadout and no way to
+  recover their belongings.
+- Live match state is now persisted to `world/data/wavedefense_runtime.dat`:
+  on a clean stop, and autosaved every 30 s while any session is running, so a
+  crash costs at most half a minute.
+- On login, `recoverCrashedPlayer` restores any pending backup — inventory,
+  armour, position, health, XP and game mode — and tells the player what
+  happened.
+- **Sessions are deliberately not resumed** after a restart: the mobs a wave
+  spawned are gone and the world has moved on, so a half-finished wave could
+  never complete. Abandoned sessions are discarded (and logged) while the
+  inventory backups are kept.
+
+### Added — onboarding hints
+
+- Joining a location now prints a short intro: the objective for that specific
+  mode (waves to survive / kills to win / last one standing / capture the
+  points / rounds to win) and the mod's hotkeys — **V** menu, **B** shop,
+  **G** leave, plus **R** to ready up in PvP.
+- Previously these keybinds were undiscoverable outside the vanilla controls
+  menu, so new players had no idea the mod had a UI at all.
+- Toggle with `showJoinHints` in the config for servers that explain it
+  themselves. Translated into all 8 supported languages.
+
+### Added — tests & CI
+
+- `PvpRoundStateTest` — 13 tests covering the PvP state machine: phase
+  transitions, timer clamping, ready-check bookkeeping, Deathmatch and
+  objective win conditions, KotH hold timers, the Battle Royale
+  last-survivor/draw split, and NBT round-tripping. This is the highest-risk
+  class in the mod and had no coverage.
+- `.github/workflows/build.yml` — builds and tests on every push and PR
+  (JDK 17, cached ForgeGradle/Minecraft artifacts, JUnit report surfaced in the
+  checks tab, jar uploaded as an artifact).
+
+### Changed — HUD status panel
+
+- The three free-floating white `drawString` lines in the bottom-right corner
+  (points / wave / timer) are now one grouped panel with a `GuiTheme` backdrop
+  and border, matching the editor screens. This fixes readability against bright
+  terrain and the "UI needs refining" feedback.
+- The countdown gained a **progress bar** that drains as the timer runs out, plus
+  urgency colouring — white → amber under 10 s → red under 5 s.
+- The panel sits clear of the hotbar and auto-sizes to its widest row.
+
+### Added — concurrent multi-admin location editing
+
+- **Section-level merge saves.** The location editor no longer replaces the
+  whole location on Save (which silently clobbered a second admin's edits —
+  classic lost-update). It now diffs the working copy against the snapshot it
+  opened and sends only the **changed sections** (`MergeLocationPacket`). The
+  server merges those keys onto the *current live* location, so two admins
+  editing different aspects of the same arena (e.g. one tunes waves while the
+  other edits the shop) both keep their work.
+- New `data/LocationSection` partitions all 113 persisted NBT keys into the six
+  editor sections (General / Gameplay / Area / Economy / Visual / Compat) plus
+  a `RUNTIME` group (play-lock, lifetime stats, live points/teams). RUNTIME
+  keys are **never** written by an editor save — fixing a latent bug where
+  saving the editor mid-match reset live points/stats to the editor's snapshot.
+- `LocationSectionTest` enforces the safety invariant: every persisted key maps
+  to exactly one section, so a new field can't be added without being placed
+  (an unmapped key would silently drop on merge — the test fails loudly).
+- Editing **different** locations concurrently already worked; this makes the
+  **same** location safe too (different sections merge; same section is
+  last-write-wins, acceptable).
+
+### Changed — build / tests / perf
+
+- Enabled JUnit 5 (`useJUnitPlatform()`) in `build.gradle` — the existing
+  Mockito/Jupiter tests (and the new section-coverage test) were silently never
+  run by Gradle before.
+- **Per-tick allocation removed.** The five server managers that scan every
+  location each tick (Portal, Zone, InfoPanel, Trigger ×2) now use a new
+  non-copying `LocationManager.getAllLocationsView()` (an unmodifiable view of
+  the live map) instead of `getAllLocations()`, which since v0.2.66 allocated a
+  fresh `ArrayList` copy on every call — ~60 short-lived lists/sec at idle.
+  One-off / backup callers keep the defensive-copy variant.
+
+### Removed
+
+- **Legacy location editors deleted** — `LocationEditorScreen` (1609 LOC) and
+  `PvpLocationEditorScreen` (1417 LOC), both `@Deprecated(forRemoval)` since
+  v0.2.56, are gone. The unified `UniversalLocationEditor` (6 tabs, PvE+PvP)
+  has been the default since v0.2.58 and covers every workflow the old screens
+  did. **−3026 LOC** of duplicated editor code.
+- The `📜 Legacy` button and `editLocationLegacy()` routing were removed from
+  the admin menu; the location-row layout reclaimed the freed 35 px for the
+  name button.
+- Dropped the now-unused `wavedefense.tooltip.edit_location_legacy` lang key
+  from all 8 locales (1433 → 1432 keys, still Δ+0 parity).
+
+### Changed
+
+- **`TriggerEvaluator` god-method refactored.** `checkWaveTriggerCondition`
+  (130-line switch with nested inventory lambdas, cx/LOC 0.36) was split into
+  named, behaviour-identical helpers: `hasDiamondGear`, `hasIronGear`,
+  `hasSword`, `anyPlayerHasConfiguredItem`, and `customTriggerValue` (the last
+  also de-duplicates the MOBS_KILLED_N / WAVES_SURVIVED_N value-lookup blocks).
+  The switch is now a clean dispatcher.
+- **Particle resolution de-duplicated.** Three copies of `resolveParticle`
+  (in `BattleRoyaleManager`, `BoundaryManager`, `CapturePointManager`) had
+  drifted apart with inconsistent fallback tables. Consolidated into a single
+  `wave/ParticleHelper.resolveParticle(id, fallback)` that merges the union of
+  all handled particles, so border / boundary / capture-point visuals now
+  resolve the same set consistently. Each caller passes its own default
+  (FLAME for the BR border, SMOKE for zones). Removed the now-orphaned
+  `BuiltInRegistries` / `ResourceLocation` imports from the three managers.
+
+### Deferred (intentionally not in this release)
+
+- **Lang-key pruning** — ~360 keys appear unused to a static scan, but many are
+  built dynamically (`key + suffix`) and pruning risks runtime
+  missing-translation breakage. Skipped; orphan keys are ~50 KB and harmless.
+- Unit tests + CI, and the `SavedData` persistence migration, remain on the
+  roadmap for a later release.
+
+## [0.2.66] - 2026-06-19 — Hardening, performance & robustness pass
+
+A senior-modder / server-ops audit drove a round of correctness, performance,
+and durability fixes. No new gameplay features — this is a stability release
+focused on production-server safety. No data-format changes (existing
+`wavedefense_locations.dat` / leaderboard files load unchanged).
+
+### Performance
+
+- **O(1) location lookup.** `LocationManager` now stores locations in a
+  `LinkedHashMap<String, Location>` (insertion-ordered) instead of an
+  `ArrayList` scanned with `stream().filter()`. `getLocation()` was called
+  from 73 sites, several on per-tick hot paths — now constant-time.
+- **`getAllLocations()` returns a defensive copy** in creation order, closing
+  the mutable-internal-list encapsulation leak (all callers are read-only).
+
+### Durability
+
+- **Atomic file writes** (`NbtHelper.atomicWriteCompressed`): serialize to
+  `.tmp`, move current file to `.bak`, then commit `.tmp` → main via
+  `ATOMIC_MOVE` (falls back to `REPLACE_EXISTING` on filesystems without
+  atomic rename). After any crash, either the main file or `.bak` is always
+  valid — corruption can no longer wipe all locations.
+- **Async + debounced saves** (`NbtHelper.atomicWriteCompressedAsync`):
+  disk I/O moves off the server thread onto a daemon executor, and bursts of
+  saves (admin spam-clicking Save, fast tab switches, round-end leaderboard
+  writes) collapse into a single write per 1 s window. Server stop flushes
+  synchronously so nothing is lost on shutdown. The serialization snapshot
+  is taken eagerly on the server thread, so there is no read-during-write race.
+- **Per-entry load resilience:** a single malformed location entry is now
+  skipped + logged instead of aborting the whole file load.
+- **Data-version migration hook** scaffolded in `LocationManager` and
+  `LeaderboardManager` (`migrate(tag, fromVersion)`) — v0→v1 is a no-op, but
+  the seam exists for future schema changes.
+
+### Security
+
+- **Rate limits** added to seven previously-unprotected packets:
+  `UpdateLocationPacket` (500 ms), `ReplaceShopItemsPacket` (100 ms/chunk),
+  `BulkAddShopItemsPacket` (500 ms), `ImportLocationPacket` (2 s),
+  `RequestLocationDataPacket` (1 s), `UpdatePlayerSettingsPacket` (500 ms),
+  `ReadyCheckPacket` (250 ms) — closes a packet-flood DoS surface.
+- **Path-traversal guard** added to `ExportLocationPacket` (canonical-path
+  check); `ExportWavePacket` was already safe via filename sanitization.
+
+### Observability
+
+- Silent `catch {}` blocks on critical paths (scoreboard team assign/remove/
+  cleanup, mob-effect parsing) now log at `debug`, so failures leave a trace
+  instead of vanishing.
+- `volatile` added to the four static manager singletons in `WaveDefenseMod`
+  (read from the async save thread).
+
+### Notes
+
+- Deferred to a later release (per scope decision): `TriggerEvaluator`
+  god-method refactor, removal of the two `@Deprecated` legacy editors
+  (~3026 LOC), and pruning of ~362 unused lang keys (dynamic-key
+  false-positive risk).
+
 ## [0.2.65] - 2026-06-03 — Team colors/display names + admin debug HUD + inspection commands
 
 PvP teams gain real customization (named, colored), admins get an F4 debug

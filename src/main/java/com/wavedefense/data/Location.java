@@ -20,6 +20,22 @@ public class Location {
     List<WaveConfig> waves;
     int totalWaves;
     int timeBetweenWaves;
+
+    // ── Endless mode (PvE) ────────────────────────────────────────────────
+    // When enabled the run never reaches victory: once totalWaves is passed the
+    // configured wave list simply repeats (it already cycles via modulo), with mob
+    // stats scaled up on each loop. The score becomes "how far did you get".
+    boolean endlessMode = false;
+    int     endlessScalingPercent = 10;  // extra mob health/damage per completed loop
+
+    // ── Wave modifiers ────────────────────────────────────────────────────
+    boolean      modifiersEnabled  = false;
+    int          modifierInterval  = 3;   // roll a new modifier every N waves
+    List<String> modifierPool      = new ArrayList<>(); // empty = every modifier is eligible
+
+    // ── Difficulty preset ─────────────────────────────────────────────────
+    DifficultyPreset difficultyPreset = DifficultyPreset.NORMAL;
+
     Map<UUID, Integer> playerPoints;
     boolean keepInventory;
     // Auto-activation zone (PvE only)
@@ -258,6 +274,66 @@ public class Location {
 
     public int getTimeBetweenWaves() { return timeBetweenWaves; }
     public void setTimeBetweenWaves(int seconds) { this.timeBetweenWaves = seconds; }
+
+    // ── Endless mode ──────────────────────────────────────────────────────
+
+    public boolean isEndlessMode() { return endlessMode; }
+    public void setEndlessMode(boolean v) { this.endlessMode = v; }
+
+    public int getEndlessScalingPercent() { return endlessScalingPercent; }
+    public void setEndlessScalingPercent(int v) { this.endlessScalingPercent = Math.max(0, Math.min(100, v)); }
+
+    /**
+     * How many times the configured wave list has been played through before
+     * {@code waveNumber}. Loop 0 is the first pass — the one a non-endless
+     * location would have ended at.
+     */
+    public int getEndlessLoop(int waveNumber) {
+        if (!endlessMode || totalWaves <= 0) return 0;
+        return Math.max(0, (waveNumber - 1) / totalWaves);
+    }
+
+    /**
+     * Stat multiplier for a given wave in endless mode. Grows linearly per completed
+     * loop rather than compounding — compounding turns "hard" into "impossible" within
+     * a handful of loops, which reads as a bug rather than a challenge.
+     *
+     * @return 1.0 for the first loop and for non-endless locations
+     */
+    public double getEndlessMultiplier(int waveNumber) {
+        int loop = getEndlessLoop(waveNumber);
+        if (loop <= 0) return 1.0;
+        return 1.0 + (endlessScalingPercent / 100.0) * loop;
+    }
+
+    // ── Wave modifiers ────────────────────────────────────────────────────
+
+    public boolean isModifiersEnabled() { return modifiersEnabled; }
+    public void setModifiersEnabled(boolean v) { this.modifiersEnabled = v; }
+
+    public int getModifierInterval() { return modifierInterval; }
+    public void setModifierInterval(int v) { this.modifierInterval = Math.max(1, v); }
+
+    public List<String> getModifierPool() { return modifierPool; }
+    public void setModifierPool(List<String> pool) {
+        this.modifierPool = pool != null ? new ArrayList<>(pool) : new ArrayList<>();
+    }
+
+    /** True when {@code waveNumber} should roll a fresh modifier. */
+    public boolean isModifierWave(int waveNumber) {
+        if (!modifiersEnabled || waveNumber < 1) return false;
+        int interval = Math.max(1, modifierInterval);
+        return waveNumber % interval == 0;
+    }
+
+    // ── Difficulty preset ─────────────────────────────────────────────────
+
+    public DifficultyPreset getDifficultyPreset() {
+        return difficultyPreset != null ? difficultyPreset : DifficultyPreset.NORMAL;
+    }
+    public void setDifficultyPreset(DifficultyPreset d) {
+        this.difficultyPreset = d != null ? d : DifficultyPreset.NORMAL;
+    }
 
     public boolean isKeepInventory() { return keepInventory; }
     public void setKeepInventory(boolean keep) { this.keepInventory = keep; }

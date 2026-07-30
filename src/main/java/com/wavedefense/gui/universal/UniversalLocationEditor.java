@@ -5,7 +5,6 @@ import com.wavedefense.data.LocationMode;
 import com.wavedefense.gui.GuiTheme;
 import com.wavedefense.gui.ScissorHelper;
 import com.wavedefense.network.PacketHandler;
-import com.wavedefense.network.packets.UpdateLocationPacket;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
@@ -37,12 +36,10 @@ import java.util.Set;
  * <p>Switching mode does NOT change tab structure — only the Gameplay tab's
  * content adapts. All other tabs stay consistent so admin's mental model is stable.
  *
- * <p>This screen is added <strong>in parallel</strong> to the existing
- * {@code LocationEditorScreen} and {@code PvpLocationEditorScreen}. The old editors
- * remain available so admins can compare both UIs and report regressions before the
- * old ones are deleted.
+ * <p>Since v0.3.0 this is the <strong>only</strong> location editor — the old
+ * single-mode {@code LocationEditorScreen} / {@code PvpLocationEditorScreen}
+ * screens were removed.
  */
-@SuppressWarnings("deprecation") // We deep-link into legacy editors for advanced fields.
 public class UniversalLocationEditor extends Screen {
 
     public enum Tab {
@@ -188,6 +185,83 @@ public class UniversalLocationEditor extends Screen {
                 Component.translatable("wavedefense.editor2.gameplay.edit_rewards"),
                 b -> this.minecraft.setScreen(new com.wavedefense.gui.CompletionRewardScreen(location, this))
             ).bounds(leftCol, y, colW, 20).build()); y += 26;
+
+            // ── Challenge: difficulty preset, endless, wave modifiers ───────
+            section(leftCol, y, colW, "wavedefense.editor2.section.challenge");
+            y += 18;
+
+            com.wavedefense.data.DifficultyPreset diff = location.getDifficultyPreset();
+            this.addRenderableWidget(Button.builder(
+                Component.translatable("wavedefense.editor2.gameplay.difficulty")
+                    .append(": ")
+                    .append(Component.translatable(diff.getDisplayKey())),
+                b -> { location.setDifficultyPreset(location.getDifficultyPreset().next()); rebuildWidgets(); }
+            ).bounds(leftCol, y, colW, 20).build());
+            y += 24;
+
+            boolean endless = location.isEndlessMode();
+            this.addRenderableWidget(Button.builder(
+                Component.literal((endless ? "§a✓ " : "§7○ ")
+                    + I18n.get("wavedefense.editor2.gameplay.endless")),
+                b -> { location.setEndlessMode(!location.isEndlessMode()); rebuildWidgets(); }
+            ).bounds(leftCol, y, colW, 18).build());
+            y += 22;
+            // Scaling only matters when endless is on — hiding it keeps the tab honest.
+            if (endless) {
+                endlessScalingBox = labelledIntRow(leftCol, y, colW,
+                    "wavedefense.editor2.gameplay.endless_scaling",
+                    location.getEndlessScalingPercent());
+                y += 22;
+            }
+
+            boolean mods = location.isModifiersEnabled();
+            this.addRenderableWidget(Button.builder(
+                Component.literal((mods ? "§a✓ " : "§7○ ")
+                    + I18n.get("wavedefense.editor2.gameplay.modifiers")),
+                b -> { location.setModifiersEnabled(!location.isModifiersEnabled()); rebuildWidgets(); }
+            ).bounds(leftCol, y, colW, 18).build());
+            y += 22;
+            if (mods) {
+                modifierIntervalBox = labelledIntRow(leftCol, y, colW,
+                    "wavedefense.editor2.gameplay.modifier_interval",
+                    location.getModifierInterval());
+                y += 22;
+
+                // An empty pool means "every modifier is eligible"; say so rather than
+                // leaving the admin staring at eight unchecked boxes.
+                java.util.List<String> pool = location.getModifierPool();
+                Button poolLabel = Button.builder(
+                    Component.translatable(pool.isEmpty()
+                        ? "wavedefense.editor2.gameplay.modifier_pool_all"
+                        : "wavedefense.editor2.gameplay.modifier_pool"),
+                    b -> {}
+                ).bounds(leftCol, y, colW, 16).build();
+                poolLabel.active = false;
+                this.addRenderableWidget(poolLabel);
+                y += 18;
+
+                com.wavedefense.data.WaveModifier[] allMods = com.wavedefense.data.WaveModifier.values();
+                int modW = colW / 2 - 2;
+                for (int i = 0; i < allMods.length; i++) {
+                    final com.wavedefense.data.WaveModifier wmod = allMods[i];
+                    boolean on = pool.contains(wmod.getKey());
+                    Button modBtn = Button.builder(
+                        Component.literal(on ? "§a✓ " : "§7○ ")
+                            .append(Component.translatable(wmod.getDisplayKey())),
+                        b -> {
+                            java.util.List<String> p =
+                                new java.util.ArrayList<>(location.getModifierPool());
+                            if (!p.remove(wmod.getKey())) p.add(wmod.getKey());
+                            location.setModifierPool(p);
+                            rebuildWidgets();
+                        }
+                    ).bounds(leftCol + (i % 2) * (modW + 4), y + (i / 2) * 20, modW, 18).build();
+                    modBtn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                        Component.translatable(wmod.getDescriptionKey())));
+                    this.addRenderableWidget(modBtn);
+                }
+                y += ((allMods.length + 1) / 2) * 20 + 6;
+            }
 
         } else {
             // ── PvP: sub-mode picker + key inline toggles + deep-edit nav ────
@@ -1449,17 +1523,44 @@ public class UniversalLocationEditor extends Screen {
 
     private void save() {
         flushEditBoxes();
-        // Commit working copy → client cache + server.
+        // Commit working copy → client cache.
         com.wavedefense.gui.ClientLocationManager.updateSingleLocation(location);
-        PacketHandler.sendToServer(new UpdateLocationPacket(location));
+
+        // Section-merge save: diff against the snapshot we opened so the server
+        // applies ONLY the sections this admin changed — a second admin editing
+        // a different section of the same location keeps their work. (v0.3.0)
+        java.util.EnumSet<com.wavedefense.data.LocationSection> dirty =
+            computeDirtySections(original.save(), location.save());
+        PacketHandler.sendToServer(new com.wavedefense.network.packets.MergeLocationPacket(
+            location.getName(), dirty, location.save()));
+
         if (minecraft != null && minecraft.player != null) {
             minecraft.player.displayClientMessage(
                 Component.translatable("wavedefense.auto.зміни_збережено_60feafc0"), true);
         }
     }
 
+    /** Diff the working copy against the snapshot opened in the constructor, per
+     *  editor section. A section is dirty if any of its NBT keys was added,
+     *  removed, or changed. Only dirty sections are merged server-side. */
+    private static java.util.EnumSet<com.wavedefense.data.LocationSection> computeDirtySections(
+            net.minecraft.nbt.CompoundTag snapshot, net.minecraft.nbt.CompoundTag working) {
+        java.util.EnumSet<com.wavedefense.data.LocationSection> dirty =
+            java.util.EnumSet.noneOf(com.wavedefense.data.LocationSection.class);
+        for (com.wavedefense.data.LocationSection sec : com.wavedefense.data.LocationSection.editorSections()) {
+            for (String key : sec.keys()) {
+                boolean inA = snapshot.contains(key), inB = working.contains(key);
+                if (inA != inB || (inA && inB && !snapshot.get(key).equals(working.get(key)))) {
+                    dirty.add(sec);
+                    break;
+                }
+            }
+        }
+        return dirty;
+    }
+
     /** Override so typed-but-unsaved EditBox values survive sibling toggles
-     *  that trigger a rebuild. Mirrors PvpLocationEditorScreen.rebuildWidgets(). */
+     *  that trigger a rebuild (flush field values into the working copy first). */
     @Override
     public void rebuildWidgets() {
         flushEditBoxes();
@@ -1487,6 +1588,7 @@ public class UniversalLocationEditor extends Screen {
         stdBuyTimeBox, stdRoundDelayBox, stdRoundStartPointsBox,
         stdWinPointsBox, stdLosePointsBox, stdRoundTimeLimitBox;
     // PvP per-sub-mode (Deathmatch)
+    private net.minecraft.client.gui.components.EditBox endlessScalingBox, modifierIntervalBox;
     private net.minecraft.client.gui.components.EditBox dmKillsToWinBox,
         dmMatchTimeLimitBox;
     // PvP per-sub-mode (Battle Royale)
@@ -1559,6 +1661,8 @@ public class UniversalLocationEditor extends Screen {
         flushInt(stdRoundTimeLimitBox,   location::setPvpRoundTimeLimitSec);
 
         // ── v0.2.59 — PvP Deathmatch ──────────────────────────────────
+        flushInt(endlessScalingBox,   location::setEndlessScalingPercent);
+        flushInt(modifierIntervalBox, location::setModifierInterval);
         flushInt(dmKillsToWinBox,     location::setDmKillsToWin);
         flushInt(dmMatchTimeLimitBox, location::setPvpRoundTimeLimitSec);
 
@@ -1634,6 +1738,7 @@ public class UniversalLocationEditor extends Screen {
         leaveTimerBox = victoryLingerBox = reEntryCooldownBox = null;
         stdTotalRoundsBox = stdBuyTimeBox = stdRoundDelayBox = null;
         stdRoundStartPointsBox = stdWinPointsBox = stdLosePointsBox = stdRoundTimeLimitBox = null;
+        endlessScalingBox = modifierIntervalBox = null;
         dmKillsToWinBox = dmMatchTimeLimitBox = null;
         brBorderRadiusBox = brShrinkIntervalBox = brShrinkAmountBox = null;
         brInitialWaitBox = brFinalRadiusBox = brParticleCountBox = null;

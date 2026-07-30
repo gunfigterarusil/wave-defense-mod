@@ -53,6 +53,10 @@ public class ClientEventHandler {
             return;
         }
 
+        // Smooth the next-wave countdown between the server's 1 Hz syncs so the
+        // HUD timer keeps moving even if a sync packet is delayed.
+        com.wavedefense.gui.ClientPlayerDataManager.tickClient();
+
         // Proactively fetch location data right after login so menus are not empty on first open.
         if (!initialSyncSent && mc.getConnection() != null) {
             PacketHandler.sendToServer(new RequestLocationDataPacket());

@@ -17,30 +17,10 @@ public class PlayerHUD {
         PlayerWaveData data = ClientPlayerDataManager.getPlayerData();
         if (data == null || !data.isInWave()) return;
 
-        // ── Поінти (нижній правий) ─────────────────────────────────
-        int points = data.getPlayerPoints(); // синхронізується з сервера через SyncPlayerDataPacket
-        String pointsText = I18n.get("wavedefense.hud.points", points);
-        int textWidth = mc.font.width(pointsText);
-        g.drawString(mc.font, pointsText, width - textWidth - 10, height - 20, 0xFFFFFF);
-
-        // ── Лічильник хвиль (нижній правий, над таймером) ────────
         com.wavedefense.data.Location currentLoc = data.getCurrentLocation();
-        if (currentLoc != null
-                && currentLoc.getMode() == com.wavedefense.data.LocationMode.PVE
-                && data.getCurrentWave() > 0) {
-            int totalWaves = currentLoc.getTotalWaves();
-            String waveText = I18n.get("wavedefense.hud.wave_counter",
-                    data.getCurrentWave(), totalWaves);
-            int ww = mc.font.width(waveText);
-            g.drawString(mc.font, waveText, width - ww - 10, height - 50, 0xFFE0A020);
-        }
 
-        // ── Таймер (нижній правий, над поінтами) ──────────────────
-        if (data.getVictoryCountdownSec() <= 0 && data.isTimerActive() && data.isShowTimer()) {
-            String timerText = I18n.get("wavedefense.hud.next_wave_timer", data.getTimeUntilNextWave());
-            int tw = mc.font.width(timerText);
-            g.drawString(mc.font, timerText, width - tw - 10, height - 35, 0xFFFFFF);
-        }
+        // ── Status panel (bottom-right): wave · timer · points ─────
+        renderStatusPanel(g, mc, data, currentLoc, width, height);
 
         // ── Тімейт-панель (лівий бік) ─────────────────────────────
         if (data.isShowTeammates()) {
@@ -59,6 +39,104 @@ public class PlayerHUD {
 
         // ── Tactical minimap (bottom-left) — PvP + bbox + minimapEnabled ──
         MinimapRenderer.render(g, data, width, height);
+    }
+
+    // ── Status panel ────────────────────────────────────────────────────
+
+    /** Highest countdown value seen since the timer started — drives the progress
+     *  bar fill. Reset whenever the timer goes inactive or restarts higher. */
+    private static int timerPeak = 0;
+
+    private static final int PANEL_PAD   = 5;
+    private static final int PANEL_ROW_H = 11;
+    private static final int PANEL_BAR_H = 3;
+    private static final int PANEL_MARGIN = 6;
+    /** Clearance above the hotbar so the panel never overlaps it. */
+    private static final int HOTBAR_CLEARANCE = 24;
+
+    /**
+     * Bottom-right status panel: wave counter, next-wave countdown (with progress
+     * bar) and the player's points, grouped inside one backdrop.
+     *
+     * <p>Replaces the three free-floating {@code drawString} calls that were hard
+     * to read against bright terrain and had no visual grouping.
+     */
+    private static void renderStatusPanel(GuiGraphics g, Minecraft mc, PlayerWaveData data,
+                                          com.wavedefense.data.Location loc,
+                                          int width, int height) {
+        boolean showWave = loc != null
+                && loc.getMode() == com.wavedefense.data.LocationMode.PVE
+                && data.getCurrentWave() > 0;
+        boolean showTimer = data.getVictoryCountdownSec() <= 0
+                && data.isTimerActive() && data.isShowTimer();
+
+        // Track the countdown's starting value so the bar can show progress.
+        int secondsLeft = data.getTimeUntilNextWave();
+        if (!showTimer) {
+            timerPeak = 0;
+        } else if (secondsLeft > timerPeak) {
+            timerPeak = secondsLeft;
+        }
+
+        String waveText  = showWave
+                ? I18n.get("wavedefense.hud.wave_counter", data.getCurrentWave(), loc.getTotalWaves())
+                : null;
+        String timerText = showTimer
+                ? I18n.get("wavedefense.hud.next_wave_timer", secondsLeft)
+                : null;
+        String pointsText = I18n.get("wavedefense.hud.points", data.getPlayerPoints());
+
+        // Panel width fits the widest row (min 70 px so short strings still look deliberate).
+        int contentW = mc.font.width(pointsText);
+        if (waveText  != null) contentW = Math.max(contentW, mc.font.width(waveText));
+        if (timerText != null) contentW = Math.max(contentW, mc.font.width(timerText));
+        contentW = Math.max(contentW, 70);
+
+        int rows = 1 + (showWave ? 1 : 0) + (showTimer ? 1 : 0);
+        int panelW = contentW + PANEL_PAD * 2;
+        int panelH = rows * PANEL_ROW_H + PANEL_PAD * 2 + (showTimer ? PANEL_BAR_H + 2 : 0);
+
+        int x1 = width - PANEL_MARGIN;
+        int x0 = x1 - panelW;
+        int y1 = height - HOTBAR_CLEARANCE;
+        int y0 = y1 - panelH;
+
+        // Backdrop + 1 px border (GuiTheme palette, matching the editor screens).
+        g.fill(x0, y0, x1, y1, GuiTheme.PANEL_DARK);
+        g.fill(x0, y0, x1, y0 + 1, GuiTheme.BORDER);
+        g.fill(x0, y1 - 1, x1, y1, GuiTheme.BORDER);
+        g.fill(x0, y0, x0 + 1, y1, GuiTheme.BORDER);
+        g.fill(x1 - 1, y0, x1, y1, GuiTheme.BORDER);
+
+        int tx = x0 + PANEL_PAD;
+        int ty = y0 + PANEL_PAD;
+
+        if (waveText != null) {
+            g.drawString(mc.font, waveText, tx, ty, GuiTheme.ACCENT_ALT);
+            ty += PANEL_ROW_H;
+        }
+
+        if (timerText != null) {
+            // Urgency colouring: white → amber under 10 s → red under 5 s.
+            int timerColour = secondsLeft <= 5 ? GuiTheme.DANGER
+                            : secondsLeft <= 10 ? GuiTheme.WARN
+                            : GuiTheme.TEXT;
+            g.drawString(mc.font, timerText, tx, ty, timerColour);
+            ty += PANEL_ROW_H;
+
+            // Progress bar — drains left-to-right as the countdown runs out.
+            int barW = contentW;
+            int filled = timerPeak > 0
+                    ? Math.max(0, Math.min(barW, barW * secondsLeft / timerPeak))
+                    : 0;
+            g.fill(tx, ty, tx + barW, ty + PANEL_BAR_H, GuiTheme.PANEL_SOFT);
+            if (filled > 0) {
+                g.fill(tx, ty, tx + filled, ty + PANEL_BAR_H, timerColour);
+            }
+            ty += PANEL_BAR_H + 2;
+        }
+
+        g.drawString(mc.font, pointsText, tx, ty, GuiTheme.ACCENT);
     }
 
     /**

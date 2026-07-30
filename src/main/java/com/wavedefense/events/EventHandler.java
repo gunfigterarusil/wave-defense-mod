@@ -46,6 +46,11 @@ public class EventHandler {
 
         // PvE: моб вбитий гравцем
         if (entity instanceof Mob mob) {
+            // VOLATILE modifier: detonate on death, however the mob died — an environment
+            // kill should be just as dangerous to stand next to as a melee one.
+            if (mob.getPersistentData().getBoolean(com.wavedefense.data.WaveModifier.NBT_VOLATILE)) {
+                explodeVolatileMob(mob);
+            }
             if (event.getSource().getEntity() instanceof ServerPlayer player) {
                 if (mob.getPersistentData().contains("location")) {
                     WaveDefenseMod.waveManager.onMobKilled(player, mob);
@@ -100,13 +105,43 @@ public class EventHandler {
         }
     }
 
-    /** Реєструємо удар для відслідковування асистів */
+    /** Реєструємо удар для відслідковування асистів + VENOMOUS-модифікатор. */
     @SubscribeEvent
     public void onLivingHurt(LivingHurtEvent event) {
         if (event.getEntity().level().isClientSide) return;
         if (!(event.getEntity() instanceof ServerPlayer victim)) return;
-        if (!(event.getSource().getEntity() instanceof ServerPlayer attacker)) return;
+
+        net.minecraft.world.entity.Entity source = event.getSource().getEntity();
+
+        // VENOMOUS modifier: a hit from a tagged mob also poisons.
+        if (source instanceof Mob attackerMob
+                && attackerMob.getPersistentData().getBoolean(
+                       com.wavedefense.data.WaveModifier.NBT_VENOMOUS)) {
+            victim.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+                net.minecraft.world.effect.MobEffects.POISON, VENOMOUS_POISON_TICKS, 0));
+        }
+
+        if (!(source instanceof ServerPlayer attacker)) return;
         WaveDefenseMod.waveManager.onPvpHit(attacker, victim);
+    }
+
+    // ── Wave modifier behaviours ──────────────────────────────────────────
+
+    /** Blast radius of a VOLATILE mob. Slightly smaller than a creeper's 3.0. */
+    private static final float VOLATILE_RADIUS = 2.0f;
+    /** Poison duration applied by a VENOMOUS mob's hit — 5 seconds. */
+    private static final int VENOMOUS_POISON_TICKS = 100;
+
+    /**
+     * Detonates a VOLATILE mob.
+     *
+     * <p>Explicitly {@code ExplosionInteraction.NONE} so the blast damages players but
+     * never the terrain: arenas are hand-built by admins, and a modifier that quietly
+     * demolishes the map over a few runs would be worse than no modifier at all.
+     */
+    private static void explodeVolatileMob(Mob mob) {
+        mob.level().explode(mob, mob.getX(), mob.getY(0.5), mob.getZ(),
+            VOLATILE_RADIUS, net.minecraft.world.level.Level.ExplosionInteraction.NONE);
     }
 
     @SubscribeEvent
@@ -156,6 +191,11 @@ public class EventHandler {
     @SubscribeEvent
     public void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        // Crash recovery: if the server died while this player was inside an arena,
+        // their real inventory is sitting in a persisted backup — give it back before
+        // anything else touches their state.
+        WaveDefenseMod.waveManager.recoverCrashedPlayer(player);
+
         WaveDefenseMod.waveManager.fireLocationTrigger(player, WaveTrigger.PLAYER_JOIN);
         // Надсилаємо дані локацій новому гравцю одразу при вході
         // (без цього ClientLocationManager порожній і жоден інтерфейс не працює)

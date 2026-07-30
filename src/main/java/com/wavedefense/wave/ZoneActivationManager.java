@@ -45,7 +45,7 @@ public class ZoneActivationManager {
         if (WaveDefenseMod.getServer() == null) return;
         if (WaveDefenseMod.locationManager == null) return;
 
-        for (Location location : WaveDefenseMod.locationManager.getAllLocations()) {
+        for (Location location : WaveDefenseMod.locationManager.getAllLocationsView()) {
             if (!location.isAutoActivate() || location.isPvp()) continue;
 
             BlockPos center = location.getEffectiveZoneCenter();

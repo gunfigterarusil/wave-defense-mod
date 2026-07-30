@@ -6,11 +6,9 @@ import com.wavedefense.data.Location;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.*;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -151,7 +149,7 @@ public class BoundaryManager {
     }
 
     private void spawnBorderRing(ServerLevel world, Location loc) {
-        ParticleOptions particle = resolveParticle(loc.getBoundaryParticleType());
+        ParticleOptions particle = ParticleHelper.resolveParticle(loc.getBoundaryParticleType(), ParticleTypes.SMOKE);
         int radius   = loc.getLocationBoundaryRadius();
         int height   = loc.getBoundaryParticleHeight();
         int count    = loc.getBoundaryParticleCount();
@@ -188,30 +186,6 @@ public class BoundaryManager {
 
     private void clearTitle(ServerPlayer p) {
         p.connection.send(new ClientboundClearTitlesPacket(true));
-    }
-
-    // ── Утиліти ──────────────────────────────────────────────────────────
-
-    public static ParticleOptions resolveParticle(String id) {
-        if (id == null || id.isBlank()) return ParticleTypes.SMOKE;
-        try {
-            var type = BuiltInRegistries.PARTICLE_TYPE.get(new ResourceLocation(id));
-            if (type instanceof net.minecraft.core.particles.SimpleParticleType spt) return spt;
-        } catch (Exception ignored) {}
-        return switch (id) {
-            case "minecraft:flame"          -> ParticleTypes.FLAME;
-            case "minecraft:smoke"          -> ParticleTypes.SMOKE;
-            case "minecraft:crit"           -> ParticleTypes.CRIT;
-            case "minecraft:large_smoke"    -> ParticleTypes.LARGE_SMOKE;
-            case "minecraft:portal"         -> ParticleTypes.PORTAL;
-            case "minecraft:enchant"        -> ParticleTypes.ENCHANT;
-            case "minecraft:end_rod"        -> ParticleTypes.END_ROD;
-            case "minecraft:soul_fire_flame"-> ParticleTypes.SOUL_FIRE_FLAME;
-            case "minecraft:snowflake"      -> ParticleTypes.SNOWFLAKE;
-            case "minecraft:dripping_lava"  -> ParticleTypes.DRIPPING_LAVA;
-            case "minecraft:dust"           -> new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(1f, 0f, 0f), 1.0f);
-            default                         -> ParticleTypes.SMOKE;
-        };
     }
 
     // ─────────────────────────────────────────────────────────────────

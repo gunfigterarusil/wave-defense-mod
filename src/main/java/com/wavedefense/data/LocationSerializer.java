@@ -33,6 +33,18 @@ public final class LocationSerializer {
         tag.putInt("autoActivateRadius",      loc.autoActivateRadius);
         tag.putInt("startingPoints",          loc.startingPoints);
 
+        // ── Endless / modifiers / difficulty ──────────────────────────────
+        tag.putBoolean("endlessMode",           loc.endlessMode);
+        tag.putInt("endlessScalingPercent",     loc.endlessScalingPercent);
+        tag.putBoolean("modifiersEnabled",      loc.modifiersEnabled);
+        tag.putInt("modifierInterval",          loc.modifierInterval);
+        tag.putString("difficultyPreset",       loc.getDifficultyPreset().getKey());
+        if (loc.modifierPool != null && !loc.modifierPool.isEmpty()) {
+            ListTag poolTag = new ListTag();
+            for (String s : loc.modifierPool) poolTag.add(net.minecraft.nbt.StringTag.valueOf(s));
+            tag.put("modifierPool", poolTag);
+        }
+
         if (loc.playerSpawn   != null) tag.putLong("playerSpawn",   loc.playerSpawn.asLong());
         if (loc.playerSpawnRadius > 0) tag.putInt("playerSpawnRadius", loc.playerSpawnRadius);
         if (loc.mobSpawnRadius != 5)   tag.putInt("mobSpawnRadius",    loc.mobSpawnRadius);
@@ -208,6 +220,18 @@ public final class LocationSerializer {
         loc.startingPoints       = NbtHelper.getInt(tag,    "startingPoints",         0);
         loc.playerSpawnRadius    = NbtHelper.getInt(tag,    "playerSpawnRadius",      0);
         loc.mobSpawnRadius       = NbtHelper.getInt(tag,    "mobSpawnRadius",         5);
+
+        // ── Endless / modifiers / difficulty ──────────────────────────────
+        loc.endlessMode           = NbtHelper.getBool(tag, "endlessMode",           false);
+        loc.endlessScalingPercent = NbtHelper.getInt(tag,  "endlessScalingPercent",    10);
+        loc.modifiersEnabled      = NbtHelper.getBool(tag, "modifiersEnabled",      false);
+        loc.modifierInterval      = Math.max(1, NbtHelper.getInt(tag, "modifierInterval", 3));
+        loc.difficultyPreset      = DifficultyPreset.fromString(tag.getString("difficultyPreset"));
+        loc.modifierPool.clear();
+        if (tag.contains("modifierPool")) {
+            ListTag poolTag = tag.getList("modifierPool", 8); // 8 = StringTag
+            for (int i = 0; i < poolTag.size(); i++) loc.modifierPool.add(poolTag.getString(i));
+        }
 
         if (tag.contains("playerSpawn")) loc.playerSpawn = net.minecraft.core.BlockPos.of(tag.getLong("playerSpawn"));
 

@@ -20,11 +20,13 @@ public class RequestLocationDataPacket {
     public static void handle(RequestLocationDataPacket packet, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
-            if (player != null) {
-                // Send the location data back to the client
-                WaveDefenseMod.packetHandler.send(PacketDistributor.PLAYER.with(() -> player),
-                        new SyncLocationDataPacket(WaveDefenseMod.locationManager.save()));
-            }
+            if (player == null) return;
+            // Rate-limit: full location-tree sync is expensive (NBT serialization + network);
+            // 1 s is enough for editor reload, blocks spam-refresh DoS.
+            if (!com.wavedefense.network.PacketRateLimiter.allow(
+                    player.getUUID(), RequestLocationDataPacket.class, 1000L)) return;
+            WaveDefenseMod.packetHandler.send(PacketDistributor.PLAYER.with(() -> player),
+                    new SyncLocationDataPacket(WaveDefenseMod.locationManager.save()));
         });
         ctx.get().setPacketHandled(true);
     }

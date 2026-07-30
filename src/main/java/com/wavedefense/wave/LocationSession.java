@@ -130,6 +130,16 @@ public class LocationSession {
     public boolean waveActive = false;
 
     /**
+     * Modifier applied to the wave currently running, or {@code null} when this wave
+     * rolled none. Read by {@link MobSpawnManager} at spawn time and re-rolled every
+     * {@code modifierInterval} waves. Not persisted — a restart discards live sessions.
+     */
+    public com.wavedefense.data.WaveModifier activeModifier = null;
+
+    /** Shared RNG for modifier rolls; a session-local instance keeps rolls independent. */
+    private final java.util.Random modifierRng = new java.util.Random();
+
+    /**
      * ResourceLocation of the MobEffect currently applied to all players by the
      * active wave's waveEffect setting. Null if no effect is active.
      * Not persisted — the effect is re-applied via the wave config on reload.
@@ -338,8 +348,9 @@ public class LocationSession {
 
         // Перевірка на завершення хвилі: всі моби вбиті?
         if (spawnedMobs.isEmpty() && currentWave >= 1 && startTimerMs == 0L) {
-            // Всі моби знищено, перевіряємо чи є ще хвилі
-            if (currentWave <= location.getTotalWaves()) {
+            // Всі моби знищено, перевіряємо чи є ще хвилі.
+            // Endless: перемоги не існує — хвилі повторюються нескінченно.
+            if (location.isEndlessMode() || currentWave <= location.getTotalWaves()) {
                 // Fire per-wave rewards/commands only when a real wave was running
                 if (waveActive) {
                     List<WaveConfig> waves = location.getWaves();
@@ -377,8 +388,8 @@ public class LocationSession {
      * Запускає наступну хвилю для цієї сесії.
      */
     private void startNextWave(WaveManager wm, Location location) {
-        // Перевіряємо чи є ще хвилі
-        if (currentWave > location.getTotalWaves()) {
+        // Перевіряємо чи є ще хвилі (в endless-режимі — завжди є)
+        if (!location.isEndlessMode() && currentWave > location.getTotalWaves()) {
             // Всі хвилі вже пройдено
             removeWaveEffect(wm);
             wm.triggerVictory(location.getName());
@@ -404,6 +415,9 @@ public class LocationSession {
         // Скидаємо стан тригерів для нової хвилі
         halfMobsTriggered = false;
 
+        // Roll this wave's modifier before spawning — the spawner reads it per mob.
+        rollModifier(location);
+
         // Remove the previous wave's effect before the new wave starts
         removeWaveEffect(wm);
 
@@ -424,8 +438,12 @@ public class LocationSession {
             if (com.wavedefense.config.WaveDefenseConfig.WAVE_START_TITLE_ENABLED.get()) {
                 net.minecraft.network.chat.Component titleComp = net.minecraft.network.chat.Component.translatable(
                     "wavedefense.msg.wave_started", currentWave);
-                net.minecraft.network.chat.Component subtitleComp = net.minecraft.network.chat.Component.translatable(
-                    "wavedefense.hud.wave_counter", currentWave, location.getTotalWaves());
+                // Endless has no denominator — "wave 15 / 10" would read as a bug.
+                net.minecraft.network.chat.Component subtitleComp = location.isEndlessMode()
+                    ? net.minecraft.network.chat.Component.translatable(
+                        "wavedefense.hud.wave_counter_endless", currentWave)
+                    : net.minecraft.network.chat.Component.translatable(
+                        "wavedefense.hud.wave_counter", currentWave, location.getTotalWaves());
                 for (net.minecraft.server.level.ServerPlayer p : wm.getPlayersInLocation(locationName)) {
                     p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket(5, 35, 15));
                     p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(titleComp));
@@ -436,6 +454,7 @@ public class LocationSession {
             if (waveConfig.hasEffect()) {
                 applyWaveEffect(waveConfig.getWaveEffect(), waveConfig.getWaveEffectAmplifier(), wm);
             }
+            announceModifier(wm);
         } else {
             // Spawn failed — log the issue; do NOT double-increment currentWave
             // (caller in tick() already incremented it once). The main tick() loop
@@ -444,6 +463,41 @@ public class LocationSession {
             com.wavedefense.WaveDefenseMod.LOGGER.warn(
                 "[WaveDefense] spawnWave failed for wave {}/{} in '{}' — skipping",
                 currentWave, location.getTotalWaves(), locationName);
+        }
+    }
+
+    // ── Wave modifiers ─────────────────────────────────────────────────
+
+    /**
+     * Decides whether the wave about to start carries a modifier.
+     *
+     * <p>Only every {@code modifierInterval}-th wave is a modifier wave; the ones in
+     * between run clean. That rhythm is what makes a modifier feel like an event
+     * rather than ambient noise, and it gives players a wave to recover on.
+     */
+    private void rollModifier(Location location) {
+        if (location.isModifiersEnabled() && location.isModifierWave(currentWave)) {
+            activeModifier = com.wavedefense.data.WaveModifier.roll(
+                location.getModifierPool(), modifierRng);
+        } else {
+            activeModifier = null;
+        }
+    }
+
+    /** Tells everyone in the location which twist they just walked into. */
+    private void announceModifier(WaveManager wm) {
+        if (activeModifier == null) return;
+        net.minecraft.network.chat.Component msg = net.minecraft.network.chat.Component
+            .translatable("wavedefense.msg.modifier_active",
+                net.minecraft.network.chat.Component.translatable(activeModifier.getDisplayKey())
+                    .withStyle(net.minecraft.ChatFormatting.GOLD))
+            .withStyle(net.minecraft.ChatFormatting.YELLOW);
+        net.minecraft.network.chat.Component desc = net.minecraft.network.chat.Component
+            .translatable(activeModifier.getDescriptionKey())
+            .withStyle(net.minecraft.ChatFormatting.GRAY);
+        for (net.minecraft.server.level.ServerPlayer p : wm.getPlayersInLocation(locationName)) {
+            p.sendSystemMessage(msg);
+            p.sendSystemMessage(desc);
         }
     }
 
@@ -464,6 +518,15 @@ public class LocationSession {
 
         // Fire WAVE_END loot trigger
         wm.fireLootTriggerByName(locationName, com.wavedefense.data.LootSpawn.Trigger.WAVE_END);
+
+        // Lifetime profile: everyone still standing gets credit for surviving this wave.
+        com.wavedefense.data.PlayerProfileManager pm = com.wavedefense.WaveDefenseMod.profileManager;
+        if (pm != null) {
+            for (net.minecraft.server.level.ServerPlayer p : wm.getPlayersInLocation(locationName)) {
+                pm.getOrCreate(p.getUUID(), p.getName().getString()).recordWaveCompleted(currentWave);
+            }
+        }
+
         // Distribute per-wave points to every player in the location
         if (wc.getPointsReward() > 0) {
             for (net.minecraft.server.level.ServerPlayer player : wm.getPlayersInLocation(locationName)) {

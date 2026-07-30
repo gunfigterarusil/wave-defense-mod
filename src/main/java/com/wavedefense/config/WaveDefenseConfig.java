@@ -25,6 +25,7 @@ public class WaveDefenseConfig {
     public static final ForgeConfigSpec.BooleanValue ENABLE_HUD;
     public static final ForgeConfigSpec.IntValue DEFAULT_WAVE_TIME;
     public static final ForgeConfigSpec.BooleanValue ENABLE_UI_TOOLTIPS;
+    public static final ForgeConfigSpec.BooleanValue SHOW_JOIN_HINTS;
     public static final ForgeConfigSpec.IntValue LOBBY_TIMER_SECONDS;
     /**
      * Game mode applied to players when joining a location (and when they are in Creative).
@@ -90,6 +91,12 @@ public class WaveDefenseConfig {
         ENABLE_UI_TOOLTIPS = BUILDER
                 .comment("Show tooltips when hovering over UI elements.")
                 .define("enableUITooltips", true);
+
+        SHOW_JOIN_HINTS = BUILDER
+                .comment("Send a short intro in chat when a player joins a location:",
+                         "the objective for that mode plus the mod's hotkeys.",
+                         "Turn off if your server explains this its own way.")
+                .define("showJoinHints", true);
 
         LOBBY_TIMER_SECONDS = BUILDER
                 .comment("Lobby countdown timer in seconds — resets when a new player joins.")

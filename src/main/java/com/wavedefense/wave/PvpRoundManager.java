@@ -1391,7 +1391,10 @@ public class PvpRoundManager {
             net.minecraft.world.scores.PlayerTeam current = sb.getPlayersTeam(player.getScoreboardName());
             if (current != null) sb.removePlayerFromTeam(player.getScoreboardName(), current);
             sb.addPlayerToTeam(player.getScoreboardName(), sbTeam);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            WaveDefenseMod.LOGGER.debug("[WaveDefense] Scoreboard team assign failed for {}: {}",
+                player.getScoreboardName(), e.getMessage());
+        }
     }
 
     /**
@@ -1407,7 +1410,10 @@ public class PvpRoundManager {
             if (current != null && current.getName().startsWith(WD_TEAM_PREFIX)) {
                 sb.removePlayerFromTeam(player.getScoreboardName(), current);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            WaveDefenseMod.LOGGER.debug("[WaveDefense] Scoreboard team removal failed for {}: {}",
+                player.getScoreboardName(), e.getMessage());
+        }
     }
 
     /**
@@ -1423,7 +1429,10 @@ public class PvpRoundManager {
             new java.util.ArrayList<>(sb.getPlayerTeams()).stream()
                 .filter(t -> t.getName().startsWith(prefix))
                 .forEach(sb::removePlayerTeam);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            WaveDefenseMod.LOGGER.debug("[WaveDefense] Scoreboard cleanup failed for {}: {}",
+                locationName, e.getMessage());
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────

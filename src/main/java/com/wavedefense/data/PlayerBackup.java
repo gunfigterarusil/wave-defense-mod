@@ -102,6 +102,97 @@ public class PlayerBackup {
         return new PlayerBackup(player);
     }
 
+    // ── NBT serialization ───────────────────────────────────────────────────
+    // Used to persist live in-session backups inside the mod's runtime-state file
+    // so a server crash can't lose a player's pre-arena inventory. (The JSON
+    // save()/load() pair above stays as-is for admin-triggered /wda backups.)
+
+    /** Serializes this backup into a {@link CompoundTag}. */
+    public CompoundTag toNbt() {
+        CompoundTag tag = new CompoundTag();
+        tag.putString("id", id);
+        tag.putUUID("uuid", playerUuid);
+        tag.putString("name", playerName);
+        tag.putLong("ts", timestamp);
+        if (originalPosition != null) tag.putLong("pos", originalPosition.asLong());
+        tag.putFloat("health", health);
+        tag.putInt("food", foodLevel);
+        tag.putFloat("sat", saturation);
+        tag.putInt("xpLvl", experienceLevel);
+        tag.putFloat("xpProg", experienceProgress);
+        tag.putInt("xpTotal", totalExperience);
+        if (gameMode != null) tag.putString("gm", gameMode.mode);
+
+        tag.put("inv", saveStacks(inventory));
+        tag.put("armor", saveStacks(armor));
+        tag.put("offhand", saveStacks(offhand));
+
+        net.minecraft.nbt.ListTag fx = new net.minecraft.nbt.ListTag();
+        for (EffectSnapshot e : effects) {
+            CompoundTag et = new CompoundTag();
+            et.putString("id", e.effect);
+            et.putInt("dur", e.duration);
+            et.putInt("amp", e.amplifier);
+            et.putBoolean("amb", e.ambient);
+            et.putBoolean("part", e.showParticles);
+            et.putBoolean("icon", e.showIcon);
+            fx.add(et);
+        }
+        tag.put("effects", fx);
+        return tag;
+    }
+
+    /** Rebuilds a backup from {@link #toNbt()} output. Returns null on malformed data. */
+    public static PlayerBackup fromNbt(CompoundTag tag) {
+        try {
+            List<EffectSnapshot> fx = new ArrayList<>();
+            net.minecraft.nbt.ListTag fxList = tag.getList("effects", 10);
+            for (int i = 0; i < fxList.size(); i++) {
+                CompoundTag et = fxList.getCompound(i);
+                fx.add(new EffectSnapshot(et.getString("id"), et.getInt("dur"), et.getInt("amp"),
+                        et.getBoolean("amb"), et.getBoolean("part"), et.getBoolean("icon")));
+            }
+            return new PlayerBackup(
+                tag.getString("id"),
+                tag.getUUID("uuid"),
+                tag.getString("name"),
+                tag.getLong("ts"),
+                tag.contains("pos") ? BlockPos.of(tag.getLong("pos")) : BlockPos.ZERO,
+                tag.getFloat("health"),
+                tag.getInt("food"),
+                tag.getFloat("sat"),
+                loadStacks(tag.getList("inv", 10)),
+                loadStacks(tag.getList("armor", 10)),
+                loadStacks(tag.getList("offhand", 10)),
+                tag.getInt("xpLvl"),
+                tag.getFloat("xpProg"),
+                tag.getInt("xpTotal"),
+                new GameModeSnapshot(tag.getString("gm")),
+                fx
+            );
+        } catch (Exception e) {
+            WaveDefenseMod.LOGGER.warn("[WaveDefense] Malformed PlayerBackup NBT skipped: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /** Empty stacks are kept so slot indices survive the round-trip. */
+    private static net.minecraft.nbt.ListTag saveStacks(List<ItemStack> stacks) {
+        net.minecraft.nbt.ListTag list = new net.minecraft.nbt.ListTag();
+        for (ItemStack st : stacks) {
+            list.add((st == null ? ItemStack.EMPTY : st).save(new CompoundTag()));
+        }
+        return list;
+    }
+
+    private static List<ItemStack> loadStacks(net.minecraft.nbt.ListTag list) {
+        List<ItemStack> out = new ArrayList<>();
+        for (int i = 0; i < list.size(); i++) {
+            out.add(ItemStack.of(list.getCompound(i)));
+        }
+        return out;
+    }
+
     public boolean save() {
         try {
             Files.createDirectories(BACKUP_DIR);
@@ -343,6 +434,11 @@ public class PlayerBackup {
 
         GameModeSnapshot(net.minecraft.world.level.GameType mode) {
             this.mode = mode.getName();
+        }
+
+        /** NBT round-trip constructor — {@code mode} is a {@link net.minecraft.world.level.GameType} name. */
+        GameModeSnapshot(String mode) {
+            this.mode = (mode == null || mode.isEmpty()) ? "survival" : mode;
         }
 
         net.minecraft.world.level.GameType toGameType() {

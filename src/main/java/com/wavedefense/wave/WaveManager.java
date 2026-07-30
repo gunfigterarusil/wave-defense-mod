@@ -14,6 +14,7 @@ import com.wavedefense.data.WaveConfig;
 import com.wavedefense.data.WaveTrigger;
 import com.wavedefense.data.LootSpawn;
 import com.wavedefense.data.PlayerBackup;
+import com.wavedefense.data.LeaderboardManager;
 import com.wavedefense.data.PvpSpawnPoint;
 import com.wavedefense.network.packets.SyncLocationDataPacket;
 import com.wavedefense.network.packets.SyncPlayerDataPacket;
@@ -384,6 +385,12 @@ public class WaveManager {
         // Refresh teammate HUD (HP bars + alive state) every second for every active
         // session so changes are visible in real time, not only on death / join / leave.
         if (waveCtx.tickCounter % 20 == 0) {
+            // Push live wave number + countdown to the HUD. Without this, PlayerWaveData
+            // keeps whatever was captured at join time, so the on-screen timer never
+            // ticks down and the wave counter never advances.
+            try { refreshHudState(); }
+            catch (Throwable t) { /* HUD refresh must never break the tick loop */ }
+
             for (String locName : waveCtx.sessions.keySet()) {
                 try { syncTeammates(locName); }
                 catch (Throwable t) { /* one bad location shouldn't kill the loop */ }
@@ -397,7 +404,71 @@ public class WaveManager {
         // Process delayed PvP respawns
         tickPendingPvpRespawns();
 
+        // Autosave live match state every 30 s so a crash costs at most that much
+        // progress (and never a player's stored inventory). Write is async+debounced;
+        // skipped entirely when nothing is running.
+        if (waveCtx.tickCounter % 600 == 0 && !waveCtx.sessions.isEmpty()) {
+            try { saveRuntimeState(); }
+            catch (Throwable t) { /* autosave must never break the tick loop */ }
+        }
+
         waveCtx.tickCounter++;
+    }
+
+    /**
+     * Pushes the live wave number and next-wave countdown into every PvE player's
+     * {@link PlayerWaveData} once per second.
+     *
+     * <p>Previously these fields were only written by {@code SessionManager} when a
+     * player <em>joined</em> a location, so the HUD froze at the values captured at
+     * join time — the countdown never moved and the wave counter never advanced.
+     *
+     * <p>PvP locations are skipped: {@code PvpRoundManager} owns the timer/phase
+     * state there and already syncs it on its own schedule.
+     *
+     * <p>A packet is only sent when a rendered value actually changed, so an idle
+     * lobby costs nothing on the wire.
+     */
+    private void refreshHudState() {
+        for (java.util.Map.Entry<String, LocationSession> entry : waveCtx.sessions.entrySet()) {
+            String locName = entry.getKey();
+            LocationSession sess = entry.getValue();
+            if (sess == null) continue;
+
+            com.wavedefense.data.Location loc = WaveDefenseMod.locationManager.getLocation(locName);
+            if (loc == null || loc.isPvp()) continue; // PvP timer is PvpRoundManager's job
+
+            // Which countdown is running?
+            //   startTimerMs  > 0 → lobby phase (epoch-ms deadline)
+            //   waveTimerTicks> 0 → between-waves delay (20 ticks per second)
+            int secondsLeft;
+            boolean timerActive;
+            if (sess.startTimerMs > 0) {
+                long msLeft = sess.startTimerMs - System.currentTimeMillis();
+                secondsLeft = (int) Math.max(0L, (msLeft + 999L) / 1000L); // ceil
+                timerActive = true;
+            } else if (sess.waveTimerTicks > 0) {
+                secondsLeft = (sess.waveTimerTicks + 19) / 20;             // ceil
+                timerActive = true;
+            } else {
+                secondsLeft = 0;
+                timerActive = false;
+            }
+
+            for (ServerPlayer player : getPlayersInLocation(locName)) {
+                PlayerWaveData data = waveCtx.playerData.get(player.getUUID());
+                if (data == null) continue;
+                boolean changed = data.getCurrentWave() != sess.currentWave
+                        || data.getTimeUntilNextWave() != secondsLeft
+                        || data.isTimerActive() != timerActive;
+                if (!changed) continue;
+
+                data.setCurrentWave(sess.currentWave);
+                data.setTimeUntilNextWave(secondsLeft);
+                data.setTimerActive(timerActive);
+                syncPlayerData(player);
+            }
+        }
     }
 
     private void tickPendingPvpRespawns() {
@@ -546,16 +617,25 @@ public class WaveManager {
             }
 
             // Update player-specific stats
+            int points = mob.getPersistentData().getInt("points");
             PlayerWaveData playerData = getPlayerData(player.getUUID());
             if (playerData != null) {
                 // Award points for the kill
-                int points = mob.getPersistentData().getInt("points");
                 if (points > 0) {
                     Location loc = WaveDefenseMod.locationManager.getLocation(locationName);
                     if (loc != null) {
                         loc.addPoints(player.getUUID(), points);
                     }
                 }
+            }
+
+            // Lifetime profile — accumulates across every run on every location.
+            com.wavedefense.data.PlayerProfileManager pm = WaveDefenseMod.profileManager;
+            if (pm != null) {
+                com.wavedefense.data.PlayerProfile profile =
+                    pm.getOrCreate(player.getUUID(), player.getName().getString());
+                profile.recordKills(1);
+                profile.recordPoints(points);
             }
 
             // Record wave metrics for auto-scaling
@@ -646,6 +726,10 @@ public class WaveManager {
         triggerEval.fireWaveTriggerForPlayer(this, victim, WaveTrigger.PLAYER_DEATH);
         fireLootTriggerByName(locName, LootSpawn.Trigger.PLAYER_DEATH);
 
+        // Endless never reaches triggerVictory, so death is where the run is scored.
+        // Without this an endless location would never produce a leaderboard entry.
+        recordRunEnd(victim, location, locName);
+
         playerData.remove(playerId);
         invalidatePlayersCache();
         PlayerBackup backup = waveCtx.playerBackups.remove(playerId);
@@ -671,6 +755,40 @@ public class WaveManager {
         try {
             com.wavedefense.monitor.WaveDefenseMonitor.getInstance().onPlayerDeath(victim);
         } catch (Exception ignored) {}
+    }
+
+    /**
+     * Scores a PvE run that ended in death rather than victory.
+     *
+     * <p>Always updates the player's lifetime profile. For endless locations it also
+     * writes a leaderboard record, because "how far did you get" <em>is</em> the score
+     * there and {@code triggerVictory} — the only other place that records one — can
+     * never fire. Non-endless deaths are not ranked: dying on wave 3 of 10 is not a
+     * result worth listing next to a completed run.
+     */
+    private void recordRunEnd(ServerPlayer victim, Location location, String locName) {
+        LocationSession sess = waveCtx.getSession(locName);
+        int wavesReached = sess != null ? sess.currentWave : 0;
+        int durationSec = (sess != null && sess.gameStartMs > 0)
+            ? Math.max(0, (int) ((System.currentTimeMillis() - sess.gameStartMs) / 1000)) : 0;
+
+        com.wavedefense.data.PlayerProfileManager pm = WaveDefenseMod.profileManager;
+        if (pm != null) {
+            com.wavedefense.data.PlayerProfile profile =
+                pm.getOrCreate(victim.getUUID(), victim.getName().getString());
+            profile.recordDeath();
+            profile.recordMatchEnd(false, durationSec);
+            pm.save();
+        }
+
+        if (location.isEndlessMode() && WaveDefenseMod.leaderboardManager != null) {
+            WaveDefenseMod.leaderboardManager.addRecord(locName,
+                LeaderboardManager.MODE_PVE_ENDLESS + location.getDifficultyPreset().getLeaderboardSuffix(),
+                new com.wavedefense.data.LeaderboardRecord(
+                    victim.getUUID(), victim.getName().getString(),
+                    wavesReached, location.getPlayerPoints(victim.getUUID()), durationSec));
+            WaveDefenseMod.leaderboardManager.saveToFile();
+        }
     }
 
     public void fireWaveTriggerForPlayer(ServerPlayer player, WaveTrigger trigger) {
@@ -710,6 +828,99 @@ public class WaveManager {
      * Серіалізація стану WaveManager для резервного копіювання.
      * Зберігає: сесії, стан гравців, пвп-стан, кордони, портал тощо.
      */
+    // ── Runtime-state persistence ───────────────────────────────────────────
+    // Live match state (sessions, per-player data, inventory backups) used to exist
+    // only in memory: a clean /stop was survivable because every player fires a
+    // logout event (which surrenders them and restores their inventory), but a
+    // crash or `kill -9` lost everything — including the inventories players had
+    // when they entered an arena. These methods persist that state to disk.
+
+    /** {@code world/data/wavedefense_runtime.dat} — resolved lazily (needs the server). */
+    private java.io.File runtimeFile() {
+        net.minecraft.server.MinecraftServer server = WaveDefenseMod.getServer();
+        if (server == null) return null;
+        return server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT)
+                .resolve("data/wavedefense_runtime.dat").toFile();
+    }
+
+    /** Async + debounced snapshot — safe to call periodically while the server runs. */
+    public void saveRuntimeState() {
+        java.io.File f = runtimeFile();
+        if (f != null) com.wavedefense.data.NbtHelper.atomicWriteCompressedAsync(f, save());
+    }
+
+    /** Blocking snapshot — used on shutdown so nothing is left in the debounce queue. */
+    public void saveRuntimeStateSync() {
+        java.io.File f = runtimeFile();
+        if (f != null) com.wavedefense.data.NbtHelper.atomicWriteCompressed(f, save());
+    }
+
+    /**
+     * Restores runtime state written by {@link #saveRuntimeState()}.
+     *
+     * <p>Called on server start. If the file is missing (first run, or a clean
+     * shutdown that already drained every session) this is a no-op.
+     *
+     * <p><b>Sessions are deliberately not resumed.</b> A restart despawns every mob
+     * the wave spawned and the world has moved on, so continuing a half-finished
+     * wave would strand players in an arena that can never complete. Instead we keep
+     * only the {@linkplain com.wavedefense.data.PlayerBackup inventory backups} —
+     * each player gets their gear, position, XP and game mode back the next time
+     * they log in (see {@link #recoverCrashedPlayer}).
+     */
+    public void loadRuntimeState() {
+        java.io.File f = runtimeFile();
+        if (f == null || !f.exists()) return;
+        try {
+            CompoundTag tag = net.minecraft.nbt.NbtIo.readCompressed(f);
+            load(tag);
+
+            int pendingBackups = waveCtx.playerBackups.size();
+            int abandonedSessions = waveCtx.sessions.size();
+
+            // Drop un-resumable live state, keep the backups.
+            waveCtx.sessions.clear();
+            playerData.clear();
+
+            if (pendingBackups > 0 || abandonedSessions > 0) {
+                WaveDefenseMod.LOGGER.warn(
+                    "[WaveDefense] Recovered from an unclean shutdown: {} abandoned session(s) discarded, "
+                  + "{} player inventory backup(s) pending restore on next login.",
+                    abandonedSessions, pendingBackups);
+            }
+            // Persist the trimmed state so a second restart doesn't re-report it.
+            saveRuntimeStateSync();
+        } catch (Exception e) {
+            WaveDefenseMod.LOGGER.error("[WaveDefense] Could not restore runtime state: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Crash recovery for a single player, called on login.
+     *
+     * <p>If we still hold an inventory backup for them, the server went down while
+     * they were inside an arena — their real inventory was in that backup. Restore
+     * it (gear, position, health, XP, game mode) and tell them what happened.
+     *
+     * @return true if a backup was restored
+     */
+    public boolean recoverCrashedPlayer(ServerPlayer player) {
+        com.wavedefense.data.PlayerBackup backup = waveCtx.playerBackups.remove(player.getUUID());
+        if (backup == null) return false;
+        try {
+            backup.restore(player);
+            player.sendSystemMessage(
+                net.minecraft.network.chat.Component.translatable("wavedefense.msg.crash_recovery"));
+            WaveDefenseMod.LOGGER.info("[WaveDefense] Restored crash backup for {}", player.getGameProfile().getName());
+            saveRuntimeState(); // backup consumed — persist the shrunken map
+            return true;
+        } catch (Exception e) {
+            WaveDefenseMod.LOGGER.error("[WaveDefense] Failed to restore crash backup for {}: {}",
+                player.getGameProfile().getName(), e.getMessage());
+            return false;
+        }
+    }
+
     public CompoundTag save() {
         CompoundTag tag = new CompoundTag();
         // Session data
@@ -723,6 +934,16 @@ public class WaveManager {
             playerList.add(pTag);
         }
         tag.put("players", playerList);
+        // In-session inventory backups. Persisted so a server crash can't lose a
+        // player's pre-arena inventory (they used to live only in memory).
+        ListTag backupList = new ListTag();
+        for (Map.Entry<UUID, com.wavedefense.data.PlayerBackup> entry : waveCtx.playerBackups.entrySet()) {
+            CompoundTag bTag = new CompoundTag();
+            bTag.putUUID("uuid", entry.getKey());
+            bTag.put("backup", entry.getValue().toNbt());
+            backupList.add(bTag);
+        }
+        tag.put("playerBackups", backupList);
         // PvP manager state
         tag.put("pvp", pvpMgr.save());
         // Boundary/leave countdowns
@@ -779,6 +1000,16 @@ public class WaveManager {
                 PlayerWaveData data = new PlayerWaveData();
                 data.loadClientData(pTag.getCompound("data"));
                 playerData.put(uuid, data);
+            }
+        }
+        // In-session inventory backups (restored so a crash mid-match is recoverable)
+        if (tag.contains("playerBackups")) {
+            ListTag backupList = tag.getList("playerBackups", 10);
+            for (int i = 0; i < backupList.size(); i++) {
+                CompoundTag bTag = backupList.getCompound(i);
+                com.wavedefense.data.PlayerBackup backup =
+                    com.wavedefense.data.PlayerBackup.fromNbt(bTag.getCompound("backup"));
+                if (backup != null) waveCtx.playerBackups.put(bTag.getUUID("uuid"), backup);
             }
         }
         // PvP manager state

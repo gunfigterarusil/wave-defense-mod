@@ -175,11 +175,56 @@ public class SessionManager {
             wm.fireLootTrigger(location, lootWorld, com.wavedefense.data.LootSpawn.Trigger.PLAYER_JOIN);
         }
 
+        // Short "what am I doing here" intro — objective + hotkeys.
+        sendJoinHints(player, location);
+
         // Notify monitoring system
         try {
             com.wavedefense.monitor.WaveDefenseMonitor.getInstance().onPlayerJoin(player);
         } catch (Exception e) {
             // Monitoring system error - don't break gameplay
+        }
+    }
+
+    /**
+     * Tells a joining player what this location expects of them and which keys to
+     * press. Without it the hotkeys (V / B / G / R) are undiscoverable — they only
+     * appear in the keybind menu, and new players had no idea the mod had a UI.
+     *
+     * <p>Disabled by the {@code showJoinHints} config option for servers that
+     * explain this themselves.
+     */
+    private void sendJoinHints(ServerPlayer player, Location location) {
+        try {
+            if (!com.wavedefense.config.WaveDefenseConfig.SHOW_JOIN_HINTS.get()) return;
+
+            // Objective line — depends on the mode the admin configured.
+            Component objective;
+            if (!location.isPvp()) {
+                objective = Component.translatable("wavedefense.hint.objective.pve",
+                        location.getTotalWaves());
+            } else if (location.isBattleRoyale()) {
+                objective = Component.translatable("wavedefense.hint.objective.br");
+            } else if (location.isDeathmatch()) {
+                objective = Component.translatable("wavedefense.hint.objective.dm",
+                        location.getDmKillsToWin());
+            } else if (location.isObjectiveMode()) {
+                objective = Component.translatable("wavedefense.hint.objective.point");
+            } else {
+                objective = Component.translatable("wavedefense.hint.objective.team",
+                        location.getPvpTotalRounds());
+            }
+
+            player.sendSystemMessage(Component.translatable("wavedefense.hint.header",
+                    location.getName()));
+            player.sendSystemMessage(objective);
+            player.sendSystemMessage(Component.translatable("wavedefense.hint.keys"));
+            if (location.isPvp()) {
+                player.sendSystemMessage(Component.translatable("wavedefense.hint.keys_pvp"));
+            }
+        } catch (Exception e) {
+            // A hint must never block someone from joining.
+            com.wavedefense.WaveDefenseMod.LOGGER.debug("[WaveDefense] join hint failed: {}", e.getMessage());
         }
     }
 
@@ -314,11 +359,20 @@ public class SessionManager {
                     net.minecraft.server.level.ServerPlayer sp = srv.getPlayerList().getPlayer(pid);
                     if (sp != null) pname = sp.getName().getString();
                 }
+                // Each difficulty tier ranks separately — a Nightmare clear should not
+                // have to compete with an Easy one for the same top-10 slot.
                 WaveDefenseMod.leaderboardManager.addRecord(locationName,
-                    LeaderboardManager.MODE_PVE,
+                    LeaderboardManager.MODE_PVE + loc.getDifficultyPreset().getLeaderboardSuffix(),
                     new LeaderboardRecord(pid, pname, points, wavesCompleted, durationSec));
+
+                // Lifetime profile: a victory closes out the run as a win.
+                if (WaveDefenseMod.profileManager != null) {
+                    WaveDefenseMod.profileManager.getOrCreate(pid, pname)
+                        .recordMatchEnd(true, durationSec);
+                }
             }
             WaveDefenseMod.leaderboardManager.saveToFile();
+            if (WaveDefenseMod.profileManager != null) WaveDefenseMod.profileManager.save();
         }
 
         if (loc.isVictoryScreenEnabled() && loc.getVictoryLingerTimeSec() > 0) {
