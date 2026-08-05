@@ -142,23 +142,33 @@ public class PlayerShopScreen extends ScrollableScreen {
                 b -> { tileMode = !tileMode; scrollOffset = 0; rebuildWidgets(); }
         ).bounds(Math.max(8, this.width - 86), 18, 76, 16).build());
 
-        ShopItem.ShopCategory[] cats = ShopItem.ShopCategory.values();
-        int gap = 2;
-        int availW = Math.min(440, this.width - 16);
-        int catW = Math.max(46, (availW - gap * (cats.length - 1)) / cats.length);
-        int startCatX = cx - (catW * cats.length + gap * (cats.length - 1)) / 2;
-        for (int i = 0; i < cats.length; i++) {
-            final ShopItem.ShopCategory cat = cats[i];
-            int bx = startCatX + i * (catW + gap);
-            Component label = Component.literal(cat == activeCategory ? "§e§l" : "§7")
-                    .append(Component.translatable(categoryKey(cat)));
-            addStatic(Button.builder(
-                    label,
-                    b -> { activeCategory = cat; rebuildFilter(); rebuildWidgets(); }
-            ).bounds(bx, top, catW, 16).build());
+        // The category filter row is optional: servers with small, hand-curated shops end
+        // up with four buttons that all show the same list. The config option to hide it
+        // existed but was never read.
+        boolean categoriesOn = com.wavedefense.config.WaveDefenseConfig.SHOP_CATEGORIES_ENABLED.get();
+        if (categoriesOn) {
+            ShopItem.ShopCategory[] cats = ShopItem.ShopCategory.values();
+            int gap = 2;
+            int availW = Math.min(440, this.width - 16);
+            int catW = Math.max(46, (availW - gap * (cats.length - 1)) / cats.length);
+            int startCatX = cx - (catW * cats.length + gap * (cats.length - 1)) / 2;
+            for (int i = 0; i < cats.length; i++) {
+                final ShopItem.ShopCategory cat = cats[i];
+                int bx = startCatX + i * (catW + gap);
+                Component label = Component.literal(cat == activeCategory ? "§e§l" : "§7")
+                        .append(Component.translatable(categoryKey(cat)));
+                addStatic(Button.builder(
+                        label,
+                        b -> { activeCategory = cat; rebuildFilter(); rebuildWidgets(); }
+                ).bounds(bx, top, catW, 16).build());
+            }
+        } else {
+            // Filtering off means everything must stay visible — a stale activeCategory
+            // from before the toggle was flipped would silently hide most of the shop.
+            activeCategory = ShopItem.ShopCategory.ALL;
         }
 
-        int startY = top + 22;
+        int startY = top + (categoriesOn ? 22 : 4);
         if (tileMode) buildTileButtons(startY, itemsPerPage);
         else buildListButtons(cx, startY, itemsPerPage);
 

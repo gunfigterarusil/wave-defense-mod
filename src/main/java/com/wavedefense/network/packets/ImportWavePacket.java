@@ -58,6 +58,11 @@ public class ImportWavePacket {
                 .getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).toFile(),
                 "wavedefense/wave_export");
             File file = new File(dir, p.fileName + ".nbt");
+            // Path traversal guard: fileName comes straight from the client.
+            if (!com.wavedefense.network.FilePathGuard.checkInside(
+                    dir, file, player.getName().getString(), p.fileName)) {
+                return;
+            }
             if (!file.exists()) {
                 player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.auto.файл_не_знайдено_value_e8d8c6cc", p.fileName + ".nbt"), false);
                 return;

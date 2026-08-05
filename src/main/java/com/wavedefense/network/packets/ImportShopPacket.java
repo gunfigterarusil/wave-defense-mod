@@ -53,7 +53,7 @@ public class ImportShopPacket {
                 File shopDir = ExportShopPacket.getShopExportDir();
                 File file = new File(shopDir, pkt.fileName + ".nbt");
                 // Path traversal guard: reject filenames that escape the export directory.
-                if (!file.getCanonicalPath().startsWith(shopDir.getCanonicalPath())) {
+                if (!com.wavedefense.network.FilePathGuard.isInside(shopDir, file)) {
                     WaveDefenseMod.LOGGER.warn("[WaveDefense] Rejected path-traversal shop import attempt by {}: {}", player.getName().getString(), pkt.fileName);
                     return;
                 }

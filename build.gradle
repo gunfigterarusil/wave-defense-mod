@@ -149,6 +149,12 @@ dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter:5.9.3"
     testImplementation "org.mockito:mockito-core:5.3.1"
     testImplementation "org.mockito:mockito-junit-jupiter:5.3.1"
+    // Required by Gradle's test worker to bootstrap the JUnit 5 engine. The
+    // junit-jupiter aggregate pulls in api + engine but NOT the launcher, and
+    // ForgeGradle's classpath handling means Gradle does not inject it for us —
+    // without this the worker dies with NoClassDefFoundError: LauncherFactory
+    // before a single test runs.
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher:1.9.3"
 
     // For more info:
     // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html

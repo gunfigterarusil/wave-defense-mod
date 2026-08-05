@@ -22,6 +22,10 @@ public class HudOverlay {
 
     @SubscribeEvent
     public static void onRenderHud(RenderGuiOverlayEvent.Post event) {
+        // The "enableHUD" config option existed since the mod's first release but was
+        // never read — toggling it off did nothing. This is where it belongs.
+        if (!com.wavedefense.config.WaveDefenseConfig.ENABLE_HUD.get()) return;
+
         Minecraft mc = Minecraft.getInstance();
         Player player = mc.player;
         if (player == null) return;

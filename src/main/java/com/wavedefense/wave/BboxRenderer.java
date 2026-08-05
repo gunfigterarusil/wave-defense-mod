@@ -60,6 +60,10 @@ public final class BboxRenderer {
             double zMax = high.getZ() + 0.5;
 
             for (ServerPlayer p : players) {
+                // Respect the same per-player opt-out as the boundary ring — a player who
+                // turned mod particles off should not be handed a second particle source.
+                PlayerWaveData pd = ctx.playerData.get(p.getUUID());
+                if (pd != null && !pd.isBoundaryParticlesVisible()) continue;
                 emitEdgeNear(p, world, xMin, xMax, zMin, y, true);  // top-Z = zMin edge (north)
                 emitEdgeNear(p, world, xMin, xMax, zMax, y, true);  // top-Z = zMax edge (south)
                 emitEdgeNear(p, world, zMin, zMax, xMin, y, false); // top-X = xMin edge (west)

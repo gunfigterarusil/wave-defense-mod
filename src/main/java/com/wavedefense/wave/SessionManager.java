@@ -243,6 +243,19 @@ public class SessionManager {
             Location currentLoc = data.getCurrentLocation();
             boolean keepLoot = currentLoc != null && currentLoc.isKeepLootOnExit();
 
+            // Close out the run in the lifetime profile. Without this a surrendered run
+            // still counted its kills and waves but never incremented matchesPlayed,
+            // so the displayed win rate was computed over too small a denominator.
+            if (currentLoc != null && WaveDefenseMod.profileManager != null) {
+                LocationSession surrSess = ctx.getSession(currentLoc.getName());
+                int durationSec = (surrSess != null && surrSess.gameStartMs > 0)
+                    ? Math.max(0, (int) ((System.currentTimeMillis() - surrSess.gameStartMs) / 1000)) : 0;
+                WaveDefenseMod.profileManager
+                    .getOrCreate(playerId, player.getName().getString())
+                    .recordMatchEnd(false, durationSec);
+                WaveDefenseMod.profileManager.save();
+            }
+
             // Якщо гравець у спектаторі (PvP смерть) — відновлюємо survival перед backup.restore
             if (player.gameMode.getGameModeForPlayer() == net.minecraft.world.level.GameType.SPECTATOR)
                 player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
@@ -525,7 +538,14 @@ public class SessionManager {
      * Викликається при завершенні сесії (перемога, здача, вихід останнього гравця),
      * щоб моби не блукали сервером після закінчення гри.
      */
-    private void despawnSessionMobs(String locationName) {
+    /**
+     * Removes every mob this session spawned from the world.
+     *
+     * <p><b>Must be called before {@link WaveContext#removeSession}.</b> {@code dispose()}
+     * only clears the tracking set — the entities themselves are {@code persistenceRequired},
+     * so anything left behind stays in the world forever with nothing tracking it.
+     */
+    void despawnSessionMobs(String locationName) {
         LocationSession sess = ctx.getSession(locationName);
         if (sess == null || sess.spawnedMobs.isEmpty()) return;
         net.minecraft.server.MinecraftServer srv = WaveDefenseMod.getServer();

@@ -200,8 +200,15 @@ public class ZoneActivationManager {
     //  Private — particles
     // ════════════════════════════════════════════════════════════════════
 
-    /** Чи час спавнити частинки для цієї локації (за налаштованим інтервалом). */
+    /**
+     * Чи час спавнити частинки для цієї локації (за налаштованим інтервалом).
+     *
+     * <p>The server-wide {@code zoneActivationParticles} switch is checked first. It had
+     * never been read, so admins on particle-sensitive servers had no way to turn the
+     * activation-zone effect off short of editing every location.
+     */
     private boolean shouldSpawnParticles(Location loc) {
+        if (!com.wavedefense.config.WaveDefenseConfig.ZONE_ACTIVATION_PARTICLES.get()) return false;
         int interval = loc.getZoneParticleInterval();
         if (interval <= 1) return true;
         return (ctx.tickCounter % interval) == 0;

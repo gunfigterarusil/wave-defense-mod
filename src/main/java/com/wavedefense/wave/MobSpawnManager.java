@@ -202,6 +202,48 @@ public class MobSpawnManager {
         inst.setBaseValue(attribute.sanitizeValue(scaled));
     }
 
+    /**
+     * Makes a wave mob actually hunt the players instead of wandering off.
+     *
+     * <p>Two things were wrong before. The targeting goal was registered on
+     * {@code goalSelector}, but vanilla runs target acquisition on a separate
+     * {@code targetSelector} — on the movement selector it competed with the mob's own
+     * strolling goals instead of driving them. And {@code FOLLOW_RANGE} was left at the
+     * vanilla default (16 blocks for most mobs), so on an arena tens of blocks across a
+     * mob simply could not perceive anyone and fell back to idle behaviour. Spiders made
+     * it obvious because their climbing carries them away fast.
+     *
+     * <p>Follow range is raised to cover the configured arena, clamped so a huge boundary
+     * radius cannot turn every mob into a server-wide tracker.
+     */
+    public static void makeHuntPlayers(Mob mob, Location loc) {
+        // Highest priority: player-hunting outranks whatever idle target the mob had.
+        // mustSee = false on purpose — in an arena the mobs are meant to be relentless,
+        // and requiring line of sight let players break aggro by stepping behind cover.
+        mob.targetSelector.addGoal(0,
+            new NearestAttackableTargetGoal<>(mob, Player.class, false));
+
+        net.minecraft.world.entity.ai.attributes.AttributeInstance follow =
+            mob.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.FOLLOW_RANGE);
+        if (follow == null) return;
+
+        double wanted = DEFAULT_HUNT_RANGE;
+        if (loc != null && loc.isLocationBoundaryEnabled() && loc.getLocationBoundaryRadius() > 0) {
+            // Diameter, so a mob on one edge can still see a player on the other.
+            wanted = loc.getLocationBoundaryRadius() * 2.0;
+        }
+        wanted = Math.max(follow.getBaseValue(), Math.min(MAX_HUNT_RANGE, wanted));
+        follow.setBaseValue(wanted);
+    }
+
+    /** Follow range used when the arena has no boundary configured to size it from. */
+    private static final double DEFAULT_HUNT_RANGE = 48.0;
+    /**
+     * Ceiling on follow range. Beyond this the pathfinder cost stops being worth it and
+     * a big arena would have every mob re-scanning a huge box every tick.
+     */
+    private static final double MAX_HUNT_RANGE = 128.0;
+
     /** Applies difficulty/endless scaling and the wave modifier to a freshly spawned mob. */
     private static void applyTuning(Mob mob, SpawnTuning tuning) {
         if (tuning == null || tuning.isIdentity()) return;
@@ -225,8 +267,7 @@ public class MobSpawnManager {
             mob.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0, 0);
             mob.finalizeSpawn(world, world.getCurrentDifficultyAt(pos),
                     MobSpawnType.COMMAND, null, null);
-            mob.goalSelector.addGoal(2,
-                    new NearestAttackableTargetGoal<>(mob, Player.class, true));
+            makeHuntPlayers(mob, WaveDefenseMod.locationManager.getLocation(locationName));
             mob.setPersistenceRequired();
             mob.getPersistentData().putString("location", locationName);
             // Harder difficulties pay better, or nobody would choose them.

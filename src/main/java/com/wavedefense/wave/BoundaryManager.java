@@ -144,27 +144,75 @@ public class BoundaryManager {
                 .toList();
             if (inLoc.isEmpty()) continue;
             ServerLevel world = inLoc.get(0).serverLevel();
-            spawnBorderRing(world, loc);
+            spawnBorderRing(world, loc, inLoc);
         }
     }
 
-    private void spawnBorderRing(ServerLevel world, Location loc) {
+    /**
+     * Only the arc of the boundary near a player is drawn, and only for players who
+     * asked to see it.
+     *
+     * <p>The old version drew the entire ring — one particle column every 2 blocks all
+     * the way round — and broadcast each column to everyone nearby. At the default
+     * radius of 50 that is ~157 columns × 3 rows = <b>471 particle packets every
+     * second</b>, sent to bystanders outside the arena as well. That is what players
+     * reported as a large FPS drop.
+     *
+     * <p>Now each player gets only the section of wall they could actually see, sent to
+     * them alone, and anyone who turns the option off gets nothing at all.
+     */
+    private void spawnBorderRing(ServerLevel world, Location loc, List<ServerPlayer> inLoc) {
         ParticleOptions particle = ParticleHelper.resolveParticle(loc.getBoundaryParticleType(), ParticleTypes.SMOKE);
         int radius   = loc.getLocationBoundaryRadius();
         int height   = loc.getBoundaryParticleHeight();
-        int count    = loc.getBoundaryParticleCount();
+        int count    = Math.max(1, loc.getBoundaryParticleCount());
         BlockPos ctr = loc.getPlayerSpawn();
+        if (radius <= 0) return;
 
-        int steps = Math.max(8, (int)(2 * Math.PI * radius / 2));
-        for (int i = 0; i < steps; i++) {
-            double angle = 2 * Math.PI * i / steps;
-            double px = ctr.getX() + 0.5 + radius * Math.cos(angle);
-            double pz = ctr.getZ() + 0.5 + radius * Math.sin(angle);
-            for (int dy = 0; dy < height; dy++) {
-                world.sendParticles(particle, px, ctr.getY() + dy, pz,
-                    1, 0, 0, 0, 0.01);
+        double cx = ctr.getX() + 0.5;
+        double cz = ctr.getZ() + 0.5;
+        // Arc length between columns; larger spacing on bigger rings keeps the packet
+        // count roughly constant instead of growing with the circumference.
+        double angleStep = COLUMN_SPACING_BLOCKS / (double) radius;
+
+        for (ServerPlayer p : inLoc) {
+            if (!wantsBoundaryParticles(p)) continue;
+
+            // Angle from arena centre towards the player: the wall behind them is not
+            // worth a single packet.
+            double centreAngle = Math.atan2(p.getZ() - cz, p.getX() - cx);
+            int halfColumns = (int) Math.ceil(VISIBLE_ARC_RADIANS / 2.0 / angleStep);
+
+            for (int i = -halfColumns; i <= halfColumns; i++) {
+                double angle = centreAngle + i * angleStep;
+                double px = cx + radius * Math.cos(angle);
+                double pz = cz + radius * Math.sin(angle);
+                // Skip columns too far to render anyway — the client culls them, so
+                // sending them is pure waste.
+                if (p.distanceToSqr(px, p.getY(), pz) > VISIBLE_DIST_SQR) continue;
+                for (int dy = 0; dy < height; dy++) {
+                    world.sendParticles(p, particle, false,
+                        px, ctr.getY() + dy, pz, count, 0, 0, 0, 0.01);
+                }
             }
         }
+    }
+
+    /** Spacing between particle columns along the boundary, in blocks. */
+    private static final double COLUMN_SPACING_BLOCKS = 3.0;
+    /** How much of the ring, in radians, is drawn around the direction the player faces out to. */
+    private static final double VISIBLE_ARC_RADIANS = Math.PI / 2.0; // 90°
+    /** Squared render cutoff — matches roughly the vanilla particle view distance. */
+    private static final double VISIBLE_DIST_SQR = 48.0 * 48.0;
+
+    /**
+     * Whether this player wants to see boundary particles. Opt-out is per player and
+     * lives in their synced settings, so someone on a weaker machine can turn the effect
+     * off without the admin having to disable it for everyone.
+     */
+    private boolean wantsBoundaryParticles(ServerPlayer p) {
+        PlayerWaveData d = ctx.playerData.get(p.getUUID());
+        return d == null || d.isBoundaryParticlesVisible();
     }
 
     // ── Заголовки ────────────────────────────────────────────────────────

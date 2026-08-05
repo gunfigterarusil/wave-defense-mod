@@ -347,7 +347,8 @@ public class Location {
     public void addStartingItem(ItemStack item) { startingItems.add(item.copy()); }
 
     public List<ShopItem> getShopItems() { return shopItems; }
-    public void addShopItem(ShopItem item) { shopItems.add(item); }
+    /** Capped by {@code maxShopItems} — the config value existed but nothing enforced it. */
+    public void addShopItem(ShopItem item) { if (shopItems.size() < com.wavedefense.config.WaveDefenseConfig.MAX_SHOP_ITEMS.get()) shopItems.add(item); }
     public void removeShopItem(int index) { if (index >= 0 && index < shopItems.size()) shopItems.remove(index); }
 
     // ── Режим магазину ────────────────────────────────────────────────
@@ -376,7 +377,8 @@ public class Location {
     public void setCompletionPointsReward(int points) { this.completionPointsReward = points; }
 
     public List<LootSpawn> getLootSpawns() { return lootSpawns; }
-    public void addLootSpawn(LootSpawn ls) { lootSpawns.add(ls); }
+    /** Capped by {@code maxLootSpawns}. */
+    public void addLootSpawn(LootSpawn ls) { if (lootSpawns.size() < com.wavedefense.config.WaveDefenseConfig.MAX_LOOT_SPAWNS.get()) lootSpawns.add(ls); }
     public void removeLootSpawn(int index) { if (index >= 0 && index < lootSpawns.size()) lootSpawns.remove(index); }
 
     public int getPlayerPoints(UUID playerId) { return playerPoints.getOrDefault(playerId, 0); }
@@ -388,7 +390,8 @@ public class Location {
 
     // --- PvP ---
     public List<PvpSpawnPoint> getPvpSpawnPoints() { return pvpSpawnPoints; }
-    public void addPvpSpawnPoint(PvpSpawnPoint sp) { pvpSpawnPoints.add(sp); }
+    /** Capped by {@code maxPlayerSpawns}. */
+    public void addPvpSpawnPoint(PvpSpawnPoint sp) { if (pvpSpawnPoints.size() < com.wavedefense.config.WaveDefenseConfig.MAX_PLAYER_SPAWNS.get()) pvpSpawnPoints.add(sp); }
     public void removePvpSpawnPoint(int index) { if (index >= 0 && index < pvpSpawnPoints.size()) pvpSpawnPoints.remove(index); }
 
     public int getPvpMinPlayers() { return pvpMinPlayers; }
@@ -398,10 +401,10 @@ public class Location {
     public void setPvpFriendlyFire(boolean ff) { this.pvpFriendlyFire = ff; }
 
     public int getPvpKillPoints() { return pvpKillPoints; }
-    public void setPvpKillPoints(int pts) { this.pvpKillPoints = pts; }
+    public void setPvpKillPoints(int pts) { this.pvpKillPoints = clampToConfig(pts, com.wavedefense.config.WaveDefenseConfig.PVP_MAX_KILL_POINTS); }
 
     public int getPvpDeathPenalty() { return pvpDeathPenalty; }
-    public void setPvpDeathPenalty(int pts) { this.pvpDeathPenalty = pts; }
+    public void setPvpDeathPenalty(int pts) { this.pvpDeathPenalty = clampToConfig(pts, com.wavedefense.config.WaveDefenseConfig.PVP_MAX_DEATH_PENALTY); }
 
     public int getPvpTotalRounds() { return pvpTotalRounds; }
     public void setPvpTotalRounds(int r) { this.pvpTotalRounds = Math.max(1, r); }
@@ -572,13 +575,13 @@ public class Location {
     public int  getPvpRoundStartDelay()          { return pvpRoundStartDelay; }
     public void setPvpRoundStartDelay(int s)     { this.pvpRoundStartDelay = Math.max(0, s); }
     public int  getPvpReadyCheckTimeoutSec()         { return pvpReadyCheckTimeoutSec; }
-    public void setPvpReadyCheckTimeoutSec(int s)    { this.pvpReadyCheckTimeoutSec = Math.max(0, s); }
+    public void setPvpReadyCheckTimeoutSec(int s)    { this.pvpReadyCheckTimeoutSec = clampToConfig(s, com.wavedefense.config.WaveDefenseConfig.PVP_MAX_READY_CHECK_TIMEOUT_SEC); }
     public int  getPvpRoundStartPoints()         { return pvpRoundStartPoints; }
     public void setPvpRoundStartPoints(int p)    { this.pvpRoundStartPoints = Math.max(0, p); }
     public int  getPvpWinPoints()                { return pvpWinPoints; }
-    public void setPvpWinPoints(int p)           { this.pvpWinPoints = Math.max(0, p); }
+    public void setPvpWinPoints(int p)           { this.pvpWinPoints = clampToConfig(p, com.wavedefense.config.WaveDefenseConfig.PVP_MAX_WIN_POINTS); }
     public int  getPvpLosePoints()               { return pvpLosePoints; }
-    public void setPvpLosePoints(int p)          { this.pvpLosePoints = Math.max(0, p); }
+    public void setPvpLosePoints(int p)          { this.pvpLosePoints = clampToConfig(p, com.wavedefense.config.WaveDefenseConfig.PVP_MAX_LOSE_POINTS); }
     public int  getPvpRoundTimeLimitSec()        { return pvpRoundTimeLimitSec; }
     public void setPvpRoundTimeLimitSec(int s)   { this.pvpRoundTimeLimitSec = Math.max(0, s); }
     public int  getDmKillsToWin()                { return dmKillsToWin; }
@@ -670,6 +673,23 @@ public class Location {
     // ── Enforce gamemode (option) ─────────────────────────────────────
     public boolean isEnforceGameMode()           { return enforceGameMode; }
     public void    setEnforceGameMode(boolean v) { this.enforceGameMode = v; }
+
+
+    /**
+     * Clamps an admin-supplied value to [0, configured maximum].
+     *
+     * <p>The {@code pvpMax*} config options existed as safety rails but were never read,
+     * so a typo in the editor could set a five-digit kill reward. Falls back to a plain
+     * non-negative clamp if the config is not loaded yet.
+     */
+    private static int clampToConfig(int value, net.minecraftforge.common.ForgeConfigSpec.IntValue max) {
+        int v = Math.max(0, value);
+        try {
+            return Math.min(v, max.get());
+        } catch (IllegalStateException notLoadedYet) {
+            return v;
+        }
+    }
 
     /** Serializes this location to NBT. Delegated to {@link LocationSerializer}. */
     public CompoundTag save() {

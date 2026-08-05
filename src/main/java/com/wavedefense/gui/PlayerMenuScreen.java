@@ -70,6 +70,13 @@ public class PlayerMenuScreen extends ListEditorScreen<String> {
         addStatic(Button.builder(
                 Component.translatable("wavedefense.button.close"), button -> this.onClose()
         ).bounds(cx - 55, this.height - 28, 110, 20).build());
+
+        // Personal stats. The screen and its sync packet had been complete for several
+        // versions but nothing ever opened it, so the numbers were unreachable.
+        addStatic(Button.builder(
+                Component.translatable("wavedefense.stats.button"),
+                button -> this.minecraft.setScreen(new StatsScreen(this))
+        ).bounds(cx + 55 + 5, this.height - 28, 73, 20).build());
     }
 
     // ─── Row builder ───────────────────────────────────────────────────────

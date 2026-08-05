@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] — gameplay depth: endless, modifiers, difficulty, progression
+## [0.4.0] - 2026-08-05 — gameplay depth, restored editors, three real bug fixes
 
 Four features that give a location a reason to be played more than once. All are
 opt-in per location and default to off, so existing arenas behave exactly as
@@ -68,17 +68,188 @@ before. Existing saves load unchanged; the new keys simply take their defaults.
   cannot corrupt it.
 - Profiles are never pruned: a player returning after months keeps their level.
 
+### Fixed — dead arenas left their mobs in the world forever
+
+- Wave mobs are spawned with `setPersistenceRequired()`, so they never despawn on
+  their own. `WaveContext.removeSession` calls `dispose()`, which clears the tracking
+  set — **it does not remove the entities**. Every other teardown path calls
+  `despawnSessionMobs` first; the path taken when the *last* player in a PvE arena
+  dies did not.
+- So every run that ended in death stranded its entire live wave: persistent hostile
+  mobs, untracked because the set had just been cleared, accumulating in loaded chunks
+  run after run. The PvP teardown had the same gap for trigger and portal mobs.
+- Both paths now despawn before the session is dropped, and the method carries a
+  javadoc stating the ordering requirement so the next teardown path does not repeat it.
+
+### Fixed — one bad arena could take down the server tick
+
+- `onServerTick` called seven subsystem ticks and every session tick with no exception
+  handling, and the Forge event handler above it had none either. A malformed particle
+  id, a null spawn point or one corrupt wave propagated straight out and killed the
+  tick. The later blocks in the same method were already guarded, so the file was
+  inconsistent with itself.
+- Each subsystem now runs inside `safeTick`, which contains the failure to that
+  subsystem and logs it — at most once per 10 s per subsystem, because a fault that
+  reproduces every tick would otherwise write 20 stack traces a second and bury the
+  actual cause.
+
+### Fixed — monitor state grew without bound
+
+- `playerSessions` was only ever appended to, and `onPlayerLeave` streamed the whole
+  deque to find the open session: a leak that also made every logout progressively
+  slower. Now capped, and scanned newest-first, where the match almost always is.
+- `playerActivity` kept the last position and game mode of every player who had ever
+  connected — data that is stale the moment they log out. Dropped on leave.
+- `playerStatistics` retained one object per unique visitor forever. Capped, evicting
+  least-recently-active first. Lifetime numbers that genuinely need to persist live in
+  `PlayerProfile`; this map only backs the live monitor report.
+
+### Fixed — features that had quietly become unreachable
+
+Removing the two legacy location editors in v0.3.0 took their UI with them. The data
+kept serializing and the runtime kept honouring it, so nothing broke loudly — the
+settings simply could not be changed any more. A player report about missing mob
+spawn points led to finding the rest.
+
+- **Mob spawn points** and the **default scatter radius** are editable again, in a new
+  Gameplay section: add at your own position, add by coordinates, edit, delete. An
+  empty list now explains the consequence — every mob arrives in one spot — instead of
+  saying nothing.
+- **Starting kit** (`StartingItemsScreen`) had no opener at all despite the items still
+  being issued on join. Reachable again from the Economy tab.
+- Seven settings were live in-game but had no control anywhere: completion **points**
+  reward (the rewards screen only ever edited items), first-wave delay, keep-loot-on-exit,
+  player spawn scatter radius, starting points, and **both** location-trigger fields —
+  meaning `TriggerEvaluator` polled every tick for a feature that could never be switched on.
+- **Personal stats** (`StatsScreen`) had a complete GUI and a working sync packet but
+  nothing opened it. Now in the player menu, and it returns there on close.
+- Deleted `MobTypeSelectionScreen` and `WaveMobSettingsScreen` — duplicates of the
+  screens actually in use, referenced by nothing.
+
+### Fixed — mobs wandered off instead of hunting
+
+- The targeting goal was registered on `goalSelector`, but vanilla runs target
+  acquisition on a separate `targetSelector`; on the movement selector it competed with
+  the mob's own strolling goals rather than driving them.
+- `FOLLOW_RANGE` was never set, leaving the vanilla 16 blocks. On an arena tens of
+  blocks across a mob simply could not perceive anyone. Now derived from the arena
+  diameter, capped at 128 so a large boundary cannot turn every mob into a long-range
+  tracker. Spiders made this obvious because climbing carries them away quickly.
+- Line of sight is no longer required, so stepping behind cover does not drop aggro,
+  and idle mobs are re-pointed at the nearest player every 2 s.
+
+### Fixed — boundary particles cost far more than they were worth
+
+- The whole ring was drawn — a particle column every 2 blocks all the way round — and
+  every column was broadcast to everyone within 32 blocks, including players not in the
+  arena. At the default radius of 50 that is ~471 particle packets per second.
+- Each player now receives only the 90° arc they are facing out towards, at 3-block
+  spacing, sent to them individually: roughly 20 columns instead of 157, and nothing at
+  all for bystanders.
+- `boundaryParticleCount` was read into a variable and then ignored — the call passed a
+  hard-coded `1`, so the admin's slider did nothing. It works now.
+- Players can turn mod particles off entirely in their own settings. This covers both
+  the boundary ring and the bbox outline, and is the fix for the reported frame drops.
+
+### Fixed — 17 of 31 config options did nothing
+
+Eight were read nowhere; nine only by the config screen that displays them, so the
+toggle moved but nothing changed. All are now wired to what their description promises:
+
+- `enableHUD` never gated the HUD. It does now.
+- `maxPlayerSpawns`, `maxShopItems`, `maxLootSpawns` were not enforced, though
+  `maxWaves` and `maxMobSpawns` were — the intent was there, the rest was missed.
+- `pvpHideEnemyNametags` was ignored: hiding was hard-coded at team creation, so the
+  option did nothing *and* flipping it later had no effect either.
+- `pvpMax*` safety caps now actually clamp the values an admin can type.
+- `defaultWaveTime`, `defaultRounds`, `defaultBuyTime`, `zoneActivationRadius` and
+  `zoneActivationCountdown` are applied when a location is created.
+- `zoneActivationParticles` gates the activation-zone effect.
+- `shopCategoriesEnabled` hides the category filter row; the active filter resets to
+  ALL when it is switched off, so nothing stays hidden.
+
+### Added — a guard so this cannot happen again silently
+
+`SettingReachabilityTest` reads the sources and fails the build when:
+
+1. a `Location` setting the runtime reads has no screen that can change it,
+2. a config option is exposed to admins but nothing reads it,
+3. a screen exists that nothing opens.
+
+Source scanning rather than reflection, because the question is not "does the method
+exist" but "does anything call it". Deleting a screen now breaks the build instead of
+quietly removing a feature.
+
+### Performance
+
+- `BattleRoyaleManager` allocated an empty `HashMap` 20 times a second whenever no
+  Battle Royale was running — which is almost always.
+- `PortalManager` built a stream pipeline and a capturing lambda per portal-enabled
+  location per tick to answer a boolean.
+- `TriggerEvaluator` walked the entire server player list *inside* its per-location
+  loop, and built an empty `ArrayList` for every location with nobody nearby.
+
+### Fixed — the crash-safe write contract was only half-implemented
+
+- `atomicWriteCompressed` writes through `.tmp → .bak → ATOMIC_MOVE` and documents
+  the guarantee that *"after any single crash, the reader can recover from either
+  the main file or the `.bak` — never both missing."* Only **one of four readers**
+  actually honoured it. `LeaderboardManager`, `PlayerProfileManager` and
+  `WaveManager.loadRuntimeState` caught the read failure and silently started from
+  an empty state — discarding a perfectly good backup sitting next to the corrupt
+  file. A single bad shutdown wiped the leaderboard.
+- The read half now lives next to the write half as `NbtHelper.readWithBackup`,
+  and all four readers go through it. When both copies are unreadable the primary
+  is renamed to `.corrupted` so the next save cannot destroy evidence.
+- **An in-flight save could still be lost on shutdown.** `flushPendingWrites()`
+  drained the queue but did not wait for a write that was *already running*: that
+  task had taken its snapshot, so the drain found nothing, returned, and the JVM
+  killed the daemon save thread mid-write. Combined with the above, that was
+  unrecoverable. Flush now ends with a completion barrier — the save executor is
+  single-threaded, so a no-op submitted at that point cannot start until the
+  running write has finished.
+- The executor is deliberately **not** shut down: an integrated server can quit to
+  title and open another world in the same JVM, and a terminated executor would
+  make every later save throw. The barrier gives the same guarantee without that.
+
+### Fixed — filename handling in import/export
+
+All six import/export packets built paths from client-supplied strings, and each did
+it differently. Consolidated into `network/FilePathGuard`:
+
+- `ImportWavePacket` had **no containment check at all** — the only one of the family
+  without one.
+- `ImportLocationPacket` and `ImportShopPacket` compared canonical paths without a
+  trailing separator, so a sibling directory sharing a name prefix (`shops_evil`
+  against `shops`) passed the check.
+- `ExportShopPacket` concatenated an unsanitised location name straight into a path.
+- Location names were validated by `DuplicateLocationPacket` but **not** by
+  `CreateLocationPacket` — and that unvalidated name is what fed the export filename.
+  The rule now lives once, in `LocationManager.isValidName`, and both packets use it.
+  Invalid names are rejected with a translated message rather than silently ignored.
+
+All of these required op level, so this is hardening and consistency work rather than
+a closed hole.
+
 ### Added — tests
 
+- `NbtHelperBackupTest` — 9 tests: backup fallback for a corrupt and for a missing
+  primary, fresh install treated as normal, quarantine when both copies are bad,
+  and the flush barrier actually committing a debounced write before returning.
+- `FilePathGuardTest` — 10 tests including the prefix-sibling bypass and the
+  location-name rules.
 - `ProgressionTest` — 18 tests covering difficulty parsing and monotonicity,
   endless loop arithmetic and its linear-not-compounding guarantee, modifier
   interval and pool rolling, the level curve, and profile NBT round-tripping.
 
 ### Notes
 
-- 35 new translation keys across all 8 supported locales.
-- Version deliberately **not** bumped — 0.3.0 has not shipped yet, so this lands
-  on top of it.
+- 56 new translation keys across all 8 supported locales (1499 keys each).
+- **No data-format change.** Every new setting takes a default that reproduces the
+  previous behaviour, so existing worlds load and play identically until an admin
+  opts in. Compile targets are unchanged: Forge 47.2.0, Minecraft 1.20.1, Java 17.
+- Minor version bump rather than a patch: four new gameplay systems and several
+  restored features is more than a bug-fix release.
 
 ## [0.3.0] - 2026-06-19 — HUD fixes, cleanup + concurrent multi-admin editing
 

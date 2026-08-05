@@ -3,11 +3,9 @@ package com.wavedefense.data;
 import com.wavedefense.WaveDefenseMod;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtIo;
 import net.minecraft.server.MinecraftServer;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.*;
 
 /**
@@ -115,12 +113,12 @@ public class LeaderboardManager {
     }
 
     public synchronized void loadFromFile() {
-        if (!dataFile.exists()) return;
+        NbtHelper.LoadResult result = NbtHelper.readWithBackup(dataFile, "leaderboard data");
+        if (!result.isPresent()) return;
         try {
-            CompoundTag root = NbtIo.readCompressed(dataFile);
-            deserialize(root);
+            deserialize(result.tag);
         } catch (Exception e) {
-            WaveDefenseMod.LOGGER.error("[WaveDefense] Could not load leaderboard data", e);
+            WaveDefenseMod.LOGGER.error("[WaveDefense] Could not parse leaderboard data", e);
         }
     }
 

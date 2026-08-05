@@ -53,8 +53,13 @@ public class DuplicateLocationPacket {
             ServerPlayer player = ctx.get().getSender();
             if (player == null || !player.hasPermissions(2)) return;
             if (p.sourceName == null || p.sourceName.isBlank()) return;
-            if (p.targetName == null || p.targetName.isBlank()) return;
-            if (!p.targetName.matches("[a-zA-Z0-9_\\-]+")) return;
+            // Shared rule — see LocationManager.isValidName for why names are restricted.
+            if (!com.wavedefense.data.LocationManager.isValidName(p.targetName)) {
+                player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "wavedefense.msg.invalid_location_name",
+                    com.wavedefense.data.LocationManager.MAX_NAME_LENGTH), false);
+                return;
+            }
 
             Location src = WaveDefenseMod.locationManager.getLocation(p.sourceName);
             if (src == null) return;

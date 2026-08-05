@@ -53,9 +53,14 @@ public class PortalManager {
             if (!loc.isPortalEnabled()) continue;
             String name = loc.getName();
 
-            boolean active = ctx.playerData.values().stream()
-                .anyMatch(d -> d.getCurrentLocation() != null
-                    && d.getCurrentLocation().getName().equals(name));
+            // Plain loop rather than a stream: this runs per portal-enabled location on
+            // every tick, and the stream allocated a pipeline plus a capturing lambda
+            // each time purely to answer a boolean.
+            boolean active = false;
+            for (PlayerWaveData d : ctx.playerData.values()) {
+                Location cur = d.getCurrentLocation();
+                if (cur != null && cur.getName().equals(name)) { active = true; break; }
+            }
 
             LocationSession s = ctx.getSession(name);
 

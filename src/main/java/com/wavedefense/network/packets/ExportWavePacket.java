@@ -84,7 +84,8 @@ public class ExportWavePacket {
         ctx.get().setPacketHandled(true);
     }
 
+    /** Delegates to the shared guard so every packet applies the same rule. */
     private static String sanitize(String s) {
-        return s.replaceAll("[^a-zA-Z0-9_\\-]", "_").toLowerCase();
+        return com.wavedefense.network.FilePathGuard.sanitizeFileName(s);
     }
 }

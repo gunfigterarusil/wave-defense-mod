@@ -31,8 +31,8 @@ public class ImportLocationPacket {
                 File exportDir = ExportLocationPacket.getExportDir();
                 File file = new File(exportDir, pkt.fileName + ".nbt");
                 // Path traversal guard: reject filenames that escape the export directory.
-                if (!file.getCanonicalPath().startsWith(exportDir.getCanonicalPath())) {
-                    WaveDefenseMod.LOGGER.warn("[WaveDefense] Rejected path-traversal import attempt by {}: {}", player.getName().getString(), pkt.fileName);
+                if (!com.wavedefense.network.FilePathGuard.checkInside(
+                        exportDir, file, player.getName().getString(), pkt.fileName)) {
                     return;
                 }
                 if (!file.exists()) {

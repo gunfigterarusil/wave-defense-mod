@@ -186,6 +186,41 @@ public class UniversalLocationEditor extends Screen {
                 b -> this.minecraft.setScreen(new com.wavedefense.gui.CompletionRewardScreen(location, this))
             ).bounds(leftCol, y, colW, 20).build()); y += 26;
 
+            // Lobby delay before wave 1. LocationSession honours it; nothing set it.
+            firstWaveDelayBox = labelledIntRow(leftCol, y, colW,
+                "wavedefense.editor2.gameplay.first_wave_delay", location.getFirstWaveDelaySec());
+            y += 26;
+
+            // ── Where the mobs come from ────────────────────────────────────
+            y = initMobSpawnSection(leftCol, y, colW);
+
+            // ── Location trigger ────────────────────────────────────────────
+            // TriggerEvaluator polls this every tick, but neither the flag nor the type
+            // could be set once the legacy editor was removed — the whole feature was
+            // running and permanently switched off.
+            section(leftCol, y, colW, "wavedefense.editor2.section.loc_trigger");
+            y += 18;
+            boolean lte = location.isLocationTriggerEnabled();
+            this.addRenderableWidget(Button.builder(
+                Component.literal((lte ? "§a✓ " : "§7○ ")
+                    + I18n.get("wavedefense.editor2.loc_trigger.enabled")),
+                b -> { location.setLocationTriggerEnabled(!location.isLocationTriggerEnabled()); rebuildWidgets(); }
+            ).bounds(leftCol, y, colW, 18).build())
+            .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.translatable("wavedefense.editor2.loc_trigger.enabled.tooltip")));
+            y += 22;
+            if (lte) {
+                com.wavedefense.data.WaveTrigger cur = location.getLocationTriggerType();
+                this.addRenderableWidget(Button.builder(
+                    Component.translatable("wavedefense.editor2.loc_trigger.type")
+                        .append(": §e")
+                        .append(Component.literal(cur != null ? cur.name() : "—")),
+                    b -> { location.setLocationTriggerType(nextLocationTrigger(location.getLocationTriggerType()));
+                           rebuildWidgets(); }
+                ).bounds(leftCol, y, colW, 18).build());
+                y += 24;
+            }
+
             // ── Challenge: difficulty preset, endless, wave modifiers ───────
             section(leftCol, y, colW, "wavedefense.editor2.section.challenge");
             y += 18;
@@ -530,6 +565,186 @@ public class UniversalLocationEditor extends Screen {
         return box;
     }
 
+    /**
+     * The location-trigger types {@code TriggerEvaluator} actually handles.
+     *
+     * <p>{@link com.wavedefense.data.WaveTrigger} carries 30+ constants, but the
+     * location-trigger switch only implements these nine — offering the rest would let an
+     * admin pick something that silently never fires.
+     */
+    private static final com.wavedefense.data.WaveTrigger[] LOCATION_TRIGGERS = {
+        com.wavedefense.data.WaveTrigger.PLAYER_ENTER_ZONE,
+        com.wavedefense.data.WaveTrigger.PLAYER_JOIN,
+        com.wavedefense.data.WaveTrigger.PLAYER_DEATH,
+        com.wavedefense.data.WaveTrigger.PLAYER_LOW_HEALTH,
+        com.wavedefense.data.WaveTrigger.PLAYER_FULL_INVENT,
+        com.wavedefense.data.WaveTrigger.PLAYER_HAS_ITEM,
+        com.wavedefense.data.WaveTrigger.PLAYER_HAS_SWORD,
+        com.wavedefense.data.WaveTrigger.PLAYER_HAS_IRON,
+        com.wavedefense.data.WaveTrigger.PLAYER_HAS_DIAMOND,
+    };
+
+    /** Cycles to the next supported location trigger, wrapping around. */
+    private static com.wavedefense.data.WaveTrigger nextLocationTrigger(
+            com.wavedefense.data.WaveTrigger current) {
+        for (int i = 0; i < LOCATION_TRIGGERS.length; i++) {
+            if (LOCATION_TRIGGERS[i] == current) {
+                return LOCATION_TRIGGERS[(i + 1) % LOCATION_TRIGGERS.length];
+            }
+        }
+        return LOCATION_TRIGGERS[0];
+    }
+
+    // ─── PvE mob spawn points ────────────────────────────────────────────
+
+    /**
+     * Where wave mobs appear.
+     *
+     * <p>Restores editing that was lost when the legacy location editor was removed in
+     * v0.3.0 — the data, the spawner and the info panels all still used these points,
+     * but nothing could add or remove them any more.
+     *
+     * <p>With no points configured the spawner falls back to the wave's own spawn
+     * position (or the player spawn), which is why an empty list is a warning rather
+     * than an error — but it also means every mob arrives in one spot.
+     */
+    private int initMobSpawnSection(int leftCol, int y, int colW) {
+        section(leftCol, y, colW, "wavedefense.editor2.section.mob_spawns");
+        y += 18;
+        if (mobSpawnEditing) return initMobSpawnEditForm(leftCol, y, colW);
+
+        java.util.List<com.wavedefense.data.MobSpawnPoint> spawns = location.getMobSpawns();
+        int maxSpawns = com.wavedefense.config.WaveDefenseConfig.MAX_MOB_SPAWNS.get();
+        boolean atCap = spawns.size() >= maxSpawns;
+        int half = colW / 2 - 2;
+
+        // "Add here" is the common case — an admin standing where they want mobs
+        // should not have to read coordinates off F3 and type them in.
+        Button addHere = Button.builder(
+            Component.translatable("wavedefense.editor2.mob_spawns.add_here"),
+            b -> {
+                if (this.minecraft != null && this.minecraft.player != null) {
+                    location.addMobSpawnPoint(new com.wavedefense.data.MobSpawnPoint(
+                        this.minecraft.player.blockPosition(), 0));
+                }
+                rebuildWidgets();
+            }
+        ).bounds(leftCol, y, half, 18).build();
+        addHere.active = !atCap;
+        this.addRenderableWidget(addHere);
+
+        Button addManual = Button.builder(
+            Component.translatable("wavedefense.editor2.mob_spawns.add_manual"),
+            b -> { mobSpawnEditing = true; mobSpawnEditingIndex = -1; rebuildWidgets(); }
+        ).bounds(leftCol + half + 4, y, half, 18).build();
+        addManual.active = !atCap;
+        this.addRenderableWidget(addManual);
+        y += 22;
+
+        if (atCap) {
+            Button cap = Button.builder(
+                Component.literal("§c" + I18n.get("wavedefense.editor2.mob_spawns.at_cap", maxSpawns)),
+                b -> {}).bounds(leftCol, y, colW, 14).build();
+            cap.active = false;
+            this.addRenderableWidget(cap);
+            y += 18;
+        }
+
+        // Location-wide fallback scatter, used by any point whose own radius is 0.
+        mobSpawnRadiusBox = labelledIntRow(leftCol, y, colW,
+            "wavedefense.editor2.mob_spawns.default_radius", location.getMobSpawnRadius());
+        y += 22;
+
+        if (spawns.isEmpty()) {
+            Button note = Button.builder(
+                Component.literal("§e⚠ " + I18n.get("wavedefense.editor2.mob_spawns.none")),
+                b -> {}).bounds(leftCol, y, colW, 14).build();
+            note.active = false;
+            this.addRenderableWidget(note);
+            return y + 18;
+        }
+
+        int perPage = 5;
+        int rowH = 22;
+        int start = Math.min(mobSpawnListScrollOffset, Math.max(0, spawns.size() - perPage));
+        for (int i = 0; i < Math.min(perPage, spawns.size() - start); i++) {
+            final int idx = start + i;
+            com.wavedefense.data.MobSpawnPoint sp = spawns.get(idx);
+            net.minecraft.core.BlockPos p = sp.getPos();
+            String label = String.format("§7#%d §fX%d Y%d Z%d%s",
+                idx + 1, p.getX(), p.getY(), p.getZ(),
+                sp.getRadius() > 0 ? " §8(R:" + sp.getRadius() + ")" : "");
+            Button row = Button.builder(Component.literal(label), b -> {})
+                .bounds(leftCol, y, colW - 60, 18).build();
+            row.active = false;
+            this.addRenderableWidget(row);
+
+            this.addRenderableWidget(Button.builder(
+                Component.literal("§e✎"),
+                b -> { mobSpawnEditing = true; mobSpawnEditingIndex = idx; rebuildWidgets(); }
+            ).bounds(leftCol + colW - 56, y, 26, 18).build());
+            this.addRenderableWidget(Button.builder(
+                Component.literal("§c✕"),
+                b -> { location.removeMobSpawn(idx); rebuildWidgets(); }
+            ).bounds(leftCol + colW - 28, y, 26, 18).build());
+            y += rowH;
+        }
+        if (spawns.size() > perPage) {
+            this.addRenderableWidget(Button.builder(Component.literal("▲"),
+                b -> { if (mobSpawnListScrollOffset > 0) { mobSpawnListScrollOffset--; rebuildWidgets(); } }
+            ).bounds(leftCol + colW - 22, y - perPage * rowH, 20, 18).build());
+            this.addRenderableWidget(Button.builder(Component.literal("▼"),
+                b -> { if (mobSpawnListScrollOffset + perPage < spawns.size()) { mobSpawnListScrollOffset++; rebuildWidgets(); } }
+            ).bounds(leftCol + colW - 22, y - 18, 20, 18).build());
+        }
+        return y + 4;
+    }
+
+    /** Inline coordinate/radius form for one mob spawn point (new or existing). */
+    private int initMobSpawnEditForm(int leftCol, int y, int colW) {
+        java.util.List<com.wavedefense.data.MobSpawnPoint> spawns = location.getMobSpawns();
+        com.wavedefense.data.MobSpawnPoint existing =
+            (mobSpawnEditingIndex >= 0 && mobSpawnEditingIndex < spawns.size())
+                ? spawns.get(mobSpawnEditingIndex) : null;
+
+        mobSpawnCoordPicker = new com.wavedefense.gui.widgets.CoordinatePickerWidget(
+            this.font, leftCol, y,
+            existing != null ? existing.getPos() : null,
+            existing != null ? existing.getRadius() : 0,
+            true, null);
+        mobSpawnCoordPicker.addToScreen(this::addRenderableWidget);
+        y += 46;
+
+        int half = colW / 2 - 2;
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.button.save"),
+            b -> { saveMobSpawnForm(); rebuildWidgets(); }
+        ).bounds(leftCol, y, half, 18).build());
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.button.cancel"),
+            b -> { mobSpawnEditing = false; mobSpawnEditingIndex = -1; rebuildWidgets(); }
+        ).bounds(leftCol + half + 4, y, half, 18).build());
+        return y + 24;
+    }
+
+    /** Commits the inline form. A blank or partial coordinate is treated as "cancel". */
+    private void saveMobSpawnForm() {
+        com.wavedefense.gui.widgets.CoordinatePickerWidget.Result r =
+            mobSpawnCoordPicker != null ? mobSpawnCoordPicker.getValue() : null;
+        if (r != null && r.pos != null) {
+            java.util.List<com.wavedefense.data.MobSpawnPoint> spawns = location.getMobSpawns();
+            if (mobSpawnEditingIndex >= 0 && mobSpawnEditingIndex < spawns.size()) {
+                com.wavedefense.data.MobSpawnPoint sp = spawns.get(mobSpawnEditingIndex);
+                sp.setPos(r.pos);
+                sp.setRadius(r.radius);
+            } else {
+                location.addMobSpawnPoint(new com.wavedefense.data.MobSpawnPoint(r.pos, r.radius));
+            }
+        }
+        mobSpawnEditing = false;
+        mobSpawnEditingIndex = -1;
+    }
+
     // ─── Phase D: PvP spawn-point inline list + edit form ────────────────
     private int initPvpSpawnPointSection(int leftCol, int y, int colW) {
         section(leftCol, y, colW, "wavedefense.editor2.section.spawns");
@@ -796,16 +1011,38 @@ public class UniversalLocationEditor extends Screen {
                 Component.translatable("wavedefense.editor2.economy.open_rewards"),
                 b -> this.minecraft.setScreen(new com.wavedefense.gui.CompletionRewardScreen(location, this))
             ).bounds(leftCol, y, colW, 20).build()); y += 26;
+
+            // The rewards screen only edits the item list; the points payout had no
+            // editor at all despite being paid out by SessionManager on victory.
+            ecoCompletionPointsBox = labelledIntRow(leftCol, y, colW,
+                "wavedefense.editor2.economy.completion_points", location.getCompletionPointsReward());
+            y += 22;
         }
 
-        // Points read-only summary (full edit in PvP rules deep editor; PvE has wave rewards)
         section(leftCol, y, colW, "wavedefense.editor2.section.points");
         y += 18;
-        this.addRenderableWidget(Button.builder(
-            Component.literal("§7" + I18n.get("wavedefense.editor2.economy.starting_pts")
-                + ": §e" + location.getStartingPoints()), b -> {}
-        ).bounds(leftCol, y, colW, 14).build()).active = false;
+        // Was a read-only label: the value is handed to every player on join by
+        // SessionManager, but nothing could change it once the legacy editor went away.
+        ecoStartingPointsBox = labelledIntRow(leftCol, y, colW,
+            "wavedefense.editor2.economy.starting_pts", location.getStartingPoints());
+        y += 22;
+
+        // Starting kit — StartingItemsScreen was orphaned when the legacy editor was
+        // removed, so PvE loadouts became uneditable even though they are still issued.
+        int kit = location.getStartingItems().size();
+        Button kitCount = Button.builder(
+            Component.literal("§7" + I18n.get("wavedefense.editor2.economy.starting_items")
+                + ": §e" + kit), b -> {}
+        ).bounds(leftCol, y, colW, 14).build();
+        kitCount.active = false;
+        this.addRenderableWidget(kitCount);
         y += 18;
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.editor2.economy.open_starting_items"),
+            b -> this.minecraft.setScreen(
+                new com.wavedefense.gui.StartingItemsScreen(this, location))
+        ).bounds(leftCol, y, colW, 20).build());
+        y += 26;
         if (location.getMode() == LocationMode.PVP) {
             // QW3: inline EditBoxes for kill/death/win/lose/round-start points
             // (was: read-only summary + legacy deep-link). Closes the last
@@ -1122,6 +1359,11 @@ public class UniversalLocationEditor extends Screen {
                 r -> location.setPlayerSpawn(r.pos));
         spPicker.addToScreen(this::addRenderableWidget);
         y += 22;
+        // Scatter around the spawn point. Read by SessionManager when placing players and
+        // by BoundaryManager when measuring the arena, but had no editor.
+        genSpawnRadiusBox = labelledIntRow(leftCol, y, colW,
+            "wavedefense.editor2.spawn.radius", location.getPlayerSpawnRadius());
+        y += 22;
 
         // Section: Exit points (used by surrender / victory)
         section(leftCol, y, colW, "wavedefense.editor2.section.exits");
@@ -1165,6 +1407,17 @@ public class UniversalLocationEditor extends Screen {
             Component.literal((ki ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.behaviour.keep_inv")),
             b -> { location.setKeepInventory(!location.isKeepInventory()); rebuildWidgets(); }
         ).bounds(rightCol, y, halfW, 18).build());
+        y += 22;
+
+        // Whether loot picked up inside the arena leaves with the player. Honoured by
+        // SessionManager.surrender, but had no editor.
+        boolean klo = location.isKeepLootOnExit();
+        this.addRenderableWidget(Button.builder(
+            Component.literal((klo ? "§a✓ " : "§7○ ") + I18n.get("wavedefense.editor2.behaviour.keep_loot")),
+            b -> { location.setKeepLootOnExit(!location.isKeepLootOnExit()); rebuildWidgets(); }
+        ).bounds(leftCol, y, halfW, 18).build())
+        .setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+            Component.translatable("wavedefense.editor2.behaviour.keep_loot.tooltip")));
         y += 22;
 
         // Section: Visibility in player menu
@@ -1589,6 +1842,14 @@ public class UniversalLocationEditor extends Screen {
         stdWinPointsBox, stdLosePointsBox, stdRoundTimeLimitBox;
     // PvP per-sub-mode (Deathmatch)
     private net.minecraft.client.gui.components.EditBox endlessScalingBox, modifierIntervalBox;
+    private net.minecraft.client.gui.components.EditBox mobSpawnRadiusBox;
+    private net.minecraft.client.gui.components.EditBox firstWaveDelayBox, genSpawnRadiusBox;
+    private net.minecraft.client.gui.components.EditBox ecoStartingPointsBox, ecoCompletionPointsBox;
+    /** Inline mob-spawn edit form state; index -1 means "adding a new point". */
+    private boolean mobSpawnEditing = false;
+    private int mobSpawnEditingIndex = -1;
+    private int mobSpawnListScrollOffset = 0;
+    private com.wavedefense.gui.widgets.CoordinatePickerWidget mobSpawnCoordPicker;
     private net.minecraft.client.gui.components.EditBox dmKillsToWinBox,
         dmMatchTimeLimitBox;
     // PvP per-sub-mode (Battle Royale)
@@ -1661,6 +1922,11 @@ public class UniversalLocationEditor extends Screen {
         flushInt(stdRoundTimeLimitBox,   location::setPvpRoundTimeLimitSec);
 
         // ── v0.2.59 — PvP Deathmatch ──────────────────────────────────
+        flushInt(mobSpawnRadiusBox,   location::setMobSpawnRadius);
+        flushInt(firstWaveDelayBox,   location::setFirstWaveDelaySec);
+        flushInt(genSpawnRadiusBox,   location::setPlayerSpawnRadius);
+        flushInt(ecoStartingPointsBox,   location::setStartingPoints);
+        flushInt(ecoCompletionPointsBox, location::setCompletionPointsReward);
         flushInt(endlessScalingBox,   location::setEndlessScalingPercent);
         flushInt(modifierIntervalBox, location::setModifierInterval);
         flushInt(dmKillsToWinBox,     location::setDmKillsToWin);
@@ -1739,6 +2005,10 @@ public class UniversalLocationEditor extends Screen {
         stdTotalRoundsBox = stdBuyTimeBox = stdRoundDelayBox = null;
         stdRoundStartPointsBox = stdWinPointsBox = stdLosePointsBox = stdRoundTimeLimitBox = null;
         endlessScalingBox = modifierIntervalBox = null;
+        mobSpawnRadiusBox = null;
+        firstWaveDelayBox = genSpawnRadiusBox = null;
+        ecoStartingPointsBox = ecoCompletionPointsBox = null;
+        mobSpawnCoordPicker = null;
         dmKillsToWinBox = dmMatchTimeLimitBox = null;
         brBorderRadiusBox = brShrinkIntervalBox = brShrinkAmountBox = null;
         brInitialWaitBox = brFinalRadiusBox = brParticleCountBox = null;

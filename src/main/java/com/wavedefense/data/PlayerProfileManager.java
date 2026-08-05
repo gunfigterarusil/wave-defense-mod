@@ -3,7 +3,6 @@ package com.wavedefense.data;
 import com.wavedefense.WaveDefenseMod;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtIo;
 import net.minecraft.server.MinecraftServer;
 
 import java.io.File;
@@ -79,9 +78,10 @@ public class PlayerProfileManager {
     }
 
     public synchronized void load() {
-        if (!dataFile.exists()) return;
+        NbtHelper.LoadResult result = NbtHelper.readWithBackup(dataFile, "player profiles");
+        if (!result.isPresent()) return;
         try {
-            CompoundTag root = NbtIo.readCompressed(dataFile);
+            CompoundTag root = result.tag;
             int version = root.contains("__version__") ? root.getInt("__version__") : 0;
             if (version < DATA_VERSION) root = migrate(root, version);
 

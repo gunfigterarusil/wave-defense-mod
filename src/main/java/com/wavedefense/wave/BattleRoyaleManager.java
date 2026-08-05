@@ -63,6 +63,9 @@ public class BattleRoyaleManager {
      */
     public void tick(WaveManager wm) {
         if (WaveDefenseMod.getServer() == null) return;
+        // No Battle Royale running is the normal state — bail before the defensive copy
+        // below, which otherwise allocated an empty HashMap 20 times a second forever.
+        if (currentRadius.isEmpty()) return;
 
         for (Map.Entry<String, Integer> entry : new HashMap<>(currentRadius).entrySet()) {
             String locName  = entry.getKey();

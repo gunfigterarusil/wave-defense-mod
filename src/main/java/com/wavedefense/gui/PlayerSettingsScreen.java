@@ -48,6 +48,16 @@ public class PlayerSettingsScreen extends Screen {
         ).bounds(cx - W/2, y, W, H).build())
         .setTooltip(Tooltip.create(Component.translatable("wavedefense.tooltip.show_teammates")));
 
+        // ── Частинки кордону локації ─────────────────────────────────
+        // Найважчий візуальний ефект мода — гравцям зі слабкими ПК потрібен вимикач.
+        y += H + GAP;
+        this.addRenderableWidget(Button.builder(
+            Component.translatable("wavedefense.settings.boundary_particles",
+                Component.translatable(playerData.isBoundaryParticlesVisible() ? "wavedefense.bool.yes" : "wavedefense.bool.no")),
+            b -> { playerData.setBoundaryParticlesVisible(!playerData.isBoundaryParticlesVisible()); sendUpdate(); rebuildWidgets(); }
+        ).bounds(cx - W/2, y, W, H).build())
+        .setTooltip(Tooltip.create(Component.translatable("wavedefense.tooltip.boundary_particles_toggle")));
+
         // ── Позиція HUD ───────────────────────────────────────────────
         y += H + GAP;
         this.addRenderableWidget(Button.builder(
@@ -66,7 +76,8 @@ public class PlayerSettingsScreen extends Screen {
         PacketHandler.sendToServer(new UpdatePlayerSettingsPacket(
             playerData.isShowTimer(),
             playerData.isShowNotifications(),
-            playerData.isShowTeammates()
+            playerData.isShowTeammates(),
+            playerData.isBoundaryParticlesVisible()
         ));
     }
 

@@ -11,21 +11,26 @@ public class UpdatePlayerSettingsPacket {
     private final boolean showTimer;
     private final boolean showNotifications;
     private final boolean showTeammates;
+    private final boolean boundaryParticles;
 
-    public UpdatePlayerSettingsPacket(boolean showTimer, boolean showNotifications, boolean showTeammates) {
+    public UpdatePlayerSettingsPacket(boolean showTimer, boolean showNotifications,
+                                      boolean showTeammates, boolean boundaryParticles) {
         this.showTimer = showTimer;
         this.showNotifications = showNotifications;
         this.showTeammates = showTeammates;
+        this.boundaryParticles = boundaryParticles;
     }
 
     public static void encode(UpdatePlayerSettingsPacket p, FriendlyByteBuf buf) {
         buf.writeBoolean(p.showTimer);
         buf.writeBoolean(p.showNotifications);
         buf.writeBoolean(p.showTeammates);
+        buf.writeBoolean(p.boundaryParticles);
     }
 
     public static UpdatePlayerSettingsPacket decode(FriendlyByteBuf buf) {
-        return new UpdatePlayerSettingsPacket(buf.readBoolean(), buf.readBoolean(), buf.readBoolean());
+        return new UpdatePlayerSettingsPacket(
+            buf.readBoolean(), buf.readBoolean(), buf.readBoolean(), buf.readBoolean());
     }
 
     public static void handle(UpdatePlayerSettingsPacket p, Supplier<NetworkEvent.Context> ctx) {
@@ -40,6 +45,7 @@ public class UpdatePlayerSettingsPacket {
                 data.setShowTimer(p.showTimer);
                 data.setShowNotifications(p.showNotifications);
                 data.setShowTeammates(p.showTeammates);
+                data.setBoundaryParticlesVisible(p.boundaryParticles);
                 // Надсилаємо оновлені дані назад клієнту (щоб HUD одразу відреагував)
                 WaveDefenseMod.waveManager.syncPlayerData(player);
             }

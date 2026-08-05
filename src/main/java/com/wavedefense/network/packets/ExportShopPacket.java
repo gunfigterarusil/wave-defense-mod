@@ -57,7 +57,8 @@ public class ExportShopPacket {
                     tag.put("items", items);
                     tag.putString("mode", "global");
                     tag.putString("location", pkt.locationName);
-                    fileName = pkt.locationName + "_shop_global";
+                    fileName = com.wavedefense.network.FilePathGuard.sanitizeFileName(pkt.locationName)
+                        + "_shop_global";
                 } else if (pkt.mode.startsWith("point:")) {
                     String pointName = pkt.mode.substring(6);
                     ShopPoint sp = loc.getShopPoints().stream()
@@ -69,13 +70,20 @@ public class ExportShopPacket {
                     tag.put("point", sp.save());
                     tag.putString("mode", "point");
                     tag.putString("location", pkt.locationName);
-                    fileName = pkt.locationName + "_shop_" + pointName.replaceAll("[^a-zA-Z0-9_-]", "_");
+                    fileName = com.wavedefense.network.FilePathGuard.sanitizeFileName(pkt.locationName)
+                        + "_shop_" + com.wavedefense.network.FilePathGuard.sanitizeFileName(pointName);
                 } else {
                     player.displayClientMessage(net.minecraft.network.chat.Component.translatable("wavedefense.auto.невідомий_режим_value_c998740d", pkt.mode), false);
                     return;
                 }
 
                 File file = new File(dir, fileName + ".nbt");
+                // Defence in depth: the name is sanitised above, but locations created
+                // before name validation existed may still carry anything.
+                if (!com.wavedefense.network.FilePathGuard.checkInside(
+                        dir, file, player.getName().getString(), fileName)) {
+                    return;
+                }
                 NbtIo.writeCompressed(tag, file);
                 player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
                     "wavedefense.msg.export_ok", file.getName()), false);

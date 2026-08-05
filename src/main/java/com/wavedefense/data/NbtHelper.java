@@ -88,12 +88,112 @@ public final class NbtHelper {
         return result;
     }
 
+    // ─── Backup-aware read ────────────────────────────────────────────────
+
+    /**
+     * Outcome of a {@link #readWithBackup} call.
+     *
+     * <p>{@code tag == null} means nothing usable was found — either a fresh install
+     * with no data yet, or both copies were unreadable. The two are distinguished in
+     * the log, not in this result: callers treat both as "start empty".
+     */
+    public static final class LoadResult {
+        /** Loaded root tag, or {@code null} when nothing could be read. */
+        @Nullable public final CompoundTag tag;
+        /** True when {@link #tag} came from the {@code .bak} copy rather than the primary. */
+        public final boolean fromBackup;
+
+        private LoadResult(@Nullable CompoundTag tag, boolean fromBackup) {
+            this.tag = tag;
+            this.fromBackup = fromBackup;
+        }
+
+        /** True when a tag was actually loaded. */
+        public boolean isPresent() { return tag != null; }
+    }
+
+    private static final LoadResult NOTHING = new LoadResult(null, false);
+
+    /**
+     * Reads a file written by {@link #atomicWriteCompressed}, falling back to its
+     * {@code .bak} sibling when the primary is missing or corrupt.
+     *
+     * <p>This is the read half of the atomic-write contract. The writer guarantees that
+     * after any single crash at least one of the two copies is intact; without going
+     * through this method a caller throws that guarantee away and silently starts from
+     * an empty state with a perfectly good backup sitting next to the corrupt file.
+     *
+     * <p>When both copies are unreadable the primary is renamed to {@code .corrupted}
+     * so the next save cannot overwrite evidence an admin might still want.
+     *
+     * @param dataFile the primary file
+     * @param label    human-readable name for log messages, e.g. {@code "leaderboard data"}
+     * @return never {@code null}; check {@link LoadResult#isPresent()}
+     */
+    public static LoadResult readWithBackup(File dataFile, String label) {
+        File bak = new File(dataFile.getAbsolutePath() + ".bak");
+
+        // Nothing on disk at all — a fresh install, not an error worth logging.
+        if (!dataFile.exists() && !bak.exists()) return NOTHING;
+
+        if (dataFile.exists()) {
+            try {
+                return new LoadResult(NbtIo.readCompressed(dataFile), false);
+            } catch (Exception e) {
+                WaveDefenseMod.LOGGER.error("[WaveDefense] Primary {} file is corrupt: {}",
+                    label, e.getMessage());
+            }
+        } else {
+            WaveDefenseMod.LOGGER.warn("[WaveDefense] Primary {} file is missing", label);
+        }
+
+        if (bak.exists()) {
+            try {
+                CompoundTag tag = NbtIo.readCompressed(bak);
+                WaveDefenseMod.LOGGER.warn("[WaveDefense] Restored {} from backup copy.", label);
+                return new LoadResult(tag, true);
+            } catch (Exception bakEx) {
+                WaveDefenseMod.LOGGER.error("[WaveDefense] Backup {} file is also corrupt: {}",
+                    label, bakEx.getMessage());
+            }
+        } else {
+            WaveDefenseMod.LOGGER.error("[WaveDefense] No backup {} file to fall back to.", label);
+        }
+
+        quarantine(dataFile, label);
+        return NOTHING;
+    }
+
+    /**
+     * Moves an unreadable file aside so the next save does not overwrite it. Best-effort:
+     * failing to quarantine must never stop the server from starting.
+     */
+    private static void quarantine(File dataFile, String label) {
+        if (!dataFile.exists()) return;
+        File corrupt = new File(dataFile.getAbsolutePath() + ".corrupted");
+        if (dataFile.renameTo(corrupt)) {
+            WaveDefenseMod.LOGGER.error("[WaveDefense] Moved unreadable {} aside to {}; starting empty.",
+                label, corrupt.getName());
+        } else {
+            WaveDefenseMod.LOGGER.error("[WaveDefense] Could not quarantine unreadable {}; starting empty.",
+                label);
+        }
+    }
+
     // ─── Atomic NBT file write ────────────────────────────────────────────
 
     // ─── Async/debounced save scheduling ──────────────────────────────────
 
-    /** Single-thread executor used for all background NBT writes. Daemon so it
-     *  doesn't block JVM shutdown — final save on stop happens synchronously. */
+    /**
+     * Single-thread executor used for all background NBT writes.
+     *
+     * <p>Daemon, so it never blocks JVM shutdown. It is deliberately <b>never shut
+     * down</b>: an integrated server can stop one world and open another inside the same
+     * JVM, and a terminated executor would make every later async save throw
+     * {@code RejectedExecutionException}. {@link #flushPendingWrites()} instead uses a
+     * completion barrier, which gives the same "nothing is left in flight" guarantee
+     * without that failure mode.
+     */
     private static final java.util.concurrent.ScheduledExecutorService SAVE_EXEC =
         java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "WaveDefense-Save");
@@ -143,7 +243,14 @@ public final class NbtHelper {
         }, debounceMs, java.util.concurrent.TimeUnit.MILLISECONDS));
     }
 
-    /** Flush all pending debounced writes synchronously. Call on server stop. */
+    /**
+     * Flush all pending debounced writes synchronously. Call on server stop.
+     *
+     * <p>Draining {@link #PENDING} alone is not enough: a scheduled write may already be
+     * <em>running</em> on the save thread, in which case it has taken its snapshot and the
+     * drain below sees nothing to do. Returning at that point would let the JVM exit and
+     * kill the daemon thread mid-write. The barrier at the end closes that window.
+     */
     public static void flushPendingWrites() {
         for (java.util.Map.Entry<String, java.util.concurrent.atomic.AtomicReference<CompoundTag>> e : PENDING.entrySet()) {
             CompoundTag latest = e.getValue().getAndSet(null);
@@ -154,7 +261,24 @@ public final class NbtHelper {
         // Cancel all scheduled — they would no-op anyway since PENDING is now empty
         for (java.util.concurrent.ScheduledFuture<?> sf : SCHEDULED.values()) sf.cancel(false);
         SCHEDULED.clear();
+
+        // Completion barrier: the executor is single-threaded, so this no-op cannot start
+        // until any write already in flight has finished. Waiting on it therefore waits
+        // for that write. Submitted with zero delay, so it also jumps ahead of any task
+        // still sitting out its debounce.
+        try {
+            SAVE_EXEC.submit(() -> { }).get(FLUSH_BARRIER_TIMEOUT_SEC, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            WaveDefenseMod.LOGGER.warn("[WaveDefense] Interrupted while waiting for pending saves to finish.");
+        } catch (Exception e) {
+            WaveDefenseMod.LOGGER.error("[WaveDefense] A background save did not finish in {}s: {}",
+                FLUSH_BARRIER_TIMEOUT_SEC, e.toString());
+        }
     }
+
+    /** How long {@link #flushPendingWrites()} waits for an in-flight write before giving up. */
+    private static final long FLUSH_BARRIER_TIMEOUT_SEC = 10L;
 
     /**
      * Writes a {@link CompoundTag} atomically to {@code dataFile}.

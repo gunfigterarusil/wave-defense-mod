@@ -45,6 +45,12 @@ public class TriggerEvaluator {
 
     private void tickLocationTriggers(WaveManager wm) {
         if (WaveDefenseMod.getServer() == null) return;
+
+        // Fetched once instead of once per location: this runs 20×/s, and the old code
+        // re-walked the whole server player list inside the per-location loop.
+        java.util.List<ServerPlayer> online = WaveDefenseMod.getServer().getPlayerList().getPlayers();
+        if (online.isEmpty()) return;
+
         long now = System.currentTimeMillis();
         for (Location loc : WaveDefenseMod.locationManager.getAllLocationsView()) {
             if (!loc.isLocationTriggerEnabled()) continue;
@@ -53,8 +59,11 @@ public class TriggerEvaluator {
 
             String name = loc.getName();
             // Якщо вже активна — пропускаємо
-            boolean active = ctx.playerData.values().stream()
-                .anyMatch(d -> d.getCurrentLocation() != null && d.getCurrentLocation().getName().equals(name));
+            boolean active = false;
+            for (PlayerWaveData d : ctx.playerData.values()) {
+                Location cur = d.getCurrentLocation();
+                if (cur != null && cur.getName().equals(name)) { active = true; break; }
+            }
             if (active) continue;
 
             // Збираємо гравців поблизу (не в локації)
@@ -63,13 +72,18 @@ public class TriggerEvaluator {
                 ? loc.getAutoActivateRadius()
                 : (loc.isLocationBoundaryEnabled() ? loc.getLocationBoundaryRadius() : 50));
 
-            java.util.List<ServerPlayer> nearbyPlayers = new java.util.ArrayList<>();
-            for (ServerPlayer p : WaveDefenseMod.getServer().getPlayerList().getPlayers()) {
+            // Lazily allocated — most locations have nobody nearby on any given tick, and
+            // the old code built an empty ArrayList for each of them 20 times a second.
+            java.util.List<ServerPlayer> nearbyPlayers = null;
+            double radiusSqr = (double) radius * radius;
+            for (ServerPlayer p : online) {
                 if (ctx.playerData.containsKey(p.getUUID())) continue;
-                if (p.blockPosition().distSqr(loc.getPlayerSpawn()) <= (double) radius * radius) {
+                if (p.blockPosition().distSqr(loc.getPlayerSpawn()) <= radiusSqr) {
+                    if (nearbyPlayers == null) nearbyPlayers = new java.util.ArrayList<>(2);
                     nearbyPlayers.add(p);
                 }
             }
+            if (nearbyPlayers == null) nearbyPlayers = java.util.Collections.emptyList();
 
             WaveTrigger trigger = loc.getLocationTriggerType();
             boolean fired = false;
@@ -317,8 +331,7 @@ public class TriggerEvaluator {
                         mob.moveTo(sp.getX()+0.5, sp.getY(), sp.getZ()+0.5, 0, 0);
                         mob.finalizeSpawn(world, world.getCurrentDifficultyAt(sp),
                             net.minecraft.world.entity.MobSpawnType.COMMAND, null, null);
-                        mob.goalSelector.addGoal(2, new NearestAttackableTargetGoal<>(
-                            mob, Player.class, true));
+                        MobSpawnManager.makeHuntPlayers(mob, location);
                         mob.setPersistenceRequired();
                         mob.getPersistentData().putString("location", location.getName());
                         mob.getPersistentData().putInt("points", waveMob.getPointsPerKill());

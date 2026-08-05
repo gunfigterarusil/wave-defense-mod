@@ -141,6 +141,23 @@ public class WaveDefenseMonitor {
     private final Map<UUID, PlayerActivity> playerActivity = new ConcurrentHashMap<>();
     private final Deque<PlayerSession> playerSessions = new ArrayDeque<>();
 
+    /**
+     * How many finished sessions to keep for reporting.
+     *
+     * <p>{@link #playerSessions} previously only ever grew: one entry per join, never
+     * trimmed. On a long-lived server that is both a slow leak and a widening linear scan,
+     * because {@link #onPlayerLeave} walks the whole deque to find the open session.
+     */
+    private static final int SESSION_HISTORY_SIZE = 500;
+
+    /**
+     * Cap on retained per-player statistics. Entries are keyed by UUID and were never
+     * removed, so a public server accumulated one live object per unique visitor forever.
+     * Lifetime numbers that actually need to persist live in {@code PlayerProfile}; this
+     * map only backs the live monitor report.
+     */
+    private static final int PLAYER_STATS_CAP = 1000;
+
     // ============================================================
     //  CONSTRUCTOR
     // ============================================================
@@ -588,16 +605,45 @@ public class WaveDefenseMonitor {
     }
 
     public void onPlayerLeave(ServerPlayer player) {
-        PlayerSession session = playerSessions.stream()
-            .filter(s -> s.getPlayerId().equals(player.getUUID()) && s.getEndTime() == 0)
-            .findFirst()
-            .orElse(null);
-
-        if (session != null) {
-            session.end();
+        UUID id = player.getUUID();
+        // Newest first: the open session for this player is almost always near the tail,
+        // so scanning backwards finds it immediately instead of walking the whole history.
+        for (java.util.Iterator<PlayerSession> it = playerSessions.descendingIterator(); it.hasNext(); ) {
+            PlayerSession s = it.next();
+            if (s.getPlayerId().equals(id) && s.getEndTime() == 0) {
+                s.end();
+                break;
+            }
         }
 
+        // Live-only state: last position and game mode of an offline player are stale by
+        // definition, and keeping them meant one object per unique visitor, forever.
+        playerActivity.remove(id);
+
+        pruneRetainedState();
         WaveDefenseMod.LOGGER.info("Player left - Player: {}", player.getName().getString());
+    }
+
+    /**
+     * Keeps the monitor's retained collections bounded.
+     *
+     * <p>Called on logout, which is the natural moment: it is infrequent, and it is when
+     * an entry has just become eligible for eviction.
+     */
+    private void pruneRetainedState() {
+        while (playerSessions.size() > SESSION_HISTORY_SIZE) {
+            playerSessions.removeFirst();
+        }
+        if (playerStatistics.size() > PLAYER_STATS_CAP) {
+            // Drop the least recently active first — those are the visitors least likely
+            // to appear in a report.
+            playerStatistics.entrySet().stream()
+                .sorted(java.util.Comparator.comparingLong(e -> e.getValue().getLastActivityTime()))
+                .limit(playerStatistics.size() - PLAYER_STATS_CAP)
+                .map(Map.Entry::getKey)
+                .collect(java.util.stream.Collectors.toList())
+                .forEach(playerStatistics::remove);
+        }
     }
 
     // ============================================================

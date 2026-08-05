@@ -364,22 +364,28 @@ public class WaveManager {
     // ──────────────────────────────────────────────────────────────────────
 
     public void onServerTick() {
-        boundaryMgr.tick(this);
-        triggerEval.tick(this);
-        pvpMgr.tick(this);
-        captureMgr.tick(this);
-        zoneMgr.tick(this);
-        brManager.tick(this);
-        portalMgr.tick(this);
+        // Each subsystem is isolated: a bad location config — a malformed particle id, a
+        // null spawn, one corrupt wave — used to propagate straight out of the Forge tick
+        // event and take the server down with it. Now one broken arena degrades itself
+        // and the rest of the server keeps running.
+        safeTick("boundary", () -> boundaryMgr.tick(this));
+        safeTick("triggers", () -> triggerEval.tick(this));
+        safeTick("pvp",      () -> pvpMgr.tick(this));
+        safeTick("capture",  () -> captureMgr.tick(this));
+        safeTick("zone",     () -> zoneMgr.tick(this));
+        safeTick("br",       () -> brManager.tick(this));
+        safeTick("portal",   () -> portalMgr.tick(this));
 
-        // Tick all active sessions
+        // Tick all active sessions — one failing session must not stop the others.
+        // The location name is the key here, and it is already an interned field, so
+        // this adds no per-tick allocation.
         for (LocationSession sess : waveCtx.sessions.values()) {
-            tickSession(sess);
+            safeTick(sess.locationName, () -> tickSession(sess));
         }
 
         // Update InfoPanel TextDisplay entities every second
         if (waveCtx.tickCounter % 20 == 0) {
-            infoPanelMgr.tick();
+            safeTick("infopanels", infoPanelMgr::tick);
         }
 
         // Refresh teammate HUD (HP bars + alive state) every second for every active
@@ -399,6 +405,15 @@ public class WaveManager {
             // in the session (admin no longer the only one who knows where the box is).
             try { BboxRenderer.tick(waveCtx); }
             catch (Throwable t) { /* never let render glitches kill the tick */ }
+        }
+
+        // Nudge idle mobs back onto a player every 2 s. The targeting goal normally
+        // handles this, but a mob that got stuck, was knocked outside its follow range
+        // or had its target removed can end up wandering — which is exactly the
+        // "mobs crawl away and never come back" players reported.
+        if (waveCtx.tickCounter % 40 == 0) {
+            try { retargetIdleMobs(); }
+            catch (Throwable t) { /* AI nudging must never break the tick loop */ }
         }
 
         // Process delayed PvP respawns
@@ -429,6 +444,72 @@ public class WaveManager {
      * <p>A packet is only sent when a rendered value actually changed, so an idle
      * lobby costs nothing on the wire.
      */
+    /** Last time each subsystem's tick failure was logged, to keep the log readable. */
+    private final java.util.Map<String, Long> lastTickErrorLog = new java.util.HashMap<>();
+
+    /** Minimum gap between repeated error reports for the same subsystem. */
+    private static final long TICK_ERROR_LOG_INTERVAL_MS = 10_000L;
+
+    /**
+     * Runs one subsystem's tick, containing any failure to that subsystem.
+     *
+     * <p>Errors are logged, not swallowed — but at most once per
+     * {@value #TICK_ERROR_LOG_INTERVAL_MS} ms per subsystem, because a fault that
+     * reproduces every tick would otherwise write 20 stack traces a second and bury
+     * everything else in the log.
+     */
+    private void safeTick(String subsystem, Runnable body) {
+        try {
+            body.run();
+        } catch (Throwable t) {
+            long now = System.currentTimeMillis();
+            Long last = lastTickErrorLog.get(subsystem);
+            if (last == null || now - last >= TICK_ERROR_LOG_INTERVAL_MS) {
+                lastTickErrorLog.put(subsystem, now);
+                WaveDefenseMod.LOGGER.error(
+                    "[WaveDefense] '{}' tick failed; that subsystem is degraded but the server continues.",
+                    subsystem, t);
+            }
+        }
+    }
+
+    /**
+     * Re-points wave mobs that currently have no target at the nearest player in their
+     * location.
+     *
+     * <p>Only touches mobs the session already tracks and only those whose target is
+     * null or dead, so the cost is bounded by the number of live wave mobs and does no
+     * area scan. Runs at 0.5 Hz — often enough that a player never notices a lull, rare
+     * enough to be invisible in the tick profile.
+     */
+    private void retargetIdleMobs() {
+        for (java.util.Map.Entry<String, LocationSession> entry : waveCtx.sessions.entrySet()) {
+            LocationSession sess = entry.getValue();
+            if (sess == null || sess.spawnedMobs.isEmpty()) continue;
+
+            java.util.List<ServerPlayer> players = getPlayersInLocation(entry.getKey());
+            if (players.isEmpty()) continue;
+
+            for (UUID mobId : sess.spawnedMobs) {
+                net.minecraft.world.entity.Entity e = null;
+                for (ServerPlayer p : players) { e = p.serverLevel().getEntity(mobId); break; }
+                if (!(e instanceof Mob mob) || !mob.isAlive()) continue;
+
+                net.minecraft.world.entity.LivingEntity current = mob.getTarget();
+                if (current != null && current.isAlive()) continue;
+
+                ServerPlayer nearest = null;
+                double best = Double.MAX_VALUE;
+                for (ServerPlayer p : players) {
+                    if (p.isSpectator() || !p.isAlive()) continue;
+                    double d = p.distanceToSqr(mob);
+                    if (d < best) { best = d; nearest = p; }
+                }
+                if (nearest != null) mob.setTarget(nearest);
+            }
+        }
+    }
+
     private void refreshHudState() {
         for (java.util.Map.Entry<String, LocationSession> entry : waveCtx.sessions.entrySet()) {
             String locName = entry.getKey();
@@ -741,6 +822,11 @@ public class WaveManager {
             .anyMatch(d -> d.getCurrentLocation() != null
                 && d.getCurrentLocation().getName().equals(locName));
         if (!anyLeft) {
+            // The last defender died, so the arena is over. Clear the wave out of the
+            // world first: these mobs are persistenceRequired and removeSession only
+            // drops the tracking set, so skipping this stranded the entire live wave
+            // permanently — every run that ended in death leaked its mobs.
+            sessionMgr.despawnSessionMobs(locName);
             waveCtx.removeSession(locName);
         } else {
             syncTeammates(locName);
@@ -870,10 +956,12 @@ public class WaveManager {
      */
     public void loadRuntimeState() {
         java.io.File f = runtimeFile();
-        if (f == null || !f.exists()) return;
+        if (f == null) return;
+        com.wavedefense.data.NbtHelper.LoadResult result =
+            com.wavedefense.data.NbtHelper.readWithBackup(f, "runtime state");
+        if (!result.isPresent()) return;
         try {
-            CompoundTag tag = net.minecraft.nbt.NbtIo.readCompressed(f);
-            load(tag);
+            load(result.tag);
 
             int pendingBackups = waveCtx.playerBackups.size();
             int abandonedSessions = waveCtx.sessions.size();

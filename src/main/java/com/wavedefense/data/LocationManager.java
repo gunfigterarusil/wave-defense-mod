@@ -3,12 +3,10 @@ package com.wavedefense.data;
 import com.wavedefense.WaveDefenseMod;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtIo;
 import net.minecraft.server.MinecraftServer;
 
 import javax.annotation.Nullable;
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -30,10 +28,64 @@ public class LocationManager {
         load();
     }
 
-    public void createLocation(String name) {
-        if (!locations.containsKey(name)) {
-            locations.put(name, new Location(name));
-            saveToFile();
+    /** Maximum length of a location name. Generous, but bounded so it stays a usable filename. */
+    public static final int MAX_NAME_LENGTH = 64;
+
+    /**
+     * The single definition of a legal location name.
+     *
+     * <p>Names end up concatenated into export filenames, so anything that could carry a
+     * path separator or {@code ..} has to be rejected at the source. A whitelist keeps that
+     * true for characters nobody has thought of yet.
+     */
+    public static boolean isValidName(String name) {
+        return name != null
+            && !name.isEmpty()
+            && name.length() <= MAX_NAME_LENGTH
+            && name.matches("[a-zA-Z0-9_\\-]+");
+    }
+
+    /**
+     * Creates an empty location.
+     *
+     * @return true when a location was created; false if the name was rejected or taken
+     */
+    public boolean createLocation(String name) {
+        // Defensive: callers validate too, but this is the last gate before the name
+        // becomes a map key and, later, part of a file path.
+        if (!isValidName(name)) {
+            WaveDefenseMod.LOGGER.warn("[WaveDefense] Rejected invalid location name: '{}'", name);
+            return false;
+        }
+        if (locations.containsKey(name)) return false;
+        Location loc = new Location(name);
+        applyConfigDefaults(loc);
+        locations.put(name, loc);
+        saveToFile();
+        return true;
+    }
+
+    /**
+     * Seeds a brand-new location from the server config.
+     *
+     * <p>These options were labelled "default …" and exposed in the config screen, but
+     * nothing ever read them — every new location silently used the hard-coded field
+     * initialisers instead. Applied here rather than in the {@link Location} constructor
+     * because config values are only safe to read after config load, and Location is also
+     * constructed during NBT deserialization and on the client.
+     */
+    private static void applyConfigDefaults(Location loc) {
+        try {
+            loc.setTimeBetweenWaves(com.wavedefense.config.WaveDefenseConfig.DEFAULT_WAVE_TIME.get());
+            loc.setPvpTotalRounds(com.wavedefense.config.WaveDefenseConfig.PVP_DEFAULT_ROUNDS.get());
+            loc.setPvpBuyTime(com.wavedefense.config.WaveDefenseConfig.PVP_DEFAULT_BUY_TIME.get());
+            loc.setAutoActivateRadius(com.wavedefense.config.WaveDefenseConfig.ZONE_ACTIVATION_RADIUS.get());
+            loc.setZoneActivationTimeSec(com.wavedefense.config.WaveDefenseConfig.ZONE_ACTIVATION_COUNTDOWN.get());
+        } catch (IllegalStateException notLoadedYet) {
+            // Config not available (very early startup) — the field initialisers already
+            // hold sane values, so a location created now is still usable.
+            WaveDefenseMod.LOGGER.debug("[WaveDefense] Config not loaded; '{}' keeps built-in defaults.",
+                loc.getName());
         }
     }
 
@@ -162,45 +214,26 @@ public class LocationManager {
     }
 
     private void load() {
-        if (!dataFile.exists()) {
-            return;
+        NbtHelper.LoadResult result = NbtHelper.readWithBackup(dataFile, "location data");
+        if (!result.isPresent()) return; // fresh install, or both copies unreadable (already logged)
+
+        CompoundTag data = result.tag;
+        int fileVersion = data.contains("version") ? data.getInt("version") : 0;
+        if (fileVersion > DATA_VERSION) {
+            WaveDefenseMod.LOGGER.warn("[WaveDefense] Location data version {} is newer than supported {}; loading anyway",
+                fileVersion, DATA_VERSION);
+        } else if (fileVersion < DATA_VERSION) {
+            data = migrate(data, fileVersion);
         }
-        try {
-            CompoundTag data = NbtIo.readCompressed(dataFile);
-            int fileVersion = data.contains("version") ? data.getInt("version") : 0;
-            if (fileVersion > DATA_VERSION) {
-                WaveDefenseMod.LOGGER.warn("[WaveDefense] Location data version {} is newer than supported {}; loading anyway",
-                    fileVersion, DATA_VERSION);
-            } else if (fileVersion < DATA_VERSION) {
-                data = migrate(data, fileVersion);
-            }
+
+        if (result.fromBackup) {
+            // Deserialize AND save, so the primary file is repaired from the backup.
+            loadFromTag(data);
+            WaveDefenseMod.LOGGER.info("[WaveDefense] Successfully restored {} location(s) from backup.",
+                locations.size());
+        } else {
             // Normal startup: just deserialize, do NOT rewrite the file needlessly
             deserializeLocations(data);
-        } catch (IOException e) {
-            WaveDefenseMod.LOGGER.error("[WaveDefense] Primary data file corrupt: {}", e.getMessage());
-            // Спробуємо відновити з .bak копії
-            File bakFile = new File(dataFile.getAbsolutePath() + ".bak");
-            if (bakFile.exists()) {
-                try {
-                    WaveDefenseMod.LOGGER.warn("[WaveDefense] Attempting to restore from backup file...");
-                    CompoundTag bakData = NbtIo.readCompressed(bakFile);
-                    // Backup restore: deserialize AND save so the primary file is repaired
-                    loadFromTag(bakData);
-                    WaveDefenseMod.LOGGER.info("[WaveDefense] Successfully restored {} location(s) from backup.",
-                        locations.size());
-                } catch (IOException bakEx) {
-                    WaveDefenseMod.LOGGER.error("[WaveDefense] Backup file also corrupt: {}. Starting with empty location list.", bakEx.getMessage());
-                    // Перейменовуємо пошкоджений файл щоб не затирати нові дані
-                    File corruptFile = new File(dataFile.getAbsolutePath() + ".corrupted");
-                    //noinspection ResultOfMethodCallIgnored
-                    dataFile.renameTo(corruptFile);
-                }
-            } else {
-                WaveDefenseMod.LOGGER.error("[WaveDefense] No backup file found. Starting with empty location list.");
-                File corruptFile = new File(dataFile.getAbsolutePath() + ".corrupted");
-                //noinspection ResultOfMethodCallIgnored
-                dataFile.renameTo(corruptFile);
-            }
         }
     }
     /** Повертає поточну хвилю для вказаної локації (0 якщо неактивна). */

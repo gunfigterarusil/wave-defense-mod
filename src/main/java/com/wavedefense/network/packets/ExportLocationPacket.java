@@ -66,7 +66,7 @@ public class ExportLocationPacket {
                 // Path-traversal guard: reject filenames that escape the export dir
                 // (defence-in-depth — the location name is admin-controlled but
                 // never charset-validated at creation time).
-                if (!file.getCanonicalPath().startsWith(exportDir.getCanonicalPath() + File.separator)) {
+                if (!com.wavedefense.network.FilePathGuard.isInside(exportDir, file)) {
                     WaveDefenseMod.LOGGER.warn("[WaveDefense] Rejected path-traversal export attempt by {}: {}",
                         player.getName().getString(), pkt.locationName);
                     player.displayClientMessage(

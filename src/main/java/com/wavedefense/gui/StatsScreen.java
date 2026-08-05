@@ -17,9 +17,24 @@ public class StatsScreen extends Screen {
     // Н3: cache player names at init time to avoid getPlayerInfo() calls in render thread
     private final Map<UUID, String> playerNameCache = new HashMap<>();
 
+    /** Screen to return to when this one closes; {@code null} closes straight to the game. */
+    private final Screen parent;
+
     public StatsScreen() {
+        this(null);
+    }
+
+    public StatsScreen(Screen parent) {
         super(Component.translatable("wavedefense.title.stats"));
+        this.parent = parent;
         this.stats = ClientStatsManager.getStats();
+    }
+
+    @Override
+    public void onClose() {
+        // Return to whoever opened us rather than dumping the player back into the world.
+        if (parent != null) this.minecraft.setScreen(parent);
+        else super.onClose();
     }
 
     @Override

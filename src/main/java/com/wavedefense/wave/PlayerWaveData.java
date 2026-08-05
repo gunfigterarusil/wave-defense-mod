@@ -22,6 +22,12 @@ public class PlayerWaveData {
     private boolean showTimer = true;
     private boolean showNotifications = true;
     private boolean showTeammates = true;
+    /**
+     * Whether this player receives boundary particles. Opt-out exists because the effect
+     * is the single heaviest client-side thing the mod draws, and players on weaker
+     * machines should not have to leave the arena to get their frame rate back.
+     */
+    private boolean boundaryParticlesVisible = true;
 
     // Лічильник мобів/ворогів поточної хвилі (синхронізується з сервера)
     private int mobsRemaining = 0;
@@ -128,6 +134,9 @@ public class PlayerWaveData {
     public boolean isShowTeammates() { return showTeammates; }
     public void setShowTeammates(boolean v) { this.showTeammates = v; }
 
+    public boolean isBoundaryParticlesVisible() { return boundaryParticlesVisible; }
+    public void setBoundaryParticlesVisible(boolean v) { this.boundaryParticlesVisible = v; }
+
     public CompoundTag saveClientData() {
         CompoundTag tag = new CompoundTag();
         if (currentLocation != null) tag.put("location", currentLocation.save());
@@ -136,6 +145,7 @@ public class PlayerWaveData {
         tag.putBoolean("isTimerActive", isTimerActive);
         tag.putBoolean("showTimer", showTimer);
         tag.putBoolean("showTeammates", showTeammates);
+        tag.putBoolean("boundaryParticlesVisible", boundaryParticlesVisible);
         tag.putInt("mobsRemaining", mobsRemaining);
         tag.putBoolean("isInPvp", isInPvp);
         tag.putInt("victoryCountdownSec", victoryCountdownSec);
@@ -156,6 +166,9 @@ public class PlayerWaveData {
         this.isTimerActive = tag.getBoolean("isTimerActive");
         this.showTimer = !tag.contains("showTimer") || tag.getBoolean("showTimer");
         this.showTeammates = !tag.contains("showTeammates") || tag.getBoolean("showTeammates");
+        // Absent key means an older save — default to visible, matching previous behaviour.
+        this.boundaryParticlesVisible = !tag.contains("boundaryParticlesVisible")
+            || tag.getBoolean("boundaryParticlesVisible");
         this.mobsRemaining = tag.contains("mobsRemaining") ? tag.getInt("mobsRemaining") : 0;
         this.isInPvp = tag.contains("isInPvp") && tag.getBoolean("isInPvp");
         this.victoryCountdownSec = tag.contains("victoryCountdownSec") ? tag.getInt("victoryCountdownSec") : 0;

@@ -24,8 +24,16 @@ public class CreateLocationPacket {
     public static void handle(CreateLocationPacket packet, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
-            if (player != null && player.hasPermissions(2)) { // Check for admin permissions
-                WaveDefenseMod.locationManager.createLocation(packet.locationName);
+            if (player == null || !player.hasPermissions(2)) return; // admin only
+            // The name becomes part of export filenames later, so reject anything that
+            // could carry a separator or ".." before it ever reaches the data layer.
+            if (!com.wavedefense.data.LocationManager.isValidName(packet.locationName)) {
+                player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "wavedefense.msg.invalid_location_name",
+                    com.wavedefense.data.LocationManager.MAX_NAME_LENGTH), false);
+                return;
+            }
+            if (WaveDefenseMod.locationManager.createLocation(packet.locationName)) {
                 WaveDefenseMod.waveManager.broadcastLocationData();
             }
         });

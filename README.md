@@ -1,4 +1,4 @@
-# Wave Defense Mod - v0.3.0
+# Wave Defense Mod - v0.4.0
 
 Wave Defense is a PvE/PvP Forge mod for **Minecraft 1.20.1** and **Java 17**.
 It lets server owners build configurable arena locations with mob waves, team PvP,
@@ -12,12 +12,47 @@ shops, loot events, portals, boundaries, HUD panels, and in-game admin editors.
 
 ## Status
 
-Version `0.3.0` — **HUD fixes + cleanup release.** Fixes two player-reported
-HUD bugs (frozen countdown, frozen wave counter), removes the two deprecated
-legacy location editors (−3026 LOC), and adds safe concurrent editing for
-multiple admins. No data-format changes — existing saves load unchanged.
+Version `0.4.0` — **gameplay depth, restored editors, and three real bug fixes.**
+Adds four opt-in systems that give an arena a reason to be replayed, restores
+settings that had silently become uneditable, and fixes bugs that were leaking
+entities and could take down a server tick. Existing saves load unchanged — every
+new setting takes a default that reproduces the old behaviour.
 
-**v0.3.0 highlights:**
+**v0.4.0 highlights:**
+
+- **Endless mode** — waves never run out; the score becomes how far you got.
+  Ranked on its own leaderboard, recorded on death because endless never reaches
+  a victory. Mob stats grow linearly per loop, deliberately not compounding.
+- **Wave modifiers** — every Nth wave rolls one of eight twists (Swift, Armored,
+  Regenerating, Enraged, Tough, Phantom, Volatile, Venomous), announced in chat.
+  Volatile explosions never damage terrain — arenas are hand-built.
+- **Difficulty presets** — Easy / Normal / Hard / Nightmare scale mob health,
+  damage, count **and point rewards**, each with its own leaderboard.
+- **Lifetime player profiles** — waves, best wave, kills, matches, playtime and a
+  level that persists across runs, locations and restarts.
+
+**Fixed — mobs wandered off instead of hunting.** The targeting goal was on the
+wrong selector (`goalSelector` instead of `targetSelector`), and `FOLLOW_RANGE`
+was never raised from the vanilla 16 blocks, so on a large arena mobs literally
+could not perceive anyone. Spiders made it obvious.
+
+**Fixed — dead arenas leaked their mobs forever.** Wave mobs are spawned
+`persistenceRequired`, and the teardown path taken when the last player dies
+dropped the tracking set without removing the entities. Every run that ended in
+death stranded its whole live wave.
+
+**Fixed — boundary particles cost far more than they were worth.** The entire ring
+was drawn and broadcast to everyone nearby: ~471 particle packets per second at
+the default radius. Each player now gets only the arc they face, sent to them
+alone — and can turn mod particles off entirely in their own settings.
+
+**Restored — settings that had become unreachable.** Deleting the legacy editors in
+v0.3.0 took their UI with them: mob spawn points, scatter radius, starting kit,
+completion points, first-wave delay, keep-loot-on-exit, player spawn radius,
+starting points, and both location-trigger fields. All are editable again, and a
+new test fails the build if it ever happens again.
+
+**v0.3.0 (previous) — HUD fixes + cleanup:**
 - **Fixed: the next-wave timer now actually counts down.** It was only ever set
   when you joined a location and never refreshed, so the HUD froze at the join
   value (players saw `0:30` linger forever). The server now pushes live wave +
@@ -41,7 +76,7 @@ multiple admins. No data-format changes — existing saves load unchanged.
   rate limits on 7 packets, path-traversal guard, critical-path logging,
   data-version migration hook.
 
-See [CHANGELOG.md](CHANGELOG.md) for the full history (0.2.54 → 0.3.0).
+See [CHANGELOG.md](CHANGELOG.md) for the full history (0.2.54 → 0.4.0).
 
 **v0.2.54.1 hotfix:**
 - Tacz bulk-add — captures every NBT-distinct gun variant from creative tabs

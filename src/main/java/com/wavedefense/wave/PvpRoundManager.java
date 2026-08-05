@@ -1273,6 +1273,10 @@ public class PvpRoundManager {
         }
         // E1 fix: clear dedup-set so penalties in a future session are counted correctly.
         pvpPenaltyDeducted.clear();
+        // Same contract as the PvE path: anything the session spawned (trigger waves,
+        // portal mobs) is persistenceRequired, so it has to leave the world before the
+        // tracking set is dropped.
+        wm.sessionMgr.despawnSessionMobs(location.getName());
         ctx.removeSession(location.getName());
         wm.brManager.clearLocation(location.getName());
         cleanupScoreboardTeams(location.getName());
@@ -1385,8 +1389,14 @@ public class PvpRoundManager {
             net.minecraft.world.scores.PlayerTeam sbTeam = sb.getPlayerTeam(sbId);
             if (sbTeam == null) {
                 sbTeam = sb.addPlayerTeam(sbId);
-                sbTeam.setNameTagVisibility(net.minecraft.world.scores.Team.Visibility.HIDE_FOR_OTHER_TEAMS);
             }
+            // Honour the config toggle. Hiding used to be hard-coded on team creation,
+            // so the "hide enemy nametags" option did nothing — and, because it only ran
+            // when the team was first created, flipping it later had no effect either.
+            sbTeam.setNameTagVisibility(
+                com.wavedefense.config.WaveDefenseConfig.PVP_HIDE_ENEMY_NAMETAGS.get()
+                    ? net.minecraft.world.scores.Team.Visibility.HIDE_FOR_OTHER_TEAMS
+                    : net.minecraft.world.scores.Team.Visibility.ALWAYS);
             // Remove from any previous WD team first
             net.minecraft.world.scores.PlayerTeam current = sb.getPlayersTeam(player.getScoreboardName());
             if (current != null) sb.removePlayerFromTeam(player.getScoreboardName(), current);
