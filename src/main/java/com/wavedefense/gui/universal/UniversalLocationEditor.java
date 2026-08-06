@@ -247,6 +247,18 @@ public class UniversalLocationEditor extends Screen {
                     "wavedefense.editor2.gameplay.endless_scaling",
                     location.getEndlessScalingPercent());
                 y += 22;
+
+                // Endless never reaches triggerVictory, so everything gated on victory
+                // silently stops paying out. Say so here rather than letting an admin
+                // configure completion rewards that can never fire.
+                Button warn = Button.builder(
+                    Component.literal("§e⚠ " + I18n.get("wavedefense.editor2.gameplay.endless_no_victory")),
+                    b -> {}).bounds(leftCol, y, colW, 14).build();
+                warn.active = false;
+                warn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                    Component.translatable("wavedefense.editor2.gameplay.endless_no_victory.tooltip")));
+                this.addRenderableWidget(warn);
+                y += 18;
             }
 
             boolean mods = location.isModifiersEnabled();
@@ -1782,10 +1794,16 @@ public class UniversalLocationEditor extends Screen {
         // Section-merge save: diff against the snapshot we opened so the server
         // applies ONLY the sections this admin changed — a second admin editing
         // a different section of the same location keeps their work. (v0.3.0)
+        net.minecraft.nbt.CompoundTag full = location.save();
         java.util.EnumSet<com.wavedefense.data.LocationSection> dirty =
-            computeDirtySections(original.save(), location.save());
+            computeDirtySections(original.save(), full);
         PacketHandler.sendToServer(new com.wavedefense.network.packets.MergeLocationPacket(
-            location.getName(), dirty, location.save()));
+            location.getName(), dirty, projectSections(full, dirty)));
+
+        // The merge packet deliberately carries no content-sized list, so anything this
+        // editor owns among them has to be sent on its own channel — otherwise the change
+        // is silently dropped. Only lists that actually differ are sent.
+        sendChangedLists(original.save(), full);
 
         if (minecraft != null && minecraft.player != null) {
             minecraft.player.displayClientMessage(
@@ -1796,6 +1814,62 @@ public class UniversalLocationEditor extends Screen {
     /** Diff the working copy against the snapshot opened in the constructor, per
      *  editor section. A section is dirty if any of its NBT keys was added,
      *  removed, or changed. Only dirty sections are merged server-side. */
+    /**
+     * Lists this editor can modify that are excluded from the merge packet.
+     *
+     * <p>Kept explicit rather than derived: the other content-sized lists (shop, waves,
+     * loot, rewards) belong to their own dedicated screens, which send them themselves.
+     * Sending them from here too would overwrite a concurrent edit with this editor's
+     * stale snapshot.
+     */
+    private static final String[] EDITOR_OWNED_LISTS = { "startingItems", "pvpSpawnPoints" };
+
+    /** Sends, via the chunked list channel, whichever owned lists the admin actually changed. */
+    private void sendChangedLists(net.minecraft.nbt.CompoundTag before,
+                                  net.minecraft.nbt.CompoundTag after) {
+        for (String key : EDITOR_OWNED_LISTS) {
+            net.minecraft.nbt.Tag oldVal = before.get(key);
+            net.minecraft.nbt.Tag newVal = after.get(key);
+            boolean same = (oldVal == null && newVal == null)
+                        || (oldVal != null && oldVal.equals(newVal));
+            if (same) continue;
+            net.minecraft.nbt.ListTag list = (newVal instanceof net.minecraft.nbt.ListTag lt)
+                ? lt : new net.minecraft.nbt.ListTag();
+            com.wavedefense.network.packets.ReplaceLocationListPacket.sendList(
+                location.getName(), key, list);
+        }
+    }
+
+    /**
+     * Reduces a full location tag to only the keys the server is going to apply.
+     *
+     * <p>The packet used to carry the whole location even though the handler merges just
+     * the dirty sections. That was invisible until a shop grew large: a location with a
+     * few thousand TACZ guns serializes to megabytes, and every save — even renaming the
+     * arena — blew the 32767-byte serverbound payload limit and dropped the connection.
+     *
+     * <p>{@code name} is always kept: the handler needs it to identify the target.
+     */
+    private static net.minecraft.nbt.CompoundTag projectSections(
+            net.minecraft.nbt.CompoundTag full, java.util.EnumSet<com.wavedefense.data.LocationSection> dirty) {
+        net.minecraft.nbt.CompoundTag out = new net.minecraft.nbt.CompoundTag();
+        if (full.contains("name")) out.put("name", full.get("name").copy());
+        for (String key : full.getAllKeys()) {
+            // Content-sized lists never travel in this packet — one big shop is enough to
+            // exceed the payload limit on its own. The handler skips them too, so their
+            // absence is not read as a deletion.
+            if (com.wavedefense.data.LocationSection.isContentSizedList(key)) continue;
+            com.wavedefense.data.LocationSection s = com.wavedefense.data.LocationSection.sectionOf(key);
+            // Mirror the server's rule exactly: it merges dirty sections plus any key it
+            // cannot classify. Dropping an unmapped key here would make the handler read
+            // its absence as a deletion and wipe it from the live location.
+            if (s == null || dirty.contains(s)) {
+                out.put(key, full.get(key).copy());
+            }
+        }
+        return out;
+    }
+
     private static java.util.EnumSet<com.wavedefense.data.LocationSection> computeDirtySections(
             net.minecraft.nbt.CompoundTag snapshot, net.minecraft.nbt.CompoundTag working) {
         java.util.EnumSet<com.wavedefense.data.LocationSection> dirty =

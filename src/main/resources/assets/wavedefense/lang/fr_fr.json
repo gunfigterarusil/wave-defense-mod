@@ -1497,5 +1497,10 @@
   "wavedefense.editor2.loc_trigger.enabled": "Activer le déclencheur de lieu",
   "wavedefense.editor2.loc_trigger.enabled.tooltip": "Lance l'arène automatiquement quand un joueur extérieur remplit la condition choisie.",
   "wavedefense.editor2.loc_trigger.type": "Condition",
-  "wavedefense.stats.button": "Statistiques"
+  "wavedefense.stats.button": "Statistiques",
+  "wavedefense.editor2.gameplay.endless_no_victory": "Le mode infini n'a pas de victoire — les récompenses de fin ne seront jamais versées.",
+  "wavedefense.editor2.gameplay.endless_no_victory.tooltip": "Sans effet en infini : récompenses et points de fin, sortie de victoire, écran de victoire et le déclencheur de butin LOCATION_END. Récompensez par vague à la place.",
+  "wavedefense.tacz.bulk.upload_progress": "Envoi des articles : %s / %s",
+  "wavedefense.tacz.bulk.upload_done": "§aEnvoi terminé — %s article(s) enregistré(s).",
+  "wavedefense.tacz.bulk.cap_reached": "§cBoutique pleine (%s articles). Augmentez maxShopItems dans la config."
 }

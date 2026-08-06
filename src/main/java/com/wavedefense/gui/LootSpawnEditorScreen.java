@@ -509,6 +509,14 @@ public class LootSpawnEditorScreen extends Screen {
 
     private void saveAndBack() {
         PacketHandler.sendToServer(new UpdateLocationPacket(location));
+        // This list is excluded from UpdateLocationPacket (content-sized), so it
+        // travels on the generic chunked list transport instead.
+        {
+            net.minecraft.nbt.ListTag _l = new net.minecraft.nbt.ListTag();
+            for (var _e : location.getLootSpawns()) _l.add(_e.save());
+            com.wavedefense.network.packets.ReplaceLocationListPacket.sendList(
+                location.getName(), "lootSpawns", _l);
+        }
         if (minecraft.player != null)
             minecraft.player.displayClientMessage(
                 Component.translatable("wavedefense.auto.точки_луту_збережено_099a7605"), true);

@@ -16,7 +16,10 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class PacketHandler {
-    private static final String PROTOCOL_VERSION = "8";
+    // Bump whenever the packet set changes: ids are assigned by registration order, so
+    // adding one in the middle shifts every later id. A version mismatch then refuses the
+    // connection outright instead of letting an old client silently misread packets.
+    private static final String PROTOCOL_VERSION = "9";
     public static final SimpleChannel INSTANCE = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(WaveDefenseMod.MODID, "main"),
             () -> PROTOCOL_VERSION,
@@ -40,6 +43,12 @@ public class PacketHandler {
         c2s(DeleteLocationPacket.class, DeleteLocationPacket::encode, DeleteLocationPacket::decode, DeleteLocationPacket::handle);
         c2s(UpdateLocationPacket.class, UpdateLocationPacket::encode, UpdateLocationPacket::decode, UpdateLocationPacket::handle);
         c2s(MergeLocationPacket.class, MergeLocationPacket::encode, MergeLocationPacket::decode, MergeLocationPacket::handle);
+        // Per-entry edits: the shop and wave lists are the two that grow large enough
+        // that shipping the whole location per change blows the payload limit.
+        c2s(ShopItemOpPacket.class, ShopItemOpPacket::encode, ShopItemOpPacket::decode, ShopItemOpPacket::handle);
+        c2s(ReplaceLocationListPacket.class, ReplaceLocationListPacket::encode, ReplaceLocationListPacket::decode, ReplaceLocationListPacket::handle);
+        // Shops are excluded from the location broadcast; screens fetch them on open.
+        c2s(RequestShopDataPacket.class, RequestShopDataPacket::encode, RequestShopDataPacket::decode, RequestShopDataPacket::handle);
         c2s(UpdatePlayerSettingsPacket.class, UpdatePlayerSettingsPacket::encode, UpdatePlayerSettingsPacket::decode, UpdatePlayerSettingsPacket::handle);
         c2s(SurrenderPacket.class, SurrenderPacket::encode, SurrenderPacket::decode, SurrenderPacket::handle);
         s2c(OpenMenuPacket.class, OpenMenuPacket::encode, OpenMenuPacket::decode, OpenMenuPacket::handle);
@@ -92,12 +101,6 @@ public class PacketHandler {
             DuplicateLocationPacket::encode,
             DuplicateLocationPacket::decode,
             DuplicateLocationPacket::handle);
-
-        // v0.2.64: chunked shop save (ShopEditor with > BATCH_SIZE items)
-        c2s(ReplaceShopItemsPacket.class,
-            ReplaceShopItemsPacket::encode,
-            ReplaceShopItemsPacket::decode,
-            ReplaceShopItemsPacket::handle);
 
         WaveDefenseMod.LOGGER.info("Network packets registered");
     }

@@ -50,6 +50,11 @@ public class ShopEditorScreen extends Screen {
                 .append(": ").append(location.getName()));
         this.location = location;
         this.parent   = parent;
+    
+        // Shops are omitted from the location broadcast, so ask for this one now.
+        // The reply arrives as SyncShopPacket and refreshes the client cache.
+        com.wavedefense.network.PacketHandler.sendToServer(
+            new com.wavedefense.network.packets.RequestShopDataPacket(location.getName()));
     }
 
     @Override
@@ -350,59 +355,34 @@ public class ShopEditorScreen extends Screen {
         }
     }
 
-    /** v0.2.64: chunked-save threshold. Shops with more than this many items
-     *  go through {@link com.wavedefense.network.packets.ReplaceShopItemsPacket}
-     *  instead of a single oversized UpdateLocationPacket. 50 chosen so that
-     *  one chunk × ~25 items × ~300 bytes/item ≈ 7-8 KB, well under the
-     *  Forge channel limit. */
-    private static final int CHUNK_THRESHOLD = 50;
-    private static final int CHUNK_SIZE      = 25;
-
+    /**
+     * Saves the shop.
+     *
+     * <p>Both lists this screen edits are content-sized, so neither travels inside
+     * {@code UpdateLocationPacket} any more — that packet now carries only the scalar
+     * settings, and the server keeps its own copy of everything else. They are always
+     * sent on the chunked list channel, regardless of size: an earlier version only did
+     * so past a 50-item threshold, which meant a small shop's edits were dropped
+     * outright once the packet started stripping them.
+     */
     private void saveChanges() {
-        int itemCount = location.getShopItems().size();
-        if (itemCount > CHUNK_THRESHOLD) {
-            // Chunked path: temporarily strip shopItems from the location, send
-            // the rest via UpdateLocationPacket, then send shopItems in chunks
-            // via ReplaceShopItemsPacket. Server reassembles and broadcasts.
-            sendShopChunked();
-        } else {
-            PacketHandler.sendToServer(new UpdateLocationPacket(location));
-        }
+        PacketHandler.sendToServer(new UpdateLocationPacket(location));
+
+        net.minecraft.nbt.ListTag items = new net.minecraft.nbt.ListTag();
+        for (com.wavedefense.data.ShopItem si : location.getShopItems()) items.add(si.save());
+        com.wavedefense.network.packets.ReplaceLocationListPacket.sendList(
+            location.getName(), "shopItems", items);
+
+        net.minecraft.nbt.ListTag points = new net.minecraft.nbt.ListTag();
+        for (ShopPoint sp : location.getShopPoints()) points.add(sp.save());
+        com.wavedefense.network.packets.ReplaceLocationListPacket.sendList(
+            location.getName(), "shopPoints", points);
+
         if (minecraft.player != null) {
-            if (itemCount > CHUNK_THRESHOLD) {
-                int chunks = (itemCount + CHUNK_SIZE - 1) / CHUNK_SIZE;
-                minecraft.player.displayClientMessage(
-                    Component.translatable("wavedefense.msg.shop_chunked", itemCount, chunks), false);
-            }
             minecraft.player.displayClientMessage(
                 Component.translatable("wavedefense.auto.магазин_збережено_2ae52f5a"), true);
         }
         minecraft.setScreen(parent);
-    }
-
-    /** v0.2.64: send the shop in {@value #CHUNK_SIZE}-item chunks via
-     *  ReplaceShopItemsPacket. We still send a metadata-only UpdateLocationPacket
-     *  first so the rest of the Location (waves, loot, etc.) gets sync'd —
-     *  but with shopItems emptied so it stays under the channel limit. */
-    private void sendShopChunked() {
-        java.util.List<com.wavedefense.data.ShopItem> all = new java.util.ArrayList<>(location.getShopItems());
-        // 1) Send metadata (no shop items) by temporarily stripping the list
-        java.util.List<com.wavedefense.data.ShopItem> backup = new java.util.ArrayList<>(location.getShopItems());
-        location.getShopItems().clear();
-        PacketHandler.sendToServer(new UpdateLocationPacket(location));
-        // Restore client-side so the editor still shows them after Save
-        location.getShopItems().addAll(backup);
-        // 2) Stream items in chunks
-        int totalChunks = (all.size() + CHUNK_SIZE - 1) / CHUNK_SIZE;
-        for (int i = 0; i < totalChunks; i++) {
-            int from = i * CHUNK_SIZE;
-            int to   = Math.min(all.size(), from + CHUNK_SIZE);
-            java.util.List<com.wavedefense.data.ShopItem> chunk =
-                new java.util.ArrayList<>(all.subList(from, to));
-            PacketHandler.sendToServer(
-                new com.wavedefense.network.packets.ReplaceShopItemsPacket(
-                    location.getName(), i, totalChunks, chunk));
-        }
     }
 
     private void exportShop(boolean isPoint) {

@@ -1497,5 +1497,10 @@
   "wavedefense.editor2.loc_trigger.enabled": "启用地点触发器",
   "wavedefense.editor2.loc_trigger.enabled.tooltip": "当场外玩家满足所选条件时自动开启竞技场。",
   "wavedefense.editor2.loc_trigger.type": "条件",
-  "wavedefense.stats.button": "统计"
+  "wavedefense.stats.button": "统计",
+  "wavedefense.editor2.gameplay.endless_no_victory": "无尽模式没有胜利结算——通关奖励永远不会发放。",
+  "wavedefense.editor2.gameplay.endless_no_victory.tooltip": "无尽模式下无效：通关奖励、通关积分、胜利出口、胜利界面以及 LOCATION_END 战利品触发器。请改用逐波积分奖励。",
+  "wavedefense.tacz.bulk.upload_progress": "正在上传商店物品：%s / %s",
+  "wavedefense.tacz.bulk.upload_done": "§a上传完成——已保存 %s 件物品。",
+  "wavedefense.tacz.bulk.cap_reached": "§c商店已满（%s 件）。请在配置中提高 maxShopItems。"
 }

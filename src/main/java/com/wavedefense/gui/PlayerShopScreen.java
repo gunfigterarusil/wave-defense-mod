@@ -42,6 +42,11 @@ public class PlayerShopScreen extends ScrollableScreen {
                 shopPoint != null ? shopPoint.getName() : location.getName()));
         this.location = location;
         this.shopPoint = shopPoint;
+        // Shops are omitted from the location broadcast, so ask for this one now — in the
+        // shared constructor, so the point-shop path requests it too. The reply arrives
+        // as SyncShopPacket and refreshes the client cache.
+        com.wavedefense.network.PacketHandler.sendToServer(
+            new com.wavedefense.network.packets.RequestShopDataPacket(location.getName()));
         updatePlayerPoints();
         rebuildFilter();
     }

@@ -249,8 +249,11 @@ public class WaveDefenseConfig {
                 .defineInRange("maxPlayerSpawns", 20, 1, 9999);
 
         MAX_SHOP_ITEMS = BUILDER
-                .comment("Maximum number of items in a location's shop.")
-                .defineInRange("maxShopItems", 100, 1, 9999);
+                .comment("Maximum number of items in a location's shop.",
+                         "Raised from 100 in 0.4.0: bulk-adding a TACZ pack legitimately produces",
+                         "thousands of entries, and the cap is now enforced on that path too.",
+                         "Existing config files keep whatever value they already contain.")
+                .defineInRange("maxShopItems", 5000, 1, 20000);
 
         MAX_LOOT_SPAWNS = BUILDER
                 .comment("Maximum number of loot spawn points.")

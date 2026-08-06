@@ -546,6 +546,9 @@ public class SessionManager {
      * so anything left behind stays in the world forever with nothing tracking it.
      */
     void despawnSessionMobs(String locationName) {
+        // Drop the spawn-cap warning bookkeeping too, so a re-run of this arena reports
+        // again rather than staying silent because a previous run already warned.
+        WaveDefenseMod.waveManager.getMobSpawnManager().clearCapLog(locationName);
         LocationSession sess = ctx.getSession(locationName);
         if (sess == null || sess.spawnedMobs.isEmpty()) return;
         net.minecraft.server.MinecraftServer srv = WaveDefenseMod.getServer();

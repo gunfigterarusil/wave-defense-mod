@@ -1497,5 +1497,10 @@
   "wavedefense.editor2.loc_trigger.enabled": "Activar disparador de ubicación",
   "wavedefense.editor2.loc_trigger.enabled.tooltip": "Inicia la arena automáticamente cuando un jugador de fuera cumple la condición.",
   "wavedefense.editor2.loc_trigger.type": "Condición",
-  "wavedefense.stats.button": "Estadísticas"
+  "wavedefense.stats.button": "Estadísticas",
+  "wavedefense.editor2.gameplay.endless_no_victory": "El modo infinito no tiene victoria: las recompensas de fin nunca se pagarán.",
+  "wavedefense.editor2.gameplay.endless_no_victory.tooltip": "Sin efecto en infinito: recompensas y puntos de fin, salida de victoria, pantalla de victoria y el disparador de botín LOCATION_END. Recompensa por oleada en su lugar.",
+  "wavedefense.tacz.bulk.upload_progress": "Enviando artículos: %s / %s",
+  "wavedefense.tacz.bulk.upload_done": "§aEnvío completado: %s artículo(s) guardado(s).",
+  "wavedefense.tacz.bulk.cap_reached": "§cLa tienda está llena (%s artículos). Aumenta maxShopItems en la configuración."
 }

@@ -1497,5 +1497,10 @@
   "wavedefense.editor2.loc_trigger.enabled": "Увімкнути тригер локації",
   "wavedefense.editor2.loc_trigger.enabled.tooltip": "Автоматично запускає арену, коли гравець ззовні виконує обрану умову.",
   "wavedefense.editor2.loc_trigger.type": "Умова",
-  "wavedefense.stats.button": "Статистика"
+  "wavedefense.stats.button": "Статистика",
+  "wavedefense.editor2.gameplay.endless_no_victory": "В ендлесі немає перемоги — нагороди за проходження не спрацюють.",
+  "wavedefense.editor2.gameplay.endless_no_victory.tooltip": "Не працюють в ендлесі: нагороди за проходження, очки за проходження, точка виходу після перемоги, екран перемоги та лут-тригер LOCATION_END. Нагороджуй очками за хвилю.",
+  "wavedefense.tacz.bulk.upload_progress": "Надсилання товарів: %s / %s",
+  "wavedefense.tacz.bulk.upload_done": "§aНадсилання завершено — збережено %s товар(ів).",
+  "wavedefense.tacz.bulk.cap_reached": "§cМагазин заповнений (%s товарів). Підніми maxShopItems у конфізі, щоб додати ще."
 }

@@ -87,6 +87,10 @@ public class MergeLocationPacket {
 
             for (String key : allKeys) {
                 if (LocationSection.isRuntime(key)) continue; // never let editor touch live runtime state
+                // Content-sized lists ride their own chunked channel. The sender omits
+                // them, so without this skip their absence would read as a deletion and
+                // wipe the shop, waves or loot the admin never touched.
+                if (LocationSection.isContentSizedList(key)) continue;
                 LocationSection sec = LocationSection.sectionOf(key);
                 // Unmapped keys (sec == null) are merged unconditionally so they're
                 // never silently lost (degrades to full-replace for that one key).

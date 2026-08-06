@@ -52,6 +52,11 @@ public class ShopPointEditorScreen extends Screen {
         } else {
             this.editingPoint = new ShopPoint(I18n.get("wavedefense.shop.default_name"), null, 5);
         }
+    
+        // Shops are omitted from the location broadcast, so ask for this one now.
+        // The reply arrives as SyncShopPacket and refreshes the client cache.
+        com.wavedefense.network.PacketHandler.sendToServer(
+            new com.wavedefense.network.packets.RequestShopDataPacket(location.getName()));
     }
 
     @Override
@@ -229,6 +234,14 @@ public class ShopPointEditorScreen extends Screen {
         // Якщо нова точка — додаємо до локації
         if (pointIndex < 0) location.addShopPoint(editingPoint);
         PacketHandler.sendToServer(new UpdateLocationPacket(location));
+        // This list is excluded from UpdateLocationPacket (content-sized), so it
+        // travels on the generic chunked list transport instead.
+        {
+            net.minecraft.nbt.ListTag _l = new net.minecraft.nbt.ListTag();
+            for (var _e : location.getShopPoints()) _l.add(_e.save());
+            com.wavedefense.network.packets.ReplaceLocationListPacket.sendList(
+                location.getName(), "shopPoints", _l);
+        }
         minecraft.setScreen(parent);
     }
 

@@ -179,10 +179,34 @@ public class WaveManager {
         // Player lists are calculated from WaveContext on demand.
     }
 
+    /**
+     * Pushes the location list to one player, without the shop.
+     *
+     * <p>This runs on login and again on every {@link #broadcastLocationData()}. A single
+     * arena carrying a generated TACZ pack serializes to megabytes, so including shops
+     * meant every player was handed the server's entire weapon catalogue repeatedly — and
+     * on a big enough pack the packet outgrew even the clientbound limit.
+     *
+     * <p>Shops are delivered separately by {@code SyncShopPacket}, on demand and only to
+     * players who need one. {@code ClientLocationManager} keeps any shop it already holds
+     * when a stripped list arrives, so this never blanks a client's cache.
+     */
     public void syncLocationDataToPlayer(ServerPlayer player) {
         if (WaveDefenseMod.locationManager == null) return;
         com.wavedefense.network.PacketHandler.sendToPlayer(
-            player, new SyncLocationDataPacket(WaveDefenseMod.locationManager.save()));
+            player, new SyncLocationDataPacket(locationListWithoutShops()));
+    }
+
+    /** Serializes every location with the shop lists removed. */
+    private CompoundTag locationListWithoutShops() {
+        CompoundTag root = WaveDefenseMod.locationManager.save();
+        net.minecraft.nbt.ListTag list = root.getList("locations", 10);
+        for (int i = 0; i < list.size(); i++) {
+            CompoundTag loc = list.getCompound(i);
+            loc.remove("shopItems");
+            loc.remove("shopPoints");
+        }
+        return root;
     }
 
     public void syncPlayerData(ServerPlayer player) {

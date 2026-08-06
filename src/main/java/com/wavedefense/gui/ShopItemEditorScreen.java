@@ -2,7 +2,6 @@ package com.wavedefense.gui;
 
 import com.wavedefense.data.Location;
 import com.wavedefense.network.PacketHandler;
-import com.wavedefense.network.packets.UpdateLocationPacket;
 import com.wavedefense.data.ShopItem;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -350,8 +349,20 @@ public class ShopItemEditorScreen extends Screen {
             } else {
                 list.add(shopItem);
             }
-            // Зберігаємо на сервері
-            PacketHandler.sendToServer(new UpdateLocationPacket(location));
+            // One entry, one packet. This used to send the whole location, so editing a
+            // single price shipped every shop item with it — impossible once a generated
+            // pack pushed the payload past the 32767-byte limit.
+            String point = (shopPoint != null) ? shopPoint.getName() : "";
+            PacketHandler.sendToServer(itemIndex >= 0
+                ? com.wavedefense.network.packets.ShopItemOpPacket.update(
+                      location.getName(), point, itemIndex, shopItem)
+                : com.wavedefense.network.packets.ShopItemOpPacket.add(
+                      location.getName(), point, shopItem));
+            // Index-based ops can race a concurrent admin edit, and the server may reject
+            // an add at the shop cap. Pull the authoritative list back so the screen we
+            // return to shows what was really stored rather than our optimistic guess.
+            PacketHandler.sendToServer(
+                new com.wavedefense.network.packets.RequestShopDataPacket(location.getName()));
             this.minecraft.setScreen(parent);
         } catch (NumberFormatException ignored) {}
     }

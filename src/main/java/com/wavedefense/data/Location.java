@@ -57,7 +57,10 @@ public class Location {
     boolean pvpFriendlyFire;
     int pvpKillPoints;
     int pvpDeathPenalty;
-    int pvpTotalRounds;   // number of rounds (0 = infinite)
+    // Minimum 1: the setter clamps, and load() below repairs legacy saves. A stored 0
+    // used to end the match after round 1, because isAllRoundsDone() is
+    // "currentRound >= totalRounds" — the old "0 = infinite" comment was never true.
+    int pvpTotalRounds;
     int pvpBuyTime;        // buy-phase duration between rounds (seconds)
     int pvpRoundStartDelay = 5;   // seconds from BUY→ACTIVE (countdown)
     int pvpReadyCheckTimeoutSec = 60; // v0.2.61: READY_CHECK timeout before force-start (0 = wait forever)

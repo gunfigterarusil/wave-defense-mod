@@ -10,12 +10,32 @@ import java.util.stream.Collectors;
 public class ClientLocationManager {
     private static List<Location> locations = new ArrayList<>();
 
+    /**
+     * Replaces the cached location list.
+     *
+     * <p>The server strips shops from this broadcast — they are large and are delivered
+     * separately by {@code SyncShopPacket}. Any shop already cached for a location is
+     * therefore carried across, otherwise every broadcast would blank a shop the client
+     * had legitimately fetched a moment earlier.
+     */
     public static void updateLocations(CompoundTag data) {
-        locations.clear();
+        List<Location> incoming = new ArrayList<>();
         ListTag locationsList = data.getList("locations", 10);
         for (int i = 0; i < locationsList.size(); i++) {
-            locations.add(Location.load(locationsList.getCompound(i)));
+            Location fresh = Location.load(locationsList.getCompound(i));
+            if (fresh == null) continue;
+            Location cached = getLocation(fresh.getName());
+            if (cached != null) {
+                if (fresh.getShopItems().isEmpty() && !cached.getShopItems().isEmpty()) {
+                    fresh.getShopItems().addAll(cached.getShopItems());
+                }
+                if (fresh.getShopPoints().isEmpty() && !cached.getShopPoints().isEmpty()) {
+                    fresh.getShopPoints().addAll(cached.getShopPoints());
+                }
+            }
+            incoming.add(fresh);
         }
+        locations = incoming;
     }
 
     public static List<Location> getAllLocations() {

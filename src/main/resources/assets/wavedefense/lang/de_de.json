@@ -1497,5 +1497,10 @@
   "wavedefense.editor2.loc_trigger.enabled": "Standort-Auslöser aktivieren",
   "wavedefense.editor2.loc_trigger.enabled.tooltip": "Startet die Arena automatisch, wenn ein Spieler außerhalb die Bedingung erfüllt.",
   "wavedefense.editor2.loc_trigger.type": "Bedingung",
-  "wavedefense.stats.button": "Statistik"
+  "wavedefense.stats.button": "Statistik",
+  "wavedefense.editor2.gameplay.endless_no_victory": "Endlos kennt keinen Sieg — Abschlussbelohnungen werden nie ausgezahlt.",
+  "wavedefense.editor2.gameplay.endless_no_victory.tooltip": "Im Endlos-Modus wirkungslos: Abschlussbelohnungen, Abschlusspunkte, Sieg-Ausgang, Siegbildschirm und der LOCATION_END-Loot-Trigger. Belohne stattdessen pro Welle.",
+  "wavedefense.tacz.bulk.upload_progress": "Shop-Artikel werden übertragen: %s / %s",
+  "wavedefense.tacz.bulk.upload_done": "§aÜbertragung abgeschlossen — %s Artikel gespeichert.",
+  "wavedefense.tacz.bulk.cap_reached": "§cShop ist voll (%s Artikel). Erhöhe maxShopItems in der Config für mehr."
 }

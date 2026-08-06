@@ -1497,5 +1497,10 @@
   "wavedefense.editor2.loc_trigger.enabled": "Ativar gatilho de local",
   "wavedefense.editor2.loc_trigger.enabled.tooltip": "Inicia a arena automaticamente quando um jogador de fora cumpre a condição.",
   "wavedefense.editor2.loc_trigger.type": "Condição",
-  "wavedefense.stats.button": "Estatísticas"
+  "wavedefense.stats.button": "Estatísticas",
+  "wavedefense.editor2.gameplay.endless_no_victory": "O modo infinito não tem vitória — as recompensas de conclusão nunca serão pagas.",
+  "wavedefense.editor2.gameplay.endless_no_victory.tooltip": "Sem efeito no infinito: recompensas e pontos de conclusão, saída de vitória, tela de vitória e o gatilho de saque LOCATION_END. Recompense por onda.",
+  "wavedefense.tacz.bulk.upload_progress": "Enviando itens: %s / %s",
+  "wavedefense.tacz.bulk.upload_done": "§aEnvio concluído — %s item(ns) salvo(s).",
+  "wavedefense.tacz.bulk.cap_reached": "§cA loja está cheia (%s itens). Aumente maxShopItems na configuração."
 }

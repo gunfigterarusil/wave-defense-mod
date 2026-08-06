@@ -68,6 +68,7 @@ public class MobSpawnManager {
             // stacking both makes late loops unspawnable rather than hard.
             int mobCount = (int) (baseCount * playerCount * difficulty * tuning.count);
             if (mobCount < 1) mobCount = 1; // ensure at least 1 mob
+            mobCount = capPerEntry(mobCount, waveNumber, locationName, waveMob);
 
             for (int i = 0; i < mobCount; i++) {
                 if (rng.nextInt(100) >= waveMob.getSpawnChance()) continue;
@@ -200,6 +201,45 @@ public class MobSpawnManager {
         double scaled = inst.getBaseValue() * mult;
         // Attribute has a hard ceiling (e.g. MAX_HEALTH caps at 1024); exceeding it throws.
         inst.setBaseValue(attribute.sanitizeValue(scaled));
+    }
+
+    /**
+     * Hard ceiling on how many mobs a single {@link WaveMob} entry may spawn in one wave.
+     *
+     * <p>The count is a product of four independent factors — {@code count +
+     * growthPerWave × (wave-1)}, player count, the adaptive scaler (up to 5×) and the
+     * difficulty preset (up to 1.5×) — and none of them was bounded. A modest arena
+     * (count 3, growth 1, two players) already reaches 104 mobs per entry by wave 50,
+     * twice the mod's own lag threshold, and a wave may hold up to 20 entries. Endless
+     * mode guarantees those wave numbers are reached.
+     *
+     * <p>This is a stability backstop, not a balance knob: difficulty is meant to come
+     * from tougher mobs, not from a number of entities the server cannot tick.
+     */
+    private static final int MAX_MOBS_PER_ENTRY = 120;
+
+    /** Remembers which (location, wave) already logged a cap hit, to keep the log quiet. */
+    private final java.util.Set<String> cappedWavesLogged = new java.util.HashSet<>();
+
+    /**
+     * Applies {@link #MAX_MOBS_PER_ENTRY}, telling the admin once per wave when it bites
+     * so an arena that silently stopped scaling is discoverable rather than mysterious.
+     */
+    private int capPerEntry(int requested, int waveNumber, String locationName, WaveMob waveMob) {
+        if (requested <= MAX_MOBS_PER_ENTRY) return requested;
+        String key = locationName + '#' + waveNumber;
+        if (cappedWavesLogged.add(key)) {
+            WaveDefenseMod.LOGGER.warn(
+                "[WaveDefense] '{}' wave {}: {} would spawn {} mobs; capped at {}. "
+              + "Lower count/growthPerWave, or raise difficulty through mob stats instead.",
+                locationName, waveNumber, waveMob.getMobType(), requested, MAX_MOBS_PER_ENTRY);
+        }
+        return MAX_MOBS_PER_ENTRY;
+    }
+
+    /** Forgets cap-warning bookkeeping for a finished location. */
+    public void clearCapLog(String locationName) {
+        cappedWavesLogged.removeIf(k -> k.startsWith(locationName + '#'));
     }
 
     /**

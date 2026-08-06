@@ -140,4 +140,38 @@ public enum LocationSection {
     public static boolean isRuntime(String key) {
         return RUNTIME.owns(key);
     }
+
+    /**
+     * Keys whose serialized size follows their contents rather than a fixed schema.
+     *
+     * <p>Every one of these holds items, and a modded item's NBT can be enormous — a
+     * generated TACZ shop alone runs to megabytes. None of them may ride inside a
+     * whole-location packet, because a single one is enough to exceed the 32767-byte
+     * serverbound payload limit and take the entire editor down with it.
+     *
+     * <p>They are transferred by {@code ReplaceLocationListPacket} (chunked, by encoded
+     * size) or, for the shop, by the per-entry and bulk shop packets.
+     */
+    private static final java.util.Set<String> CONTENT_SIZED = java.util.Set.of(
+        "shopItems", "shopPoints", "waves", "lootSpawns",
+        "completionRewards", "startingItems", "pvpSpawnPoints"
+    );
+
+    /**
+     * True when {@code key} must travel on its own chunked channel instead of inside a
+     * location payload.
+     *
+     * <p>Both the sender and the merge handler consult this, and they have to agree: a
+     * sender that omits such a key while the handler still treats absence as deletion
+     * would quietly erase the list. That is precisely how shop-point editing broke the
+     * first time these lists were split out.
+     */
+    public static boolean isContentSizedList(String key) {
+        return CONTENT_SIZED.contains(key);
+    }
+
+    /** The full set, for callers that need to iterate rather than test. */
+    public static java.util.Set<String> contentSizedLists() {
+        return CONTENT_SIZED;
+    }
 }

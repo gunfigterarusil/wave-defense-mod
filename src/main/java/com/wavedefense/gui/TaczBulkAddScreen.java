@@ -13,7 +13,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -96,13 +95,10 @@ public class TaczBulkAddScreen extends Screen {
         ).bounds(cx - 60, this.height - 28, 120, 20).build());
     }
 
-    /** Max items per network batch — keeps each packet payload safely under
-     *  Forge's channel size limit even when datapacks add 100+ Tacz guns. */
-    private static final int BATCH_SIZE = 25;
-
     /** Adds every Tacz gun of the given category as a new ShopItem with the chosen price.
-     *  Sends multiple lightweight {@link com.wavedefense.network.packets.BulkAddShopItemsPacket}
-     *  packets in batches instead of one giant UpdateLocationPacket that overflows the channel. */
+     *  Upload is handed to {@link ClientShopUploadQueue}, which sends one item per packet
+     *  paced across ticks — a gun's NBT is heavy enough that batching them overflowed the
+     *  32767-byte serverbound payload limit on large packs. */
     private void addCategory(String category) {
         if (!TaczCompat.isLoaded()) return;
         int price = priceByCategory.getOrDefault(category, DEFAULT_PRICE);
@@ -125,15 +121,11 @@ public class TaczBulkAddScreen extends Screen {
         // return to the editor. Server-side state is also updated authoritatively below.
         for (ShopItem si : toAdd) location.getShopItems().add(si);
 
-        // Network: split into chunks so no single packet exceeds Forge's channel
-        // payload limit. ~25 items per batch = ~6-8 KB per packet — safely below 32 KB.
-        for (int from = 0; from < toAdd.size(); from += BATCH_SIZE) {
-            int to = Math.min(from + BATCH_SIZE, toAdd.size());
-            List<ShopItem> chunk = new ArrayList<>(toAdd.subList(from, to));
-            com.wavedefense.network.PacketHandler.sendToServer(
-                new com.wavedefense.network.packets.BulkAddShopItemsPacket(
-                    location.getName(), chunk));
-        }
+        // One item per packet, paced across client ticks. A single TACZ gun carries
+        // enough NBT that even a handful per packet can exceed the 32767-byte
+        // serverbound payload limit, which dropped the connection outright on large
+        // packs. See ClientShopUploadQueue for the rest of the reasoning.
+        ClientShopUploadQueue.enqueue(location.getName(), toAdd);
 
         if (this.minecraft != null && this.minecraft.player != null) {
             this.minecraft.player.displayClientMessage(

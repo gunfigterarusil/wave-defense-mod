@@ -337,7 +337,9 @@ public final class LocationSerializer {
         loc.pvpFriendlyFire  = NbtHelper.getBool(tag, "pvpFriendlyFire",  false);
         loc.pvpKillPoints    = NbtHelper.getInt(tag,  "pvpKillPoints",    100);
         loc.pvpDeathPenalty  = NbtHelper.getInt(tag,  "pvpDeathPenalty",  50);
-        loc.pvpTotalRounds   = NbtHelper.getInt(tag,  "pvpTotalRounds",   10);
+        // Clamped on load, not just in the setter: deserialization writes the field
+        // directly, and a legacy save holding 0 would end every match after one round.
+        loc.pvpTotalRounds   = Math.max(1, NbtHelper.getInt(tag, "pvpTotalRounds", 10));
         loc.pvpBuyTime       = NbtHelper.getInt(tag,  "pvpBuyTime",       20);
 
         // ── PvP extended ─────────────────────────────────────────────────

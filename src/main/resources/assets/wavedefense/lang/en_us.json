@@ -1497,5 +1497,10 @@
   "wavedefense.editor2.loc_trigger.enabled": "Enable location trigger",
   "wavedefense.editor2.loc_trigger.enabled.tooltip": "Starts the arena automatically when a player outside it meets the chosen condition.",
   "wavedefense.editor2.loc_trigger.type": "Condition",
-  "wavedefense.stats.button": "Statistics"
+  "wavedefense.stats.button": "Statistics",
+  "wavedefense.editor2.gameplay.endless_no_victory": "Endless has no victory — completion rewards will never pay out.",
+  "wavedefense.editor2.gameplay.endless_no_victory.tooltip": "Unaffected in endless: completion rewards, completion points, victory exit, victory screen, and the LOCATION_END loot trigger. Reward players with per-wave points instead.",
+  "wavedefense.tacz.bulk.upload_progress": "Uploading shop items: %s / %s",
+  "wavedefense.tacz.bulk.upload_done": "§aShop upload finished — %s item(s) saved.",
+  "wavedefense.tacz.bulk.cap_reached": "§cShop is full (%s items). Raise maxShopItems in the config to add more."
 }

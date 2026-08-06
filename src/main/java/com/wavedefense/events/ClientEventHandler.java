@@ -50,12 +50,17 @@ public class ClientEventHandler {
             // so stale overlay data doesn't bleed into the next login session.
             ClientCtpStateManager.reset();
             ClientLeaderboardCache.reset();
+            // Abandon any half-finished shop upload — the connection it targeted is gone.
+            com.wavedefense.gui.ClientShopUploadQueue.cancel();
             return;
         }
 
         // Smooth the next-wave countdown between the server's 1 Hz syncs so the
         // HUD timer keeps moving even if a sync packet is delayed.
         com.wavedefense.gui.ClientPlayerDataManager.tickClient();
+
+        // Drain any pending bulk shop upload a few items at a time.
+        com.wavedefense.gui.ClientShopUploadQueue.tick();
 
         // Proactively fetch location data right after login so menus are not empty on first open.
         if (!initialSyncSent && mc.getConnection() != null) {

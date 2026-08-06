@@ -1,10 +1,19 @@
 # Changelog
+## [0.4.0] - 2026-08-06 — gameplay depth, restored editors, and a large-shop overhaul
 
-## [0.4.0] - 2026-08-05 — gameplay depth, restored editors, three real bug fixes
+The headline is four opt-in systems that give an arena a reason to be replayed. Around
+them sits a long tail of correctness work: settings that had silently become uneditable
+are back, arenas no longer leak their mobs, one bad location can no longer take down the
+server tick, and the whole editing protocol was reworked so a shop with thousands of
+modded weapons stops breaking every save on that location.
 
-Four features that give a location a reason to be played more than once. All are
-opt-in per location and default to off, so existing arenas behave exactly as
-before. Existing saves load unchanged; the new keys simply take their defaults.
+Existing worlds load and play identically until an admin opts in — every new setting
+takes a default that reproduces the previous behaviour. Compile targets are unchanged:
+Forge 47.2.0, Minecraft 1.20.1, Java 17.
+
+**Upgrading:** the network protocol moved to version 9, so client and server must be
+updated together. If your config still carries `maxShopItems = 100` from an older
+install, raise it — the cap is now enforced on bulk imports too.
 
 ### Added — endless mode
 
@@ -68,42 +77,6 @@ before. Existing saves load unchanged; the new keys simply take their defaults.
   cannot corrupt it.
 - Profiles are never pruned: a player returning after months keeps their level.
 
-### Fixed — dead arenas left their mobs in the world forever
-
-- Wave mobs are spawned with `setPersistenceRequired()`, so they never despawn on
-  their own. `WaveContext.removeSession` calls `dispose()`, which clears the tracking
-  set — **it does not remove the entities**. Every other teardown path calls
-  `despawnSessionMobs` first; the path taken when the *last* player in a PvE arena
-  dies did not.
-- So every run that ended in death stranded its entire live wave: persistent hostile
-  mobs, untracked because the set had just been cleared, accumulating in loaded chunks
-  run after run. The PvP teardown had the same gap for trigger and portal mobs.
-- Both paths now despawn before the session is dropped, and the method carries a
-  javadoc stating the ordering requirement so the next teardown path does not repeat it.
-
-### Fixed — one bad arena could take down the server tick
-
-- `onServerTick` called seven subsystem ticks and every session tick with no exception
-  handling, and the Forge event handler above it had none either. A malformed particle
-  id, a null spawn point or one corrupt wave propagated straight out and killed the
-  tick. The later blocks in the same method were already guarded, so the file was
-  inconsistent with itself.
-- Each subsystem now runs inside `safeTick`, which contains the failure to that
-  subsystem and logs it — at most once per 10 s per subsystem, because a fault that
-  reproduces every tick would otherwise write 20 stack traces a second and bury the
-  actual cause.
-
-### Fixed — monitor state grew without bound
-
-- `playerSessions` was only ever appended to, and `onPlayerLeave` streamed the whole
-  deque to find the open session: a leak that also made every logout progressively
-  slower. Now capped, and scanned newest-first, where the match almost always is.
-- `playerActivity` kept the last position and game mode of every player who had ever
-  connected — data that is stale the moment they log out. Dropped on leave.
-- `playerStatistics` retained one object per unique visitor forever. Capped, evicting
-  least-recently-active first. Lifetime numbers that genuinely need to persist live in
-  `PlayerProfile`; this map only backs the live monitor report.
-
 ### Fixed — features that had quietly become unreachable
 
 Removing the two legacy location editors in v0.3.0 took their UI with them. The data
@@ -138,56 +111,60 @@ spawn points led to finding the rest.
 - Line of sight is no longer required, so stepping behind cover does not drop aggro,
   and idle mobs are re-pointed at the nearest player every 2 s.
 
-### Fixed — boundary particles cost far more than they were worth
+### Fixed — wave size had no ceiling
 
-- The whole ring was drawn — a particle column every 2 blocks all the way round — and
-  every column was broadcast to everyone within 32 blocks, including players not in the
-  arena. At the default radius of 50 that is ~471 particle packets per second.
-- Each player now receives only the 90° arc they are facing out towards, at 3-block
-  spacing, sent to them individually: roughly 20 columns instead of 157, and nothing at
-  all for bystanders.
-- `boundaryParticleCount` was read into a variable and then ignored — the call passed a
-  hard-coded `1`, so the admin's slider did nothing. It works now.
-- Players can turn mod particles off entirely in their own settings. This covers both
-  the boundary ring and the bbox outline, and is the fix for the reported frame drops.
+- Mob count is a product of four independent factors — `count + growthPerWave ×
+  (wave-1)`, player count, the adaptive scaler (up to 5×) and the difficulty preset
+  (up to 1.5×) — and **none of them was bounded**. A modest arena (count 3, growth 1,
+  two players, Normal) already reaches 104 mobs per entry by wave 50, twice the mod's
+  own lag threshold, and a wave may hold up to 20 entries.
+- Endless mode guarantees those wave numbers are reached, so this was not a
+  theoretical edge case: any endless arena eventually becomes unplayable.
+- Capped at 120 mobs per wave entry, with a one-off warning per wave naming the
+  location, the mob and the requested figure, so an arena that stopped scaling is
+  discoverable instead of mysterious. This is a stability backstop, not a balance
+  knob — difficulty is meant to come from tougher mobs, not from more entities than
+  the server can tick.
 
-### Fixed — 17 of 31 config options did nothing
+### Fixed — endless silently disabled five configured settings
 
-Eight were read nowhere; nine only by the config screen that displays them, so the
-toggle moved but nothing changed. All are now wired to what their description promises:
+Endless never reaches `triggerVictory`, so completion rewards, completion points,
+the victory exit, the victory screen and the `LOCATION_END` loot trigger could all be
+configured but would never fire. The editor now says so directly under the endless
+toggle, listing exactly what stops applying and pointing at per-wave points instead.
 
-- `enableHUD` never gated the HUD. It does now.
-- `maxPlayerSpawns`, `maxShopItems`, `maxLootSpawns` were not enforced, though
-  `maxWaves` and `maxMobSpawns` were — the intent was there, the rest was missed.
-- `pvpHideEnemyNametags` was ignored: hiding was hard-coded at team creation, so the
-  option did nothing *and* flipping it later had no effect either.
-- `pvpMax*` safety caps now actually clamp the values an admin can type.
-- `defaultWaveTime`, `defaultRounds`, `defaultBuyTime`, `zoneActivationRadius` and
-  `zoneActivationCountdown` are applied when a location is created.
-- `zoneActivationParticles` gates the activation-zone effect.
-- `shopCategoriesEnabled` hides the category filter row; the active filter resets to
-  ALL when it is switched off, so nothing stays hidden.
+### Fixed — a stored round count of 0 ended PvP matches after one round
 
-### Added — a guard so this cannot happen again silently
+`pvpTotalRounds` was documented as "0 = infinite", but `isAllRoundsDone()` is
+`currentRound >= totalRounds`, so 0 was true immediately. The setter clamped to 1,
+yet deserialization writes the field directly and bypassed it — a legacy save holding
+0 lost every match after the first round. Now clamped on load, and the misleading
+comment is gone.
 
-`SettingReachabilityTest` reads the sources and fails the build when:
+### Fixed — dead arenas left their mobs in the world forever
 
-1. a `Location` setting the runtime reads has no screen that can change it,
-2. a config option is exposed to admins but nothing reads it,
-3. a screen exists that nothing opens.
+- Wave mobs are spawned with `setPersistenceRequired()`, so they never despawn on
+  their own. `WaveContext.removeSession` calls `dispose()`, which clears the tracking
+  set — **it does not remove the entities**. Every other teardown path calls
+  `despawnSessionMobs` first; the path taken when the *last* player in a PvE arena
+  dies did not.
+- So every run that ended in death stranded its entire live wave: persistent hostile
+  mobs, untracked because the set had just been cleared, accumulating in loaded chunks
+  run after run. The PvP teardown had the same gap for trigger and portal mobs.
+- Both paths now despawn before the session is dropped, and the method carries a
+  javadoc stating the ordering requirement so the next teardown path does not repeat it.
 
-Source scanning rather than reflection, because the question is not "does the method
-exist" but "does anything call it". Deleting a screen now breaks the build instead of
-quietly removing a feature.
+### Fixed — one bad arena could take down the server tick
 
-### Performance
-
-- `BattleRoyaleManager` allocated an empty `HashMap` 20 times a second whenever no
-  Battle Royale was running — which is almost always.
-- `PortalManager` built a stream pipeline and a capturing lambda per portal-enabled
-  location per tick to answer a boolean.
-- `TriggerEvaluator` walked the entire server player list *inside* its per-location
-  loop, and built an empty `ArrayList` for every location with nobody nearby.
+- `onServerTick` called seven subsystem ticks and every session tick with no exception
+  handling, and the Forge event handler above it had none either. A malformed particle
+  id, a null spawn point or one corrupt wave propagated straight out and killed the
+  tick. The later blocks in the same method were already guarded, so the file was
+  inconsistent with itself.
+- Each subsystem now runs inside `safeTick`, which contains the failure to that
+  subsystem and logs it — at most once per 10 s per subsystem, because a fault that
+  reproduces every tick would otherwise write 20 stack traces a second and bury the
+  actual cause.
 
 ### Fixed — the crash-safe write contract was only half-implemented
 
@@ -212,6 +189,169 @@ quietly removing a feature.
   title and open another world in the same JVM, and a terminated executor would
   make every later save throw. The barrier gives the same guarantee without that.
 
+### Fixed — monitor state grew without bound
+
+- `playerSessions` was only ever appended to, and `onPlayerLeave` streamed the whole
+  deque to find the open session: a leak that also made every logout progressively
+  slower. Now capped, and scanned newest-first, where the match almost always is.
+- `playerActivity` kept the last position and game mode of every player who had ever
+  connected — data that is stale the moment they log out. Dropped on leave.
+- `playerStatistics` retained one object per unique visitor forever. Capped, evicting
+  least-recently-active first. Lifetime numbers that genuinely need to persist live in
+  `PlayerProfile`; this map only backs the live monitor report.
+
+### Fixed — bulk-adding a large TACZ pack killed the connection
+
+Reported: adding 3000+ guns disconnected the client with
+`DecoderException: Payload may not be larger than 32767 bytes`. That was the visible
+symptom of three separate faults, any one of which loses items:
+
+- **Packet too large.** Items were batched 25 per packet. A single gun carries enough
+  NBT that 25 of them exceed the 32767-byte serverbound payload limit outright.
+- **Most packets were silently discarded.** The handler rate-limited itself to one
+  packet per 500 ms, but the sender fired all ~120 batches in a single frame — so all
+  but the first were dropped without a word. Items were going missing *before* the
+  size error ever appeared.
+- **Quadratic work and a response that also overflowed.** Every batch triggered a full
+  save, a location broadcast and a shop re-sync carrying the entire location NBT —
+  which grows with each batch. By the end the server was re-serializing thousands of
+  guns per packet and sending it back.
+
+Now one item per packet, paced across client ticks by `ClientShopUploadQueue`
+(~160 items/second, so a 3000-gun pack finishes in well under a minute) with a
+progress readout. Only the final packet carries a `last` flag, and only that one
+triggers the save, broadcast and re-sync. The per-packet rate limit is gone — pacing
+is the client's job now, and op permission plus the shop-size cap are the real guards.
+An upload in flight is abandoned if the player disconnects.
+
+`maxShopItems` is raised from 100 to 5000 and is now enforced on the bulk path too,
+which previously wrote the list directly and bypassed it. **Existing config files keep
+their stored value** — if yours still says 100, raise it or the upload will stop there
+and tell you so.
+
+### Fixed — a large shop broke every editor, not just bulk-add
+
+Fixing the TACZ upload exposed that the same limit was hit by four other paths. Once a
+location held a few thousand guns, **editing anything on it stopped working**: renaming
+the arena, changing one price, editing a wave. Each of those sent the whole location —
+several megabytes — through a 32767-byte serverbound packet.
+
+The shop and the wave list are the only parts of a location whose size follows its
+content rather than a fixed schema, so they no longer travel inside a location payload:
+
+- **`UpdateLocationPacket` excludes `shopItems`, `shopPoints` and `waves`.** When a
+  preserved list is absent the handler keeps the server's copy, so a partial payload can
+  never wipe one. Stripping is done in the constructor, so no caller can reintroduce it
+  by accident.
+- **`MergeLocationPacket` now sends only the sections it marked dirty.** It always knew
+  which ones the server would apply — it just shipped the rest anyway. Keys the server
+  cannot classify are still included, matching the handler's own rule exactly: dropping
+  one would have been read as a deletion.
+- **New `ShopItemOpPacket`** — add / update / remove a single entry, in the global shop
+  or in a named shop point. `ShopItemEditorScreen` uses it instead of resending the
+  location.
+- **Waves move to a chunked replace** as well, since `WaveConfigScreen` batches its
+  edits and saves once — per-wave operations would have had no natural caller there.
+- **The location broadcast no longer carries shops at all.** It runs on every login and
+  every change, so every player was being handed the server's entire weapon catalogue
+  repeatedly. Shops now arrive on demand via the new `RequestShopDataPacket`, and the
+  client cache keeps any shop it already holds when a stripped list arrives.
+
+`ShopEditorScreen`'s old clear-send-restore dance is gone with it — it briefly emptied
+the client's own list and would have lost it outright had anything thrown in between.
+
+Protocol version bumped to 9: packet ids are assigned by registration order, so an old
+client must be refused rather than left to misread the stream.
+
+### Fixed — the same limit applied to loot, rewards and kits
+
+Splitting the shop out revealed that it was never only about shops. Seven location
+lists hold modded items, and a modded item's NBT can be enormous: loot spawns (fifty
+chest-fulls), completion reward tables, per-team starting kits, PvP spawn points. Any
+one of them can exceed the payload limit on its own.
+
+Fixing them individually turned out to be the wrong instinct — excluding shops from
+`UpdateLocationPacket` **silently broke shop-point editing**, because that list was
+missed and its absence read as a deletion. So the handling is now generic:
+
+- **`LocationSection.isContentSizedList`** is the single source of truth for which keys
+  are content-sized. `UpdateLocationPacket`, `MergeLocationPacket` and the editor all
+  consult it, so sender and handler cannot drift apart.
+- **New `ReplaceLocationListPacket`** replaces any one of those lists, addressed by its
+  NBT key. Adding a list later means registering a key, not writing another packet.
+- **Chunking is by encoded size, not element count.** Element weight varies by orders of
+  magnitude — a plain sword against a rifle with attachments — so "N per packet" is
+  either wasteful or unsafe depending on content. It replaces the wave-specific packet
+  written moments earlier, which would have been a fourth near-identical transport.
+- `MergeLocationPacket` skips these keys on both sides. Without the handler half, the
+  sender omitting a list would have wiped shops, waves and loot the admin never touched.
+
+**New `ContentSizedListTest`** fails the build when a list is declared content-sized with
+nothing to send it, when only one half of the merge contract skips it, or when the
+broadcast starts shipping shops again. Writing it immediately caught two more lists —
+per-team kits and PvP spawn points — that had been excluded without a transport.
+
+### Fixed — regressions from the packet split itself
+
+A pass over everything this release touched found that splitting the big lists out had
+broken two save paths and left one transport orphaned:
+
+- **`ShopEditorScreen` lost edits on small shops.** It only used the chunked path past a
+  50-item threshold; below that it relied on `UpdateLocationPacket`, which now strips
+  shops. Adding or deleting a single item in a modest shop — and every shop-point
+  change — was silently discarded. It now always sends both lists on their own channel,
+  regardless of size.
+- **`ReplaceShopItemsPacket` had no sender left** once the generic transport took over.
+  Removed rather than left registered, so the packet table matches what actually runs.
+- Three imports left dangling by the rewrites are gone.
+
+### Changed — the client no longer trusts its own optimistic edits
+
+Shop screens mutate their local copy first so the UI responds instantly, but the server
+can legitimately disagree: an add may hit `maxShopItems`, and an index-based update can
+race another admin. After a bulk upload finishes, and after a single-item edit, the
+client now re-requests the shop and adopts what was actually stored. Previously the
+editor could keep showing entries the server never saved.
+
+### Fixed — boundary particles cost far more than they were worth
+
+- The whole ring was drawn — a particle column every 2 blocks all the way round — and
+  every column was broadcast to everyone within 32 blocks, including players not in the
+  arena. At the default radius of 50 that is ~471 particle packets per second.
+- Each player now receives only the 90° arc they are facing out towards, at 3-block
+  spacing, sent to them individually: roughly 20 columns instead of 157, and nothing at
+  all for bystanders.
+- `boundaryParticleCount` was read into a variable and then ignored — the call passed a
+  hard-coded `1`, so the admin's slider did nothing. It works now.
+- Players can turn mod particles off entirely in their own settings. This covers both
+  the boundary ring and the bbox outline, and is the fix for the reported frame drops.
+
+### Performance
+
+- `BattleRoyaleManager` allocated an empty `HashMap` 20 times a second whenever no
+  Battle Royale was running — which is almost always.
+- `PortalManager` built a stream pipeline and a capturing lambda per portal-enabled
+  location per tick to answer a boolean.
+- `TriggerEvaluator` walked the entire server player list *inside* its per-location
+  loop, and built an empty `ArrayList` for every location with nobody nearby.
+
+### Fixed — 17 of 31 config options did nothing
+
+Eight were read nowhere; nine only by the config screen that displays them, so the
+toggle moved but nothing changed. All are now wired to what their description promises:
+
+- `enableHUD` never gated the HUD. It does now.
+- `maxPlayerSpawns`, `maxShopItems`, `maxLootSpawns` were not enforced, though
+  `maxWaves` and `maxMobSpawns` were — the intent was there, the rest was missed.
+- `pvpHideEnemyNametags` was ignored: hiding was hard-coded at team creation, so the
+  option did nothing *and* flipping it later had no effect either.
+- `pvpMax*` safety caps now actually clamp the values an admin can type.
+- `defaultWaveTime`, `defaultRounds`, `defaultBuyTime`, `zoneActivationRadius` and
+  `zoneActivationCountdown` are applied when a location is created.
+- `zoneActivationParticles` gates the activation-zone effect.
+- `shopCategoriesEnabled` hides the category filter row; the active filter resets to
+  ALL when it is switched off, so nothing stays hidden.
+
 ### Fixed — filename handling in import/export
 
 All six import/export packets built paths from client-supplied strings, and each did
@@ -231,6 +371,18 @@ it differently. Consolidated into `network/FilePathGuard`:
 All of these required op level, so this is hardening and consistency work rather than
 a closed hole.
 
+### Added — a guard so this cannot happen again silently
+
+`SettingReachabilityTest` reads the sources and fails the build when:
+
+1. a `Location` setting the runtime reads has no screen that can change it,
+2. a config option is exposed to admins but nothing reads it,
+3. a screen exists that nothing opens.
+
+Source scanning rather than reflection, because the question is not "does the method
+exist" but "does anything call it". Deleting a screen now breaks the build instead of
+quietly removing a feature.
+
 ### Added — tests
 
 - `NbtHelperBackupTest` — 9 tests: backup fallback for a corrupt and for a missing
@@ -244,12 +396,23 @@ a closed hole.
 
 ### Notes
 
-- 56 new translation keys across all 8 supported locales (1499 keys each).
+- **61 new translation keys** across all 8 supported locales (1504 each, parity checked).
+- **Test suite grew from 13 to 82** across nine classes, four of which are structural
+  guards that fail the build rather than describing behaviour.
 - **No data-format change.** Every new setting takes a default that reproduces the
   previous behaviour, so existing worlds load and play identically until an admin
   opts in. Compile targets are unchanged: Forge 47.2.0, Minecraft 1.20.1, Java 17.
-- Minor version bump rather than a patch: four new gameplay systems and several
-  restored features is more than a bug-fix release.
+- **Network protocol 8 → 9.** Packet ids are assigned by registration order and this
+  release adds, removes and reorders several, so client and server must be updated
+  together. A mismatched client is refused rather than left to misread the stream.
+- **Config:** `maxShopItems` default raised 100 → 5000, and it is now enforced on the
+  bulk-import path that previously bypassed it. Existing config files keep their stored
+  value — raise it by hand if yours still says 100.
+- Removed: `MobTypeSelectionScreen` and `WaveMobSettingsScreen` (duplicates of the
+  screens actually in use), and the `ReplaceShopItemsPacket` / per-wave transports that
+  the generic chunked list channel superseded.
+- Minor version bump rather than a patch: four new gameplay systems, several restored
+  features and a protocol change is well past a bug-fix release.
 
 ## [0.3.0] - 2026-06-19 — HUD fixes, cleanup + concurrent multi-admin editing
 

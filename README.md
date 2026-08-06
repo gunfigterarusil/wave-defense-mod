@@ -12,11 +12,21 @@ shops, loot events, portals, boundaries, HUD panels, and in-game admin editors.
 
 ## Status
 
-Version `0.4.0` — **gameplay depth, restored editors, and three real bug fixes.**
-Adds four opt-in systems that give an arena a reason to be replayed, restores
-settings that had silently become uneditable, and fixes bugs that were leaking
-entities and could take down a server tick. Existing saves load unchanged — every
-new setting takes a default that reproduces the old behaviour.
+Version `0.4.0` — **gameplay depth, restored editors, and a large-shop overhaul.**
+Four opt-in systems give an arena a reason to be replayed; around them sits a long
+tail of correctness work — settings that had silently become uneditable are back,
+arenas no longer leak their mobs, one bad location can no longer take down the server
+tick, and the editing protocol was reworked so a shop holding thousands of modded
+weapons stops breaking every save on that location.
+
+Existing worlds load and play identically until an admin opts in — every new setting
+takes a default that reproduces the old behaviour.
+
+> **Upgrading:** the network protocol moved to version 9, so **client and server must
+> be updated together** — a mismatched client is refused rather than left to misread
+> the stream. The `maxShopItems` default rises from 100 to 5000 and is now enforced on
+> the bulk-import path that used to bypass it; **existing config files keep their stored
+> value**, so raise it by hand if yours still says 100.
 
 **v0.4.0 highlights:**
 
@@ -51,6 +61,25 @@ v0.3.0 took their UI with them: mob spawn points, scatter radius, starting kit,
 completion points, first-wave delay, keep-loot-on-exit, player spawn radius,
 starting points, and both location-trigger fields. All are editable again, and a
 new test fails the build if it ever happens again.
+
+**Fixed — a large shop broke every editor on that location.** Reported as
+`Payload may not be larger than 32767 bytes` when bulk-adding 3000+ TACZ guns, but the
+upload was only the visible half: any location whose shop had grown that large could no
+longer be edited at all — renaming the arena, changing one price, editing a wave. Every
+save shipped the whole location, several megabytes, through a 32 KB packet.
+
+Seven location lists hold modded items and can each exceed that limit on their own, so
+none of them travels inside a location payload any more. `LocationSection` is the single
+source of truth for which those are; a generic chunked channel carries them, splitting by
+encoded size rather than element count because a rifle with attachments and a plain sword
+are orders of magnitude apart. The bulk upload now sends one item per packet, paced across
+client ticks, and only the last packet triggers the save and broadcast.
+
+**Fixed — 17 of 31 config options did nothing.** `enableHUD` never gated the HUD, three
+`max*` caps were not enforced, `pvpHideEnemyNametags` was ignored because hiding was
+hard-coded, and the `default*` values were never applied to new locations. All are wired
+to what their description promises, and a test now fails the build if an option is exposed
+that nothing reads.
 
 **v0.3.0 (previous) — HUD fixes + cleanup:**
 - **Fixed: the next-wave timer now actually counts down.** It was only ever set

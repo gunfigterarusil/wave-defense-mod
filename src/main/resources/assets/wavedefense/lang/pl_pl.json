@@ -1497,5 +1497,10 @@
   "wavedefense.editor2.loc_trigger.enabled": "Włącz wyzwalacz lokacji",
   "wavedefense.editor2.loc_trigger.enabled.tooltip": "Automatycznie uruchamia arenę, gdy gracz z zewnątrz spełni wybrany warunek.",
   "wavedefense.editor2.loc_trigger.type": "Warunek",
-  "wavedefense.stats.button": "Statystyki"
+  "wavedefense.stats.button": "Statystyki",
+  "wavedefense.editor2.gameplay.endless_no_victory": "Tryb niekończący nie ma zwycięstwa — nagrody za ukończenie nigdy nie zadziałają.",
+  "wavedefense.editor2.gameplay.endless_no_victory.tooltip": "Bez efektu w trybie niekończącym: nagrody i punkty za ukończenie, wyjście po zwycięstwie, ekran zwycięstwa oraz wyzwalacz łupu LOCATION_END. Nagradzaj za falę.",
+  "wavedefense.tacz.bulk.upload_progress": "Wysyłanie przedmiotów: %s / %s",
+  "wavedefense.tacz.bulk.upload_done": "§aWysyłanie zakończone — zapisano %s przedmiot(ów).",
+  "wavedefense.tacz.bulk.cap_reached": "§cSklep jest pełny (%s przedmiotów). Zwiększ maxShopItems w konfiguracji."
 }

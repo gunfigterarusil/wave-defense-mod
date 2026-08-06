@@ -2,7 +2,6 @@ package com.wavedefense.gui;
 
 import com.wavedefense.data.Location;
 import com.wavedefense.data.WaveConfig;
-import com.wavedefense.data.WaveTrigger;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
@@ -473,7 +472,11 @@ public class WaveConfigScreen extends ScrollableScreen {
             location.setTimeBetweenWaves(seconds);
         } catch (NumberFormatException ignored) {}
 
+        // Scalars first. UpdateLocationPacket no longer carries the wave list at all —
+        // it is content-sized and blew the payload limit on richly equipped arenas — so
+        // the waves follow as their own chunked stream.
         PacketHandler.sendToServer(new UpdateLocationPacket(location));
+        sendWavesChunked();
         if (minecraft.player != null) {
             minecraft.player.displayClientMessage(Component.translatable("wavedefense.auto.зміни_збережено_60feafc0"), true);
         }
@@ -506,5 +509,13 @@ public class WaveConfigScreen extends ScrollableScreen {
     @Override
     public boolean charTyped(char ch, int modifiers) {
         return super.charTyped(ch, modifiers);
+    }
+
+    /** Sends the wave list through the generic chunked list transport. */
+    private void sendWavesChunked() {
+        net.minecraft.nbt.ListTag list = new net.minecraft.nbt.ListTag();
+        for (WaveConfig wc : location.getWaves()) list.add(wc.save());
+        com.wavedefense.network.packets.ReplaceLocationListPacket.sendList(
+            location.getName(), "waves", list);
     }
 }
