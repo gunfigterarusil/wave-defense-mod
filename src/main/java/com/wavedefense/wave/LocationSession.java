@@ -297,25 +297,25 @@ public class LocationSession {
                 timer60++;
                 if (timer60  == 1200) {
                     wm.fireLootTriggerByName(locationName, com.wavedefense.data.LootSpawn.Trigger.TIMER_60);
-                    wm.triggerEval.fireWaveTriggerForLocation(wm, locationName, com.wavedefense.data.WaveTrigger.TIMER_60);
+                    wm.getTriggerEvaluator().fireWaveTriggerForLocation(wm, locationName, com.wavedefense.data.WaveTrigger.TIMER_60);
                 }
             }
             if (timer120 < 2400) {
                 timer120++;
                 if (timer120 == 2400) {
                     wm.fireLootTriggerByName(locationName, com.wavedefense.data.LootSpawn.Trigger.TIMER_120);
-                    wm.triggerEval.fireWaveTriggerForLocation(wm, locationName, com.wavedefense.data.WaveTrigger.TIMER_120);
+                    wm.getTriggerEvaluator().fireWaveTriggerForLocation(wm, locationName, com.wavedefense.data.WaveTrigger.TIMER_120);
                 }
             }
             if (timer300 < 6000) {
                 timer300++;
                 if (timer300 == 6000) {
                     wm.fireLootTriggerByName(locationName, com.wavedefense.data.LootSpawn.Trigger.TIMER_300);
-                    wm.triggerEval.fireWaveTriggerForLocation(wm, locationName, com.wavedefense.data.WaveTrigger.TIMER_300);
+                    wm.getTriggerEvaluator().fireWaveTriggerForLocation(wm, locationName, com.wavedefense.data.WaveTrigger.TIMER_300);
                 }
             }
             // TIMER_CUSTOM: independent per-wave-index counters, ticked every server tick
-            wm.triggerEval.tickTimerCustomForLocation(wm, locationName);
+            wm.getTriggerEvaluator().tickTimerCustomForLocation(wm, locationName);
         }
 
         // Обробка таймера старту локації (лоббі)
@@ -509,11 +509,11 @@ public class LocationSession {
      */
     private void onWaveCompleted(WaveConfig wc, WaveManager wm, Location location) {
         // Record wave metrics for auto-difficulty scaling
-        WaveAutoScaler.WaveMetrics metrics = wm.autoScaler.getCurrentWaveMetrics();
+        WaveAutoScaler.WaveMetrics metrics = wm.getAutoScaler().getCurrentWaveMetrics();
         if (metrics != null) {
             metrics.totalEnemies = waveStartMobCount;
             metrics.enemiesKilled = Math.min(mobsKilled, waveStartMobCount);
-            wm.autoScaler.recordWaveCompletion(metrics);
+            wm.getAutoScaler().recordWaveCompletion(metrics);
         }
 
         // Fire WAVE_END loot trigger

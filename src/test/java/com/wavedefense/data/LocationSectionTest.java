@@ -2,8 +2,17 @@ package com.wavedefense.data;
 
 import org.junit.jupiter.api.Test;
 
-import java.util.HashSet;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -11,62 +20,53 @@ import static org.junit.jupiter.api.Assertions.*;
  * Guards the section-merge feature's core safety invariant: every NBT key a
  * {@link Location} can persist must be owned by exactly one {@link LocationSection}.
  *
- * <p>If a key is unmapped, a concurrent section-merge would silently drop an
- * admin's edit to it. This test fails loudly the moment a new persisted key is
- * added to {@code Location}/{@code LocationSerializer} without being assigned to
- * a section — forcing the author to place it.
+ * <p>An unmapped key means a concurrent section-merge would silently drop an admin's
+ * edit to it, so this fails the moment a persisted field is added without being placed
+ * in a section.
  *
- * <p>The expected key list mirrors {@code LocationSerializer.serialize}. Keep it
- * in sync when adding a persisted field.
+ * <p>The key list is <b>read out of {@code LocationSerializer}</b> rather than mirrored
+ * by hand. An earlier version kept a hardcoded copy, which drifted the first time new
+ * fields were added — the test then failed for its own staleness instead of for a real
+ * problem, which is exactly the failure mode a guard must not have.
  */
 class LocationSectionTest {
 
-    /** Every key Location.save() writes (mirror of LocationSerializer). */
-    private static final String[] ALL_KEYS = {
-        // GENERAL
-        "name", "mode", "playerSpawn", "playerSpawnRadius", "victoryExitPos",
-        "surrenderExitPos", "enforceGameMode", "keepInventory", "keepLootOnExit",
-        "hiddenFromPlayers", "locationLeaveTimerSec", "victoryLingerTimeSec",
-        "victoryScreenEnabled", "reEntryCooldownSec",
-        // GAMEPLAY
-        "waves", "timeBetweenWaves", "totalWaves", "firstWaveDelaySec", "mobSpawns",
-        "mobSpawnRadius", "locationTriggerEnabled", "locationTriggerType",
-        "completionRewards", "completionPointsReward", "pvpMode", "pvpMinPlayers",
-        "pvpFriendlyFire", "pvpTeamAutoBalance", "pvpWaitEffect",
-        "pvpReadyCheckTimeoutSec", "pvpTotalRounds", "pvpBuyTime", "pvpRoundStartDelay",
-        "pvpRoundStartPoints", "pvpRoundTimeLimitSec", "pvpWinPoints", "pvpLosePoints",
-        "pvpKillPoints", "pvpDeathPenalty", "dmKillsToWin", "dmSpawnMode",
-        "ctpCaptureAllWin", "ctpFirstToScore", "ctpRoundDurationSec", "ctpScorePerSec",
-        "ctpScoreToWin", "ctpSpeedMultiplier", "kothFirstToScore", "kothHoldDurationSec",
-        "kothHoldMode", "kothResetOnLoss", "kothRoundDurationSec", "kothScorePerSec",
-        "kothScoreToWin", "brBorderDamage", "brBorderDamageAmt", "brBorderParticle",
-        "brBorderParticleCount", "brBorderRadius", "brFinalRadius", "brInitialWaitSec",
-        "brShrinkAmountBlocks", "brShrinkIntervalSec", "capturePoints", "pvpSpawnPoints",
-        // AREA
-        "bboxMin", "bboxMax", "bboxOutlineEnabled", "minimapEnabled",
-        "locationBoundaryEnabled", "locationBoundaryRadius", "boundaryConsequence",
-        "boundaryDamagePerSec", "boundaryParticleCount", "boundaryParticleHeight",
-        "boundaryParticleType", "boundaryParticlesEnabled", "portalDisappearsOnComplete",
-        "portalEnabled", "portalOpenAfterStartSec", "portalPenaltyTimerSec",
-        "portalPenaltyWave", "portalRespawnTimerSec", "autoActivate",
-        "autoActivateEntryPos", "autoActivateRadius", "zoneActivationTimeSec",
-        "zoneCenter", "zoneOpenAfterStartSec", "zoneParticleCount", "zoneParticleInterval",
-        "zoneParticleSpeed", "zoneParticleType", "zoneUsesCustomCenter",
-        // ECONOMY
-        "shopItems", "shopPoints", "shopMode", "lootSpawns", "startingItems", "startingPoints",
-        // VISUAL
-        "infoPanel",
-        // COMPAT
-        "masChaosResist", "masFireResist", "masLevel", "masLightningResist",
-        "masPhysicalResist", "masWaterResist", "masXpBonus",
-        // RUNTIME
-        "locked", "totalMobsKilledAllTime", "totalSessionsCompleted",
-        "playerPoints", "playerTeamMap"
-    };
+    private static final Path SERIALIZER =
+        Paths.get("src/main/java/com/wavedefense/data/LocationSerializer.java");
+
+    /**
+     * Keys written by {@code LocationSerializer.save}, scraped from the source.
+     *
+     * <p>Covers both the direct {@code tag.putX("key", …)} calls and the
+     * {@code NbtHelper.saveList(tag, "key", …)} helper used for list fields.
+     */
+    private static Set<String> persistedKeys() {
+        String src;
+        try {
+            src = new String(Files.readAllBytes(SERIALIZER), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new AssertionError("Could not read " + SERIALIZER.toAbsolutePath()
+                + " — the test must run with the module root as working directory", e);
+        }
+
+        Set<String> keys = new LinkedHashSet<>();
+        Pattern[] writers = {
+            Pattern.compile("tag\\.put\\w*\\(\\s*\"(\\w+)\""),
+            Pattern.compile("NbtHelper\\.saveList\\(\\s*tag\\s*,\\s*\"(\\w+)\""),
+        };
+        for (Pattern p : writers) {
+            Matcher m = p.matcher(src);
+            while (m.find()) keys.add(m.group(1));
+        }
+
+        assertFalse(keys.isEmpty(),
+            "no persisted keys parsed out of LocationSerializer — the scan would pass vacuously");
+        return keys;
+    }
 
     @Test
-    void everyKeyIsMappedToExactlyOneSection() {
-        for (String key : ALL_KEYS) {
+    void everyPersistedKeyIsMappedToExactlyOneSection() {
+        for (String key : persistedKeys()) {
             LocationSection sec = LocationSection.sectionOf(key);
             assertNotNull(sec, "Key '" + key + "' is not assigned to any LocationSection — "
                 + "a section-merge would silently drop edits to it.");
@@ -80,29 +80,39 @@ class LocationSectionTest {
     }
 
     @Test
-    void noSectionDeclaresAnUnknownKey() {
-        Set<String> known = new HashSet<>();
-        for (String k : ALL_KEYS) known.add(k);
+    void noSectionDeclaresAKeyThatIsNeverPersisted() {
+        Set<String> persisted = persistedKeys();
+        List<String> stale = new ArrayList<>();
         for (LocationSection s : LocationSection.values()) {
             for (String key : s.keys()) {
-                assertTrue(known.contains(key),
-                    "Section " + s + " declares key '" + key + "' that Location never persists "
-                    + "(stale mapping — remove it or add the field).");
+                if (!persisted.contains(key)) stale.add(s + "." + key);
+            }
+        }
+        assertTrue(stale.isEmpty(),
+            "These sections declare keys that LocationSerializer never writes. Either the\n"
+          + "field was removed and the mapping is stale, or the field exists but is not\n"
+          + "being saved at all.\n  " + String.join("\n  ", stale));
+    }
+
+    @Test
+    void runtimeKeysAreNeverEditorOwned() {
+        for (LocationSection s : LocationSection.editorSections()) {
+            for (String key : s.keys()) {
+                assertFalse(LocationSection.isRuntime(key),
+                    "Key '" + key + "' is in editor section " + s + " but also RUNTIME — "
+                    + "the editor would be able to overwrite live match state.");
             }
         }
     }
 
     @Test
-    void runtimeKeysAreNeverEditorOwned() {
-        for (LocationSection editor : LocationSection.editorSections()) {
-            for (String key : editor.keys()) {
-                assertFalse(LocationSection.isRuntime(key),
-                    "Editor section " + editor + " must not own runtime key '" + key + "'.");
-            }
-        }
-        // RUNTIME is excluded from editorSections()
-        for (LocationSection s : LocationSection.editorSections()) {
-            assertNotEquals(LocationSection.RUNTIME, s);
+    void contentSizedListsAreAllRealPersistedKeys() {
+        // These are excluded from location packets and carried separately; naming one
+        // that is not actually persisted would silently exclude nothing.
+        Set<String> persisted = persistedKeys();
+        for (String key : LocationSection.contentSizedLists()) {
+            assertTrue(persisted.contains(key),
+                "'" + key + "' is declared content-sized but LocationSerializer never writes it");
         }
     }
 }

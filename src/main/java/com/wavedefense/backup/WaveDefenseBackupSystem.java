@@ -73,8 +73,16 @@ public class WaveDefenseBackupSystem {
             .setDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
             .create();
 
+    /**
+     * Backup-directory name stamp.
+     *
+     * <p>The zone is not optional: this pattern asks for calendar fields, and an
+     * {@link Instant} has none until it is placed in a zone. Without it every call threw
+     * {@code UnsupportedTemporalTypeException: Unsupported field: YearOfEra} — and since
+     * it runs on the first line of {@code performBackup}, <b>no backup ever completed</b>.
+     */
     private static final DateTimeFormatter TIMESTAMP_FORMAT =
-            DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
+            DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss").withZone(ZoneId.systemDefault());
 
     // ──────────────────────────────────────────────────────────────────────
     //  Configuration (defaults)
